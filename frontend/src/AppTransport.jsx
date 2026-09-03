@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
 import KendaraanPage from './modules/KendaraanPage'
+import PermintaanServicePage from './modules/PermintaanServicePage'
 import './App.css'
 
 const REMEMBERED_EMAIL_KEY = 'transport_remembered_email'
@@ -182,7 +183,8 @@ function AppTransport() {
         <div className="content-container">
           {activePage === 'dashboard' && <DashboardHome profile={profile} stats={stats} statsLoading={statsLoading} onNavigate={setActivePage}/>} 
           {activePage === 'kendaraan' && <KendaraanPage/>}
-          {!['dashboard','kendaraan'].includes(activePage) && <ModulePlaceholder title={NAV_ITEMS.find((item) => item.id === activePage)?.label || 'Modul'} role={profile.role}/>} 
+          {activePage === 'pengajuan' && <PermintaanServicePage profile={profile}/>} 
+          {!['dashboard','kendaraan','pengajuan'].includes(activePage) && <ModulePlaceholder title={NAV_ITEMS.find((item) => item.id === activePage)?.label || 'Modul'} role={profile.role}/>} 
         </div>
       </main>
     </div>
