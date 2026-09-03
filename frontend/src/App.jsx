@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
 import './App.css'
 
+const REMEMBERED_EMAIL_KEY = 'transport_remembered_email'
+
 const ROLE_LABELS = {
   ADMIN: 'Administrator',
   TRANSPORT: 'Transport',
@@ -15,7 +17,7 @@ function App() {
   const [session, setSession] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(() => localStorage.getItem(REMEMBERED_EMAIL_KEY) || '')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(true)
@@ -126,14 +128,13 @@ function App() {
       return
     }
 
-    // Supabase browser client already persists the session by default.
-    // rememberMe is kept for the future UX setting; we do not store passwords locally.
-    if (!rememberMe) {
-      sessionStorage.setItem('transport_session_preference', 'session-only')
+    if (rememberMe) {
+      localStorage.setItem(REMEMBERED_EMAIL_KEY, cleanEmail)
     } else {
-      sessionStorage.removeItem('transport_session_preference')
+      localStorage.removeItem(REMEMBERED_EMAIL_KEY)
     }
 
+    setPassword('')
     await loadProfile(data.user.id)
     setSubmitting(false)
   }
@@ -252,7 +253,7 @@ function App() {
                 onChange={(event) => setRememberMe(event.target.checked)}
                 disabled={submitting}
               />
-              <span>Ingat saya di perangkat ini</span>
+              <span>Ingat email di perangkat ini</span>
             </label>
           </div>
 
@@ -267,7 +268,7 @@ function App() {
           </button>
         </form>
 
-        <p className="security-note">Akses sistem mengikuti akun dan hak akses yang diberikan administrator.</p>
+        <p className="security-note">Password tidak disimpan di perangkat. Sesi login dikelola oleh Supabase Auth.</p>
       </section>
     </main>
   )
