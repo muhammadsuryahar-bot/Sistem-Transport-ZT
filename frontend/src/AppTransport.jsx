@@ -158,7 +158,7 @@ function AppTransport() {
           <label htmlFor="email">Email</label>
           <input id="email" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="nama@zamanteknindo.co.id" disabled={submitting}/>
           <label htmlFor="password">Password</label>
-          <div className="password-field"><input id="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Masukkan password" disabled={submitting}/><button type="button" className="password-toggle" onClick={() => setShowPassword((v) => !v)} disabled={submitting}>{showPassword ? 'Sembunyikan' : 'Lihat'}</button></div>
+          <div className="password-wrap"><input id="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Masukkan password" disabled={submitting}/><button type="button" className="password-toggle" onClick={() => setShowPassword((v) => !v)} disabled={submitting}>{showPassword ? 'Sembunyikan' : 'Lihat'}</button></div>
           <label className="remember-option"><input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} disabled={submitting}/><span>Ingat email di perangkat ini</span></label>
           {errorMessage && <div className="error-message" role="alert">{errorMessage}</div>}
           <button className="primary-button" type="submit" disabled={submitting}>{submitting ? 'Memproses login...' : 'Masuk'}</button>
