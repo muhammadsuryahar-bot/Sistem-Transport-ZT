@@ -79,8 +79,13 @@ Migration workflow dan integrity yang saat ini disiapkan:
 9. `20260907060000_transport_kilometer_guard.sql`
 10. `20260907070000_transport_service_insert_guard.sql`
 11. `20260907120000_transport_integrity_guardrails.sql`
-12. `20260907130000_transport_rental_integrity.sql`
-13. `20260907140000_transport_workflow_sync.sql`
+12. `20260907130000_profiles_admin_security.sql`
+13. `20260907130000_transport_rental_integrity.sql`
+14. `20260907130000_transport_unique_master.sql`
+15. `20260907140000_transport_request_transition_guard.sql`
+16. `20260907140000_transport_workflow_consistency.sql`
+17. `20260907140000_transport_workflow_sync.sql`
+18. `20260907141000_transport_request_transition_adjustment.sql`
 
 Sistem menggunakan bucket private:
 
