@@ -64,7 +64,7 @@ ADMIN dapat mengatur role dan status akun. Sesi admin aktif dilindungi dari peru
 
 ## Supabase
 
-Migration SQL berada di `supabase/migrations/`. Karena environment lokal dapat berjalan tanpa Docker, migration dapat diterapkan melalui **Supabase SQL Editor** secara berurutan.
+Migration SQL berada di `supabase/migrations/`. Environment lokal saat ini dapat berjalan tanpa Docker, sehingga migration yang belum diterapkan dapat dijalankan melalui **Supabase SQL Editor** secara berurutan. Untuk workflow standar Supabase, migration sebaiknya tetap dijaga dalam folder ini dengan timestamp unik.
 
 Migration workflow dan integrity yang saat ini disiapkan:
 
@@ -83,8 +83,8 @@ Migration workflow dan integrity yang saat ini disiapkan:
 13. `20260907130000_transport_rental_integrity.sql`
 14. `20260907130000_transport_unique_master.sql`
 15. `20260907140000_transport_request_transition_guard.sql`
-16. `20260907140000_transport_workflow_consistency.sql`
-17. `20260907140000_transport_workflow_sync.sql`
+16. `20260907140100_transport_workflow_consistency.sql`
+17. `20260907140200_transport_workflow_sync.sql`
 18. `20260907141000_transport_request_transition_adjustment.sql`
 19. `20260907150000_transport_request_completion_guard.sql`
 20. `20260907151000_transport_request_completion_trigger_safe.sql`
