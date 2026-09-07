@@ -7,7 +7,6 @@ import './App.css'
 
 const REMEMBERED_EMAIL_KEY = 'transport_remembered_email'
 const LOGO_BASE_URL = 'https://raw.githubusercontent.com/muhammadsuryahar-bot/Sistem-Transport-ZT/main/src/assets'
-const LOGO_HORIZONTAL_URL = `${LOGO_BASE_URL}/logo-horizontal.png`
 const LOGO_LOGIN_URL = `${LOGO_BASE_URL}/logo-login.png`
 const LOGO_MARK_URL = `${LOGO_BASE_URL}/logo.png`
 
