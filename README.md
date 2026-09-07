@@ -35,6 +35,8 @@ Aturan approval:
 ### Kendaraan Sewa
 Mencatat pemilik perorangan/perusahaan, kontrak 6 bulan, pembayaran bulanan, perbaikan kendaraan sewa, bukti pembayaran, dokumentasi kerusakan/perbaikan, dan potongan biaya perbaikan dari pembayaran rental.
 
+Perbaikan rental wajib terhubung ke kontrak dan kendaraan rental yang sama agar potongan pembayaran tidak salah sasaran.
+
 Alur perbaikan rental:
 `Kerusakan → Perbaikan → Kantor Membayar → Ditandai Dapat Dipotong → Potongan Diterapkan ke Pembayaran Rental`
 
@@ -62,13 +64,20 @@ ADMIN dapat mengatur role dan status akun. Sesi admin aktif dilindungi dari peru
 
 Migration SQL berada di `supabase/migrations/`. Karena environment lokal dapat berjalan tanpa Docker, migration dapat diterapkan melalui **Supabase SQL Editor** secara berurutan.
 
-Migration penting:
+Migration workflow dan integrity yang saat ini disiapkan:
 
 1. `20260903000000_transport_workflow_rls.sql`
 2. `20260903150000_vehicle_driver_rls.sql`
 3. `20260903162000_permintaan_service_rls.sql`
 4. `20260907000000_transport_storage_security.sql`
 5. `20260907010000_transport_business_constraints.sql`
+6. `20260907030000_transport_workflow_hardening.sql`
+7. `20260907040000_transport_approval_permissions.sql`
+8. `20260907050000_transport_data_integrity.sql`
+9. `20260907060000_transport_kilometer_guard.sql`
+10. `20260907070000_transport_service_insert_guard.sql`
+11. `20260907120000_transport_integrity_guardrails.sql`
+12. `20260907130000_transport_rental_integrity.sql`
 
 Sistem menggunakan bucket private:
 
