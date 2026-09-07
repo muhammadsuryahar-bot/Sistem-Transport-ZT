@@ -86,6 +86,8 @@ Migration workflow dan integrity yang saat ini disiapkan:
 16. `20260907140000_transport_workflow_consistency.sql`
 17. `20260907140000_transport_workflow_sync.sql`
 18. `20260907141000_transport_request_transition_adjustment.sql`
+19. `20260907150000_transport_request_completion_guard.sql`
+20. `20260907151000_transport_request_completion_trigger_safe.sql`
 
 Sistem menggunakan bucket private:
 
