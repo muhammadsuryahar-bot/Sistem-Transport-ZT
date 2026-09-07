@@ -89,6 +89,9 @@ Migration workflow dan integrity yang saat ini disiapkan:
 19. `20260907150000_transport_request_completion_guard.sql`
 20. `20260907151000_transport_request_completion_trigger_safe.sql`
 21. `20260907160000_transport_workflow_sync_guard.sql`
+22. `20260907161000_transport_duplicate_sync_cleanup.sql`
+
+Migration #22 membersihkan trigger sinkronisasi legacy yang duplikat sehingga sinkronisasi service menggunakan satu trigger utama.
 
 Sistem menggunakan bucket private:
 
