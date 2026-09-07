@@ -1,16 +1,107 @@
-# React + Vite
+# Sistem Transport PT Zaman Teknindo
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Sistem internal untuk pengelolaan armada, permintaan service, maintenance, kendaraan sewa, dokumen, laporan, dan pengguna.
 
-Currently, two official plugins are available:
+## Arsitektur
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Frontend: React + Vite + JavaScript
+- Database/Auth/Storage: Supabase
+- Hosting frontend: Vercel
+- API production: Supabase client + Row Level Security
+- Repository: `muhammadsuryahar-bot/Sistem-Transport-ZT`
 
-## React Compiler
+## Modul
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Dashboard
+Monitoring jumlah kendaraan, kendaraan aktif, kendaraan yang sedang service, dan pengajuan yang masih berjalan.
 
-## Expanding the ESLint configuration
+### Kendaraan
+Master armada dan driver. Kepemilikan hanya `ASET_KANTOR` atau `SEWA`. Kendaraan sewa memakai `SEWA_PERORANGAN` atau `SEWA_RENTAL` dan menyimpan identitas pemilik.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### Permintaan Service
+Bagian Operasional membuat permintaan dengan memilih kendaraan. Data kendaraan dan KM terakhir terisi otomatis. Pengajuan masuk ke antrean Transport.
+
+Alur utama:
+`Operasional → Permintaan Service → Transport → Approval → Service → Bukti → Selesai`
+
+### Service & Perbaikan
+Mencatat pekerjaan service, estimasi dan aktual biaya, approval, item service, bukti, penggantian ban, penggantian aki/baterai, serta riwayat kilometer.
+
+Aturan approval:
+- sampai dengan Rp5.000.000: Atasan Transport
+- di atas Rp5.000.000: Direktur
+- bila biaya aktual melampaui nilai yang sudah disetujui, service harus masuk kembali ke tahap approval sebelum dapat diselesaikan.
+
+### Kendaraan Sewa
+Mencatat pemilik perorangan/perusahaan, kontrak 6 bulan, pembayaran bulanan, perbaikan kendaraan sewa, bukti pembayaran, dokumentasi kerusakan/perbaikan, dan potongan biaya perbaikan dari pembayaran rental.
+
+Alur perbaikan rental:
+`Kerusakan → Perbaikan → Kantor Membayar → Ditandai Dapat Dipotong → Potongan Diterapkan ke Pembayaran Rental`
+
+### Dokumen
+Menyimpan dokumen kendaraan dan masa berlaku. Bucket penyimpanan bersifat private dan file dibuka melalui signed URL.
+
+### Laporan
+Ringkasan armada, service, biaya, pembayaran sewa, potongan, dokumen expired/akan expired, dan transaksi yang perlu diperhatikan.
+
+### Pengguna
+ADMIN dapat mengatur role dan status akun. Sesi admin aktif dilindungi dari perubahan yang dapat mengunci dirinya sendiri.
+
+## Role
+
+| Role | Fungsi utama |
+|---|---|
+| ADMIN | Seluruh administrasi dan kontrol sistem |
+| TRANSPORT | Armada, permintaan, service, sewa, dokumen, laporan |
+| OPERASIONAL | Membuat dan memantau permintaan service |
+| ATASAN_TRANSPORT | Approval service sesuai kewenangan |
+| DIREKTUR | Approval service di atas Rp5.000.000 dan monitoring |
+| AKUNTANSI | Pembayaran dan administrasi rental serta laporan |
+
+## Supabase
+
+Migration SQL berada di `supabase/migrations/`. Karena environment lokal dapat berjalan tanpa Docker, migration dapat diterapkan melalui **Supabase SQL Editor** secara berurutan.
+
+Migration penting:
+
+1. `20260903000000_transport_workflow_rls.sql`
+2. `20260903150000_vehicle_driver_rls.sql`
+3. `20260903162000_permintaan_service_rls.sql`
+4. `20260907000000_transport_storage_security.sql`
+5. `20260907010000_transport_business_constraints.sql`
+
+Sistem menggunakan bucket private:
+
+- `kendaraan`
+- `service-bukti`
+- `dokumen-kendaraan`
+- `dokumen-sewa`
+
+## Environment Frontend
+
+Buat `frontend/.env.local`:
+
+```env
+VITE_SUPABASE_URL=...
+VITE_SUPABASE_PUBLISHABLE_KEY=...
+```
+
+Jangan masukkan service-role key ke frontend atau commit ke Git.
+
+## Menjalankan lokal
+
+```bash
+git pull --ff-only origin main
+npm ci
+npm run lint
+npm run build
+npm run dev
+```
+
+## Deployment
+
+Vercel diarahkan ke repository ini. Environment variable production harus menggunakan URL dan publishable key Supabase untuk project Transport, bukan project attendance.
+
+## Verifikasi otomatis
+
+GitHub Actions menjalankan lint, build, dan pemeriksaan file migration pada push/PR ke `main` melalui `.github/workflows/verify.yml`.
