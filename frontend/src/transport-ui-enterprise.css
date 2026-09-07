@@ -1,0 +1,73 @@
+/* Final UI layer: consistency, clarity, touch-friendly controls, and accessible states. */
+
+:root{
+  --zt-focus:rgba(29,106,74,.16);
+  --zt-green-soft:#f1f7f3;
+  --zt-line:#e8eeeb;
+}
+
+/* Make every interactive control feel deliberate. */
+button,input,select,textarea{min-height:40px}
+button:disabled{transform:none!important;box-shadow:none!important}
+
+/* Clearer page rhythm. */
+.content-container{width:100%;max-width:1480px}
+.x-page,.master-page,.request-page{max-width:1380px;margin:0 auto}
+.x-head,.master-head,.request-header{margin-bottom:2px}
+
+/* Search/filter areas become easier to scan. */
+.request-toolbar,.m-toolbar{gap:10px!important;align-items:center!important}
+.request-toolbar input,.request-toolbar select,.m-toolbar input,.m-toolbar select{min-height:42px!important}
+.x-filter{min-height:40px!important;background:#fff!important}
+
+/* Compact metadata blocks used across forms. */
+.x-detail b,.m-detail b,.request-detail b{color:#1e3027}
+
+/* Table action cells should never look like ordinary text. */
+.x-table td:last-child,.m-table td:last-child,.request-table td:last-child{white-space:nowrap}
+.x-link{min-height:34px!important;padding:7px 10px!important;border-radius:8px!important}
+.x-link:hover{background:#edf6f1!important;text-decoration:none!important}
+
+/* Status pills: neutral by default, readable at small sizes. */
+.x-pill{min-height:24px;line-height:1.2;padding:5px 9px!important;white-space:nowrap}
+
+/* File controls. */
+input[type=file]{min-height:auto!important;padding:8px!important;background:#fff!important}
+input[type=file]::file-selector-button{margin-right:9px;border:1px solid #d5e0da;border-radius:8px;padding:7px 10px;background:#f5f8f6;color:#294438;font-weight:700;cursor:pointer}
+input[type=file]::file-selector-button:hover{background:#eaf3ed}
+
+/* More useful mobile behaviour for wide operational tables. */
+.x-table-wrap,.m-table-wrap,.request-table-wrap{scrollbar-width:thin;scrollbar-color:#cbd8d1 transparent}
+.x-table-wrap::-webkit-scrollbar,.m-table-wrap::-webkit-scrollbar,.request-table-wrap::-webkit-scrollbar{height:8px}
+.x-table-wrap::-webkit-scrollbar-thumb,.m-table-wrap::-webkit-scrollbar-thumb,.request-table-wrap::-webkit-scrollbar-thumb{background:#cbd8d1;border-radius:999px}
+
+/* Prevent accidental horizontal page scrolling from long content. */
+html,body,#root{max-width:100%;overflow-x:hidden}
+
+/* Mobile: prioritize content and touch targets. */
+@media(max-width:760px){
+  .content-container{width:100%;box-sizing:border-box}
+  .topbar-user .avatar{width:34px;height:34px}
+  .menu-button{width:42px!important;height:42px!important;min-height:42px!important;border:1px solid #dfe7e2!important;border-radius:10px!important;background:#fff!important;color:#173b2d!important;display:grid!important;place-items:center!important;box-shadow:0 3px 10px rgba(18,59,42,.05)}
+  .sidebar-overlay{display:block!important;position:fixed;inset:0;border:0;background:rgba(8,24,16,.4);z-index:19}
+  .sidebar.sidebar-open{box-shadow:18px 0 42px rgba(12,35,25,.22)}
+  .quick-action{min-height:58px}
+  .primary-button,.x-btn,.m-btn,.request-primary-button,.request-light-button{min-height:44px!important}
+  .x-tabs button{min-height:40px}
+}
+
+@media(max-width:430px){
+  .content-container{padding-left:12px!important;padding-right:12px!important}
+  .topbar{gap:10px}
+  .topbar-label{font-size:8px}
+  .page-intro{margin-bottom:16px}
+  .stat-card{min-height:84px}
+  .stat-card small{line-height:1.35}
+  .x-head h2,.master-head h2,.request-header h2{line-height:1.15}
+  .x-card,.m-card,.request-panel{padding:13px!important}
+}
+
+/* Respect users who prefer reduced motion. */
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
