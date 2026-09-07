@@ -75,16 +75,23 @@ CREATE TRIGGER trg_guard_service_approval
 BEFORE INSERT ON public.service_approval
 FOR EACH ROW EXECUTE FUNCTION public.guard_service_approval();
 
--- Approver update policy: approvers may only change service status.
+-- Approvers may update the service row through the existing UI, but the trigger below
+-- restricts ATASAN_TRANSPORT / DIREKTUR to changing only status.
 DROP POLICY IF EXISTS service_update_approver_status_only ON public.service;
 CREATE POLICY service_update_approver_status_only
 ON public.service
 FOR UPDATE TO authenticated
 USING (
-  public.has_any_role(ARRAY['ADMIN'::public.user_role,'ATASAN_TRANSPORT'::public.user_role,'DIREKTUR'::public.user_role])
+  public.has_any_role(ARRAY[
+    'ATASAN_TRANSPORT'::public.user_role,
+    'DIREKTUR'::public.user_role
+  ])
 )
 WITH CHECK (
-  public.has_any_role(ARRAY['ADMIN'::public.user_role,'ATASAN_TRANSPORT'::public.user_role,'DIREKTUR'::public.user_role])
+  public.has_any_role(ARRAY[
+    'ATASAN_TRANSPORT'::public.user_role,
+    'DIREKTUR'::public.user_role
+  ])
 );
 
 CREATE OR REPLACE FUNCTION public.guard_service_update_by_approver()
@@ -94,7 +101,7 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  IF public.has_any_role(ARRAY['ADMIN'::public.user_role]) THEN
+  IF public.has_any_role(ARRAY['ADMIN'::public.user_role, 'TRANSPORT'::public.user_role]) THEN
     RETURN NEW;
   END IF;
 
@@ -112,6 +119,9 @@ BEGIN
        OR NEW.diproses_oleh IS DISTINCT FROM OLD.diproses_oleh
        OR NEW.selesai_at IS DISTINCT FROM OLD.selesai_at
        OR NEW.catatan IS DISTINCT FROM OLD.catatan
+       OR NEW.id IS DISTINCT FROM OLD.id
+       OR NEW.created_at IS DISTINCT FROM OLD.created_at
+       OR NEW.updated_at IS DISTINCT FROM OLD.updated_at
     THEN
       RAISE EXCEPTION 'Approver hanya boleh mengubah status service melalui workflow approval.';
     END IF;
@@ -240,6 +250,10 @@ BEGIN
     RAISE EXCEPTION 'Potongan dan pembayaran harus berada pada kontrak rental yang sama.';
   END IF;
 
+  IF NEW.jumlah_potongan <= 0 THEN
+    RAISE EXCEPTION 'Jumlah potongan harus lebih dari 0.';
+  END IF;
+
   SELECT COALESCE(sum(jumlah_potongan), 0) INTO prior_total
   FROM public.potongan_pembayaran_sewa
   WHERE perbaikan_sewa_id = NEW.perbaikan_sewa_id
@@ -258,23 +272,18 @@ CREATE TRIGGER trg_guard_rental_deduction
 BEFORE INSERT OR UPDATE ON public.potongan_pembayaran_sewa
 FOR EACH ROW EXECUTE FUNCTION public.guard_rental_deduction();
 
--- Payment amount must not exceed net bill.
+-- Payment rows store the already-net rental bill in jumlah_tagihan.
 CREATE OR REPLACE FUNCTION public.guard_rental_payment_amount()
 RETURNS trigger
 LANGUAGE plpgsql
 AS $$
-DECLARE
-  deduction_total numeric;
-  expected_net numeric;
 BEGIN
-  SELECT COALESCE(sum(jumlah_potongan), 0) INTO deduction_total
-  FROM public.potongan_pembayaran_sewa
-  WHERE pembayaran_sewa_id = NEW.id;
+  IF COALESCE(NEW.jumlah_tagihan, 0) < 0 OR COALESCE(NEW.jumlah_dibayar, 0) < 0 THEN
+    RAISE EXCEPTION 'Nominal pembayaran rental tidak boleh negatif.';
+  END IF;
 
-  expected_net := GREATEST(0, COALESCE(NEW.jumlah_tagihan, 0) - deduction_total);
-
-  IF NEW.jumlah_dibayar > expected_net THEN
-    RAISE EXCEPTION 'Jumlah dibayar tidak boleh melebihi tagihan bersih setelah potongan.';
+  IF NEW.jumlah_dibayar > NEW.jumlah_tagihan THEN
+    RAISE EXCEPTION 'Jumlah dibayar tidak boleh melebihi tagihan bersih.';
   END IF;
 
   RETURN NEW;
