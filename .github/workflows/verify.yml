@@ -1,0 +1,49 @@
+name: Verify Transport System
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+  migration-sanity:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check SQL migrations are non-empty
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=(supabase/migrations/*.sql)
+          test "${#files[@]}" -gt 0
+          for file in "${files[@]}"; do
+            test -s "$file"
+          done
+          echo "Checked ${#files[@]} SQL migration file(s)."
