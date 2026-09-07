@@ -32,6 +32,8 @@ Aturan approval:
 - di atas Rp5.000.000: Direktur
 - bila biaya aktual melampaui nilai yang sudah disetujui, service harus masuk kembali ke tahap approval sebelum dapat diselesaikan.
 
+Status service dan status pengajuan dijaga tetap sinkron oleh database, termasuk saat approval, penolakan, pembatalan, dan penyelesaian. Saat service selesai, KM kendaraan tidak boleh mundur.
+
 ### Kendaraan Sewa
 Mencatat pemilik perorangan/perusahaan, kontrak 6 bulan, pembayaran bulanan, perbaikan kendaraan sewa, bukti pembayaran, dokumentasi kerusakan/perbaikan, dan potongan biaya perbaikan dari pembayaran rental.
 
@@ -78,6 +80,7 @@ Migration workflow dan integrity yang saat ini disiapkan:
 10. `20260907070000_transport_service_insert_guard.sql`
 11. `20260907120000_transport_integrity_guardrails.sql`
 12. `20260907130000_transport_rental_integrity.sql`
+13. `20260907140000_transport_workflow_sync.sql`
 
 Sistem menggunakan bucket private:
 
