@@ -1,1 +1,5 @@
-export { ServicePage, RentalPage, DocumentsPage, ReportsPage, UsersPage } from './TransportOperationsFixed.jsx'
+export { default as ServicePage } from './ServiceFeaturePage.jsx'
+export { default as RentalPage } from './RentalFeaturePage.jsx'
+export { default as DocumentsPage } from './DocumentsFeaturePage.jsx'
+export { default as ReportsPage } from './ReportsFeaturePage.jsx'
+export { default as UsersPage } from './UsersFeaturePage.jsx'
