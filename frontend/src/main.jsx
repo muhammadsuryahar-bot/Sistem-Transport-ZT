@@ -4,6 +4,7 @@ import './index.css'
 import App from './AppTransport.jsx'
 import './transport-ui-polish.css'
 import './transport-ui-enterprise.css'
+import './sidebar-polish.css'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
