@@ -84,19 +84,16 @@ export default function UsersFeaturePage({ profile }) {
     })
   }, [users, search, roleFilter, statusFilter])
 
-  const summary = useMemo(() => ({
-    total: users.length,
-    active: users.filter((user) => user.aktif).length,
-    inactive: users.filter((user) => !user.aktif).length,
-  }), [users])
+  const isSingleAccount = users.length <= 1
+  const currentUser = users.find((user) => user.id === profile?.id) || users[0]
 
   return (
-    <div className="x-page">
-      <div className="x-head">
+    <div className="x-page users-page">
+      <div className="x-head users-head">
         <div>
           <span className="eyebrow">ADMINISTRASI</span>
-          <h2>Pengguna Sistem</h2>
-          <p>Kelola role dan status akun tanpa risiko memutus akses admin yang sedang aktif.</p>
+          <h2>Pengguna</h2>
+          <p>Kelola akun yang digunakan untuk masuk ke Sistem Transport PT Zaman Teknindo.</p>
         </div>
         <button className="x-btn secondary" onClick={load} disabled={loading || saving}>↻ Refresh</button>
       </div>
@@ -104,83 +101,125 @@ export default function UsersFeaturePage({ profile }) {
       {error && <div className="x-alert error">{error}</div>}
       {success && <div className="x-alert">{success}</div>}
 
-      <section className="x-card" style={{ marginBottom: 16 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
-          <div><small>Total Pengguna</small><strong>{summary.total}</strong></div>
-          <div><small>Akun Aktif</small><strong>{summary.active}</strong></div>
-          <div><small>Akun Nonaktif</small><strong>{summary.inactive}</strong></div>
-        </div>
-      </section>
+      {loading ? (
+        <section className="x-card users-loading-card">
+          <div className="x-empty">Memuat data akun...</div>
+        </section>
+      ) : isSingleAccount ? (
+        <section className="x-card users-account-card">
+          <div className="users-account-top">
+            <div className="users-avatar" aria-hidden="true">
+              {(currentUser?.nama_lengkap || 'U').trim().charAt(0).toUpperCase()}
+            </div>
+            <div className="users-account-heading">
+              <span className="users-label">AKUN SISTEM SAAT INI</span>
+              <h3>{currentUser?.nama_lengkap || 'Pengguna Sistem'}</h3>
+              <p>{currentUser?.email || '-'}</p>
+            </div>
+            <span className={`users-status ${currentUser?.aktif ? 'active' : 'inactive'}`}>
+              {currentUser?.aktif ? 'Aktif' : 'Nonaktif'}
+            </span>
+          </div>
 
-      <section className="x-card" style={{ marginBottom: 16 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 1fr) 180px 160px', gap: 10 }}>
-          <input
-            className="x-filter"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Cari nama, email, atau nomor HP..."
-            aria-label="Cari pengguna"
-          />
-          <select className="x-filter" value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)} aria-label="Filter role">
-            <option value="ALL">Semua role</option>
-            {ROLES.map((role) => <option key={role} value={role}>{LABEL[role]}</option>)}
-          </select>
-          <select className="x-filter" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filter status">
-            <option value="ALL">Semua status</option>
-            <option value="ACTIVE">Aktif</option>
-            <option value="INACTIVE">Nonaktif</option>
-          </select>
-        </div>
-      </section>
+          <div className="users-account-grid">
+            <div className="users-info-item">
+              <span>Role</span>
+              <strong>{LABEL[currentUser?.role] || currentUser?.role || '-'}</strong>
+            </div>
+            <div className="users-info-item">
+              <span>Nomor HP</span>
+              <strong>{currentUser?.nomor_hp || '-'}</strong>
+            </div>
+            <div className="users-info-item">
+              <span>Status akses</span>
+              <strong>{currentUser?.aktif ? 'Memiliki akses ke sistem' : 'Tidak memiliki akses'}</strong>
+            </div>
+            <div className="users-info-item">
+              <span>Penggunaan akun</span>
+              <strong>Satu akun untuk satu pengguna</strong>
+            </div>
+          </div>
 
-      <section className="x-card">
-        <div className="x-table-wrap">
-          {loading ? (
-            <div className="x-empty">Memuat pengguna...</div>
-          ) : (
-            <table className="x-table">
-              <thead>
-                <tr><th>Pengguna</th><th>Kontak</th><th>Role</th><th>Status</th><th>Aksi</th></tr>
-              </thead>
-              <tbody>
-                {filteredUsers.length ? filteredUsers.map((user) => (
-                  <tr key={user.id}>
-                    <td><b>{user.nama_lengkap || '-'}</b><small>{user.email}</small></td>
-                    <td>{user.nomor_hp || '-'}</td>
-                    <td>
-                      {canEdit ? (
-                        <select
-                          className="x-filter"
-                          value={user.role}
-                          disabled={saving || user.id === profile?.id}
-                          onChange={(event) => change(user.id, { role: event.target.value })}
-                          aria-label={`Role ${user.nama_lengkap || user.email}`}
-                        >
-                          {ROLES.map((role) => <option key={role} value={role}>{LABEL[role]}</option>)}
-                        </select>
-                      ) : LABEL[user.role] || user.role}
-                    </td>
-                    <td><span className="x-pill">{user.aktif ? 'Aktif' : 'Nonaktif'}</span></td>
-                    <td>
-                      {canEdit && (
-                        <button
-                          className="x-link"
-                          disabled={saving || user.id === profile?.id}
-                          onClick={() => change(user.id, { aktif: !user.aktif })}
-                        >
-                          {user.id === profile?.id ? 'Akun aktif' : (user.aktif ? 'Nonaktifkan' : 'Aktifkan')}
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                )) : (
-                  <tr><td colSpan="5"><div className="x-empty">Tidak ada pengguna yang sesuai filter.</div></td></tr>
-                )}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </section>
+          <div className="users-account-note">
+            <b>Catatan</b>
+            <span>Untuk saat ini sistem memiliki satu akun. Struktur role tetap disiapkan agar akun terpisah dapat ditambahkan kemudian untuk bagian Transport, Operasional, Atasan, Direktur, atau Akuntansi.</span>
+          </div>
+        </section>
+      ) : (
+        <>
+          <section className="x-card users-summary-card">
+            <div className="users-summary-item"><span>Total akun</span><strong>{users.length}</strong></div>
+            <div className="users-summary-item"><span>Akun aktif</span><strong>{users.filter((user) => user.aktif).length}</strong></div>
+            <div className="users-summary-item"><span>Akun nonaktif</span><strong>{users.filter((user) => !user.aktif).length}</strong></div>
+          </section>
+
+          <section className="x-card users-filter-card">
+            <div className="users-filter-grid">
+              <input
+                className="x-filter"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Cari nama, email, atau nomor HP..."
+                aria-label="Cari pengguna"
+              />
+              <select className="x-filter" value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)} aria-label="Filter role">
+                <option value="ALL">Semua role</option>
+                {ROLES.map((role) => <option key={role} value={role}>{LABEL[role]}</option>)}
+              </select>
+              <select className="x-filter" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filter status">
+                <option value="ALL">Semua status</option>
+                <option value="ACTIVE">Aktif</option>
+                <option value="INACTIVE">Nonaktif</option>
+              </select>
+            </div>
+          </section>
+
+          <section className="x-card">
+            <div className="x-table-wrap">
+              <table className="x-table users-table">
+                <thead>
+                  <tr><th>Pengguna</th><th>Kontak</th><th>Role</th><th>Status</th><th>Aksi</th></tr>
+                </thead>
+                <tbody>
+                  {filteredUsers.length ? filteredUsers.map((user) => (
+                    <tr key={user.id}>
+                      <td><b>{user.nama_lengkap || '-'}</b><small>{user.email}</small></td>
+                      <td>{user.nomor_hp || '-'}</td>
+                      <td>
+                        {canEdit ? (
+                          <select
+                            className="x-filter"
+                            value={user.role}
+                            disabled={saving || user.id === profile?.id}
+                            onChange={(event) => change(user.id, { role: event.target.value })}
+                            aria-label={`Role ${user.nama_lengkap || user.email}`}
+                          >
+                            {ROLES.map((role) => <option key={role} value={role}>{LABEL[role]}</option>)}
+                          </select>
+                        ) : LABEL[user.role] || user.role}
+                      </td>
+                      <td><span className={`users-status ${user.aktif ? 'active' : 'inactive'}`}>{user.aktif ? 'Aktif' : 'Nonaktif'}</span></td>
+                      <td>
+                        {canEdit && (
+                          <button
+                            className="x-link"
+                            disabled={saving || user.id === profile?.id}
+                            onClick={() => change(user.id, { aktif: !user.aktif })}
+                          >
+                            {user.id === profile?.id ? 'Akun aktif' : (user.aktif ? 'Nonaktifkan' : 'Aktifkan')}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr><td colSpan="5"><div className="x-empty">Tidak ada pengguna yang sesuai filter.</div></td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </>
+      )}
     </div>
   )
 }
