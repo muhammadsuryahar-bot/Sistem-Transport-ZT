@@ -58,10 +58,12 @@ const EMPTY_METRICS = {
   expiringDocuments: 0,
   expiringContracts: 0,
   unpaidRentals: 0,
+  activeContracts: 0,
 }
 
-function countResult(result) {
-  return result?.error ? 0 : (result?.count || 0)
+async function readCount(query) {
+  const { count, error } = await query
+  return { count: count || 0, error }
 }
 
 function addDays(date, days) {
@@ -78,67 +80,69 @@ export default function DashboardFeaturePage({ profile, onNavigate }) {
 
   const role = profile?.role || 'OPERASIONAL'
   const today = useMemo(() => new Date(), [])
+  const todayKey = today.toISOString().slice(0, 10)
+  const maxDate = useMemo(() => addDays(today, 30), [today])
   const dateLabel = useMemo(() => new Intl.DateTimeFormat('id-ID', { dateStyle: 'full' }).format(today), [today])
   const quickActions = QUICK_ACTIONS[role] || QUICK_ACTIONS.OPERASIONAL
 
   const loadDashboard = async () => {
-    const firstLoad = !metrics || loading
+    const firstLoad = loading && Object.values(metrics).every((value) => value === 0)
     if (firstLoad) setLoading(true)
     else setRefreshing(true)
     setLoadError('')
 
     try {
       const result = { ...EMPTY_METRICS }
+      const failures = []
       const canReadFleet = ['ADMIN', 'TRANSPORT'].includes(role)
       const canReadService = ['ADMIN', 'TRANSPORT', 'ATASAN_TRANSPORT', 'DIREKTUR'].includes(role)
       const canReadRental = ['ADMIN', 'TRANSPORT', 'AKUNTANSI'].includes(role)
 
-      const queries = []
+      const countTasks = []
+      const pushCount = (label, query, target) => {
+        countTasks.push(readCount(query).then(({ count, error }) => {
+          if (error) failures.push(label)
+          else result[target] = count
+        }))
+      }
+
       if (canReadFleet) {
-        queries.push(
-          supabase.from('kendaraan').select('id', { count: 'exact', head: true }).then((r) => { result.totalVehicles = countResult(r) }),
-          supabase.from('kendaraan').select('id', { count: 'exact', head: true }).eq('status', 'ACTIVE').then((r) => { result.activeVehicles = countResult(r) }),
-          supabase.from('kendaraan').select('id', { count: 'exact', head: true }).eq('status', 'SERVICE').then((r) => { result.serviceVehicles = countResult(r) }),
-        )
+        pushCount('total kendaraan', supabase.from('kendaraan').select('id', { count: 'exact', head: true }), 'totalVehicles')
+        pushCount('kendaraan aktif', supabase.from('kendaraan').select('id', { count: 'exact', head: true }).eq('status', 'ACTIVE'), 'activeVehicles')
+        pushCount('kendaraan service', supabase.from('kendaraan').select('id', { count: 'exact', head: true }).eq('status', 'SERVICE'), 'serviceVehicles')
       }
 
       if (role === 'OPERASIONAL') {
-        queries.push(
-          supabase.from('permintaan_service').select('id', { count: 'exact', head: true }).eq('pemohon_id', profile.id).in('status', ['MENUNGGU_TRANSPORT', 'DITERIMA_TRANSPORT', 'MENUNGGU_APPROVAL']).then((r) => { result.pendingRequests = countResult(r) }),
-          supabase.from('permintaan_service').select('id', { count: 'exact', head: true }).eq('pemohon_id', profile.id).eq('status', 'SELESAI').then((r) => { result.completedRequests = countResult(r) }),
-        )
+        pushCount('pengajuan saya', supabase.from('permintaan_service').select('id', { count: 'exact', head: true }).eq('pemohon_id', profile.id).in('status', ['MENUNGGU_TRANSPORT', 'DITERIMA_TRANSPORT', 'MENUNGGU_APPROVAL']), 'pendingRequests')
+        pushCount('pengajuan selesai', supabase.from('permintaan_service').select('id', { count: 'exact', head: true }).eq('pemohon_id', profile.id).eq('status', 'SELESAI'), 'completedRequests')
       }
 
       if (canReadService) {
-        queries.push(
-          supabase.from('permintaan_service').select('id', { count: 'exact', head: true }).eq('status', 'MENUNGGU_TRANSPORT').then((r) => { result.transportQueue = countResult(r) }),
-          supabase.from('permintaan_service').select('id', { count: 'exact', head: true }).eq('status', 'MENUNGGU_APPROVAL').then((r) => { result.approvalQueue = countResult(r) }),
-          supabase.from('service').select('id', { count: 'exact', head: true }).eq('status', 'DALAM_PENGERJAAN').then((r) => { result.runningServices = countResult(r) }),
-          supabase.from('permintaan_service').select('id', { count: 'exact', head: true }).eq('status', 'SELESAI').then((r) => { result.completedRequests = countResult(r) }),
-        )
+        pushCount('antrian transport', supabase.from('permintaan_service').select('id', { count: 'exact', head: true }).eq('status', 'MENUNGGU_TRANSPORT'), 'transportQueue')
+        pushCount('antrian approval', supabase.from('permintaan_service').select('id', { count: 'exact', head: true }).eq('status', 'MENUNGGU_APPROVAL'), 'approvalQueue')
+        pushCount('service berjalan', supabase.from('service').select('id', { count: 'exact', head: true }).eq('status', 'DALAM_PENGERJAAN'), 'runningServices')
+        pushCount('service selesai', supabase.from('permintaan_service').select('id', { count: 'exact', head: true }).eq('status', 'SELESAI'), 'completedRequests')
       }
 
       if (canReadRental) {
-        const maxDate = addDays(today, 30)
-        queries.push(
-          supabase.from('dokumen_kendaraan').select('id', { count: 'exact', head: true }).not('tanggal_jatuh_tempo', 'is', null).gte('tanggal_jatuh_tempo', today.toISOString().slice(0, 10)).lte('tanggal_jatuh_tempo', maxDate).then((r) => { result.expiringDocuments = countResult(r) }),
-          supabase.from('kontrak_sewa').select('id', { count: 'exact', head: true }).eq('status', 'AKTIF').gte('tanggal_selesai', today.toISOString().slice(0, 10)).lte('tanggal_selesai', maxDate).then((r) => { result.expiringContracts = countResult(r) }),
-          supabase.from('pembayaran_sewa').select('id', { count: 'exact', head: true }).in('status', ['BELUM_LUNAS', 'TERLAMBAT']).then((r) => { result.unpaidRentals = countResult(r) }),
-        )
+        pushCount('dokumen mendekati jatuh tempo', supabase.from('dokumen_kendaraan').select('id', { count: 'exact', head: true }).not('tanggal_jatuh_tempo', 'is', null).gte('tanggal_jatuh_tempo', todayKey).lte('tanggal_jatuh_tempo', maxDate), 'expiringDocuments')
+        pushCount('kontrak segera berakhir', supabase.from('kontrak_sewa').select('id', { count: 'exact', head: true }).eq('status', 'AKTIF').gte('tanggal_selesai', todayKey).lte('tanggal_selesai', maxDate), 'expiringContracts')
+        pushCount('pembayaran belum lunas', supabase.from('pembayaran_sewa').select('id', { count: 'exact', head: true }).in('status', ['BELUM_LUNAS', 'TERLAMBAT']), 'unpaidRentals')
+        pushCount('kontrak sewa aktif', supabase.from('kontrak_sewa').select('id', { count: 'exact', head: true }).eq('status', 'AKTIF'), 'activeContracts')
+      } else if (canReadFleet) {
+        pushCount('dokumen mendekati jatuh tempo', supabase.from('dokumen_kendaraan').select('id', { count: 'exact', head: true }).not('tanggal_jatuh_tempo', 'is', null).gte('tanggal_jatuh_tempo', todayKey).lte('tanggal_jatuh_tempo', maxDate), 'expiringDocuments')
       }
 
-      if (canReadFleet && !canReadRental) {
-        const maxDate = addDays(today, 30)
-        queries.push(
-          supabase.from('dokumen_kendaraan').select('id', { count: 'exact', head: true }).not('tanggal_jatuh_tempo', 'is', null).gte('tanggal_jatuh_tempo', today.toISOString().slice(0, 10)).lte('tanggal_jatuh_tempo', maxDate).then((r) => { result.expiringDocuments = countResult(r) }),
-        )
-      }
+      await Promise.all(countTasks)
 
-      await Promise.all(queries)
+      if (canReadService) result.pendingRequests = result.transportQueue
+      if (role === 'ATASAN_TRANSPORT' || role === 'DIREKTUR') result.pendingRequests = result.approvalQueue
+
       setMetrics(result)
+      if (failures.length) setLoadError(`Sebagian data dashboard gagal dimuat (${failures.length} bagian). Gunakan Refresh atau periksa hak akses data.`)
     } catch (error) {
       console.error('Dashboard load error:', error)
-      setLoadError('Sebagian informasi dashboard tidak dapat dimuat. Coba refresh kembali.')
+      setLoadError('Data dashboard tidak dapat dimuat. Silakan coba Refresh kembali.')
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -147,7 +151,7 @@ export default function DashboardFeaturePage({ profile, onNavigate }) {
 
   useEffect(() => {
     if (profile?.id) loadDashboard()
-    // The dashboard should refresh when the logged-in profile changes, not on every render.
+    // Dashboard refreshes only when the authenticated profile/role changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.id, profile?.role])
 
@@ -155,18 +159,26 @@ export default function DashboardFeaturePage({ profile, onNavigate }) {
     if (role === 'OPERASIONAL') return [
       ['pendingRequests', 'Pengajuan Saya', 'Masih diproses', 'request'],
       ['completedRequests', 'Pengajuan Selesai', 'Sudah selesai', 'check'],
-      ['pendingRequests', 'Perlu Dipantau', 'Status belum selesai', 'service'],
     ]
     if (role === 'AKUNTANSI') return [
       ['unpaidRentals', 'Tagihan Sewa', 'Belum lunas / terlambat', 'rental'],
       ['expiringContracts', 'Kontrak Segera Berakhir', 'Dalam 30 hari', 'document'],
-      ['completedRequests', 'Service Selesai', 'Data penyelesaian', 'check'],
+      ['activeContracts', 'Kontrak Aktif', 'Sedang berjalan', 'vehicle'],
+    ]
+    if (role === 'ATASAN_TRANSPORT') return [
+      ['approvalQueue', 'Menunggu Approval', 'Perlu ditinjau', 'request'],
+      ['runningServices', 'Service Berjalan', 'Sedang dikerjakan', 'service'],
+      ['completedRequests', 'Service Selesai', 'Sudah selesai', 'check'],
+    ]
+    if (role === 'DIREKTUR') return [
+      ['approvalQueue', 'Menunggu Approval', 'Perlu ditinjau', 'request'],
+      ['runningServices', 'Service Berjalan', 'Sedang dikerjakan', 'service'],
     ]
     return [
       ['totalVehicles', 'Total Kendaraan', 'Data kendaraan terdaftar', 'vehicle'],
       ['activeVehicles', 'Kendaraan Aktif', 'Siap digunakan', 'check'],
       ['serviceVehicles', 'Sedang Service', 'Perlu dipantau', 'service'],
-      ['pendingRequests', 'Pengajuan Menunggu', 'Perlu diproses', 'request'],
+      ['transportQueue', 'Menunggu Transport', 'Perlu diproses', 'request'],
     ]
   }, [role])
 
@@ -184,7 +196,9 @@ export default function DashboardFeaturePage({ profile, onNavigate }) {
       ['Service sedang dikerjakan', metrics.runningServices, 'service', 'Pantau pekerjaan yang masih berjalan.'],
       ['Dokumen jatuh tempo ≤ 30 hari', metrics.expiringDocuments, 'dokumen', 'Periksa dan perbarui dokumen kendaraan.'],
     ]
-    return role === 'DIREKTUR' ? items.slice(1, 2) : role === 'ATASAN_TRANSPORT' ? items.slice(0, 3) : items
+    if (role === 'DIREKTUR') return items.slice(1, 2)
+    if (role === 'ATASAN_TRANSPORT') return items.slice(0, 3)
+    return items
   }, [metrics, role])
 
   const flow = role === 'OPERASIONAL'
