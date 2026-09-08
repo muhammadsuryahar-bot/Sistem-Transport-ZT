@@ -1,0 +1,51 @@
+/* Keep the desktop navigation fixed while only the application content scrolls. */
+@media (min-width: 761px) {
+  .dashboard-layout {
+    min-height: 100vh;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: 252px;
+    height: 100vh;
+    min-height: 100vh;
+    overflow: hidden;
+    z-index: 30;
+  }
+
+  .main-content {
+    width: calc(100% - 252px);
+    height: 100vh;
+    min-height: 100vh;
+    margin-left: 252px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .topbar {
+    flex: 0 0 82px;
+  }
+
+  .content-container {
+    width: 100%;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+}
+
+@media (min-width: 761px) and (max-width: 1050px) {
+  .sidebar {
+    width: 220px;
+  }
+
+  .main-content {
+    width: calc(100% - 220px);
+    margin-left: 220px;
+  }
+}
