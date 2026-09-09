@@ -1,0 +1,49 @@
+name: Fix import UX
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor == 'muhammadsuryahar-bot'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch DataPageTools
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('frontend/src/modules/DataPageTools.jsx')
+          s = p.read_text()
+          old = "  const relevant = useMemo(() => sheets.filter(s => s.relevant), [sheets])\n  const start = async () => { if (!selected || !canImport) return;"
+          new = "  useMemo(() => sheets.filter(s => s.relevant), [sheets])\n  useMemo(() => {\n    if (!selected && sheets.length) {\n      const match = sheets.find(s => s.relevant)\n      if (match) setSelected(match)\n    }\n  }, [selected, sheets])\n  const start = async () => { if (!selected || !canImport) return;"
+          if old not in s:
+              raise SystemExit('relevant block not found')
+          s = s.replace(old, new, 1)
+
+          old2 = "  const scan = async f => { setFile(f); setSheets([]); setSelected(null); setError(''); setMessage(''); if (!f) return; if (!/\\.xlsx$/i.test(f.name)) { setError('Gunakan file .xlsx.'); return } setLoading(true); try { const parsed = await parseXlsx(f); setSheets(parsed.map(s => { const { index, row } = findHeader(s.rows); return { ...s, headerIndex: index, headers: row, relevant: likelyContext(s.name, s.rows, context) } })); setMessage(`${parsed.length} sheet dibaca. Pilih sheet yang sesuai dengan ${CONTEXT_LABEL[context]}.`) } catch (e) { setError(e.message || 'File Excel tidak dapat dibaca.') } finally { setLoading(false) } }"
+          new2 = "  const scan = async f => { setFile(f); setSheets([]); setSelected(null); setError(''); setMessage(''); if (!f) return; if (!/\\.xlsx$/i.test(f.name)) { setError('Gunakan file .xlsx.'); return } setLoading(true); try { const parsed = await parseXlsx(f); const scanned = parsed.map(s => { const { index, row } = findHeader(s.rows); return { ...s, headerIndex: index, headers: row, relevant: likelyContext(s.name, s.rows, context) } }); const match = scanned.find(s => s.relevant); setSheets(scanned); if (match) { setSelected(match); setMessage(`Sheet ${match.name} dipilih otomatis untuk ${CONTEXT_LABEL[context]}.`) } else { setError(`Sheet yang sesuai untuk ${CONTEXT_LABEL[context]} tidak ditemukan. File tidak dapat diimport pada halaman ini.`) } } catch (e) { setError(e.message || 'File Excel tidak dapat dibaca.') } finally { setLoading(false) } }"
+          if old2 not in s:
+              raise SystemExit('scan block not found')
+          s = s.replace(old2, new2, 1)
+
+          old3 = "return <div className=\"dpt-overlay\" role=\"dialog\" aria-modal=\"true\" aria-label={`Import ${CONTEXT_LABEL[context]}`}><section className=\"dpt-modal\"><header><div><span className=\"eyebrow\">IMPORT EXCEL</span><h3>Import {CONTEXT_LABEL[context]}</h3><p>Upload → preview → validasi → cek duplikat → import.</p></div><button type=\"button\" className=\"dpt-icon\" onClick={onClose}>×</button></header>{error && <div className=\"dpt-alert error\">{error}</div>}{message && <div className=\"dpt-alert success\">{message}</div>}<div className=\"dpt-upload\"><input ref={inputRef} type=\"file\" accept=\".xlsx\" onChange={e => scan(e.target.files?.[0])}/><button type=\"button\" className=\"dpt-button primary\" onClick={() => inputRef.current?.click()} disabled={loading}>{loading ? 'Membaca Excel...' : file ? file.name : 'Pilih File Excel (.xlsx)'}</button></div>{file && <><div className=\"dpt-sheet-list\"><div className=\"dpt-sheet-title\"><b>Sheet ditemukan</b><span>{sheets.length} sheet</span></div>{sheets.map((s, i) => <button type=\"button\" key={`${s.name}-${i}`} className={`dpt-sheet ${selected?.name === s.name ? 'selected' : ''}`} onClick={() => setSelected(s)}><div><b>{s.name}</b><small>{Math.max(0, s.rows.length - s.headerIndex - 1)} baris data • {s.relevant ? 'cocok' : 'tidak diprioritaskan'}</small></div><span>{s.relevant ? '✓' : '•'}</span></button>)}</div>{relevant.length === 0 && <div className=\"dpt-note\">Sheet yang terdeteksi belum cocok dengan format aman untuk <b>{CONTEXT_LABEL[context]}</b>. Jangan dipaksa import. Pilih/ubah format Excel agar kolom dapat dipetakan dengan jelas.</div>}{selected && <div className=\"dpt-preview\"><div className=\"dpt-sheet-title\"><b>Preview: {selected.name}</b><span>maks. 8 baris</span></div><div className=\"dpt-preview-wrap\"><table><thead><tr>{selected.headers.map((h,i)=><th key={`${h}-${i}`}>{h || `Kolom ${i+1}`}</th>)}</tr></thead><tbody>{selected.rows.slice(selected.headerIndex + 1, selected.headerIndex + 9).map((row,r)=><tr key={r}>{selected.headers.map((_,c)=><td key={c}>{clean(row[c]) || '-'}</td>)}</tr>)}</tbody></table></div></div>}<div className=\"dpt-actions\"><button type=\"button\" className=\"dpt-button\" onClick={onClose}>Batal</button><button type=\"button\" className=\"dpt-button primary\" onClick={start} disabled={!selected || saving || !canImport}>{saving ? 'Mengimport...' : `Import ${CONTEXT_LABEL[context]}`}</button></div></>}</section></div>"
+          new3 = "return <div className=\"dpt-overlay\" role=\"dialog\" aria-modal=\"true\" aria-label={`Import ${CONTEXT_LABEL[context]}`}><section className=\"dpt-modal\"><header><div><span className=\"eyebrow\">IMPORT EXCEL</span><h3>Import {CONTEXT_LABEL[context]}</h3><p>Upload → sistem memilih sheet yang sesuai → preview → validasi → cek duplikat → import.</p></div><button type=\"button\" className=\"dpt-icon\" onClick={onClose}>×</button></header>{error && <div className=\"dpt-alert error\">{error}</div>}{message && <div className=\"dpt-alert success\">{message}</div>}<div className=\"dpt-upload\"><input ref={inputRef} type=\"file\" accept=\".xlsx\" onChange={e => scan(e.target.files?.[0])}/><button type=\"button\" className=\"dpt-button primary\" onClick={() => inputRef.current?.click()} disabled={loading}>{loading ? 'Membaca Excel...' : file ? file.name : 'Pilih File Excel (.xlsx)'}</button></div>{file && selected && <div className=\"dpt-preview\"><div className=\"dpt-sheet-title\"><b>Sheet otomatis: {selected.name}</b><span>maks. 8 baris</span></div><div className=\"dpt-preview-wrap\"><table><thead><tr>{selected.headers.map((h,i)=><th key={`${h}-${i}`}>{h || `Kolom ${i+1}`}</th>)}</tr></thead><tbody>{selected.rows.slice(selected.headerIndex + 1, selected.headerIndex + 9).map((row,r)=><tr key={r}>{selected.headers.map((_,c)=><td key={c}>{clean(row[c]) || '-'}</td>)}</tr>)}</tbody></table></div></div>}{file && !selected && !error && <div className=\"dpt-note\">Sistem sedang mencari sheet yang sesuai untuk <b>{CONTEXT_LABEL[context]}</b>.</div>}<div className=\"dpt-actions\"><button type=\"button\" className=\"dpt-button\" onClick={onClose}>Batal</button><button type=\"button\" className=\"dpt-button primary\" onClick={start} disabled={!selected || saving || !canImport}>{saving ? 'Mengimport...' : `Import ${CONTEXT_LABEL[context]}`}</button></div></section></div>"
+          if old3 not in s:
+              raise SystemExit('render block not found')
+          s = s.replace(old3, new3, 1)
+          # avoid lint warning from side-effect-only filter memo
+          s = s.replace("  useMemo(() => sheets.filter(s => s.relevant), [sheets])\n", "")
+          p.write_text(s)
+          PY
+      - name: Remove temporary workflow and commit
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -f .github/workflows/fix-import-ux.yml
+          git add frontend/src/modules/DataPageTools.jsx .github/workflows/fix-import-ux.yml
+          git commit -m "fix: auto-select Excel sheet by page context"
+          git push origin main
