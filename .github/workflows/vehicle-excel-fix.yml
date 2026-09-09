@@ -1,0 +1,93 @@
+name: Verify vehicle Excel fix
+on:
+  push:
+    branches:
+      - fix/vehicle-excel-exact-mapping
+permissions:
+  contents: write
+jobs:
+  patch-test-commit:
+    if: github.actor == 'muhammadsuryahar-bot' && !contains(github.event.head_commit.message, '[vehicle-excel-final]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Patch exact workbook mapping
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('frontend/src/modules/DataPageTools.jsx')
+          s = p.read_text()
+          if "const EXACT_SHEETS" not in s or "kendaraan: ['data kendaraan']" not in s:
+              raise SystemExit('Exact vehicle sheet mapping missing; refusing to patch unknown importer.')
+          payload_anchor = "      lokasi: valueOf(row, headers, 'lokasi') || null,\n      kilometer_terakhir: current?.kilometer_terakhir ?? 0,"
+          if 'masa_berlaku_pajak: excelDate(valueOf(row, headers, \'masa_berlaku_pajak\'))' not in s:
+              if payload_anchor not in s:
+                  raise SystemExit('Vehicle payload mapping anchor missing.')
+              s = s.replace(payload_anchor, "      lokasi: valueOf(row, headers, 'lokasi') || null,\n      masa_berlaku_pajak: excelDate(valueOf(row, headers, 'masa_berlaku_pajak')),\n      kilometer_terakhir: current?.kilometer_terakhir ?? 0,", 1)
+          p.write_text(s)
+
+          p = Path('frontend/src/modules/MasterKendaraanPage.jsx')
+          s = p.read_text()
+          if "masa_berlaku_pajak: ''" not in s:
+              anchor = "  status_pajak: '', unit_kerja: '', catatan_hutang: '',"
+              if anchor not in s: raise SystemExit('Master vehicle form anchor missing.')
+              s = s.replace(anchor, "  masa_berlaku_pajak: '', status_pajak: '', unit_kerja: '', catatan_hutang: '',", 1)
+          if 'nomor_mesin,masa_berlaku_pajak,status_pajak' not in s:
+              s = s.replace('nomor_mesin,status_pajak', 'nomor_mesin,masa_berlaku_pajak,status_pajak', 1)
+          if 'masa_berlaku_pajak: vehicleForm.masa_berlaku_pajak' not in s:
+              s = s.replace('lokasi: vehicleForm.lokasi.trim() || null, status_pajak:', 'lokasi: vehicleForm.lokasi.trim() || null, masa_berlaku_pajak: vehicleForm.masa_berlaku_pajak || null, status_pajak:', 1)
+          if "['masa_berlaku_pajak','Masa Berlaku Pajak']" not in s:
+              s = s.replace("['nomor_mesin','Nomor Mesin'],['status_pajak'", "['nomor_mesin','Nomor Mesin'],['masa_berlaku_pajak','Masa Berlaku Pajak'],['status_pajak'", 1)
+          p.write_text(s)
+
+          p = Path('frontend/src/AppTransport.jsx')
+          s = p.read_text()
+          if 'masa_berlaku_pajak' not in s[s.find("{ title: 'KENDARAAN'"):s.find("{ title: 'DRIVER / PIC'")]:
+              token = "['nomor_rangka','Nomor Rangka'],['nomor_mesin','Nomor Mesin']"
+              if token not in s: raise SystemExit('Vehicle export anchor missing.')
+              s = s.replace(token, token + ",['masa_berlaku_pajak','Masa Berlaku Pajak']", 1)
+          p.write_text(s)
+
+          Path('supabase/migrations/20260909120000_vehicle_source_columns.sql').write_text('''ALTER TABLE public.kendaraan\n  ADD COLUMN IF NOT EXISTS masa_berlaku_pajak date,\n  ADD COLUMN IF NOT EXISTS status_pajak text,\n  ADD COLUMN IF NOT EXISTS unit_kerja text,\n  ADD COLUMN IF NOT EXISTS catatan_hutang text;\n\nCREATE INDEX IF NOT EXISTS idx_kendaraan_unit_kerja ON public.kendaraan(unit_kerja);\nCREATE INDEX IF NOT EXISTS idx_kendaraan_masa_pajak ON public.kendaraan(masa_berlaku_pajak);\n''')
+
+          Path('.github/workflows/verify-vehicle-excel.yml').unlink(missing_ok=True)
+
+          checks = [
+              ("kendaraan: ['data kendaraan']", 'exact vehicle sheet'),
+              ("masa_berlaku_pajak: excelDate(valueOf(row, headers, 'masa_berlaku_pajak'))", 'vehicle tax due mapping'),
+              ("status_pajak: valueOf(row, headers, 'status_pajak')", 'vehicle tax status mapping'),
+              ("unit_kerja: valueOf(row, headers, 'unit_kerja')", 'vehicle unit mapping'),
+              ("catatan_hutang: valueOf(row, headers, 'catatan_hutang')", 'vehicle debt note mapping'),
+          ]
+          src = Path('frontend/src/modules/DataPageTools.jsx').read_text()
+          for needle, label in checks:
+              if needle not in src: raise SystemExit(f'Missing {label}')
+          print('Source assertions passed.')
+          PY
+      - name: Lint pass 1
+        working-directory: frontend
+        run: npm ci && npm run lint
+      - name: Build pass 1
+        working-directory: frontend
+        run: npm run build
+      - name: Lint pass 2
+        working-directory: frontend
+        run: npm run lint
+      - name: Build pass 2
+        working-directory: frontend
+        run: npm run build
+      - name: Commit only after all verification passes
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add frontend/src/modules/DataPageTools.jsx frontend/src/modules/MasterKendaraanPage.jsx frontend/src/AppTransport.jsx supabase/migrations/20260909120000_vehicle_source_columns.sql .github/workflows/vehicle-excel-fix.yml .github/workflows/verify-vehicle-excel.yml
+          git commit -m 'fix: exact vehicle Excel mapping [vehicle-excel-final]'
+          git push origin HEAD:fix/vehicle-excel-exact-mapping
