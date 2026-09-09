@@ -1,0 +1,179 @@
+name: Finalize exact Excel integration
+on:
+  push:
+    branches: [fix/excel-mapping-final-20260909]
+permissions:
+  contents: write
+jobs:
+  test-and-promote:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Apply exact workbook source-of-truth mapping
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          # ---------- Import module: root file is the active resolver ----------
+          p = Path('frontend/src/modules/DataPageTools.jsx')
+          s = p.read_text()
+          assert "const EXACT_SHEETS = {" in s, 'EXACT_SHEETS missing in active importer'
+          assert "kendaraan: ['data kendaraan']" in s, 'Kendaraan must map only to Data Kendaraan sheet'
+          assert 'dpt-sheet-list' not in s, 'Manual sheet picker must not exist in active importer'
+
+          # Exact workbook fields.
+          aliases_insert = "  kilometer: ['km', 'kilometer', 'kilometer_pengajuan', 'km_terakhir'],\n"
+          aliases_extra = "  masa_berlaku_pajak: ['masa_berlaku_pajak', 'masa_pajak', 'masa_berlaku_pajak_'],\n  status_pajak: ['status_pajak', 'status_pajak_'],\n  unit_kerja: ['unit_kerja', 'unit_kerja_', 'pengunaan_unit', 'penggunaan_unit'],\n  catatan_hutang: ['catatan_hutang', 'catatan_hutang_'],\n"
+          if "masa_berlaku_pajak:" not in s:
+              assert aliases_insert in s, 'Alias anchor missing'
+              s = s.replace(aliases_insert, aliases_insert + aliases_extra, 1)
+
+          # Add tax due date to the vehicle payload if not already there.
+          payload_anchor = "      lokasi: valueOf(row, headers, 'lokasi') || null,\n      kilometer_terakhir: current?.kilometer_terakhir ?? 0,"
+          payload_replacement = "      lokasi: valueOf(row, headers, 'lokasi') || null,\n      masa_berlaku_pajak: excelDate(valueOf(row, headers, 'masa_berlaku_pajak')),\n      kilometer_terakhir: current?.kilometer_terakhir ?? 0,"
+          if "masa_berlaku_pajak: excelDate(valueOf(row, headers, 'masa_berlaku_pajak'))" not in s:
+              assert payload_anchor in s, 'Vehicle payload anchor missing'
+              s = s.replace(payload_anchor, payload_replacement, 1)
+
+          # Preserve workbook semantics: source Status (Aset/Sewa) is ownership.
+          assert "sourceOwnership === 'SEWA'" in s, 'Aset/Sewa ownership mapping missing'
+          assert "kepemilikan: isRental ? 'SEWA' : 'ASET_KANTOR'" in s, 'Ownership mapping missing'
+          assert "status: current?.status || 'ACTIVE'" in s or "status: 'ACTIVE'" in s, 'Operational status fallback missing'
+
+          p.write_text(s)
+
+          # Remove duplicate inactive resolver to avoid future drift.
+          import_dir = Path('frontend/src/modules/DataPageTools')
+          if import_dir.exists():
+              for child in import_dir.rglob('*'):
+                  if child.is_file(): child.unlink()
+              for child in sorted(import_dir.rglob('*'), reverse=True):
+                  if child.is_dir(): child.rmdir()
+              import_dir.rmdir()
+
+          # ---------- Master Kendaraan: exact fields, no duplicates ----------
+          p = Path('frontend/src/modules/MasterKendaraanPage.jsx')
+          m = p.read_text()
+          empty_re = re.compile(r"const VEHICLE_EMPTY = \{.*?\n\}", re.S)
+          clean_empty = """const VEHICLE_EMPTY = {
+  kode_kendaraan: '', nomor_polisi: '', merk: '', tipe: '', jenis_kendaraan: '', tahun: '', warna: '', nomor_rangka: '', nomor_mesin: '',
+  masa_berlaku_pajak: '', status_pajak: '', unit_kerja: '', catatan_hutang: '',
+  kepemilikan: 'ASET_KANTOR', jenis_sewa: '', pemilik: '', driver_id: '', lokasi: '', kilometer_terakhir: '', status: 'ACTIVE', kondisi: '', keterangan: '',
+}"""
+          m, n = empty_re.subn(clean_empty, m, count=1)
+          assert n == 1, 'VEHICLE_EMPTY block missing'
+          # Use select('*') so UI does not hard-fail on intermediate cloud state.
+          m = re.sub(r"supabase\.from\('kendaraan'\)\.select\([^\)]*\)", "supabase.from('kendaraan').select('*')", m, count=1)
+          if 'masa_berlaku_pajak: vehicleForm.masa_berlaku_pajak' not in m:
+              m = m.replace('lokasi: vehicleForm.lokasi.trim() || null, status_pajak:', 'lokasi: vehicleForm.lokasi.trim() || null, masa_berlaku_pajak: vehicleForm.masa_berlaku_pajak || null, status_pajak:', 1)
+          if "['masa_berlaku_pajak','Masa Berlaku Pajak']" not in m:
+              m = m.replace("['nomor_mesin','Nomor Mesin'],['status_pajak','Status Pajak']", "['nomor_mesin','Nomor Mesin'],['masa_berlaku_pajak','Masa Berlaku Pajak'],['status_pajak','Status Pajak']", 1)
+          if "['catatan_hutang','Catatan Hutang']" not in m:
+              m = m.replace("['status_pajak','Status Pajak'],['unit_kerja','Unit Kerja'],['pemilik','Pemilik / PIC']", "['status_pajak','Status Pajak'],['unit_kerja','Unit Kerja'],['catatan_hutang','Catatan Hutang'],['pemilik','Pemilik / PIC']", 1)
+          if "['Masa Berlaku Pajak',detail.masa_berlaku_pajak]" not in m:
+              m = m.replace("['Mesin',detail.nomor_mesin],['Kepemilikan'", "['Mesin',detail.nomor_mesin],['Masa Berlaku Pajak',detail.masa_berlaku_pajak],['Status Pajak',detail.status_pajak],['Unit Kerja',detail.unit_kerja],['Catatan Hutang',detail.catatan_hutang],['Kepemilikan'", 1)
+          p.write_text(m)
+
+          # ---------- App shell: restore login rendering and export field ----------
+          p = Path('frontend/src/AppTransport.jsx')
+          a = p.read_text()
+          a = a.replace("  const [exportingPage, setExportingPage] = useState(false)\n", "")
+          a = a.replace("    setExportingPage(true)\n", "")
+          a = a.replace("      setExportingPage(false)\n", "")
+          a = a.replace("      const exportDate = value => value ? new Intl.DateTimeFormat('id-ID').format(new Date(value)) : '-'\n", "")
+          a = a.replace("      const money = value => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(value || 0))\n", "")
+          a = a.replace("        const serviceMap = Object.fromEntries((rs[0].data || []).map(x => [x.id, x]))\n", "")
+          vehicle_export = "['warna','Warna'],['nomor_rangka','Nomor Rangka'],['nomor_mesin','Nomor Mesin']"
+          vehicle_export_new = vehicle_export + ",['masa_berlaku_pajak','Masa Berlaku Pajak'],['status_pajak','Status Pajak'],['unit_kerja','Unit Kerja'],['catatan_hutang','Catatan Hutang']"
+          if "['masa_berlaku_pajak','Masa Berlaku Pajak']" not in a:
+              assert vehicle_export in a, 'Vehicle export columns anchor missing'
+              a = a.replace(vehicle_export, vehicle_export_new, 1)
+
+          marker = "  const pageContent = {"
+          if 'Selamat datang di Sistem Transport' not in a:
+              login = '''  if (loading) return <div className="auth-shell"><div className="loading-card"><div className="loading-spinner"/><strong>Memuat Sistem Transport...</strong><span>Memeriksa sesi pengguna.</span></div></div>\n\n  if (!session || !profile) return <div className="auth-shell"><div className="login-card"><div className="brand-mark"><img src={LOGO_LOGIN_URL} alt="PT Zaman Teknindo" style={{width:'100%',height:'100%',objectFit:'contain',borderRadius:14}}/></div><span className="eyebrow">SISTEM TRANSPORT</span><h1>Selamat datang di Sistem Transport</h1><p className="subtitle">Masuk untuk mengelola operasional transport PT Zaman Teknindo.</p><form onSubmit={handleLogin}><label>Email<input type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" placeholder="nama@zamangroup.co.id"/></label><label>Password<div className="password-field"><input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" placeholder="Masukkan password"/><button type="button" className="password-toggle" onClick={() => setShowPassword(v => !v)}>{showPassword ? 'Sembunyikan' : 'Lihat'}</button></div></label><label className="remember-option"><input type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)}/><span>Ingat saya di perangkat ini</span></label>{errorMessage && <div className="error-message">{errorMessage}</div>}<button className="primary-button" type="submit" disabled={submitting}>{submitting ? 'Masuk...' : 'Masuk'}</button></form><div className="security-note">Gunakan akun yang diberikan administrator.</div></div></div>\n\n'''
+              assert marker in a, 'pageContent marker missing'
+              a = a.replace(marker, login + marker, 1)
+          p.write_text(a)
+
+          # ---------- Small lint fixes ----------
+          p = Path('frontend/src/modules/ReportsFeaturePage.jsx')
+          p.write_text(p.read_text().replace("const text = value => value == null || value === '' ? '-' : value\n", ''))
+
+          p = Path('frontend/src/utils/exportExcel.js')
+          x = p.read_text()
+          x = re.sub(r"\.replace\(/\[\\\\/:\?\*\\\[\\\]\]/g, '-'\)", ".replace(/[\\\\/:?*]/g, '-').replaceAll('[', '-').replaceAll(']', '-')", x)
+          p.write_text(x)
+
+          p = Path('frontend/src/modules/ServiceCompletionPanel.jsx')
+          c = p.read_text()
+          if 'useCallback' not in c.split('\n',1)[0]:
+              c = c.replace("import { useEffect, useMemo, useState } from 'react'", "import { useCallback, useEffect, useMemo, useState } from 'react'", 1)
+          if 'const load = useCallback(async () =>' not in c:
+              c = c.replace('  const load = async () => {', '  const load = useCallback(async () => {', 1)
+              c = c.replace('    setLoading(false)\n  }\n\n  useEffect(() => { load() }, [canProcess])', '    setLoading(false)\n  }, [canProcess])\n\n  useEffect(() => { load() }, [canProcess, load])', 1)
+          p.write_text(c)
+
+          # ---------- DB migration matches exact source workbook ----------
+          Path('supabase/migrations/20260909130000_vehicle_excel_master_columns.sql').write_text('''-- Exact operational fields from Data Kendaraan 07 Mei 2026.\nALTER TABLE public.kendaraan\n  ADD COLUMN IF NOT EXISTS masa_berlaku_pajak date,\n  ADD COLUMN IF NOT EXISTS status_pajak text,\n  ADD COLUMN IF NOT EXISTS unit_kerja text,\n  ADD COLUMN IF NOT EXISTS catatan_hutang text;\n\nCREATE INDEX IF NOT EXISTS idx_kendaraan_masa_berlaku_pajak ON public.kendaraan(masa_berlaku_pajak);\nCREATE INDEX IF NOT EXISTS idx_kendaraan_status_pajak ON public.kendaraan(status_pajak);\nCREATE INDEX IF NOT EXISTS idx_kendaraan_unit_kerja ON public.kendaraan(unit_kerja);\n''')
+
+          # Remove all old patch-only workflows; keep verify.yml.
+          wf = Path('.github/workflows')
+          for name in ['apply-final-vehicle-import.yml','apply-vehicle-import-fix.yml','fix-import-modal.yml','fix-import-ux.yml','patch-vehicle-source-fields.yml','vehicle-excel-fix.yml','verify-vehicle-excel.yml','finalize-excel-fix.yml']:
+              (wf / name).unlink(missing_ok=True)
+
+          # Final source assertions before npm tests.
+          tools = Path('frontend/src/modules/DataPageTools.jsx').read_text()
+          master = Path('frontend/src/modules/MasterKendaraanPage.jsx').read_text()
+          app = Path('frontend/src/AppTransport.jsx').read_text()
+          assert "kendaraan: ['data kendaraan']" in tools
+          assert 'dpt-sheet-list' not in tools
+          for needle in ["'no_pol'", 'masa_berlaku_pajak', 'status_pajak', 'unit_kerja', 'catatan_hutang']:
+              assert needle in tools, needle
+          for needle in ['masa_berlaku_pajak','status_pajak','unit_kerja','catatan_hutang']:
+              assert needle in master, needle
+          assert 'Selamat datang di Sistem Transport' in app
+          print('FINAL SOURCE ASSERTIONS PASSED')
+          PY
+          git diff --check
+
+      - name: Lint pass 1
+        working-directory: frontend
+        run: npm ci && npm run lint
+      - name: Build pass 1
+        working-directory: frontend
+        run: npm run build
+      - name: Lint pass 2
+        working-directory: frontend
+        run: npm run lint
+      - name: Build pass 2
+        working-directory: frontend
+        run: npm run build
+      - name: Final diff verification
+        run: |
+          git diff --check
+          ! test -d frontend/src/modules/DataPageTools
+          grep -q "kendaraan: \['data kendaraan'\]" frontend/src/modules/DataPageTools.jsx
+          ! grep -q "dpt-sheet-list" frontend/src/modules/DataPageTools.jsx
+          grep -q "masa_berlaku_pajak" frontend/src/modules/DataPageTools.jsx
+          grep -q "status_pajak" frontend/src/modules/DataPageTools.jsx
+          grep -q "unit_kerja" frontend/src/modules/DataPageTools.jsx
+          grep -q "catatan_hutang" frontend/src/modules/DataPageTools.jsx
+          grep -q "masa_berlaku_pajak" frontend/src/modules/MasterKendaraanPage.jsx
+          grep -q "Selamat datang di Sistem Transport" frontend/src/AppTransport.jsx
+      - name: Promote tested code to main
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'fix: exact vehicle Excel mapping [vehicle-excel-final]'
+          git push origin HEAD:main
