@@ -19,4 +19,4 @@ Monitoring jumlah kendaraan, kendaraan aktif, kendaraan yang sedang service, dan
 Master armada dan driver. Kepemilikan hanya `ASET_KANTOR` atau `SEWA`. Kendaraan sewa memakai `SEWA_PERORANGAN` atau `SEWA_RENTAL` dan menyimpan identitas pemilik.
 
 ### Import Excel
-Import kendaraan memakai struktur aktual `Data Kendaraan 07 Mei 2026`, termasuk Merk, Type, Jenis, Tahun, No. Pol, No. Mesin, No. Rangka, Pemilik, Status/Kepemilikan, Masa Berlaku Pajak, Status Pajak, Unit Kerja, Driver, Lokasi Kerja, Keterangan, dan Catatan Hutang. Import menggunakan konteks halaman dan memilih data yang sesuai secara otomatis.
+Import kendaraan mengikuti workbook operasional `Data Kendaraan 07 Mei 2026`: No, Merk, Type, Jenis, Tahun, No. Pol, No. Mesin, No. Rangka, Pemilik, Status (Aset/Sewa), Masa Berlaku Pajak, Status Pajak, Unit Kerja, Driver, Lokasi Kerja, Keterangan, Catatan Hutang. Pengguna tidak memilih sheet secara manual; sistem menentukan data berdasarkan halaman yang sedang dibuka.
