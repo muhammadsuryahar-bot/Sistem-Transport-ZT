@@ -156,12 +156,6 @@ function likelyContext(name, rows, wanted) {
   }
   return score[wanted] >= (wanted === 'kendaraan' ? 2 : 3)
 }
-function classify(headers, wanted) {
-  const h = headers.map(norm)
-  if (wanted === 'kendaraan') return !!(valueOf([], headers, 'nomor_polisi') || h.includes('nomor_polisi') || h.includes('no_polisi'))
-  return true
-}
-
 async function importKendaraan(sheet, profile) {
   const { index, row: headerRow } = findHeader(sheet.rows), headers = headerRow
   const rows = sheet.rows.slice(index + 1).filter(r => r.some(v => clean(v)))
@@ -246,7 +240,7 @@ async function importDokumen(sheet, profile) {
 }
 
 async function importPengajuan(sheet, profile) {
-  const { index, row: headers }, rows = { index: findHeader(sheet.rows).index, row: findHeader(sheet.rows).row }
+  const { index, row: headers } = findHeader(sheet.rows)
   const dataRows = sheet.rows.slice(index + 1).filter(r => r.some(v => clean(v)))
   const vehicles = await supabase.from('kendaraan').select('id,nomor_polisi,kilometer_terakhir'); if (vehicles.error) throw vehicles.error
   const vmap = Object.fromEntries((vehicles.data || []).map(v => [clean(v.nomor_polisi).toUpperCase(), v]))
