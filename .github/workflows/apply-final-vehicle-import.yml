@@ -15,31 +15,36 @@ jobs:
           node-version: 24
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-
-      - name: Apply exact workbook mapping and restore login behavior
+      - name: Apply exact mapping and clean code
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
           import re
 
-          # ---------------- DataPageTools active import module ----------------
+          # ===== DataPageTools active module (directory index.jsx) =====
           p = Path('frontend/src/modules/DataPageTools/index.jsx')
           s = p.read_text()
-
-          # Exact source-column aliases from Data Kendaraan 07 Mei 2026.
-          anchor = "  kilometer:['km','kilometer','kilometer_pengajuan','km_terakhir'],"
-          exact_aliases = "  kilometer:['km','kilometer','kilometer_pengajuan','km_terakhir'], masa_berlaku_pajak:['masa_berlaku_pajak','masa_pajak'], status_pajak:['status_pajak'], unit_kerja:['unit_kerja','pengunaan_unit','penggunaan_unit'], catatan_hutang:['catatan_hutang','catatan_hutang_'],"
-          if 'masa_berlaku_pajak:' not in s:
-              assert anchor in s, 'DataPageTools alias anchor missing'
-              s = s.replace(anchor, exact_aliases, 1)
-
-          # Fix lint-only regex escaping without changing semantics.
+          s = s.replace("import { useMemo, useRef, useState } from 'react'", "import { useRef, useState } from 'react'")
+          s = s.replace("  kilometer: ['km', 'kilometer', 'kilometer_pengajuan', 'km_terakhir'],\n", "  kilometer: ['km', 'kilometer', 'kilometer_pengajuan', 'km_terakhir'],\n  masa_berlaku_pajak: ['masa_berlaku_pajak', 'masa_pajak'],\n  status_pajak: ['status_pajak'],\n  unit_kerja: ['unit_kerja', 'pengunaan_unit', 'penggunaan_unit'],\n  catatan_hutang: ['catatan_hutang', 'catatan_hutang_'],\n", 1)
           s = s.replace('[/\\-]', '[/-]')
 
-          # Exact vehicle importer. Source Status means ownership (Aset/Sewa), not operational status.
-          start = s.index('async function importKendaraan(')
-          end = s.index('\nasync function importService', start)
+          # Exact page-to-sheet routing: users never select a sheet.
+          rel = re.compile(r"const RELEVANT_SHEETS = \{.*?\n\}", re.S)
+          exact = '''const EXACT_SHEETS = {
+  kendaraan: ['data kendaraan'],
+  service: ['data service'],
+  pengajuan: ['permintaan perbaikan', 'pengajuan perbaikan'],
+  sewa: ['sewa kendaraan'],
+  dokumen: ['stnk dan kir', 'stnk', 'kir'],
+}'''
+          s, n = rel.subn(exact, s, count=1)
+          if n != 1:
+              raise SystemExit('sheet map not found')
+
+          # Exact vehicle importer for the real workbook columns.
+          st = s.index('async function importKendaraan(')
+          en = s.index('\nasync function importService', st)
           vehicle_fn = r'''async function importKendaraan(sheet, profile) {
   if (!profile?.id) throw new Error('Profil pengguna belum tersedia. Silakan login ulang.')
   const { index, row: headers } = findHeader(sheet.rows)
@@ -50,18 +55,18 @@ jobs:
   if (!['tipe', 'type'].some(k => normalized.includes(k))) throw new Error('Format Data Kendaraan tidak dikenali: kolom "Type" wajib ada.')
   if (!['jenis', 'jenis_kendaraan'].some(k => normalized.includes(k))) throw new Error('Format Data Kendaraan tidak dikenali: kolom "Jenis" wajib ada.')
 
-  const [vehiclesResult, driversResult] = await Promise.all([
+  const [vr, dr] = await Promise.all([
     supabase.from('kendaraan').select('id,nomor_polisi,kode_kendaraan,warna,kilometer_terakhir,status,kondisi'),
     supabase.from('driver').select('id,nama_lengkap'),
   ])
-  if (vehiclesResult.error) throw vehiclesResult.error
-  if (driversResult.error) throw driversResult.error
-
-  const existingByPlate = Object.fromEntries((vehiclesResult.data || []).map(v => [clean(v.nomor_polisi).toUpperCase(), v]))
-  const existingCodes = new Set((vehiclesResult.data || []).map(v => clean(v.kode_kendaraan).toUpperCase()).filter(Boolean))
-  const driverByName = Object.fromEntries((driversResult.data || []).map(d => [clean(d.nama_lengkap).toUpperCase(), d]))
+  if (vr.error) throw vr.error
+  if (dr.error) throw dr.error
+  const existingByPlate = Object.fromEntries((vr.data || []).map(v => [clean(v.nomor_polisi).toUpperCase(), v]))
+  const existingCodes = new Set((vr.data || []).map(v => clean(v.kode_kendaraan).toUpperCase()).filter(Boolean))
+  const driverByName = Object.fromEntries((dr.data || []).map(d => [clean(d.nama_lengkap).toUpperCase(), d]))
   const seen = new Set()
   let added = 0, updated = 0, skipped = 0, driversCreated = 0
+  const statusIndex = headers.findIndex(h => norm(h) === 'status')
 
   for (const row of rows) {
     const plate = valueOf(row, headers, 'nomor_polisi').toUpperCase()
@@ -70,24 +75,16 @@ jobs:
     if (!merk) { skipped += 1; continue }
     seen.add(plate)
 
-    const statusIndex = headers.findIndex(h => norm(h) === 'status')
-    const sourceOwnership = clean(statusIndex >= 0 ? row[statusIndex] : '').toUpperCase()
-    const isRental = sourceOwnership === 'SEWA'
+    const ownershipSource = clean(statusIndex >= 0 ? row[statusIndex] : '').toUpperCase()
+    const isRental = ownershipSource === 'SEWA'
     const owner = valueOf(row, headers, 'pemilik') || null
     const ownerUpper = clean(owner).toUpperCase()
-    const rentalType = isRental
-      ? (/^(PT|CV|UD|PD|KOPERASI|YAYASAN)\b|\bRENTAL\b|\bCAR\s+RENTAL\b/.test(ownerUpper) ? 'SEWA_RENTAL' : 'SEWA_PERORANGAN')
-      : null
+    const rentalType = isRental ? (/^(PT|CV|UD|PD|KOPERASI|YAYASAN)\b|\bRENTAL\b|\bCAR\s+RENTAL\b/.test(ownerUpper) ? 'SEWA_RENTAL' : 'SEWA_PERORANGAN') : null
 
     const driverName = valueOf(row, headers, 'driver')
     let driverId = driverByName[clean(driverName).toUpperCase()]?.id || null
     if (driverName && !driverId) {
-      const created = await supabase.from('driver').insert({
-        nama_lengkap: driverName,
-        lokasi: valueOf(row, headers, 'lokasi') || null,
-        status: 'AKTIF',
-        keterangan: 'Dibuat otomatis dari import Data Kendaraan 07 Mei 2026.',
-      }).select('id,nama_lengkap').single()
+      const created = await supabase.from('driver').insert({ nama_lengkap: driverName, lokasi: valueOf(row, headers, 'lokasi') || null, status: 'AKTIF', keterangan: 'Dibuat otomatis dari import Data Kendaraan 07 Mei 2026.' }).select('id,nama_lengkap').single()
       if (created.error) throw new Error(`Gagal membuat driver ${driverName}: ${created.error.message}`)
       driverId = created.data.id
       driverByName[clean(driverName).toUpperCase()] = created.data
@@ -123,24 +120,18 @@ jobs:
       unit_kerja: valueOf(row, headers, 'unit_kerja') || null,
       catatan_hutang: valueOf(row, headers, 'catatan_hutang') || null,
     }
-
-    const result = current
-      ? await supabase.from('kendaraan').update(payload).eq('id', current.id)
-      : await supabase.from('kendaraan').insert(payload).select('id').single()
+    const result = current ? await supabase.from('kendaraan').update(payload).eq('id', current.id) : await supabase.from('kendaraan').insert(payload).select('id').single()
     if (result.error) throw new Error(`Gagal menyimpan kendaraan ${plate}: ${result.error.message}`)
     const kendaraanId = current?.id || result.data?.id
     if (current) updated += 1; else added += 1
 
-    // Keep tax due date and status visible in Dokumen > STNK as well.
     const taxDue = excelDate(valueOf(row, headers, 'masa_berlaku_pajak'))
     const taxStatus = valueOf(row, headers, 'status_pajak')
     if (taxDue && kendaraanId) {
       const doc = await supabase.from('dokumen_kendaraan').select('id').eq('kendaraan_id', kendaraanId).eq('jenis_dokumen', 'STNK').limit(1)
       if (doc.error) throw doc.error
       const note = taxStatus ? `Status pajak: ${taxStatus}. Import Excel: ${sheet.name}` : `Import Excel: ${sheet.name}`
-      const saveDoc = doc.data?.[0]?.id
-        ? await supabase.from('dokumen_kendaraan').update({ tanggal_jatuh_tempo: taxDue, keterangan: note }).eq('id', doc.data[0].id)
-        : await supabase.from('dokumen_kendaraan').insert({ kendaraan_id: kendaraanId, jenis_dokumen: 'STNK', tanggal_jatuh_tempo: taxDue, keterangan: note })
+      const saveDoc = doc.data?.[0]?.id ? await supabase.from('dokumen_kendaraan').update({ tanggal_jatuh_tempo: taxDue, keterangan: note }).eq('id', doc.data[0].id) : await supabase.from('dokumen_kendaraan').insert({ kendaraan_id: kendaraanId, jenis_dokumen: 'STNK', tanggal_jatuh_tempo: taxDue, keterangan: note })
       if (saveDoc.error) throw new Error(`Gagal menyimpan STNK ${plate}: ${saveDoc.error.message}`)
     }
   }
@@ -148,23 +139,21 @@ jobs:
 }
 
 async function importService'''
-          s = s[:start] + vehicle_fn + s[end:]
+          s = s[:st] + vehicle_fn + s[en:]
 
-          # Automatic sheet selection; remove manual sheet selection from the UI.
+          # Replace scan function with deterministic auto-sheet selection.
           scan_re = re.compile(r"  const scan = async f => \{.*?\n  const start = async", re.S)
           scan_fn = r'''  const scan = async f => {
-    setFile(f); setSheets([]); setSelected(null); setError(''); setMessage('')
+    setFile(f); setSelected(null); setError(''); setMessage('')
     if (!f) return
     if (!/\.xlsx$/i.test(f.name)) { setError('Gunakan file .xlsx.'); return }
     setLoading(true)
     try {
       const parsed = await parseXlsx(f)
-      const exactNames = { kendaraan: ['data kendaraan'], service: ['data service'], pengajuan: ['permintaan perbaikan', 'pengajuan perbaikan'], sewa: ['sewa kendaraan'], dokumen: ['stnk dan kir', 'stnk', 'kir'] }
-      const preferred = (exactNames[context] || []).map(norm)
-      const scanned = parsed.map(item => { const { index, row } = findHeader(item.rows); return { ...item, headerIndex: index, headers: row, relevant: likelyContext(item.name, item.rows, context) } })
-      const selectedSheet = scanned.find(item => preferred.includes(norm(item.name))) || scanned.find(item => item.relevant)
-      if (!selectedSheet) throw new Error(`Data ${CONTEXT_LABEL[context]} tidak ditemukan pada file Excel ini.`)
-      setSheets(scanned)
+      const exactNames = (EXACT_SHEETS[context] || []).map(norm)
+      const candidates = parsed.map(item => { const { index, row } = findHeader(item.rows); return { ...item, headerIndex: index, headers: row } })
+      const selectedSheet = candidates.find(item => exactNames.includes(norm(item.name)))
+      if (!selectedSheet) throw new Error(`File ini tidak memiliki data ${CONTEXT_LABEL[context]} yang sesuai.`)
       setSelected(selectedSheet)
       setMessage(`Data ${selectedSheet.name} dipilih otomatis. Tidak perlu memilih sheet.`)
     } catch (e) { setError(e.message || 'File Excel tidak dapat dibaca.') }
@@ -172,16 +161,18 @@ async function importService'''
   }
   const start = async'''
           s, n = scan_re.subn(scan_fn, s, count=1)
-          if n != 1: raise SystemExit('scan block not found')
+          if n != 1: raise SystemExit('scan function not found')
+          s = s.replace("  const [file, setFile] = useState(null), [sheets, setSheets] = useState([]), [selected", "  const [file, setFile] = useState(null), [selected", 1)
+          s = s.replace("    setFile(f); setSheets([]); setSelected(null);", "    setFile(f); setSelected(null);", 1)
 
+          # Replace modal so no sheet choices ever appear.
           modal_re = re.compile(r"  return <div className=\"dpt-overlay\".*?\n\}\n\nexport default function DataPageTools", re.S)
           modal = '''  return <div className="dpt-overlay" role="dialog" aria-modal="true" aria-label={`Import ${CONTEXT_LABEL[context]}`}>
     <section className="dpt-modal">
       <header><div><span className="eyebrow">IMPORT EXCEL</span><h3>Import {CONTEXT_LABEL[context]}</h3><p>Upload → sistem memilih data yang sesuai → preview → validasi → cek duplikat → import.</p></div><button type="button" className="dpt-icon" onClick={onClose}>×</button></header>
       {error && <div className="dpt-alert error">{error}</div>}{message && <div className="dpt-alert success">{message}</div>}
       <div className="dpt-upload"><input ref={inputRef} type="file" accept=".xlsx" onChange={e => scan(e.target.files?.[0])}/><button type="button" className="dpt-button primary" onClick={() => inputRef.current?.click()} disabled={loading}>{loading ? 'Membaca Excel...' : file ? file.name : 'Pilih File Excel (.xlsx)'}</button></div>
-      {file && selected && <><div className="dpt-auto-sheet"><b>Data dipilih otomatis: {selected.name}</b><span>Tidak perlu memilih sheet.</span></div><div className="dpt-preview"><div className="dpt-sheet-title"><b>Preview Data</b><span>maks. 8 baris</span></div><div className="dpt-preview-wrap"><table><thead><tr>{selected.headers.map((h,i)=><th key={`${h}-${i}`}>{h || `Kolom ${i+1}`}</th>)}</tr></thead><tbody>{selected.rows.slice(selected.headerIndex + 1, selected.headerIndex + 9).map((row,r)=><tr key={r}>{selected.headers.map((_,c)=><td key={c}>{clean(row[c]) || '-'}</td>)}</tr>)}</tbody></table></div></div></>}
-      {file && !selected && !error && <div className="dpt-note">Sistem sedang mencari data yang sesuai...</div>}
+      {selected && <><div className="dpt-auto-sheet"><b>Data dipilih otomatis: {selected.name}</b><span>Tidak perlu memilih sheet.</span></div><div className="dpt-preview"><div className="dpt-sheet-title"><b>Preview Data</b><span>maks. 8 baris</span></div><div className="dpt-preview-wrap"><table><thead><tr>{selected.headers.map((h,i)=><th key={`${h}-${i}`}>{h || `Kolom ${i+1}`}</th>)}</tr></thead><tbody>{selected.rows.slice(selected.headerIndex + 1, selected.headerIndex + 9).map((row,r)=><tr key={r}>{selected.headers.map((_,c)=><td key={c}>{clean(row[c]) || '-'}</td>)}</tr>)}</tbody></table></div></div></>}
       <div className="dpt-actions"><button type="button" className="dpt-button" onClick={onClose}>Batal</button><button type="button" className="dpt-button primary" onClick={start} disabled={!selected || saving || !canImport}>{saving ? 'Mengimport...' : `Import ${CONTEXT_LABEL[context]}`}</button></div>
     </section>
   </div>
@@ -189,106 +180,91 @@ async function importService'''
 
 export default function DataPageTools'''
           s, n = modal_re.subn(modal, s, count=1)
-          if n != 1: raise SystemExit('modal block not found')
+          if n != 1: raise SystemExit('modal not found')
           p.write_text(s)
 
-          # ---------------- Vehicle master: exact source fields once ----------------
+          # ===== Master Kendaraan =====
           p = Path('frontend/src/modules/MasterKendaraanPage.jsx')
           m = p.read_text()
           empty_re = re.compile(r"const VEHICLE_EMPTY = \{.*?\n\}", re.S)
-          empty = """const VEHICLE_EMPTY = {
+          m, n = empty_re.subn("""const VEHICLE_EMPTY = {
   kode_kendaraan: '', nomor_polisi: '', merk: '', tipe: '', jenis_kendaraan: '', tahun: '', warna: '', nomor_rangka: '', nomor_mesin: '',
   masa_berlaku_pajak: '', status_pajak: '', unit_kerja: '', catatan_hutang: '',
   kepemilikan: 'ASET_KANTOR', jenis_sewa: '', pemilik: '', driver_id: '', lokasi: '', kilometer_terakhir: '', status: 'ACTIVE', kondisi: '', keterangan: '',
-}"""
-          m, n = empty_re.subn(empty, m, count=1)
-          if n != 1: raise SystemExit('VEHICLE_EMPTY block not found')
-          m = m.replace('id,kode_kendaraan,nomor_polisi,merk,tipe,jenis_kendaraan,tahun,warna,nomor_rangka,nomor_mesin,status_pajak,unit_kerja,catatan_hutang,kepemilikan,jenis_sewa', 'id,kode_kendaraan,nomor_polisi,merk,tipe,jenis_kendaraan,tahun,warna,nomor_rangka,nomor_mesin,masa_berlaku_pajak,status_pajak,unit_kerja,catatan_hutang,kepemilikan,jenis_sewa', 1)
+}""", m, count=1)
+          if n != 1: raise SystemExit('VEHICLE_EMPTY not found')
+          m = m.replace('nomor_rangka,nomor_mesin,status_pajak,unit_kerja,catatan_hutang,kepemilikan,jenis_sewa', 'nomor_rangka,nomor_mesin,masa_berlaku_pajak,status_pajak,unit_kerja,catatan_hutang,kepemilikan,jenis_sewa', 1)
           if 'masa_berlaku_pajak: vehicleForm.masa_berlaku_pajak' not in m:
               m = m.replace('lokasi: vehicleForm.lokasi.trim() || null, status_pajak:', 'lokasi: vehicleForm.lokasi.trim() || null, masa_berlaku_pajak: vehicleForm.masa_berlaku_pajak || null, status_pajak:', 1)
-          if "['masa_berlaku_pajak','Masa Berlaku Pajak']" not in m:
-              m = m.replace("['nomor_mesin','Nomor Mesin'],['status_pajak','Status Pajak']", "['nomor_mesin','Nomor Mesin'],['masa_berlaku_pajak','Masa Berlaku Pajak'],['status_pajak','Status Pajak']", 1)
+          m = m.replace("['nomor_mesin','Nomor Mesin'],['status_pajak','Status Pajak']", "['nomor_mesin','Nomor Mesin'],['masa_berlaku_pajak','Masa Berlaku Pajak'],['status_pajak','Status Pajak']", 1)
           if "['catatan_hutang','Catatan Hutang']" not in m:
               m = m.replace("['status_pajak','Status Pajak'],['unit_kerja','Unit Kerja'],['pemilik','Pemilik / PIC']", "['status_pajak','Status Pajak'],['unit_kerja','Unit Kerja'],['catatan_hutang','Catatan Hutang'],['pemilik','Pemilik / PIC']", 1)
           if "['Masa Berlaku Pajak',detail.masa_berlaku_pajak]" not in m:
               m = m.replace("['Mesin',detail.nomor_mesin],['Kepemilikan'", "['Mesin',detail.nomor_mesin],['Masa Berlaku Pajak',detail.masa_berlaku_pajak],['Status Pajak',detail.status_pajak],['Unit Kerja',detail.unit_kerja],['Catatan Hutang',detail.catatan_hutang],['Kepemilikan'", 1)
           p.write_text(m)
 
-          # ---------------- AppTransport: restore login UI and fix lint ----------------
+          # ===== AppTransport: restore login screen and remove false unused-state errors =====
           p = Path('frontend/src/AppTransport.jsx')
           a = p.read_text()
-          a = a.replace("const LOGO_LOGIN_URL = `${LOGO_BASE_URL}/logo-login.png`\n", "const LOGO_LOGIN_URL = `${LOGO_BASE_URL}/logo-login.png`\n")
           a = a.replace("  const [exportingPage, setExportingPage] = useState(false)\n", "")
           a = a.replace("    setExportingPage(true)\n", "")
           a = a.replace("      setExportingPage(false)\n", "")
           a = a.replace("      const exportDate = value => value ? new Intl.DateTimeFormat('id-ID').format(new Date(value)) : '-'\n", "")
           a = a.replace("      const money = value => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(value || 0))\n", "")
           a = a.replace("        const serviceMap = Object.fromEntries((rs[0].data || []).map(x => [x.id, x]))\n", "")
-          a = a.replace("['warna','Warna'],['nomor_rangka','Nomor Rangka'],['nomor_mesin','Nomor Mesin'],['status_pajak','Status Pajak']", "['warna','Warna'],['nomor_rangka','Nomor Rangka'],['nomor_mesin','Nomor Mesin'],['masa_berlaku_pajak','Masa Berlaku Pajak'],['status_pajak','Status Pajak'],['unit_kerja','Unit Kerja'],['catatan_hutang','Catatan Hutang']", 1)
-
-          # Add login state screen before authenticated page content. This makes all existing auth state variables live code.
-          marker = "  const pageContent = {"
-          if "Selamat datang di Sistem Transport" not in a:
-              login_block = '''  if (loading) return <div className="auth-screen"><div className="auth-card"><img className="auth-logo" src={LOGO_LOGIN_URL} alt="PT Zaman Teknindo"/><span className="topbar-label">SISTEM TRANSPORT</span><h1>Memuat sistem...</h1><p>Memeriksa sesi pengguna.</p></div></div>
-
-  if (!session || !profile) return <div className="auth-screen"><div className="auth-card"><img className="auth-logo" src={LOGO_LOGIN_URL} alt="PT Zaman Teknindo"/><span className="topbar-label">SISTEM TRANSPORT</span><h1>Selamat datang di Sistem Transport</h1><p>Masuk untuk mengelola operasional transport PT Zaman Teknindo.</p><form onSubmit={handleLogin} className="auth-form"><label>Email<input type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" placeholder="nama@zamangroup.co.id"/></label><label>Password<div className="auth-password"><input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" placeholder="Masukkan password"/><button type="button" onClick={() => setShowPassword(v => !v)}>{showPassword ? 'Sembunyikan' : 'Lihat'}</button></div></label><label className="auth-remember"><input type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)}/><span>Ingat saya di perangkat ini</span></label>{errorMessage && <div className="m-alert error">{errorMessage}</div>}<button type="submit" className="auth-submit" disabled={submitting}>{submitting ? 'Masuk...' : 'Masuk'}</button></form></div></div>
-
-'''
-              assert marker in a, 'pageContent marker missing'
-              a = a.replace(marker, login_block + marker, 1)
+          login_marker = "  const pageContent = {"
+          if 'Selamat datang di Sistem Transport' not in a:
+              block = '''  if (loading) return <div className="auth-screen"><div className="auth-card"><img className="auth-logo" src={LOGO_LOGIN_URL} alt="PT Zaman Teknindo"/><span className="topbar-label">SISTEM TRANSPORT</span><h1>Memuat sistem...</h1><p>Memeriksa sesi pengguna.</p></div></div>\n\n  if (!session || !profile) return <div className="auth-screen"><div className="auth-card"><img className="auth-logo" src={LOGO_LOGIN_URL} alt="PT Zaman Teknindo"/><span className="topbar-label">SISTEM TRANSPORT</span><h1>Selamat datang di Sistem Transport</h1><p>Masuk untuk mengelola operasional transport PT Zaman Teknindo.</p><form onSubmit={handleLogin} className="auth-form"><label>Email<input type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" placeholder="nama@zamangroup.co.id"/></label><label>Password<div className="auth-password"><input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" placeholder="Masukkan password"/><button type="button" onClick={() => setShowPassword(v => !v)}>{showPassword ? 'Sembunyikan' : 'Lihat'}</button></div></label><label className="auth-remember"><input type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)}/><span>Ingat saya di perangkat ini</span></label>{errorMessage && <div className="m-alert error">{errorMessage}</div>}<button type="submit" className="auth-submit" disabled={submitting}>{submitting ? 'Masuk...' : 'Masuk'}</button></form></div></div>\n\n'''
+              assert login_marker in a
+              a = a.replace(login_marker, block + login_marker, 1)
+          a = a.replace("['warna','Warna'],['nomor_rangka','Nomor Rangka'],['nomor_mesin','Nomor Mesin'],['status_pajak','Status Pajak'],['unit_kerja','Unit Kerja'],['catatan_hutang','Catatan Hutang']", "['warna','Warna'],['nomor_rangka','Nomor Rangka'],['nomor_mesin','Nomor Mesin'],['masa_berlaku_pajak','Masa Berlaku Pajak'],['status_pajak','Status Pajak'],['unit_kerja','Unit Kerja'],['catatan_hutang','Catatan Hutang']", 1)
           p.write_text(a)
 
-          # ---------------- Reports + export lint cleanup ----------------
+          # ===== Small lint fixes =====
           p = Path('frontend/src/modules/ReportsFeaturePage.jsx')
-          r = p.read_text().replace("const text = value => value == null || value === '' ? '-' : value\n", "")
-          p.write_text(r)
+          p.write_text(p.read_text().replace("const text = value => value == null || value === '' ? '-' : value\n", ''))
 
           p = Path('frontend/src/utils/exportExcel.js')
-          x = p.read_text().replace(".replace(/[\\\\/:?*\\[\\]]/g, '-')", ".replace(/[\\\\/:?*\\[\]]/g, '-')")
-          # If the exact literal survives unchanged, use a RegExp-free sanitizer equivalent.
-          x = x.replace("    .replace(/[\\\\/:?*\\[\]]/g, '-')", "    .replace(/[\\\\/:?*\\[\]]/g, '-')")
+          x = p.read_text()
+          x = x.replace("    .replace(/[\\\\/:?*\\[\\]]/g, '-')", "    .replace(/[\\\\/:?*[\\[\\]]/g, '-')")
           p.write_text(x)
 
-          # ---------------- Service completion hook correctness ----------------
           p = Path('frontend/src/modules/ServiceCompletionPanel.jsx')
           c = p.read_text()
           c = c.replace("import { useEffect, useMemo, useState } from 'react'", "import { useCallback, useEffect, useMemo, useState } from 'react'")
-          if "const load = useCallback(async () =>" not in c:
-              c = c.replace("  const load = async () => {", "  const load = useCallback(async () => {")
-              c = c.replace("    setLoading(false)\n  }\n\n  useEffect(() => { load() }, [canProcess])", "    setLoading(false)\n  }, [canProcess])\n\n  useEffect(() => { load() }, [canProcess, load])")
+          c = c.replace('  const load = async () => {', '  const load = useCallback(async () => {', 1)
+          c = c.replace('    setLoading(false)\n  }\n\n  useEffect(() => { load() }, [canProcess])', '    setLoading(false)\n  }, [canProcess])\n\n  useEffect(() => { load() }, [canProcess, load])', 1)
           p.write_text(c)
 
-          # ---------------- Migration ----------------
-          mig = Path('supabase/migrations/20260909130000_vehicle_excel_master_columns.sql')
-          mig.write_text('''-- Exact operational columns from Data Kendaraan 07 Mei 2026.\nALTER TABLE public.kendaraan\n  ADD COLUMN IF NOT EXISTS masa_berlaku_pajak date,\n  ADD COLUMN IF NOT EXISTS status_pajak text,\n  ADD COLUMN IF NOT EXISTS unit_kerja text,\n  ADD COLUMN IF NOT EXISTS catatan_hutang text;\n\nCREATE INDEX IF NOT EXISTS idx_kendaraan_masa_berlaku_pajak ON public.kendaraan(masa_berlaku_pajak);\nCREATE INDEX IF NOT EXISTS idx_kendaraan_unit_kerja ON public.kendaraan(unit_kerja);\n''')
+          Path('supabase/migrations/20260909130000_vehicle_excel_master_columns.sql').write_text('''-- Exact operational columns from Data Kendaraan 07 Mei 2026.\nALTER TABLE public.kendaraan\n  ADD COLUMN IF NOT EXISTS masa_berlaku_pajak date,\n  ADD COLUMN IF NOT EXISTS status_pajak text,\n  ADD COLUMN IF NOT EXISTS unit_kerja text,\n  ADD COLUMN IF NOT EXISTS catatan_hutang text;\n\nCREATE INDEX IF NOT EXISTS idx_kendaraan_masa_berlaku_pajak ON public.kendaraan(masa_berlaku_pajak);\nCREATE INDEX IF NOT EXISTS idx_kendaraan_unit_kerja ON public.kendaraan(unit_kerja);\n''')
 
-          # Retire every temporary patch workflow; keep the real verify workflow only.
-          workflows = Path('.github/workflows')
-          for name in ['apply-final-vehicle-import.yml','apply-vehicle-import-fix.yml','fix-import-modal.yml','fix-import-ux.yml','patch-vehicle-source-fields.yml','vehicle-excel-fix.yml','verify-vehicle-excel.yml']:
-              (workflows / name).unlink(missing_ok=True)
+          # Remove all temporary fix workflows; leave only the legitimate verify workflow.
+          wf = Path('.github/workflows')
+          for name in ['apply-final-vehicle-import.yml','apply-vehicle-import-fix.yml','fix-import-modal.yml','fix-import-ux.yml','patch-vehicle-source-fields.yml','vehicle-excel-fix.yml','verify-vehicle-excel.yml','vehicle-excel-fix.yml']:
+              (wf / name).unlink(missing_ok=True)
 
-          # Pre-test source assertions.
+          # Hard assertions before lint/build.
           tools = Path('frontend/src/modules/DataPageTools/index.jsx').read_text()
           master = Path('frontend/src/modules/MasterKendaraanPage.jsx').read_text()
           app = Path('frontend/src/AppTransport.jsx').read_text()
-          assertions = {
-            'auto sheet exact': "kendaraan: ['data kendaraan']" in tools,
-            'manual picker removed': 'dpt-sheet-list' not in tools,
-            'no_pol supported': "'no_pol'" in tools,
-            'tax due imported': "masa_berlaku_pajak: excelDate(valueOf(row, headers, 'masa_berlaku_pajak'))" in tools,
-            'tax status imported': "status_pajak: valueOf(row, headers, 'status_pajak')" in tools,
-            'unit imported': "unit_kerja: valueOf(row, headers, 'unit_kerja')" in tools,
-            'debt note imported': "catatan_hutang: valueOf(row, headers, 'catatan_hutang')" in tools,
-            'master tax field': 'masa_berlaku_pajak' in master,
-            'login restored': 'Selamat datang di Sistem Transport' in app,
-            'migration exists': mig.exists(),
-          }
-          failed = [k for k,v in assertions.items() if not v]
-          if failed: raise SystemExit('Pre-test assertion failed: ' + ', '.join(failed))
-          print('PRE-TEST ASSERTIONS PASSED', assertions)
+          checks = [
+            "kendaraan: ['data kendaraan']" in tools,
+            'dpt-sheet-list' not in tools,
+            "'no_pol'" in tools,
+            "masa_berlaku_pajak: excelDate(valueOf(row, headers, 'masa_berlaku_pajak'))" in tools,
+            "status_pajak: valueOf(row, headers, 'status_pajak')" in tools,
+            "unit_kerja: valueOf(row, headers, 'unit_kerja')" in tools,
+            "catatan_hutang: valueOf(row, headers, 'catatan_hutang')" in tools,
+            'masa_berlaku_pajak' in master,
+            'status_pajak' in master,
+            'unit_kerja' in master,
+            'catatan_hutang' in master,
+            'Selamat datang di Sistem Transport' in app,
+          ]
+          if not all(checks): raise SystemExit(f'Pre-test assertions failed: {checks}')
+          print('ALL PRE-TEST ASSERTIONS PASSED')
           PY
           git diff --check
-
       - name: Lint pass 1
         working-directory: frontend
         run: npm ci && npm run lint
@@ -301,20 +277,16 @@ export default function DataPageTools'''
       - name: Build pass 2
         working-directory: frontend
         run: npm run build
-      - name: Final source assertions
+      - name: Final assertions
         shell: bash
         run: |
           git diff --check
           test -f supabase/migrations/20260909130000_vehicle_excel_master_columns.sql
+          ! test -f .github/workflows/apply-final-vehicle-import.yml
+          ! test -f .github/workflows/fix-import-modal.yml
           grep -q "kendaraan: \['data kendaraan'\]" frontend/src/modules/DataPageTools/index.jsx
           ! grep -q "dpt-sheet-list" frontend/src/modules/DataPageTools/index.jsx
-          grep -q "masa_berlaku_pajak" frontend/src/modules/DataPageTools/index.jsx
-          grep -q "status_pajak" frontend/src/modules/DataPageTools/index.jsx
-          grep -q "unit_kerja" frontend/src/modules/DataPageTools/index.jsx
-          grep -q "catatan_hutang" frontend/src/modules/DataPageTools/index.jsx
-          grep -q "masa_berlaku_pajak" frontend/src/modules/MasterKendaraanPage.jsx
-          grep -q "Selamat datang di Sistem Transport" frontend/src/AppTransport.jsx
-      - name: Commit only after all verification passes
+      - name: Commit only after all tests pass
         shell: bash
         run: |
           git config user.name 'github-actions[bot]'
