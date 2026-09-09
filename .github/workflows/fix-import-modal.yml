@@ -1,0 +1,110 @@
+name: Fix import modal UX
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor == 'muhammadsuryahar-bot'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Replace import modal block
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p = Path('frontend/src/modules/DataPageTools.jsx')
+          s = p.read_text()
+
+          scan_re = re.compile(r"  const scan = async f => \{.*?\n  const start = async", re.S)
+          scan_repl = '''  const scan = async f => {
+    setFile(f); setSheets([]); setSelected(null); setError(''); setMessage('')
+    if (!f) return
+    if (!/\\.xlsx$/i.test(f.name)) { setError('Gunakan file .xlsx.'); return }
+    setLoading(true)
+    try {
+      const parsed = await parseXlsx(f)
+      const scanned = parsed.map(s => {
+        const { index, row } = findHeader(s.rows)
+        return { ...s, headerIndex: index, headers: row, relevant: likelyContext(s.name, s.rows, context) }
+      })
+      const exactNames = {
+        kendaraan: ['data kendaraan'],
+        service: ['data service'],
+        pengajuan: ['permintaan perbaikan'],
+        sewa: ['sewa kendaraan'],
+        dokumen: ['stnk dan kir', 'stnk', 'kir'],
+      }
+      const candidates = (exactNames[context] || []).map(norm)
+      const match = scanned.find(s => candidates.includes(norm(s.name))) || scanned.find(s => s.relevant)
+      setSheets(scanned)
+      if (!match) throw new Error(`Data ${CONTEXT_LABEL[context]} tidak ditemukan pada file Excel ini.`)
+      setSelected(match)
+      setMessage(`Sistem otomatis menggunakan sheet ${match.name} untuk ${CONTEXT_LABEL[context]}.`)
+    } catch (e) { setError(e.message || 'File Excel tidak dapat dibaca.') }
+    finally { setLoading(false) }
+  }
+  const start = async'''
+          s, n = scan_re.subn(scan_repl, s, count=1)
+          if n != 1: raise SystemExit('scan block not found')
+
+          modal_re = re.compile(r"  return <div className=\"dpt-overlay\".*?\n\}\n\nexport default function DataPageTools", re.S)
+          modal = '''  return <div className="dpt-overlay" role="dialog" aria-modal="true" aria-label={`Import ${CONTEXT_LABEL[context]}`}>
+    <section className="dpt-modal">
+      <header>
+        <div>
+          <span className="eyebrow">IMPORT EXCEL</span>
+          <h3>Import {CONTEXT_LABEL[context]}</h3>
+          <p>Upload → sistem memilih data yang sesuai → preview → validasi → cek duplikat → import.</p>
+        </div>
+        <button type="button" className="dpt-icon" onClick={onClose}>×</button>
+      </header>
+      {error && <div className="dpt-alert error">{error}</div>}
+      {message && <div className="dpt-alert success">{message}</div>}
+      <div className="dpt-upload">
+        <input ref={inputRef} type="file" accept=".xlsx" onChange={e => scan(e.target.files?.[0])}/>
+        <button type="button" className="dpt-button primary" onClick={() => inputRef.current?.click()} disabled={loading}>
+          {loading ? 'Membaca Excel...' : file ? file.name : 'Pilih File Excel (.xlsx)'}
+        </button>
+      </div>
+      {file && selected && <>
+        <div className="dpt-auto-sheet">
+          <b>Data yang dipakai: {selected.name}</b>
+          <span>Sistem memilih otomatis berdasarkan halaman.</span>
+        </div>
+        <div className="dpt-preview">
+          <div className="dpt-sheet-title"><b>Preview Data</b><span>maks. 8 baris</span></div>
+          <div className="dpt-preview-wrap">
+            <table>
+              <thead><tr>{selected.headers.map((h,i)=><th key={`${h}-${i}`}>{h || `Kolom ${i+1}`}</th>)}</tr></thead>
+              <tbody>{selected.rows.slice(selected.headerIndex + 1, selected.headerIndex + 9).map((row,r)=><tr key={r}>{selected.headers.map((_,c)=><td key={c}>{clean(row[c]) || '-'}</td>)}</tr>)}</tbody>
+            </table>
+          </div>
+        </div>
+      </>}
+      {file && !selected && !error && <div className="dpt-note">Sistem sedang mencari data yang sesuai...</div>}
+      <div className="dpt-actions">
+        <button type="button" className="dpt-button" onClick={onClose}>Batal</button>
+        <button type="button" className="dpt-button primary" onClick={start} disabled={!selected || saving || !canImport}>
+          {saving ? 'Mengimport...' : `Import ${CONTEXT_LABEL[context]}`}
+        </button>
+      </div>
+    </section>
+  </div>
+}
+
+export default function DataPageTools'''
+          s, n = modal_re.subn(modal, s, count=1)
+          if n != 1: raise SystemExit('modal block not found')
+          p.write_text(s)
+          PY
+      - name: Remove temp workflow and commit
+        run: |
+          rm -f .github/workflows/fix-import-modal.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add frontend/src/modules/DataPageTools.jsx .github/workflows/fix-import-modal.yml
+          git commit -m "fix: auto-select workbook data for each transport page"
+          git push origin main
