@@ -1,0 +1,130 @@
+name: Fix vehicle Excel import mapping
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor == 'muhammadsuryahar-bot'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch importer
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path('frontend/src/modules/DataPageTools.jsx')
+          s = p.read_text()
+
+          old = "  kilometer: ['km', 'kilometer', 'kilometer_pengajuan', 'km_terakhir'],"
+          new = old + "\n  driver: ['driver', 'nama_driver'],"
+          if old in s and "driver: ['driver', 'nama_driver']" not in s:
+              s = s.replace(old, new)
+
+          pattern = re.compile(r"async function importKendaraan\(sheet, profile\) \{.*?\n\}\n\nasync function importService", re.S)
+          replacement = r'''async function importKendaraan(sheet, profile) {
+  const { index, row: headerRow } = findHeader(sheet.rows), headers = headerRow
+  const rows = sheet.rows.slice(index + 1).filter(r => r.some(v => clean(v)))
+  if (!headers.some(h => ['nomor_polisi', 'no_polisi', 'plat', 'no_plat'].includes(norm(h)))) throw new Error('Kolom Nomor Polisi tidak ditemukan pada sheet kendaraan.')
+  if (!headers.some(h => ['merk', 'brand'].includes(norm(h)))) throw new Error('Kolom Merk/Brand tidak ditemukan pada sheet kendaraan.')
+
+  const [existingResult, driverResult] = await Promise.all([
+    supabase.from('kendaraan').select('id,nomor_polisi,kode_kendaraan'),
+    supabase.from('driver').select('id,nama_lengkap'),
+  ])
+  if (existingResult.error) throw existingResult.error
+  if (driverResult.error) throw driverResult.error
+
+  const existingByPlate = Object.fromEntries((existingResult.data || []).map(v => [clean(v.nomor_polisi).toUpperCase(), v]))
+  const existingCodes = new Set((existingResult.data || []).map(v => clean(v.kode_kendaraan).toUpperCase()).filter(Boolean))
+  const driverByName = Object.fromEntries((driverResult.data || []).map(d => [clean(d.nama_lengkap).toUpperCase(), d]))
+  const seen = new Set()
+  const prepared = []
+  let skipped = 0
+
+  for (const row of rows) {
+    const plate = valueOf(row, headers, 'nomor_polisi').toUpperCase()
+    if (!plate || seen.has(plate)) { skipped += 1; continue }
+    const merk = valueOf(row, headers, 'merk')
+    if (!merk) { skipped += 1; continue }
+    seen.add(plate)
+
+    // In the source workbook, the column named "Status" contains Aset/Sewa.
+    // That is ownership, not the application's operational status.
+    const sourceStatusIndex = headers.findIndex(h => norm(h) === 'status')
+    const ownershipSource = clean(sourceStatusIndex >= 0 ? row[sourceStatusIndex] : '').toUpperCase()
+    const isRental = ownershipSource === 'SEWA'
+    const owner = valueOf(row, headers, 'pemilik') || null
+    const ownerUpper = clean(owner).toUpperCase()
+    const rentalType = isRental
+      ? (/^(PT|CV|UD|PD|KOPERASI|YAYASAN)\b|\bRENTAL\b|\bCAR\s+RENTAL\b/.test(ownerUpper) ? 'SEWA_RENTAL' : 'SEWA_PERORANGAN')
+      : null
+    const driverName = valueOf(row, headers, 'driver')
+    const driverId = driverByName[clean(driverName).toUpperCase()]?.id || null
+    let code = (valueOf(row, headers, 'kode_kendaraan') || `IMP-${plate.replace(/\W+/g,'')}`).toUpperCase()
+    const current = existingByPlate[plate]
+    if (!current && existingCodes.has(code)) code = `${code}-${plate.replace(/\W+/g,'')}`
+    if (!current) existingCodes.add(code)
+
+    prepared.push({
+      existingId: current?.id || null,
+      payload: {
+        kode_kendaraan: current ? (valueOf(row, headers, 'kode_kendaraan') || current.kode_kendaraan).toUpperCase() : code,
+        nomor_polisi: plate,
+        merk,
+        tipe: valueOf(row, headers, 'tipe') || null,
+        jenis_kendaraan: valueOf(row, headers, 'jenis_kendaraan') || null,
+        tahun: numberValue(valueOf(row, headers, 'tahun')) || null,
+        nomor_mesin: valueOf(row, headers, 'nomor_mesin') || null,
+        nomor_rangka: valueOf(row, headers, 'nomor_rangka') || null,
+        pemilik: owner,
+        driver_id: driverId,
+        lokasi: valueOf(row, headers, 'lokasi') || null,
+        kilometer_terakhir: numberValue(valueOf(row, headers, 'kilometer')) ?? 0,
+        kepemilikan: isRental ? 'SEWA' : 'ASET_KANTOR',
+        jenis_sewa: rentalType,
+        status: 'ACTIVE',
+        keterangan: valueOf(row, headers, 'keterangan') || null,
+      },
+    })
+  }
+
+  if (!prepared.length) throw new Error('Tidak ada baris kendaraan valid yang siap diimport.')
+
+  let added = 0, updated = 0
+  for (const item of prepared) {
+    const r = item.existingId
+      ? await supabase.from('kendaraan').update(item.payload).eq('id', item.existingId)
+      : await supabase.from('kendaraan').insert(item.payload)
+    if (r.error) throw new Error(`Gagal menyimpan kendaraan ${item.payload.nomor_polisi}: ${r.error.message}`)
+    if (item.existingId) updated += 1
+    else added += 1
+  }
+  return `${added} kendaraan baru, ${updated} diperbarui, ${skipped} dilewati.`
+}
+
+async function importService'''
+
+          if not pattern.search(s):
+              raise SystemExit('importKendaraan block not found')
+          s = pattern.sub(replacement, s, count=1)
+          p.write_text(s)
+          PY
+
+      - name: Verify source
+        run: |
+          grep -n "async function importKendaraan" frontend/src/modules/DataPageTools.jsx
+          grep -n "sourceStatusIndex" frontend/src/modules/DataPageTools.jsx
+
+      - name: Commit fix and remove temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -f .github/workflows/fix-vehicle-import.yml
+          git add frontend/src/modules/DataPageTools.jsx .github/workflows/fix-vehicle-import.yml
+          git diff --cached --quiet && exit 0
+          git commit -m "fix: map vehicle Excel status to ownership safely"
+          git push origin main
