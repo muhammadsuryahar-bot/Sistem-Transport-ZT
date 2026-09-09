@@ -5,6 +5,7 @@ import KendaraanPage from './modules/KendaraanPage'
 import PermintaanServicePage from './modules/PermintaanServicePage'
 import DashboardFeaturePage from './modules/DashboardFeaturePage'
 import { ServicePage, RentalPage, DocumentsPage, ReportsPage, UsersPage } from './modules/TransportOperationsPage'
+import ImportExcelPage from './modules/ImportExcelPage'
 import './App.css'
 
 const REMEMBERED_EMAIL_KEY = 'transport_remembered_email'
@@ -14,8 +15,8 @@ const LOGO_MARK_URL = `${LOGO_BASE_URL}/logo.png`
 
 const ROLE_LABELS = { ADMIN: 'Administrator', TRANSPORT: 'Transport', OPERASIONAL: 'Operasional', ATASAN_TRANSPORT: 'Atasan Transport', DIREKTUR: 'Direktur', AKUNTANSI: 'Akuntansi' }
 const ROLE_ACCESS = {
-  ADMIN: ['dashboard', 'kendaraan', 'pengajuan', 'service', 'sewa', 'dokumen', 'laporan', 'pengguna'],
-  TRANSPORT: ['dashboard', 'kendaraan', 'pengajuan', 'service', 'sewa', 'dokumen', 'laporan'],
+  ADMIN: ['dashboard', 'kendaraan', 'pengajuan', 'service', 'sewa', 'dokumen', 'laporan', 'pengguna', 'import'],
+  TRANSPORT: ['dashboard', 'kendaraan', 'pengajuan', 'service', 'sewa', 'dokumen', 'laporan', 'import'],
   OPERASIONAL: ['dashboard', 'pengajuan'],
   ATASAN_TRANSPORT: ['dashboard', 'pengajuan', 'service', 'laporan'],
   DIREKTUR: ['dashboard', 'service', 'laporan'],
@@ -30,6 +31,7 @@ const NAV_ITEMS = [
   { id: 'dokumen', label: 'Dokumen', icon: 'document' },
   { id: 'laporan', label: 'Laporan', icon: 'report' },
   { id: 'pengguna', label: 'Pengguna', icon: 'user' },
+  { id: 'import', label: 'Import Excel', icon: 'document' },
 ]
 
 const columns = keys => keys.map(([key, label]) => ({ key, label }))
@@ -144,7 +146,7 @@ function AppTransport() {
     }
   }
 
-  const pageContent = { dashboard: <DashboardFeaturePage profile={profile} onNavigate={setActivePage}/>, kendaraan: <KendaraanPage profile={profile}/>, pengajuan: <PermintaanServicePage profile={profile}/>, service: <ServicePage profile={profile}/>, sewa: <RentalPage profile={profile}/>, dokumen: <DocumentsPage profile={profile}/>, laporan: <ReportsPage />, pengguna: <UsersPage /> }
+  const pageContent = { dashboard: <DashboardFeaturePage profile={profile} onNavigate={setActivePage}/>, kendaraan: <KendaraanPage profile={profile}/>, pengajuan: <PermintaanServicePage profile={profile}/>, service: <ServicePage profile={profile}/>, sewa: <RentalPage profile={profile}/>, dokumen: <DocumentsPage profile={profile}/>, laporan: <ReportsPage />, pengguna: <UsersPage />, import: <ImportExcelPage profile={profile}/> }
   const canExportCurrentPage = ['kendaraan', 'pengajuan', 'service', 'sewa', 'dokumen'].includes(activePage)
   return <div className="dashboard-layout">{sidebarOpen && <button className="sidebar-overlay" onClick={() => setSidebarOpen(false)} aria-label="Tutup menu"/>}<aside className={`sidebar ${sidebarOpen ? 'sidebar-open' : ''}`}><div className="sidebar-brand"><div className="sidebar-brand-mark"><img src={LOGO_MARK_URL} alt=""/></div><div className="sidebar-brand-copy"><strong>PT ZAMAN TEKNINDO</strong><span>Sistem Transport</span></div></div><div className="nav-section-label">MENU UTAMA</div><nav className="sidebar-nav" aria-label="Navigasi utama">{visibleNavItems.map((item) => <button key={item.id} className={`nav-item ${activePage === item.id ? 'active' : ''}`} onClick={() => { setActivePage(item.id); setSidebarOpen(false) }}><span className="nav-icon" data-icon={item.icon} aria-hidden="true"/><span>{item.label}</span></button>)}</nav><div className="sidebar-bottom"><div className="user-mini"><div className="avatar">{(profile?.nama_lengkap || profile?.email || 'U').charAt(0).toUpperCase()}</div><div className="user-mini-text"><strong>{profile?.nama_lengkap || 'Pengguna'}</strong><span>{ROLE_LABELS[profile?.role] || profile?.role}</span></div></div><button className="logout-button" onClick={handleLogout} disabled={submitting}>Keluar</button></div></aside><main className="main-content"><header className="topbar"><button className="menu-button" onClick={() => setSidebarOpen(true)} aria-label="Buka menu">☰</button><div><span className="topbar-label">SISTEM TRANSPORT</span><h1>{NAV_ITEMS.find((item) => item.id === activePage)?.label || 'Dashboard'}</h1></div>{canExportCurrentPage && <button className="topbar-export" onClick={exportCurrentPage} disabled={exportingPage} title={`Export ${NAV_ITEMS.find((item) => item.id === activePage)?.label || 'data'} ke Excel`}><span className="export-icon">⇩</span><span className="export-label">Export Excel</span></button>}<div className="topbar-user"><div className="avatar">{(profile?.nama_lengkap || profile?.email || 'U').charAt(0).toUpperCase()}</div><div><strong>{profile?.nama_lengkap || profile?.email}</strong><span>{ROLE_LABELS[profile?.role] || profile?.role}</span></div></div></header><div className="content-container">{pageContent[activePage] || pageContent.dashboard}</div></main></div>
 }
