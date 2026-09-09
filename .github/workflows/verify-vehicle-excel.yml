@@ -1,1 +1,75 @@
-x
+name: Verify and apply exact Excel vehicle mapping
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch-and-verify:
+    if: github.actor == 'muhammadsuryahar-bot' && !contains(github.event.head_commit.message, '[vehicle-excel-verified]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Patch and verify
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('frontend/src/modules/DataPageTools.jsx')
+          s = p.read_text()
+          if "masa_berlaku_pajak:" not in s:
+              s = s.replace("  kilometer: ['km', 'kilometer', 'kilometer_pengajuan', 'km_terakhir'],\n", "  kilometer: ['km', 'kilometer', 'kilometer_pengajuan', 'km_terakhir'],\n  masa_berlaku_pajak: ['masa_berlaku_pajak', 'masa_pajak', 'masa_berlaku_pajak_'],\n  status_pajak: ['status_pajak', 'status_pajak_'],\n  unit_kerja: ['unit_kerja', 'pengunaan_unit', 'penggunaan_unit', 'unit_kerja_'],\n  catatan_hutang: ['catatan_hutang', 'catatan_hutang_'],\n", 1)
+          old = "const RELEVANT_SHEETS = {\n  kendaraan: ['kendaraan', 'list kendaraan', 'data kendaraan'],\n  service: ['data service', 'service'],\n  dokumen: ['stnk', 'stnk dan kir', 'kir'],\n  pengajuan: ['pengajuan perbaikan', 'permintaan perbaikan', 'permintaan service'],\n  sewa: ['sewa kendaraan', 'sewa kendaraan'],\n}"
+          new = "const SHEET_PRIORITY = {\n  kendaraan: ['data kendaraan', 'list kendaraan'],\n  service: ['data service'],\n  dokumen: ['stnk dan kir', 'stnk'],\n  pengajuan: ['pengajuan perbaikan', 'permintaan perbaikan'],\n  sewa: ['sewa kendaraan'],\n}"
+          if old in s: s=s.replace(old,new,1)
+          start=s.index('function likelyContext('); end=s.index('\nasync function importKendaraan',start)
+          s=s[:start]+'''function likelyContext(name, rows, wanted) {\n  const n = norm(name)\n  if ((SHEET_PRIORITY[wanted] || []).some(k => n === norm(k))) return true\n  const h = findHeader(rows).row.map(norm)\n  const score = {\n    kendaraan: ['no_pol', 'no_polisi', 'nomor_polisi', 'merk', 'type', 'tipe', 'pemilik'].filter(x => h.includes(x)).length,\n    service: ['no_polisi', 'jenis_pekerjan', 'uraian', 'qty', 'sat', 'harga_satuan_rp', 'nilai_dpp', 'ppn'].filter(x => h.includes(x)).length,\n    dokumen: ['no_polisi', 'stnk', 'kir', '5_tahun'].filter(x => h.includes(x)).length,\n    pengajuan: ['no_polisi', 'keluhan', 'jenis_permintaan', 'tanggal'].filter(x => h.includes(x)).length,\n    sewa: ['nomor_kontrak', 'no_polisi', 'nama_pemilik', 'nilai_sewa_bulanan'].filter(x => h.includes(x)).length,\n  }\n  return score[wanted] >= 3\n}\nfunction chooseSheet(parsed, context) {\n  const exact = (SHEET_PRIORITY[context] || []).map(norm)\n  const match = parsed.find(s => exact.includes(norm(s.name)))\n  if (match) return match\n  return parsed.find(s => likelyContext(s.name, s.rows, context)) || null\n}\n''' + s[end:]
+          start=s.index('async function importKendaraan('); end=s.index('\nasync function importService',start)
+          s=s[:start]+'''async function importKendaraan(sheet, profile) {\n  const { index, row: headerRow } = findHeader(sheet.rows), headers = headerRow\n  const rows = sheet.rows.slice(index + 1).filter(r => r.some(v => clean(v)))\n  const headerKeys = headers.map(norm)\n  if (!['no_pol','no_polisi','nomor_polisi','plat','no_plat'].some(k => headerKeys.includes(k))) throw new Error('Kolom No. Pol dari Excel tidak ditemukan.')\n  if (!headerKeys.includes('merk')) throw new Error('Kolom Merk dari Excel tidak ditemukan.')\n  const [existingResult, driverResult] = await Promise.all([\n    supabase.from('kendaraan').select('id,nomor_polisi,kode_kendaraan'),\n    supabase.from('driver').select('id,nama_lengkap'),\n  ])\n  if (existingResult.error) throw existingResult.error\n  if (driverResult.error) throw driverResult.error\n  const existingByPlate = Object.fromEntries((existingResult.data || []).map(v => [clean(v.nomor_polisi).toUpperCase(), v]))\n  const existingCodes = new Set((existingResult.data || []).map(v => clean(v.kode_kendaraan).toUpperCase()).filter(Boolean))\n  const driverByName = Object.fromEntries((driverResult.data || []).map(d => [clean(d.nama_lengkap).toUpperCase(), d]))\n  const seen = new Set(), prepared = []\n  let skipped = 0\n  const statusIndex = headers.findIndex(h => norm(h) === 'status')\n  for (const row of rows) {\n    const plate = valueOf(row, headers, 'nomor_polisi').toUpperCase()\n    if (!plate || seen.has(plate)) { skipped += 1; continue }\n    const merk = valueOf(row, headers, 'merk')\n    if (!merk) { skipped += 1; continue }\n    seen.add(plate)\n    const ownershipSource = clean(statusIndex >= 0 ? row[statusIndex] : '').toUpperCase()\n    const isRental = ownershipSource === 'SEWA'\n    const owner = valueOf(row, headers, 'pemilik') || null\n    const ownerUpper = clean(owner).toUpperCase()\n    const rentalType = isRental ? (/^(PT|CV|UD|PD|KOPERASI|YAYASAN)\\b|\\bRENTAL\\b|\\bCAR\\s+RENTAL\\b/.test(ownerUpper) ? 'SEWA_RENTAL' : 'SEWA_PERORANGAN') : null\n    const driverName = valueOf(row, headers, 'driver')\n    const driverId = driverByName[clean(driverName).toUpperCase()]?.id || null\n    let code = (valueOf(row, headers, 'kode_kendaraan') || `IMP-${plate.replace(/\\W+/g,'')}`).toUpperCase()\n    const current = existingByPlate[plate]\n    if (!current && existingCodes.has(code)) code = `${code}-${plate.replace(/\\W+/g,'')}`\n    if (!current) existingCodes.add(code)\n    prepared.push({\n      existingId: current?.id || null,\n      payload: {\n        kode_kendaraan: current ? (valueOf(row, headers, 'kode_kendaraan') || current.kode_kendaraan).toUpperCase() : code,\n        nomor_polisi: plate, merk, tipe: valueOf(row, headers, 'tipe') || null,\n        jenis_kendaraan: valueOf(row, headers, 'jenis_kendaraan') || null, tahun: numberValue(valueOf(row, headers, 'tahun')) || null,\n        nomor_mesin: valueOf(row, headers, 'nomor_mesin') || null, nomor_rangka: valueOf(row, headers, 'nomor_rangka') || null,\n        pemilik: owner, driver_id: driverId, lokasi: valueOf(row, headers, 'lokasi') || null,\n        masa_berlaku_pajak: excelDate(valueOf(row, headers, 'masa_berlaku_pajak')),\n        status_pajak: valueOf(row, headers, 'status_pajak') || null,\n        unit_kerja: valueOf(row, headers, 'unit_kerja') || null,\n        catatan_hutang: valueOf(row, headers, 'catatan_hutang') || null,\n        kilometer_terakhir: 0, kepemilikan: isRental ? 'SEWA' : 'ASET_KANTOR', jenis_sewa: rentalType, status: 'ACTIVE',\n        keterangan: valueOf(row, headers, 'keterangan') || null,\n      },\n    })\n  }\n  if (!prepared.length) throw new Error('Tidak ada baris kendaraan valid yang siap diimport.')\n  let added = 0, updated = 0\n  for (const item of prepared) {\n    const r = item.existingId ? await supabase.from('kendaraan').update(item.payload).eq('id', item.existingId) : await supabase.from('kendaraan').insert(item.payload)\n    if (r.error) throw new Error(`Gagal menyimpan kendaraan ${item.payload.nomor_polisi}: ${r.error.message}`)\n    if (item.existingId) updated += 1; else added += 1\n  }\n  return `${added} kendaraan baru, ${updated} diperbarui, ${skipped} dilewati karena duplikat/kosong.`\n}\n''' + s[end:]
+          start=s.index('function ExcelImportModal('); end=s.index('\nexport default function DataPageTools',start)
+          s=s[:start]+'''function ExcelImportModal({ context, profile, onDone, onClose }) {\n  const inputRef = useRef(null)\n  const [file, setFile] = useState(null), [selected, setSelected] = useState(null), [loading, setLoading] = useState(false), [saving, setSaving] = useState(false), [error, setError] = useState(''), [message, setMessage] = useState('')\n  const canImport = ['ADMIN','TRANSPORT'].includes(profile?.role)\n  const scan = async f => {\n    setFile(f); setSelected(null); setError(''); setMessage('')\n    if (!f) return\n    if (!/\\.xlsx$/i.test(f.name)) { setError('Gunakan file .xlsx.'); return }\n    setLoading(true)\n    try { const parsed = await parseXlsx(f); const chosen = chooseSheet(parsed, context); if (!chosen) throw new Error(`Format Excel tidak dikenali untuk ${CONTEXT_LABEL[context]}.`); const { index, row } = findHeader(chosen.rows); setSelected({ ...chosen, headerIndex: index, headers: row }); setMessage(`Sheet "${chosen.name}" dipilih otomatis untuk ${CONTEXT_LABEL[context]}.`) }\n    catch (e) { setError(e.message || 'File Excel tidak dapat dibaca.') }\n    finally { setLoading(false) }\n  }\n  const start = async () => { if (!selected || !canImport) return; setSaving(true); setError(''); setMessage(''); try { let result; if (context === 'kendaraan') result = await importKendaraan(selected, profile); else if (context === 'service') result = await importService(selected, profile); else if (context === 'dokumen') result = await importDokumen(selected, profile); else if (context === 'pengajuan') result = await importPengajuan(selected, profile); else result = await importSewa(selected, profile); setMessage(`Import ${CONTEXT_LABEL[context]} berhasil. ${result}`); onDone?.() } catch (e) { setError(e.message || 'Import gagal. Periksa hasil sebelum mengulang.') } finally { setSaving(false) } }\n  return <div className="dpt-overlay" role="dialog" aria-modal="true" aria-label={`Import ${CONTEXT_LABEL[context]}`}><section className="dpt-modal"><header><div><span className="eyebrow">IMPORT EXCEL</span><h3>Import {CONTEXT_LABEL[context]}</h3><p>Upload → sistem memilih sheet otomatis → preview → validasi → cek duplikat → import.</p></div><button type="button" className="dpt-icon" onClick={onClose}>×</button></header>{error && <div className="dpt-alert error">{error}</div>}{message && <div className="dpt-alert success">{message}</div>}<div className="dpt-upload"><input ref={inputRef} type="file" accept=".xlsx" onChange={e => scan(e.target.files?.[0])}/><button type="button" className="dpt-button primary" onClick={() => inputRef.current?.click()} disabled={loading}>{loading ? 'Membaca Excel...' : file ? file.name : 'Pilih File Excel (.xlsx)'}</button></div>{selected && <div className="dpt-preview"><div className="dpt-sheet-title"><b>Data yang akan diimport</b><span>{selected.name}</span></div><div className="dpt-preview-wrap"><table><thead><tr>{selected.headers.map((h,i)=><th key={`${h}-${i}`}>{h || `Kolom ${i+1}`}</th>)}</tr></thead><tbody>{selected.rows.slice(selected.headerIndex + 1, selected.headerIndex + 9).map((row,r)=><tr key={r}>{selected.headers.map((_,c)=><td key={c}>{clean(row[c]) || '-'}</td>)}</tr>)}</tbody></table></div></div>}<div className="dpt-actions"><button type="button" className="dpt-button" onClick={onClose}>Batal</button><button type="button" className="dpt-button primary" onClick={start} disabled={!selected || saving || !canImport}>{saving ? 'Mengimport...' : `Import ${CONTEXT_LABEL[context]}`}</button></div></section></div>\n}\n''' + s[end:]
+          p.write_text(s)
+          p = Path('frontend/src/modules/MasterKendaraanPage.jsx'); s = p.read_text()
+          if 'masa_berlaku_pajak' not in s.split('const DRIVER_EMPTY')[0]: s=s.replace("  status_pajak: '', unit_kerja: '', catatan_hutang: '',", "  masa_berlaku_pajak: '', status_pajak: '', unit_kerja: '', catatan_hutang: '',",1)
+          if 'masa_berlaku_pajak,status_pajak' not in s: s=s.replace("nomor_rangka,nomor_mesin,status_pajak", "nomor_rangka,nomor_mesin,masa_berlaku_pajak,status_pajak",1)
+          if 'masa_berlaku_pajak: vehicleForm.masa_berlaku_pajak' not in s: s=s.replace("lokasi: vehicleForm.lokasi.trim() || null, status_pajak:", "lokasi: vehicleForm.lokasi.trim() || null, masa_berlaku_pajak: vehicleForm.masa_berlaku_pajak || null, status_pajak:",1)
+          if "['masa_berlaku_pajak','Masa Berlaku Pajak']" not in s: s=s.replace("['nomor_mesin','Nomor Mesin'],['status_pajak'", "['nomor_mesin','Nomor Mesin'],['masa_berlaku_pajak','Masa Berlaku Pajak'],['status_pajak'",1)
+          p.write_text(s)
+          p=Path('frontend/src/AppTransport.jsx'); s=p.read_text()
+          token="['nomor_rangka','Nomor Rangka'],['nomor_mesin','Nomor Mesin'],['kepemilikan'"
+          repl="['nomor_rangka','Nomor Rangka'],['nomor_mesin','Nomor Mesin'],['masa_berlaku_pajak','Masa Berlaku Pajak'],['status_pajak','Status Pajak'],['unit_kerja','Unit Kerja'],['catatan_hutang','Catatan Hutang'],['kepemilikan'"
+          if token in s: s=s.replace(token,repl,1)
+          p.write_text(s)
+          PY
+      - name: Add source column migration
+        shell: bash
+        run: |
+          cat > supabase/migrations/20260909120000_vehicle_source_columns.sql <<'SQL'
+          ALTER TABLE public.kendaraan
+            ADD COLUMN IF NOT EXISTS masa_berlaku_pajak date,
+            ADD COLUMN IF NOT EXISTS status_pajak text,
+            ADD COLUMN IF NOT EXISTS unit_kerja text,
+            ADD COLUMN IF NOT EXISTS catatan_hutang text;
+          CREATE INDEX IF NOT EXISTS idx_kendaraan_unit_kerja ON public.kendaraan(unit_kerja);
+          CREATE INDEX IF NOT EXISTS idx_kendaraan_masa_pajak ON public.kendaraan(masa_berlaku_pajak);
+          SQL
+      - name: Lint
+        working-directory: frontend
+        run: npm ci && npm run lint
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+      - name: Commit final after tests pass
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -f .github/workflows/verify-vehicle-excel.yml
+          git add frontend/src/modules/DataPageTools.jsx frontend/src/modules/MasterKendaraanPage.jsx frontend/src/AppTransport.jsx supabase/migrations/20260909120000_vehicle_source_columns.sql .github/workflows/verify-vehicle-excel.yml
+          git commit -m "fix: exact vehicle Excel mapping [vehicle-excel-verified]"
+          git push origin main
