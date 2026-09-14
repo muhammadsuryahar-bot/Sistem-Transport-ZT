@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import UnifiedExcelImportModal from './UnifiedExcelImportModal.jsx'
 import VehicleExcelImportModal from './VehicleExcelImportModal.jsx'
+import ServiceHistoryImportModal from './ServiceHistoryImportModal.jsx'
 import './DataPageTools.css'
 
 const CONTEXT_LABEL = {
@@ -32,7 +33,9 @@ export default function DataPageTools({ context, profile, onExport }) {
   return <>
     {showImport && (context === 'kendaraan'
       ? <VehicleExcelImportModal profile={profile} onClose={closeImport} onDone={finishImport} />
-      : <UnifiedExcelImportModal context={context} profile={profile} onClose={closeImport} onDone={finishImport} />
+      : context === 'service'
+        ? <ServiceHistoryImportModal profile={profile} onClose={closeImport} onDone={finishImport} />
+        : <UnifiedExcelImportModal context={context} profile={profile} onClose={closeImport} onDone={finishImport} />
     )}
     <div className="dpt-toolbar">
       <div><span className="eyebrow">DATA</span><b>{CONTEXT_LABEL[context]}</b></div>
