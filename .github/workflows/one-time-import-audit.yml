@@ -1,0 +1,36 @@
+name: One-time import audit patch
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor == 'muhammadsuryahar-bot' && !contains(github.event.head_commit.message, '[import-audit-done]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch vehicle import report persistence
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('frontend/src/modules/VehicleExcelImportModal.jsx')
+          s = p.read_text()
+          old = "try { const result = await importVehicleRows(workbook.valid, profile); setMessage(`Import selesai: ${result.uniqueVehicles} kendaraan unik diproses • ${result.added} baru • ${result.updated} diperbarui • ${result.mergedDuplicates} duplikat digabung • ${result.driversCreated} driver dibuat.`); onDone?.() }"
+          new = "try { const result = await importVehicleRows(workbook.valid, profile); const report = { context: 'kendaraan', ...result, completedAt: new Date().toISOString() }; sessionStorage.setItem('transport_import_report', JSON.stringify(report)); setMessage(`Import selesai: ${result.uniqueVehicles} kendaraan unik diproses • ${result.added} baru • ${result.updated} diperbarui • ${result.mergedDuplicates} duplikat digabung • ${result.driversCreated} driver dibuat.`); onDone?.(report) }"
+          if old not in s:
+              raise SystemExit('vehicle import success block not found')
+          p.write_text(s.replace(old, new, 1))
+          PY
+      - name: Remove one-time workflow
+        shell: bash
+        run: rm -f .github/workflows/one-time-import-audit.yml
+      - name: Commit patch
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add frontend/src/modules/VehicleExcelImportModal.jsx .github/workflows/one-time-import-audit.yml
+          git commit -m "fix import audit report [import-audit-done]"
+          git push
