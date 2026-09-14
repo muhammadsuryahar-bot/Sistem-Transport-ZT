@@ -1,0 +1,323 @@
+name: Apply vehicle workbook field mapping
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor == 'muhammadsuryahar-bot'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Patch workbook field mapping and auto sheet selection
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          # ---------------- DataPageTools ----------------
+          p = Path('frontend/src/modules/DataPageTools.jsx')
+          s = p.read_text()
+
+          s = s.replace(
+              "const EXACT_SHEETS = {\n  kendaraan: ['data kendaraan'],",
+              "const EXACT_SHEETS = {\n  kendaraan: ['data kendaraan', 'list kendaraan'],"
+          )
+
+          # Insert context-aware data row helper before importKendaraan.
+          marker = "async function importKendaraan(sheet) {"
+          helper = r'''function contextRows(sheet, context) {
+  const { index, row: headers } = findHeader(sheet.rows)
+  const rows = sheet.rows.slice(index + 1).filter(r => r.some(v => clean(v)))
+  const has = key => headers.some(h => aliases[key]?.includes(norm(h)))
+  if (context === 'kendaraan') return rows.filter(r => valueOf(r, headers, 'nomor_polisi'))
+  if (context === 'service') return rows.filter(r => valueOf(r, headers, 'nomor_polisi') && valueOf(r, headers, 'tanggal'))
+  if (context === 'dokumen') return rows.filter(r => valueOf(r, headers, 'nomor_polisi'))
+  if (context === 'pengajuan') return rows.filter(r => valueOf(r, headers, 'nomor_polisi') || valueOf(r, headers, 'keluhan'))
+  if (context === 'sewa') return rows.filter(r => valueOf(r, headers, 'nomor_kontrak') || valueOf(r, headers, 'nomor_polisi'))
+  return rows
+}
+
+function pickSheet(parsed, context) {
+  const priorities = (EXACT_SHEETS[context] || []).map(norm)
+  for (const wanted of priorities) {
+    const exact = parsed.find(s => norm(s.name) === wanted)
+    if (exact) return exact
+  }
+  for (const wanted of priorities) {
+    const fuzzy = parsed.find(s => norm(s.name).includes(wanted))
+    if (fuzzy) return fuzzy
+  }
+  return null
+}
+
+'''
+          if helper not in s:
+              s = s.replace(marker, helper + marker, 1)
+
+          # Replace the vehicle importer so ALL meaningful source columns are preserved.
+          pattern = re.compile(r"async function importKendaraan\(sheet\) \{.*?\n\}\n\nasync function importService", re.S)
+          replacement = r'''async function importKendaraan(sheet) {
+  const { index, row: headers } = findHeader(sheet.rows)
+  const rows = contextRows(sheet, 'kendaraan')
+  const h = headers.map(norm)
+  const required = [
+    ['No. Pol', ['nomor_polisi','no_polisi','no_pol','plat','no_plat']],
+    ['Merk', ['merk','brand']],
+    ['Type', ['tipe','type']],
+    ['Jenis', ['jenis','jenis_kendaraan']],
+  ]
+  for (const [label, candidates] of required) {
+    if (!candidates.some(k => h.includes(k))) throw new Error(`Kolom "${label}" pada sheet kendaraan tidak ditemukan.`)
+  }
+
+  const [vehiclesResult, driversResult] = await Promise.all([
+    supabase.from('kendaraan').select('id,nomor_polisi,kode_kendaraan'),
+    supabase.from('driver').select('id,nama_lengkap'),
+  ])
+  if (vehiclesResult.error) throw vehiclesResult.error
+  if (driversResult.error) throw driversResult.error
+
+  const existingByPlate = Object.fromEntries((vehiclesResult.data || []).map(v => [clean(v.nomor_polisi).toUpperCase(), v]))
+  const existingCodes = new Set((vehiclesResult.data || []).map(v => clean(v.kode_kendaraan).toUpperCase()).filter(Boolean))
+  const driverByName = Object.fromEntries((driversResult.data || []).map(d => [clean(d.nama_lengkap).toUpperCase(), d]))
+  const seen = new Set()
+  let added = 0
+  let updated = 0
+  let skipped = 0
+  let driversCreated = 0
+
+  for (const row of rows) {
+    const plate = valueOf(row, headers, 'nomor_polisi').toUpperCase()
+    if (!plate || seen.has(plate)) { skipped += 1; continue }
+    const merk = valueOf(row, headers, 'merk')
+    if (!merk) { skipped += 1; continue }
+    seen.add(plate)
+
+    // Workbook column "Status" is ownership: Aset / Sewa. It is NOT the operational status.
+    const statusIndex = headers.findIndex(hx => norm(hx) === 'status' || norm(hx) === 'status_')
+    const ownershipSource = clean(statusIndex >= 0 ? row[statusIndex] : '').toUpperCase()
+    const isRental = ownershipSource === 'SEWA'
+    const owner = valueOf(row, headers, 'pemilik') || null
+    const ownerUpper = clean(owner).toUpperCase()
+    const rentalType = isRental
+      ? (/^(PT|CV|UD|PD|KOPERASI|YAYASAN)\b|\bRENTAL\b|\bCAR\s+RENTAL\b/.test(ownerUpper) ? 'SEWA_RENTAL' : 'SEWA_PERORANGAN')
+      : null
+
+    const driverName = valueOf(row, headers, 'driver')
+    let driverId = driverByName[clean(driverName).toUpperCase()]?.id || null
+    if (driverName && !driverId) {
+      const created = await supabase.from('driver').insert({
+        nama_lengkap: driverName,
+        lokasi: valueOf(row, headers, 'lokasi') || null,
+        status: 'AKTIF',
+        keterangan: 'Dibuat otomatis dari import Data Kendaraan.',
+      }).select('id,nama_lengkap').single()
+      if (created.error) throw new Error(`Gagal membuat driver ${driverName}: ${created.error.message}`)
+      driverId = created.data.id
+      driverByName[clean(driverName).toUpperCase()] = created.data
+      driversCreated += 1
+    }
+
+    const current = existingByPlate[plate]
+    let code = (valueOf(row, headers, 'kode_kendaraan') || `KND-${plate.replace(/\W+/g,'')}`).toUpperCase()
+    if (!current && existingCodes.has(code)) code = `${code}-${plate.replace(/\W+/g,'')}`
+    if (!current) existingCodes.add(code)
+
+    const payload = {
+      kode_kendaraan: current ? (valueOf(row, headers, 'kode_kendaraan') || current.kode_kendaraan).toUpperCase() : code,
+      nomor_polisi: plate,
+      merk,
+      tipe: valueOf(row, headers, 'tipe') || null,
+      jenis_kendaraan: valueOf(row, headers, 'jenis_kendaraan') || null,
+      tahun: numberValue(valueOf(row, headers, 'tahun')) || null,
+      nomor_mesin: valueOf(row, headers, 'nomor_mesin') || null,
+      nomor_rangka: valueOf(row, headers, 'nomor_rangka') || null,
+      kepemilikan: isRental ? 'SEWA' : 'ASET_KANTOR',
+      jenis_sewa: rentalType,
+      pemilik: owner,
+      driver_id: driverId,
+      lokasi: valueOf(row, headers, 'lokasi') || null,
+      unit_kerja: valueOf(row, headers, 'unit_kerja') || null,
+      kilometer_terakhir: numberValue(valueOf(row, headers, 'kilometer')) ?? 0,
+      status: current?.status || 'ACTIVE',
+      masa_berlaku_pajak: excelDate(valueOf(row, headers, 'masa_berlaku_pajak')),
+      status_pajak: valueOf(row, headers, 'status_pajak') || null,
+      keterangan: valueOf(row, headers, 'keterangan') || null,
+      catatan_hutang: valueOf(row, headers, 'catatan_hutang') || null,
+    }
+
+    if (current?.id) {
+      const result = await supabase.from('kendaraan').update(payload).eq('id', current.id)
+      if (result.error) throw result.error
+      updated += 1
+    } else {
+      const result = await supabase.from('kendaraan').insert(payload)
+      if (result.error) throw result.error
+      added += 1
+    }
+  }
+
+  return `${added} kendaraan baru, ${updated} kendaraan diperbarui, ${skipped} baris dilewati, ${driversCreated} driver dibuat.`
+}
+
+async function importService'''
+          s2, n = pattern.subn(replacement, s, count=1)
+          if n != 1:
+              raise SystemExit('vehicle importer block not found')
+          s = s2
+
+          # Replace the modal with a no-choice, page-context-driven flow.
+          modal_pattern = re.compile(r"function ExcelImportModal\(\{ context, profile, onDone, onClose \}\) \{.*?\n\}\n\nexport default function DataPageTools", re.S)
+          modal_replacement = r'''function ExcelImportModal({ context, profile, onDone, onClose }) {
+  const inputRef = useRef(null)
+  const [file, setFile] = useState(null)
+  const [selected, setSelected] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
+  const canImport = ['ADMIN','TRANSPORT'].includes(profile?.role)
+
+  const scan = async f => {
+    setFile(f)
+    setSelected(null)
+    setError('')
+    setMessage('')
+    if (!f) return
+    if (!/\.xlsx$/i.test(f.name)) { setError('Gunakan file .xlsx.'); return }
+    setLoading(true)
+    try {
+      const parsed = await parseXlsx(f)
+      const sheet = pickSheet(parsed, context)
+      if (!sheet) {
+        throw new Error(`Sheet ${CONTEXT_LABEL[context]} tidak ditemukan pada file ini. Sistem tidak akan meminta pengguna memilih sheet lain.`)
+      }
+      setSelected(sheet)
+      const rows = contextRows(sheet, context)
+      setMessage(`Sistem otomatis memakai sheet "${sheet.name}". ${rows.length} baris data ${CONTEXT_LABEL[context].toLowerCase()} terdeteksi.`)
+    } catch (e) {
+      setError(e.message || 'File Excel tidak dapat dibaca.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const start = async () => {
+    if (!selected || !canImport) return
+    setSaving(true)
+    setError('')
+    try {
+      let result
+      if (context === 'kendaraan') result = await importKendaraan(selected, profile)
+      else if (context === 'service') result = await importService(selected, profile)
+      else if (context === 'dokumen') result = await importDokumen(selected, profile)
+      else if (context === 'pengajuan') result = await importPengajuan(selected, profile)
+      else result = await importSewa(selected, profile)
+      setMessage(`Import ${CONTEXT_LABEL[context]} berhasil. ${result}`)
+      onDone?.()
+    } catch (e) {
+      setError(e.message || 'Import gagal.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return <div className="dpt-overlay" role="dialog" aria-modal="true" aria-label={`Import ${CONTEXT_LABEL[context]}`}>
+    <section className="dpt-modal">
+      <header>
+        <div>
+          <span className="eyebrow">IMPORT EXCEL</span>
+          <h3>Import {CONTEXT_LABEL[context]}</h3>
+          <p>Upload → sistem memilih sheet yang sesuai → preview → validasi → cek duplikat → import.</p>
+        </div>
+        <button type="button" className="dpt-icon" onClick={onClose}>×</button>
+      </header>
+      {error && <div className="dpt-alert error">{error}</div>}
+      {message && <div className="dpt-alert success">{message}</div>}
+      <div className="dpt-upload">
+        <input ref={inputRef} type="file" accept=".xlsx" onChange={e => scan(e.target.files?.[0])}/>
+        <button type="button" className="dpt-button primary" onClick={() => inputRef.current?.click()} disabled={loading}>
+          {loading ? 'Membaca Excel...' : file ? file.name : 'Pilih File Excel (.xlsx)'}
+        </button>
+      </div>
+      {file && selected && <div className="dpt-preview">
+        <div className="dpt-sheet-title"><b>Sheet otomatis: {selected.name}</b><span>Preview 8 baris</span></div>
+        <div className="dpt-preview-wrap">
+          <table>
+            <thead><tr>{selected.headers.map((h,i)=><th key={`${h}-${i}`}>{h || `Kolom ${i+1}`}</th>)}</tr></thead>
+            <tbody>{selected.rows.slice(selected.headerIndex + 1, selected.headerIndex + 9).map((row,r)=><tr key={r}>{selected.headers.map((_,c)=><td key={c}>{clean(row[c]) || '-'}</td>)}</tr>)}</tbody>
+          </table>
+        </div>
+      </div>}
+      <div className="dpt-actions">
+        <button type="button" className="dpt-button" onClick={onClose}>Batal</button>
+        <button type="button" className="dpt-button primary" onClick={start} disabled={!selected || saving || !canImport}>
+          {saving ? 'Mengimport...' : `Import ${CONTEXT_LABEL[context]}`}
+        </button>
+      </div>
+    </section>
+  </div>
+}
+
+export default function DataPageTools'''
+          s2, n = modal_pattern.subn(modal_replacement, s, count=1)
+          if n != 1:
+              raise SystemExit('modal block not found')
+          p.write_text(s2)
+
+          # ---------------- MasterKendaraanPage ----------------
+          p = Path('frontend/src/modules/MasterKendaraanPage.jsx')
+          s = p.read_text()
+          s = s.replace(
+              "nomor_polisi: '', merk: '', tipe: '', jenis_kendaraan: '', tahun: '', warna: '', nomor_rangka: '', nomor_mesin: '',\n  kepemilikan:",
+              "nomor_polisi: '', merk: '', tipe: '', jenis_kendaraan: '', tahun: '', warna: '', nomor_rangka: '', nomor_mesin: '', unit_kerja: '', masa_berlaku_pajak: '', status_pajak: '', catatan_hutang: '',\n  kepemilikan:",
+              1
+          )
+          s = s.replace(
+              "tipe,jenis_kendaraan,tahun,warna,nomor_rangka,nomor_mesin,kepemilikan,jenis_sewa,pemilik,driver_id,lokasi,kilometer_terakhir,status,kondisi,keterangan,created_at,updated_at",
+              "tipe,jenis_kendaraan,tahun,warna,nomor_rangka,nomor_mesin,kepemilikan,jenis_sewa,pemilik,driver_id,lokasi,unit_kerja,kilometer_terakhir,masa_berlaku_pajak,status_pajak,catatan_hutang,status,kondisi,keterangan,created_at,updated_at"
+          )
+          s = s.replace(
+              "nomor_rangka: vehicleForm.nomor_rangka.trim() || null, nomor_mesin: vehicleForm.nomor_mesin.trim() || null, kepemilikan:",
+              "nomor_rangka: vehicleForm.nomor_rangka.trim() || null, nomor_mesin: vehicleForm.nomor_mesin.trim() || null, unit_kerja: vehicleForm.unit_kerja.trim() || null, masa_berlaku_pajak: vehicleForm.masa_berlaku_pajak || null, status_pajak: vehicleForm.status_pajak.trim() || null, catatan_hutang: vehicleForm.catatan_hutang.trim() || null, kepemilikan:",
+              1
+          )
+          old_form = "[['kode_kendaraan','Kode Kendaraan'],['nomor_polisi','Nomor Polisi'],['merk','Merk'],['tipe','Tipe'],['jenis_kendaraan','Jenis Kendaraan'],['tahun','Tahun'],['warna','Warna'],['nomor_rangka','Nomor Rangka'],['nomor_mesin','Nomor Mesin'],['pemilik','Pemilik / PIC'],['lokasi','Lokasi'],['kilometer_terakhir','KM Terakhir']]"
+          new_form = "[['kode_kendaraan','Kode Kendaraan'],['nomor_polisi','Nomor Polisi'],['merk','Merk'],['tipe','Tipe'],['jenis_kendaraan','Jenis Kendaraan'],['tahun','Tahun'],['warna','Warna'],['nomor_rangka','Nomor Rangka'],['nomor_mesin','Nomor Mesin'],['unit_kerja','Unit Kerja'],['masa_berlaku_pajak','Masa Berlaku Pajak'],['status_pajak','Status Pajak'],['pemilik','Pemilik / PIC'],['lokasi','Lokasi'],['kilometer_terakhir','KM Terakhir'],['catatan_hutang','Catatan Hutang']]"
+          s = s.replace(old_form, new_form, 1)
+          # Add table columns around KM/status.
+          s = s.replace(
+              "<th>Driver / PIC</th><th>KM</th><th>Status</th><th>Aksi</th>",
+              "<th>Driver / PIC</th><th>Unit Kerja</th><th>Pajak</th><th>KM</th><th>Status</th><th>Aksi</th>",
+              1
+          )
+          s = s.replace(
+              "<td><span>{d?.nama_lengkap||v.pemilik||'-'}</span><small>{v.lokasi||'-'}</small></td><td><b>{fmtKm(v.kilometer_terakhir)}</b></td>",
+              "<td><span>{d?.nama_lengkap||v.pemilik||'-'}</span><small>{v.lokasi||'-'}</small></td><td><span>{v.unit_kerja||'-'}</span></td><td><span>{v.masa_berlaku_pajak||'-'}</span><small>{v.status_pajak||'-'}</small></td><td><b>{fmtKm(v.kilometer_terakhir)}</b></td>",
+              1
+          )
+          p.write_text(s)
+
+          # ---------------- AppTransport export ----------------
+          p = Path('frontend/src/AppTransport.jsx')
+          s = p.read_text()
+          old_cols = "['pemilik','Pemilik / PIC'],['driver','Driver'],['lokasi','Lokasi'],['kilometer_terakhir','KM Terakhir'],['status','Status'],['kondisi','Kondisi'],['keterangan','Keterangan']"
+          new_cols = "['pemilik','Pemilik / PIC'],['driver','Driver'],['lokasi','Lokasi'],['unit_kerja','Unit Kerja'],['masa_berlaku_pajak','Masa Berlaku Pajak'],['status_pajak','Status Pajak'],['kilometer_terakhir','KM Terakhir'],['status','Status'],['kondisi','Kondisi'],['catatan_hutang','Catatan Hutang'],['keterangan','Keterangan']"
+          s = s.replace(old_cols, new_cols, 1)
+          p.write_text(s)
+          PY
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add frontend/src/modules/DataPageTools.jsx frontend/src/modules/MasterKendaraanPage.jsx frontend/src/AppTransport.jsx
+          rm -f .github/workflows/patch-vehicle-import-fields.yml
+          git add .github/workflows/patch-vehicle-import-fields.yml
+          git commit -m "feat: match vehicle import to source workbook columns"
+          git push origin main
