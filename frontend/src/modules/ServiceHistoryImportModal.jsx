@@ -150,10 +150,6 @@ function numberValue(value) {
   return Number.isFinite(n) ? n : null
 }
 
-// Data Service legacy menyimpan sebagian nominal numerik dalam satuan ribuan,
-// sementara nominal string seperti "1.238.000" sudah berupa Rupiah penuh.
-// Profil ini sengaja hanya dipakai untuk sheet Data Service agar modul lain
-// tidak ikut mengubah arti angka dari workbook mereka.
 function serviceCurrencyValue(value) {
   const v = clean(value)
   if (!v) return null
@@ -296,6 +292,7 @@ async function importServiceHistory(rows, profile, sheetName) {
     const complaint = group.values.find((row) => row.uraian)?.uraian || `Riwayat ${label}`
     const serviceNumber = `IMP-SRV-${Date.now()}-${importedGroups.length + 1}`
     const historyNote = `Import histori Excel: ${sheetName}`
+    const shouldUpdateKm = kilometer > Number(vehicle.kilometer_terakhir || 0)
 
     const request = await supabase.from('permintaan_service').insert({
       pemohon_id: profile.id,
@@ -305,9 +302,7 @@ async function importServiceHistory(rows, profile, sheetName) {
       jenis_permintaan: jenisService,
       keluhan: complaint,
       prioritas: 'NORMAL',
-      status: 'SELESAI',
-      diproses_oleh: profile.id,
-      diproses_at: new Date().toISOString(),
+      status: 'MENUNGGU_TRANSPORT',
     }).select('id').single()
     if (request.error) throw new Error(`Gagal membuat histori pengajuan ${first.nomor_polisi} (baris ${first.excelRow}): ${request.error.message}`)
 
@@ -322,14 +317,13 @@ async function importServiceHistory(rows, profile, sheetName) {
       keluhan: complaint,
       estimasi_biaya: total,
       biaya_aktual: total,
-      status: 'SELESAI',
+      status: 'DALAM_PENGERJAAN',
       diproses_oleh: profile.id,
       nilai_dpp: dpp,
       ppn,
       total,
       catatan: historyNote,
-      selesai_at: new Date().toISOString(),
-    }).select('id').single()
+    }).select('id,status').single()
     if (service.error) throw new Error(`Gagal membuat histori service ${first.nomor_polisi} (baris ${first.excelRow}): ${service.error.message}`)
 
     const itemRows = group.values.map((row) => {
@@ -352,9 +346,20 @@ async function importServiceHistory(rows, profile, sheetName) {
       itemCount += itemRows.length
     }
 
-    if (kilometer > Number(vehicle.kilometer_terakhir || 0)) {
-      const kmResult = await supabase.from('kendaraan').update({ kilometer_terakhir: kilometer }).eq('id', vehicle.id)
-      if (kmResult.error) throw new Error(`Histori service masuk, tetapi KM kendaraan ${first.nomor_polisi} gagal diperbarui: ${kmResult.error.message}`)
+    const requestProgress = await supabase.from('permintaan_service').update({
+      status: 'DALAM_PROSES',
+      diproses_oleh: profile.id,
+      diproses_at: new Date().toISOString(),
+    }).eq('id', request.data.id)
+    if (requestProgress.error) throw new Error(`Gagal menyiapkan histori pengajuan ${first.nomor_polisi} untuk penyelesaian: ${requestProgress.error.message}`)
+
+    const completed = await supabase.from('service').update({
+      status: 'SELESAI',
+      selesai_at: new Date().toISOString(),
+    }).eq('id', service.data.id).select('id').single()
+    if (completed.error) throw new Error(`Gagal menandai histori service ${first.nomor_polisi} selesai: ${completed.error.message}`)
+
+    if (shouldUpdateKm) {
       kmUpdated += 1
       vehicle.kilometer_terakhir = kilometer
     }
@@ -404,12 +409,7 @@ export default function ServiceHistoryImportModal({ profile, onDone, onClose }) 
       const invalid = parsed.length - valid.length
       const transactions = groupRows(valid)
       const uniquePlates = [...new Set(valid.map((row) => row.nomor_polisi))]
-      const currencyTotals = {
-        dpp: valid.reduce((sum, row) => sum + row.nilai_dpp, 0),
-        ppn: valid.reduce((sum, row) => sum + row.ppn, 0),
-        total: valid.reduce((sum, row) => sum + row.total, 0),
-      }
-      setWorkbook({ sheet: chosen.sheet, header: chosen.header, dataRows: parsed, valid, invalid, transactions, uniquePlates, currencyTotals })
+      setWorkbook({ sheet: chosen.sheet, header: chosen.header, dataRows: parsed, valid, invalid, transactions, uniquePlates })
       setMessage(`Sheet “${chosen.sheet.name}” terdeteksi: ${parsed.length} baris sumber • ${valid.length} valid • ${transactions.length} transaksi service.`)
     } catch (e) {
       setError(e.message || 'File Excel tidak dapat dibaca.')
@@ -468,7 +468,7 @@ export default function ServiceHistoryImportModal({ profile, onDone, onClose }) 
           <span>Uraian pekerjaan masuk ke detail item service.</span>
           <span>DPP, PPN, dan Total dinormalisasi ke Rupiah penuh sesuai format legacy Data Service.</span>
           <span>Tanggal seperti 11-Des-25 juga dikenali otomatis.</span>
-          <span>Historis langsung berstatus SELESAI; tidak dibuat sebagai pengajuan aktif secara operasional.</span>
+          <span>Riwayat diimpor sebagai service yang sudah selesai tanpa mengubah alur pengajuan aktif.</span>
           <span>Plat yang belum ada di Master Kendaraan tidak dibuat otomatis.</span>
         </div>
         <div className="service-import-map">
