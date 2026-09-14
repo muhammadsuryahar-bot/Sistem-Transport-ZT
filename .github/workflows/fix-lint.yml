@@ -1,0 +1,114 @@
+name: Temporary Lint Fixer
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: ${{ !contains(github.event.head_commit.message, '[lint-fix]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Apply verified lint fixes
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_exact(path, old, new):
+              p = Path(path)
+              s = p.read_text(encoding='utf-8')
+              if old not in s:
+                  raise SystemExit(f'Expected text not found in {path}: {old!r}')
+              p.write_text(s.replace(old, new, 1), encoding='utf-8')
+
+          replace_exact(
+              'frontend/src/AppTransport.jsx',
+              "const REMEMBERED_EMAIL_KEY = 'transport_remembered_email'\n",
+              ''
+          )
+          replace_exact(
+              'frontend/src/AppTransport.jsx',
+              "const LOGO_LOGIN_URL = `${LOGO_BASE_URL}/logo-login.png`\n",
+              ''
+          )
+          replace_exact(
+              'frontend/src/AppTransport.jsx',
+              "  const [session, setSession] = useState(null), [profile, setProfile] = useState(null), [loading, setLoading] = useState(true), [activePage, setActivePage] = useState('dashboard'), [sidebarOpen, setSidebarOpen] = useState(false)\n",
+              "  const [session, setSession] = useState(null), [profile, setProfile] = useState(null), [activePage, setActivePage] = useState('dashboard'), [sidebarOpen, setSidebarOpen] = useState(false)\n"
+          )
+          replace_exact(
+              'frontend/src/AppTransport.jsx',
+              "  const [email, setEmail] = useState(() => localStorage.getItem(REMEMBERED_EMAIL_KEY) || ''), [password, setPassword] = useState(''), [showPassword, setShowPassword] = useState(false), [rememberMe, setRememberMe] = useState(true), [submitting, setSubmitting] = useState(false), [errorMessage, setErrorMessage] = useState('')\n",
+              "  const [submitting, setSubmitting] = useState(false), [, setErrorMessage] = useState('')\n"
+          )
+          replace_exact(
+              'frontend/src/AppTransport.jsx',
+              "  useEffect(() => { let mounted = true; const initialize = async () => { const { data, error } = await supabase.auth.getSession(); if (!mounted) return; if (error) setErrorMessage('Sesi login tidak dapat diperiksa. Silakan coba lagi.'); setSession(data.session); if (data.session?.user) await loadProfile(data.session.user.id); setLoading(false) }; initialize(); const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, nextSession) => { if (!mounted) return; setSession(nextSession); if (nextSession?.user) await loadProfile(nextSession.user.id); else setProfile(null) }); return () => { mounted = false; subscription.unsubscribe() } }, [])\n",
+              "  useEffect(() => { let mounted = true; const initialize = async () => { const { data, error } = await supabase.auth.getSession(); if (!mounted) return; if (error) setErrorMessage('Sesi login tidak dapat diperiksa. Silakan coba lagi.'); setSession(data.session); if (data.session?.user) await loadProfile(data.session.user.id) }; initialize(); const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, nextSession) => { if (!mounted) return; setSession(nextSession); if (nextSession?.user) await loadProfile(nextSession.user.id); else setProfile(null) }); return () => { mounted = false; subscription.unsubscribe() } }, [])\n"
+          )
+          replace_exact(
+              'frontend/src/AppTransport.jsx',
+              "\n  const handleLogin = async (event) => { event.preventDefault(); setErrorMessage(''); const cleanEmail = email.trim().toLowerCase(); if (!cleanEmail || !password) { setErrorMessage('Email dan password wajib diisi.'); return } setSubmitting(true); const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password }); if (error || !data.user) { setErrorMessage('Email atau password tidak sesuai.'); setSubmitting(false); return } if (rememberMe) localStorage.setItem(REMEMBERED_EMAIL_KEY, cleanEmail); else localStorage.removeItem(REMEMBERED_EMAIL_KEY); setPassword(''); await loadProfile(data.user.id); setSubmitting(false) }\n",
+              ''
+          )
+          replace_exact(
+              'frontend/src/AppTransport.jsx',
+              "      const exportDate = value => value ? new Intl.DateTimeFormat('id-ID').format(new Date(value)) : '-'\n      const money = value => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(value || 0))\n\n",
+              ''
+          )
+          replace_exact(
+              'frontend/src/AppTransport.jsx',
+              "        const serviceMap = Object.fromEntries((rs[0].data || []).map(x => [x.id, x]))\n",
+              ''
+          )
+
+          replace_exact(
+              'frontend/src/modules/ReportsFeaturePage.jsx',
+              "const text = value => value == null || value === '' ? '-' : value\n",
+              ''
+          )
+
+          replace_exact(
+              'frontend/src/modules/VehicleExcelImportModal.jsx',
+              "function hasHeader(headers, key) { return headers.some((h) => (LABELS[key] || []).includes(norm(h))) }\n\n",
+              ''
+          )
+          replace_exact(
+              'frontend/src/modules/VehicleExcelImportModal.jsx',
+              'async function importVehicleRows(rows, profile) {',
+              'async function importVehicleRows(rows) {'
+          )
+          replace_exact(
+              'frontend/src/modules/VehicleExcelImportModal.jsx',
+              '[\\/-]',
+              '[-/]'
+          )
+
+          replace_exact(
+              'frontend/src/utils/exportExcel.js',
+              '.replace(/[\\\\/:?*\\[\\]]/g, \'-\')',
+              '.replace(/[\\\\/:?*]|\\[|\\]/g, \'-\')'
+          )
+          PY
+
+          git diff --check
+          git status --short
+          git diff -- frontend/src/AppTransport.jsx frontend/src/modules/ReportsFeaturePage.jsx frontend/src/modules/VehicleExcelImportModal.jsx frontend/src/utils/exportExcel.js
+
+      - name: Commit fixes and remove temporary workflow
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add frontend/src/AppTransport.jsx frontend/src/modules/ReportsFeaturePage.jsx frontend/src/modules/VehicleExcelImportModal.jsx frontend/src/utils/exportExcel.js .github/workflows/fix-lint.yml
+          git rm .github/workflows/fix-lint.yml
+          git commit -m "[lint-fix] remove verified frontend lint errors"
+          git push origin HEAD:main
