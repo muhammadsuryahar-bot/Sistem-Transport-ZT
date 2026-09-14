@@ -152,6 +152,17 @@ function numberValue(value) {
 }
 function moneyValue(value) { return numberValue(value) }
 
+function contextRows(sheet, context) {
+  const { index, row: headers } = findHeader(sheet.rows)
+  const rows = sheet.rows.slice(index + 1).filter(r => r.some(v => clean(v)))
+  if (context === 'kendaraan') return rows.filter(r => valueOf(r, headers, 'nomor_polisi'))
+  if (context === 'service') return rows.filter(r => valueOf(r, headers, 'nomor_polisi') && valueOf(r, headers, 'tanggal'))
+  if (context === 'dokumen') return rows.filter(r => valueOf(r, headers, 'nomor_polisi'))
+  if (context === 'pengajuan') return rows.filter(r => valueOf(r, headers, 'nomor_polisi') || valueOf(r, headers, 'keluhan'))
+  if (context === 'sewa') return rows.filter(r => valueOf(r, headers, 'nomor_kontrak') || valueOf(r, headers, 'nomor_polisi'))
+  return rows
+}
+
 async function importKendaraan(sheet) {
   const { index, row: headers } = findHeader(sheet.rows)
   const rows = contextRows(sheet, 'kendaraan')
