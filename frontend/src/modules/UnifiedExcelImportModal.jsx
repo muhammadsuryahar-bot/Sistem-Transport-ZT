@@ -160,6 +160,7 @@ function excelDate(value) {
 
 function addMonths(dateText, months) { const d = new Date(`${dateText}T00:00:00`); const day = d.getDate(); d.setMonth(d.getMonth() + months); if (d.getDate() !== day) d.setDate(0); return d.toISOString().slice(0, 10) }
 function sixMonthEnd(start) { const end = addMonths(start, 6); const d = new Date(`${end}T00:00:00`); d.setDate(d.getDate() - 1); return d.toISOString().slice(0, 10) }
+function importFingerprint(item) { return [item.vehicle.id, item.date, upper(item.jenis), upper(item.complaint), item.km ?? ''].join('|') }
 
 function sheetInfo(sheet) {
   const header = findHeader(sheet.rows)
@@ -202,23 +203,43 @@ async function importPengajuan(sheet, profile) {
   const vehicleMap = Object.fromEntries((vehicles.data || []).map((v) => [upper(v.nomor_polisi), v]))
   const valid = []
   const invalid = []
+  const seen = new Set()
   for (const row of rows) {
     const plate = upper(valueOf(row, headers, 'nomor_polisi'))
     const complaint = valueOf(row, headers, 'keluhan')
     const date = excelDate(valueOf(row, headers, 'tanggal'))
+    const jenis = valueOf(row, headers, 'jenis_permintaan') || 'SERVICE'
+    const km = numberValue(valueOf(row, headers, 'kilometer')) ?? vehicleMap[plate]?.kilometer_terakhir ?? 0
     const vehicle = vehicleMap[plate]
-    if (!plate || !complaint || !date || !vehicle || vehicle.status === 'TIDAK_AKTIF') invalid.push({ plate, reason: !vehicle ? 'Plat belum ada di Master Kendaraan' : vehicle.status === 'TIDAK_AKTIF' ? 'Kendaraan tidak aktif' : 'Tanggal/Keluhan kosong atau tidak valid' })
-    else valid.push({ row, plate, complaint, date, vehicle })
+    if (!plate || !complaint || !date || !vehicle || vehicle.status === 'TIDAK_AKTIF') {
+      invalid.push({ plate, reason: !vehicle ? 'Plat belum ada di Master Kendaraan' : vehicle.status === 'TIDAK_AKTIF' ? 'Kendaraan tidak aktif' : 'Tanggal/Keluhan kosong atau tidak valid' })
+      continue
+    }
+    const fingerprint = importFingerprint({ vehicle, date, jenis, complaint, km })
+    if (seen.has(fingerprint)) {
+      invalid.push({ plate, reason: 'Duplikat di file Excel' })
+      continue
+    }
+    seen.add(fingerprint)
+    valid.push({ row, plate, complaint, date, jenis, km, vehicle, fingerprint })
   }
   if (!valid.length) throw new Error('Tidak ada baris Pengajuan Service yang valid. Pastikan plat sudah ada di Master Kendaraan dan Tanggal/Keluhan terisi benar.')
+
+  const existing = await supabase.from('permintaan_service').select('kendaraan_id,tanggal_pengajuan,kilometer_pengajuan,jenis_permintaan,keluhan')
+  if (existing.error) throw new Error(`Tidak bisa memeriksa pengajuan lama: ${existing.error.message}`)
+  const existingKeys = new Set((existing.data || []).map((item) => importFingerprint({ vehicle: { id: item.kendaraan_id }, date: item.tanggal_pengajuan, jenis: item.jenis_permintaan || 'SERVICE', complaint: item.keluhan || '', km: item.kilometer_pengajuan ?? 0 })))
   let added = 0
-  const unknownPlates = [...new Set(invalid.filter((item) => item.reason === 'Plat belum ada di Master Kendaraan').map((item) => item.plate).filter(Boolean))]
+  let duplicate = 0
   for (const item of valid) {
-    const result = await supabase.from('permintaan_service').insert({ pemohon_id: profile.id, kendaraan_id: item.vehicle.id, tanggal_pengajuan: item.date, kilometer_pengajuan: numberValue(valueOf(item.row, headers, 'kilometer')) ?? item.vehicle.kilometer_terakhir ?? 0, jenis_permintaan: valueOf(item.row, headers, 'jenis_permintaan') || 'SERVICE', keluhan: item.complaint, prioritas: upper(valueOf(item.row, headers, 'prioritas') || 'NORMAL'), status: 'MENUNGGU_TRANSPORT' })
+    if (existingKeys.has(item.fingerprint)) { duplicate += 1; continue }
+    const result = await supabase.from('permintaan_service').insert({ pemohon_id: profile.id, kendaraan_id: item.vehicle.id, tanggal_pengajuan: item.date, kilometer_pengajuan: item.km, jenis_permintaan: item.jenis, keluhan: item.complaint, prioritas: upper(valueOf(item.row, headers, 'prioritas') || 'NORMAL'), status: 'MENUNGGU_TRANSPORT' })
     if (result.error) throw new Error(`Gagal menyimpan pengajuan ${item.plate}: ${result.error.message}`)
+    existingKeys.add(item.fingerprint)
     added += 1
   }
-  return { imported: added, skipped: invalid.length, unknownPlates, message: `${added} pengajuan ditambahkan, ${invalid.length} baris dilewati. Pengajuan hanya dibuat dari baris yang lengkap dan kendaraan aktif.` }
+  const skipped = invalid.length + duplicate
+  const unknownPlates = [...new Set(invalid.filter((item) => item.reason === 'Plat belum ada di Master Kendaraan').map((item) => item.plate).filter(Boolean))]
+  return { imported: added, skipped, unknownPlates, duplicate, message: `${added} pengajuan ditambahkan, ${skipped} baris dilewati (${duplicate} sudah ada/duplikat). Tidak ada pengajuan ganda dari import yang sama.` }
 }
 
 async function importSewa(sheet, profile) {
@@ -229,6 +250,7 @@ async function importSewa(sheet, profile) {
   const vehicleMap = Object.fromEntries((vehicles.data || []).map((v) => [upper(v.nomor_polisi), v]))
   const candidates = []
   const invalid = []
+  const seenContracts = new Set()
   for (const row of rows) {
     const plate = upper(valueOf(row, headers, 'nomor_polisi'))
     const nomorKontrak = valueOf(row, headers, 'nomor_kontrak')
@@ -237,17 +259,20 @@ async function importSewa(sheet, profile) {
     const end = excelDate(valueOf(row, headers, 'tanggal_selesai'))
     const monthly = numberValue(valueOf(row, headers, 'nilai_sewa_bulanan'))
     const vehicle = vehicleMap[plate]
-    if (!vehicle || !nomorKontrak || !ownerName || !start || !end || !monthly || monthly <= 0) { invalid.push(plate || nomorKontrak || '-'); continue }
+    if (!vehicle || !nomorKontrak || !ownerName || !start || !end || !monthly || monthly <= 0) { invalid.push({ plate, reason: !vehicle ? 'Plat belum ada di Master Kendaraan Sewa' : 'Kolom kontrak/pemilik/periode/nilai sewa tidak lengkap' }); continue }
     if (end !== sixMonthEnd(start)) throw new Error(`Kontrak ${nomorKontrak} tidak tepat 6 bulan. Tanggal selesai yang valid untuk ${start} adalah ${sixMonthEnd(start)}.`)
+    const contractKey = upper(nomorKontrak)
+    if (seenContracts.has(contractKey)) { invalid.push({ plate, reason: 'Nomor kontrak duplikat di file Excel' }); continue }
+    seenContracts.add(contractKey)
     candidates.push({ row, plate, nomorKontrak, ownerName, start, end, monthly, vehicle })
   }
   if (!candidates.length) throw new Error('Tidak ada kontrak sewa yang valid. Setiap baris wajib memiliki Nomor Kontrak, Plat Sewa, Pemilik, periode 6 bulan, dan Nilai Sewa Bulanan > 0.')
-  let added = 0; let skipped = invalid.length
-  const unknownPlates = [...new Set(invalid.filter(Boolean))]
+  let added = 0
+  let duplicate = 0
   for (const item of candidates) {
-    const duplicate = await supabase.from('kontrak_sewa').select('id').eq('nomor_kontrak', item.nomorKontrak).maybeSingle()
-    if (duplicate.error) throw new Error(`Gagal mengecek kontrak ${item.nomorKontrak}: ${duplicate.error.message}`)
-    if (duplicate.data) { skipped += 1; continue }
+    const duplicateCheck = await supabase.from('kontrak_sewa').select('id').eq('nomor_kontrak', item.nomorKontrak).maybeSingle()
+    if (duplicateCheck.error) throw new Error(`Gagal mengecek kontrak ${item.nomorKontrak}: ${duplicateCheck.error.message}`)
+    if (duplicateCheck.data) { duplicate += 1; continue }
 
     let owner = await supabase.from('pemilik_sewa').select('id,jenis_pemilik,nama_perusahaan,nomor_identitas').eq('nama_pemilik', item.ownerName).maybeSingle()
     if (owner.error) throw new Error(`Gagal membaca pemilik ${item.ownerName}: ${owner.error.message}`)
@@ -263,7 +288,8 @@ async function importSewa(sheet, profile) {
     if (result.error) throw new Error(`Gagal menyimpan kontrak ${item.nomorKontrak}: ${result.error.message}`)
     added += 1
   }
-  return { imported: added, skipped, unknownPlates, message: `${added} kontrak sewa ditambahkan, ${skipped} baris dilewati. Sistem tidak mengubah rekap pembayaran menjadi kontrak.` }
+  const skipped = invalid.length + duplicate
+  return { imported: added, skipped, unknownPlates: [...new Set(invalid.filter((item) => item.reason === 'Plat belum ada di Master Kendaraan Sewa').map((item) => item.plate).filter(Boolean))], duplicate, message: `${added} kontrak sewa ditambahkan, ${skipped} baris dilewati (${duplicate} kontrak sudah ada/duplikat). Sistem tidak mengubah rekap pembayaran menjadi kontrak.` }
 }
 
 const IMPORTERS = { pengajuan: importPengajuan, sewa: importSewa }
@@ -320,9 +346,9 @@ export default function UnifiedExcelImportModal({ context, profile, onDone, onCl
     setSaving(true); setError(''); setMessage('Memproses import...')
     try {
       const result = await IMPORTERS[context](selected, profile)
-      const report = { context, sourceRows: dataRows(selected).length, validRows: Math.max(0, dataRows(selected).length - (result.skipped || 0)), imported: result.imported || 0, skipped: result.skipped || 0, unknownPlates: result.unknownPlates || [], message: result.message, fileName: file?.name || '', completedAt: new Date().toISOString() }
+      const report = { context, sourceRows: dataRows(selected).length, validRows: Math.max(0, dataRows(selected).length - (result.skipped || 0)), imported: result.imported || 0, skipped: result.skipped || 0, duplicate: result.duplicate || 0, unknownPlates: result.unknownPlates || [], message: result.message, fileName: file?.name || '', completedAt: new Date().toISOString() }
       sessionStorage.setItem('transport_import_report', JSON.stringify(report))
-      setMessage(`Import ${LABELS[context]} berhasil. ${result.message}`)
+      setMessage(`Import ${LABELS[context]} selesai. ${result.message}`)
       onDone?.(report)
     } catch (e) {
       setError(e?.message || 'Import gagal. Data tidak dilanjutkan ke langkah berikutnya.')
@@ -332,7 +358,7 @@ export default function UnifiedExcelImportModal({ context, profile, onDone, onCl
 
   return <div className="dpt-overlay" role="dialog" aria-modal="true" aria-label={`Import ${LABELS[context] || 'Excel'}`}>
     <section className="dpt-modal">
-      <header className="dpt-modal-head"><div><span className="eyebrow">IMPORT EXCEL</span><h3>Import {LABELS[context] || 'Excel'}</h3><p>Upload → deteksi format → validasi header → preview → cek data master → simpan.</p></div><button type="button" className="dpt-icon" onClick={onClose} aria-label="Tutup">×</button></header>
+      <header className="dpt-modal-head"><div><span className="eyebrow">IMPORT EXCEL</span><h3>Import {LABELS[context] || 'Excel'}</h3><p>Upload → deteksi format → validasi header → preview → cek data master → cek duplikat → simpan.</p></div><button type="button" className="dpt-icon" onClick={onClose} aria-label="Tutup">×</button></header>
       {error && <div className="dpt-alert error">{error}</div>}
       {message && <div className="dpt-alert success">{message}</div>}
       <div className="dpt-upload"><input ref={inputRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(e) => scan(e.target.files?.[0])}/><button type="button" className="dpt-upload-button" onClick={() => inputRef.current?.click()} disabled={loading || saving}>{loading ? 'Membaca Excel…' : file ? 'Ganti File' : 'Pilih File Excel'}</button>{file ? <div className="dpt-file-meta"><strong title={file.name}>{file.name}</strong><span>✓ .xlsx • {(file.size / 1024 / 1024).toFixed(2)} MB</span></div> : <div className="dpt-file-meta"><span>Hanya .xlsx • maksimal 25 MB</span></div>}</div>
