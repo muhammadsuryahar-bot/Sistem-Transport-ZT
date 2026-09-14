@@ -8,9 +8,7 @@ import { ServicePage, RentalPage, DocumentsPage, ReportsPage, UsersPage } from '
 import DataPageTools from './modules/DataPageTools'
 import './App.css'
 
-const REMEMBERED_EMAIL_KEY = 'transport_remembered_email'
 const LOGO_BASE_URL = 'https://raw.githubusercontent.com/muhammadsuryahar-bot/Sistem-Transport-ZT/main/frontend/src/assets'
-const LOGO_LOGIN_URL = `${LOGO_BASE_URL}/logo-login.png`
 const LOGO_MARK_URL = `${LOGO_BASE_URL}/logo.png`
 
 const ROLE_LABELS = { ADMIN: 'Administrator', TRANSPORT: 'Transport', OPERASIONAL: 'Operasional', ATASAN_TRANSPORT: 'Atasan Transport', DIREKTUR: 'Direktur', AKUNTANSI: 'Akuntansi' }
@@ -37,17 +35,15 @@ const columns = keys => keys.map(([key, label]) => ({ key, label }))
 const cleanRows = rows => rows.map(row => ({ ...row }))
 
 function AppTransport() {
-  const [session, setSession] = useState(null), [profile, setProfile] = useState(null), [loading, setLoading] = useState(true), [activePage, setActivePage] = useState('dashboard'), [sidebarOpen, setSidebarOpen] = useState(false)
-  const [email, setEmail] = useState(() => localStorage.getItem(REMEMBERED_EMAIL_KEY) || ''), [password, setPassword] = useState(''), [showPassword, setShowPassword] = useState(false), [rememberMe, setRememberMe] = useState(true), [submitting, setSubmitting] = useState(false), [errorMessage, setErrorMessage] = useState('')
+  const [session, setSession] = useState(null), [profile, setProfile] = useState(null), [activePage, setActivePage] = useState('dashboard'), [sidebarOpen, setSidebarOpen] = useState(false)
+  const [submitting, setSubmitting] = useState(false), [, setErrorMessage] = useState('')
   const [exportingPage, setExportingPage] = useState(false)
   const allowedPages = useMemo(() => ROLE_ACCESS[profile?.role] || ['dashboard'], [profile?.role])
   const visibleNavItems = useMemo(() => NAV_ITEMS.filter((item) => allowedPages.includes(item.id)), [allowedPages])
 
   const loadProfile = async (userId) => { const { data, error } = await supabase.from('profiles').select('id,nama_lengkap,email,nomor_hp,role,aktif').eq('id', userId).single(); if (error || !data) { console.error('Profile error:', error); setProfile(null); setErrorMessage('Profil pengguna tidak dapat dimuat.'); return } if (!data.aktif) { await supabase.auth.signOut(); setSession(null); setProfile(null); setErrorMessage('Akun ini sedang dinonaktifkan. Hubungi administrator.'); return } setProfile(data); setErrorMessage('') }
-  useEffect(() => { let mounted = true; const initialize = async () => { const { data, error } = await supabase.auth.getSession(); if (!mounted) return; if (error) setErrorMessage('Sesi login tidak dapat diperiksa. Silakan coba lagi.'); setSession(data.session); if (data.session?.user) await loadProfile(data.session.user.id); setLoading(false) }; initialize(); const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, nextSession) => { if (!mounted) return; setSession(nextSession); if (nextSession?.user) await loadProfile(nextSession.user.id); else setProfile(null) }); return () => { mounted = false; subscription.unsubscribe() } }, [])
+  useEffect(() => { let mounted = true; const initialize = async () => { const { data, error } = await supabase.auth.getSession(); if (!mounted) return; if (error) setErrorMessage('Sesi login tidak dapat diperiksa. Silakan coba lagi.'); setSession(data.session); if (data.session?.user) await loadProfile(data.session.user.id) }; initialize(); const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, nextSession) => { if (!mounted) return; setSession(nextSession); if (nextSession?.user) await loadProfile(nextSession.user.id); else setProfile(null) }); return () => { mounted = false; subscription.unsubscribe() } }, [])
   useEffect(() => { if (session && profile && !allowedPages.includes(activePage)) setActivePage('dashboard') }, [activePage, allowedPages, profile, session])
-
-  const handleLogin = async (event) => { event.preventDefault(); setErrorMessage(''); const cleanEmail = email.trim().toLowerCase(); if (!cleanEmail || !password) { setErrorMessage('Email dan password wajib diisi.'); return } setSubmitting(true); const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password }); if (error || !data.user) { setErrorMessage('Email atau password tidak sesuai.'); setSubmitting(false); return } if (rememberMe) localStorage.setItem(REMEMBERED_EMAIL_KEY, cleanEmail); else localStorage.removeItem(REMEMBERED_EMAIL_KEY); setPassword(''); await loadProfile(data.user.id); setSubmitting(false) }
   const handleLogout = async () => { setSubmitting(true); await supabase.auth.signOut(); setSession(null); setProfile(null); setActivePage('dashboard'); setSubmitting(false) }
 
   const exportCurrentPage = async () => {
@@ -56,9 +52,6 @@ function AppTransport() {
     setErrorMessage('')
     try {
       const stamp = new Date().toISOString().slice(0, 10)
-      const exportDate = value => value ? new Intl.DateTimeFormat('id-ID').format(new Date(value)) : '-'
-      const money = value => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(value || 0))
-
       if (activePage === 'kendaraan') {
         const [v, d] = await Promise.all([
           supabase.from('kendaraan').select('*').order('nomor_polisi'),
@@ -94,7 +87,6 @@ function AppTransport() {
         ])
         const names = ['service','item','approval','bukti','ban','aki','kilometer','kendaraan','pengajuan']
         rs.forEach((r, i) => { if (r.error) throw new Error(`${names[i]}: ${r.error.message}`) })
-        const serviceMap = Object.fromEntries((rs[0].data || []).map(x => [x.id, x]))
         const vehicleMap = Object.fromEntries((rs[7].data || []).map(x => [x.id, x]))
         const requestMap = Object.fromEntries((rs[8].data || []).map(x => [x.id, x]))
         exportToExcel(`Rekap-Service-ZT-${stamp}.xls`, [

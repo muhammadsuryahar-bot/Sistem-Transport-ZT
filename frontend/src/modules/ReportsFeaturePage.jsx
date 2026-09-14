@@ -8,7 +8,6 @@ const date = v => v ? new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).
 const DAYS = 30 * 86400000
 
 const columns = (keys) => keys.map(([key, label]) => ({ key, label }))
-const text = value => value == null || value === '' ? '-' : value
 
 export default function ReportsFeaturePage() {
   const [data, setData] = useState({ vehicles: [], services: [], requests: [], contracts: [], payments: [], docs: [], approvals: [], repairs: [], deductions: [] })

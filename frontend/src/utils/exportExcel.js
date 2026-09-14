@@ -15,7 +15,7 @@ function printableValue(value) {
 
 function safeSheetName(name, index) {
   const cleaned = String(name || `Rekap ${index + 1}`)
-    .replace(/[\\/:?*\[\]]/g, '-')
+    .replace(/[\\/:?*]|\[|\]/g, '-')
     .slice(0, 31)
   return cleaned || `Rekap ${index + 1}`
 }

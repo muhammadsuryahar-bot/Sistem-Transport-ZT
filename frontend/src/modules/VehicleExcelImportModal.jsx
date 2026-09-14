@@ -59,7 +59,7 @@ function excelDate(value) {
   const v = clean(value)
   if (!v) return null
   if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v
-  if (/^\d{1,2}[\/-]\d{1,2}[\/-]\d{4}$/.test(v)) {
+  if (/^\d{1,2}[-/]\d{1,2}[\/-]\d{4}$/.test(v)) {
     const [d, m, y] = v.split(/[\/-]/)
     return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
   }
@@ -141,8 +141,6 @@ function findHeader(sheet) {
 function getValue(row, headers, key) {
   const aliases = LABELS[key] || [key]; const idx = headers.findIndex((h) => aliases.includes(norm(h))); return idx >= 0 ? clean(row.values[idx]) : ''
 }
-function hasHeader(headers, key) { return headers.some((h) => (LABELS[key] || []).includes(norm(h))) }
-
 function repairRow(row, headers) {
   const out = { excelRow: row.excelRow, sourceNo: getValue(row, headers, 'no'), merk: getValue(row, headers, 'merk'), tipe: getValue(row, headers, 'tipe'), jenis: getValue(row, headers, 'jenis'), tahun: getValue(row, headers, 'tahun'), nomor_polisi: getValue(row, headers, 'nomor_polisi'), nomor_mesin: getValue(row, headers, 'nomor_mesin'), nomor_rangka: getValue(row, headers, 'nomor_rangka'), pemilik: getValue(row, headers, 'pemilik'), ownership: getValue(row, headers, 'status'), masa_pajak_raw: getValue(row, headers, 'masa_pajak'), status_pajak: getValue(row, headers, 'status_pajak'), unit_kerja: getValue(row, headers, 'unit_kerja'), driver: getValue(row, headers, 'driver'), lokasi: getValue(row, headers, 'lokasi'), keterangan: getValue(row, headers, 'keterangan'), catatan_hutang: getValue(row, headers, 'catatan_hutang') }
   const rawTax = out.masa_pajak_raw; const rawTaxStatus = upper(out.status_pajak)
@@ -177,7 +175,7 @@ function mergeRows(group) {
 function formatDate(v) { if (!v) return '-'; return new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(`${v}T00:00:00`)) }
 function displayCell(value, header) { const raw = clean(value); if (!raw) return '-'; const k = norm(header); if (/masa_pajak|masa_berlaku_pajak|jatuh_tempo_pajak/.test(k)) { const d = excelDate(raw); if (d) return formatDate(d) } return /^\d+\.0$/.test(raw) ? raw.slice(0, -2) : raw }
 
-async function importVehicleRows(rows, profile) {
+async function importVehicleRows(rows) {
   const repaired = rows.filter((r) => r.nomor_polisi && r.merk)
   if (!repaired.length) throw new Error('Tidak ada baris Kendaraan yang valid untuk diimport.')
   const invalid = repaired.filter((r) => !r.kepemilikan)
