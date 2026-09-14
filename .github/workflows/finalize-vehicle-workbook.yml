@@ -1,0 +1,62 @@
+name: Finalize vehicle workbook mapping
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor == 'muhammadsuryahar-bot'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Finalize vehicle import data mapping and clean temporary files
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          # DataPageTools: persist workbook tax date on vehicle master as well as STNK.
+          p = Path('frontend/src/modules/DataPageTools.jsx')
+          s = p.read_text()
+          needle = "unit_kerja: valueOf(row, headers, 'unit_kerja') || null,\n      kilometer_terakhir:"
+          replacement = "unit_kerja: valueOf(row, headers, 'unit_kerja') || null,\n      masa_berlaku_pajak: excelDate(valueOf(row, headers, 'masa_berlaku_pajak')),\n      kilometer_terakhir:"
+          if 'masa_berlaku_pajak: excelDate(valueOf(row, headers, \'masa_berlaku_pajak\'))' not in s and needle in s:
+              s = s.replace(needle, replacement, 1)
+          p.write_text(s)
+
+          # MasterKendaraan: date field should be a date picker, not a generic text input.
+          p = Path('frontend/src/modules/MasterKendaraanPage.jsx')
+          s = p.read_text()
+          old = "type={name==='tahun'||name==='kilometer_terakhir'?'number':'text'}"
+          new = "type={name==='tahun'||name==='kilometer_terakhir'?'number':name==='masa_berlaku_pajak'?'date':'text'}"
+          s = s.replace(old, new, 1)
+          p.write_text(s)
+
+          # Remove temporary workflow/marker/docs created during the migration work.
+          import shutil
+          for path in Path('docs').glob('VEHICLE_IMPORT_SOURCE_COLUMNS*'):
+              if path.name != 'VEHICLE_IMPORT_SOURCE_COLUMNS.md':
+                  path.unlink(missing_ok=True)
+          for path in Path('docs').glob('VEHICLE_IMPORT_SOURCE_COLUMNS.tmp*'):
+              path.unlink(missing_ok=True)
+          Path('docs/.vehicle-import-pr-marker').unlink(missing_ok=True)
+          Path('.github/workflows/vehicle-fields-finalize.yml').unlink(missing_ok=True)
+          PY
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add frontend/src/modules/DataPageTools.jsx frontend/src/modules/MasterKendaraanPage.jsx docs .github/workflows/vehicle-fields-finalize.yml
+          git commit -m "fix: finalize vehicle workbook field mapping and cleanup" || exit 0
+          git push origin main
+
+      - name: Remove this temporary workflow
+        shell: bash
+        run: |
+          git rm -f .github/workflows/finalize-vehicle-workbook.yml || true
+          git commit -m "chore: remove temporary vehicle finalize workflow" || true
+          git push origin main || true
