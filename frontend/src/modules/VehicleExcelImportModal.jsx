@@ -229,7 +229,7 @@ export default function VehicleExcelImportModal({ profile, onDone, onClose }) {
   const start = async () => {
     if (!workbook || !canImport || saving) return
     setSaving(true); setError(''); setMessage('Import berjalan...')
-    try { const result = await importVehicleRows(workbook.valid, profile); setMessage(`Import selesai: ${result.uniqueVehicles} kendaraan unik diproses • ${result.added} baru • ${result.updated} diperbarui • ${result.mergedDuplicates} duplikat digabung • ${result.driversCreated} driver dibuat.`); onDone?.() } catch (e) { setError(e.message || 'Import gagal.') } finally { setSaving(false) }
+    try { const result = await importVehicleRows(workbook.valid, profile); const report = { context: 'kendaraan', ...result, completedAt: new Date().toISOString() }; sessionStorage.setItem('transport_import_report', JSON.stringify(report)); setMessage(`Import selesai: ${result.uniqueVehicles} kendaraan unik diproses • ${result.added} baru • ${result.updated} diperbarui • ${result.mergedDuplicates} duplikat digabung • ${result.driversCreated} driver dibuat.`); onDone?.(report) } catch (e) { setError(e.message || 'Import gagal.') } finally { setSaving(false) }
   }
   return <div className="dpt-overlay" role="dialog" aria-modal="true"><section className="dpt-modal vehicle-import-modal">
     <header className="dpt-modal-head"><div><span className="eyebrow">IMPORT EXCEL KENDARAAN</span><h3>Data Kendaraan</h3><p>Mapping dibuat berdasarkan kolom sumber yang benar-benar ada di workbook. Tidak ada kolom sistem yang diisi asal.</p></div><button type="button" className="dpt-icon" onClick={onClose}>×</button></header>
