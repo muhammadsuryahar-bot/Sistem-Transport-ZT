@@ -25,6 +25,7 @@ jobs:
       - name: Install dependencies
         working-directory: frontend
         run: npm ci
+      # Production verification: lint must pass before build is attempted.
       - name: Lint
         working-directory: frontend
         run: npm run lint
