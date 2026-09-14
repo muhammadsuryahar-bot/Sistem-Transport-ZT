@@ -65,7 +65,7 @@ const SHEET_HINTS = {
   dokumen: ['stnk', 'kir', 'dokumen kendaraan', 'dokumen', 'pajak'],
 }
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024
+const MAX_FILE_SIZE = 25 * 1024 * 1024
 
 const clean = (value) => String(value ?? '').replace(/\s+/g, ' ').trim()
 const norm = (value) => clean(value).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
@@ -398,11 +398,14 @@ export default function UnifiedExcelImportModal({ context, profile, onDone, onCl
     setFile(nextFile || null); setSelected(null); setError(''); setMessage('')
     if (!nextFile) return
     if (!/\.xlsx$/i.test(nextFile.name)) { setError('Gunakan file Excel .xlsx. Format .xls lama belum didukung.'); return }
-    if (nextFile.size > MAX_FILE_SIZE) { setError('Ukuran file maksimal 10 MB.'); return }
+    if (nextFile.size > MAX_FILE_SIZE) { setError('Ukuran file maksimal 25 MB.'); return }
     setLoading(true)
     try {
       const sheets = prepareSheets(await parseXlsx(nextFile), context)
       const candidate = sheets[0]
+      const candidateName = norm(candidate?.name || '')
+      if (context === 'pengajuan' && ['permintaan_perbaikan', 'pengajuan_perbaikan'].includes(candidateName)) throw new Error('Sheet Pengajuan Perbaikan/PERMINTAAN PERBAIKAN pada FPD OPS adalah formulir blok historis, bukan tabel pengajuan. Import otomatis dihentikan agar data tidak salah mapping.')
+      if (context === 'sewa' && ['sewa_kendaraan', 'summery_rental'].includes(candidateName)) throw new Error('Sheet Sewa KEndaraan/SUMMERY RENTAL pada FPD OPS berisi formulir dana dan rekap pembayaran, bukan tabel kontrak sewa. Import otomatis dihentikan agar pembayaran tidak salah dicatat sebagai kontrak.')
       if (!candidate || candidate.score < 4) throw new Error(`Data ${LABELS[context]} tidak ditemukan secara meyakinkan. Periksa nama sheet dan header Excel.`)
       setSelected(candidate)
       setMessage(`Sheet “${candidate.name}” terdeteksi • ${dataRows(candidate).length} baris data.`)
@@ -414,8 +417,10 @@ export default function UnifiedExcelImportModal({ context, profile, onDone, onCl
     setSaving(true); setError(''); setMessage('Memproses import...')
     try {
       const result = await IMPORTERS[context](selected, profile)
+      const report = { context, sourceRows: dataRows(selected).length, validRows: dataRows(selected).length, imported: Number((String(result).match(/^(\d+)/) || [0, 0])[1]), message: result, fileName: file?.name || '', completedAt: new Date().toISOString() }
+      sessionStorage.setItem('transport_import_report', JSON.stringify(report))
       setMessage(`Import ${LABELS[context]} berhasil. ${result}`)
-      onDone?.()
+      onDone?.(report)
     } catch (e) {
       setError(e?.message || 'Import gagal. Data tidak dilanjutkan ke langkah berikutnya.')
       setMessage('')
@@ -427,7 +432,7 @@ export default function UnifiedExcelImportModal({ context, profile, onDone, onCl
       <header className="dpt-modal-head"><div><span className="eyebrow">IMPORT EXCEL</span><h3>Import {LABELS[context]}</h3><p>Upload → deteksi sheet → preview → validasi → cek duplikat → simpan.</p></div><button type="button" className="dpt-icon" onClick={onClose} aria-label="Tutup">×</button></header>
       {error && <div className="dpt-alert error">{error}</div>}
       {message && <div className="dpt-alert success">{message}</div>}
-      <div className="dpt-upload"><input ref={inputRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(e) => scan(e.target.files?.[0])}/><button type="button" className="dpt-upload-button" onClick={() => inputRef.current?.click()} disabled={loading || saving}>{loading ? 'Membaca Excel…' : file ? 'Ganti File' : 'Pilih File Excel'}</button>{file ? <div className="dpt-file-meta"><strong title={file.name}>{file.name}</strong><span>✓ .xlsx • {(file.size / 1024 / 1024).toFixed(2)} MB</span></div> : <div className="dpt-file-meta"><span>Hanya .xlsx • maksimal 10 MB</span></div>}</div>
+      <div className="dpt-upload"><input ref={inputRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(e) => scan(e.target.files?.[0])}/><button type="button" className="dpt-upload-button" onClick={() => inputRef.current?.click()} disabled={loading || saving}>{loading ? 'Membaca Excel…' : file ? 'Ganti File' : 'Pilih File Excel'}</button>{file ? <div className="dpt-file-meta"><strong title={file.name}>{file.name}</strong><span>✓ .xlsx • {(file.size / 1024 / 1024).toFixed(2)} MB</span></div> : <div className="dpt-file-meta"><span>Hanya .xlsx • maksimal 25 MB</span></div>}</div>
       {file && selected && <><div className="dpt-selection"><div><b>Sheet: {selected.name}</b><span>Kecocokan {selected.score}/22</span></div><span>{dataRows(selected).length} baris data</span></div><div className="dpt-preview"><div className="dpt-sheet-title"><div><b>Preview Data</b><span className="dpt-preview-note">Tanggal Excel otomatis dibaca sebagai tanggal Indonesia.</span></div><span>maks. 8 baris</span></div><div className="dpt-preview-wrap"><table><thead><tr>{selected.headers.map((header, index) => <th key={`${header}-${index}`}>{header || `Kolom ${index + 1}`}</th>)}</tr></thead><tbody>{selected.rows.slice(selected.headerIndex + 1, selected.headerIndex + 9).map((row, rowIndex) => <tr key={rowIndex}>{selected.headers.map((header, columnIndex) => <td key={columnIndex}>{displayCell(row[columnIndex], header)}</td>)}</tr>)}</tbody></table></div></div></>}
       <div className="dpt-actions"><button type="button" className="dpt-button" onClick={onClose} disabled={saving}>Batal</button><button type="button" className="dpt-button primary" onClick={start} disabled={!selected || saving || !canImport}>{saving ? 'Mengimport…' : `Import ${LABELS[context]}`}</button></div>
     </section>

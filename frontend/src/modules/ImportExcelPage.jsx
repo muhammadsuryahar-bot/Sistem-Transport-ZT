@@ -5,6 +5,8 @@ import './ImportExcelPage.css'
 const clean = value => String(value ?? '').replace(/\s+/g, ' ').trim()
 const norm = value => clean(value).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
 
+const MAX_FILE_SIZE = 25 * 1024 * 1024
+
 const KEYWORDS = {
   kendaraan: ['nomor_polisi', 'no_polisi', 'plat', 'no_plat', 'kode_kendaraan'],
   dokumen: ['stnk', 'kir', 'jatuh_tempo', 'masa_pajak', 'nomor_dokumen'],
@@ -145,6 +147,7 @@ function ImportExcelPage({ profile }) {
     setFile(selectedFile); setSheets([]); setSelected(null); setError(''); setMessage('')
     if (!selectedFile) return
     if (!/\.xlsx$/i.test(selectedFile.name)) { setError('Gunakan file Excel .xlsx. Format .xls lama belum didukung untuk import aman.'); return }
+    if (selectedFile.size > MAX_FILE_SIZE) { setError('Ukuran file maksimal 25 MB.'); return }
     setLoading(true)
     try {
       const parsed = await parseXlsx(selectedFile)

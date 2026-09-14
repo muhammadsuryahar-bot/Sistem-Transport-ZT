@@ -93,6 +93,8 @@ export default function DataPageTools({ context, profile, onExport }) {
           {importReport.unknownPlates?.length > 0 && <span>Plat belum ada di Master Kendaraan: <strong>{importReport.unknownPlates.length}</strong></span>}
         </div>
 
+        {importReport.message && <div className="vehicle-import-note"><b>Detail hasil import</b><span>{importReport.message}</span></div>}
+
         {importReport.context === 'kendaraan' && <div className="vehicle-import-note">
           <b>Kenapa jumlah Excel dan Master bisa berbeda?</b>
           <span>Excel menghitung baris sumber, sedangkan Master Kendaraan menghitung No. Polisi unik.</span>

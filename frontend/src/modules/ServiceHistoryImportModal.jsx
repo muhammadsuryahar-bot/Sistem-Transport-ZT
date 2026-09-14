@@ -359,6 +359,9 @@ async function importServiceHistory(rows, profile, sheetName) {
     }).eq('id', service.data.id).select('id').single()
     if (completed.error) throw new Error(`Gagal menandai histori service ${first.nomor_polisi} selesai: ${completed.error.message}`)
 
+    const requestCompleted = await supabase.from('permintaan_service').update({ status: 'SELESAI' }).eq('id', request.data.id)
+    if (requestCompleted.error) throw new Error(`Gagal menutup histori pengajuan ${first.nomor_polisi}: ${requestCompleted.error.message}`)
+
     if (shouldUpdateKm) {
       kmUpdated += 1
       vehicle.kilometer_terakhir = kilometer
@@ -428,7 +431,7 @@ export default function ServiceHistoryImportModal({ profile, onDone, onClose }) 
       const unknownText = result.unknownPlates.length ? ` • ${result.unknownPlates.length} plat tidak ditemukan di master` : ''
       setMessage(`Import selesai: ${result.imported} transaksi baru • ${result.skipped} duplikat dilewati • ${result.items} item tercatat • ${result.kmUpdated} KM kendaraan diperbarui${unknownText}.`)
       if (result.unknownPlates.length) setError(`Plat yang belum ada di Master Kendaraan: ${result.unknownPlates.slice(0, 20).join(', ')}${result.unknownPlates.length > 20 ? ' …' : ''}. Data tersebut tidak dibuat otomatis.`)
-      onDone?.()
+      const report = { context: 'service', ...result, validRows: workbook.valid.length, transactions: result.imported, fileName: file?.name || '', completedAt: new Date().toISOString() }; sessionStorage.setItem('transport_import_report', JSON.stringify(report)); onDone?.(report)
     } catch (e) {
       setError(e.message || 'Import histori service gagal.')
       setMessage('')
