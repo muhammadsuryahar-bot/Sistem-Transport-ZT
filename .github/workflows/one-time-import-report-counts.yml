@@ -1,0 +1,30 @@
+name: One-time import report counts
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor == 'muhammadsuryahar-bot' && !contains(github.event.head_commit.message, '[import-counts-done]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch report counts
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('frontend/src/modules/VehicleExcelImportModal.jsx')
+          s = p.read_text()
+          old = "const report = { context: 'kendaraan', ...result, completedAt: new Date().toISOString() }"
+          new = "const report = { context: 'kendaraan', ...result, sourceRows: workbook.data.length, validRows: workbook.valid.length, uniqueVehicles: workbook.uniqueCount, mergedDuplicates: workbook.duplicateCount, missingSourceNumbers: workbook.missingSourceNumbers, fileName: file?.name || '', completedAt: new Date().toISOString() }"
+          if old not in s: raise SystemExit('report block not found')
+          p.write_text(s.replace(old, new, 1))
+          PY
+          rm -f .github/workflows/one-time-import-report-counts.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add frontend/src/modules/VehicleExcelImportModal.jsx .github/workflows/one-time-import-report-counts.yml
+          git commit -m "fix import report source counts [import-counts-done]"
+          git push
