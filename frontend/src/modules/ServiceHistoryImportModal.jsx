@@ -12,7 +12,7 @@ const ALIASES = {
   driver: ['driver_pic', 'driver', 'nama_driver'],
   tanggal: ['tanggal', 'tgl', 'tanggal_service'],
   jenis_pekerjaan: ['jenis_pekerjaan', 'jenis_pekerjan', 'pekerjaan'],
-  uraian: ['uraian', 'keterangan', 'catatan', 'deskripsi'],
+  uraian: ['uraian', 'deskripsi', 'item', 'pekerjaan_detail'],
   qty: ['qty', 'jumlah'],
   satuan: ['sat', 'satuan', 'unit'],
   harga_satuan: ['harga_satuan', 'harga_satuan_rp', 'harga'],
@@ -27,7 +27,7 @@ const ALIASES = {
 const clean = (value) => String(value ?? '').replace(/\s+/g, ' ').trim()
 const norm = (value) => clean(value).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
 const upper = (value) => clean(value).toUpperCase()
-const MAX_FILE_SIZE = 10 * 1024 * 1024
+const MAX_FILE_SIZE = 25 * 1024 * 1024
 
 function colIndex(name) {
   let n = 0
@@ -36,6 +36,7 @@ function colIndex(name) {
 }
 
 function text(bytes) { return new TextDecoder('utf-8').decode(bytes) }
+
 async function inflate(bytes) {
   if (typeof DecompressionStream === 'undefined') throw new Error('Browser belum mendukung pembacaan XLSX. Gunakan Chrome/Edge terbaru.')
   const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'))
@@ -46,7 +47,9 @@ async function unzip(buffer) {
   const view = new DataView(buffer)
   const bytes = new Uint8Array(buffer)
   let eocd = -1
-  for (let i = bytes.length - 22; i >= 0; i -= 1) if (view.getUint32(i, true) === 0x06054b50) { eocd = i; break }
+  for (let i = bytes.length - 22; i >= 0; i -= 1) {
+    if (view.getUint32(i, true) === 0x06054b50) { eocd = i; break }
+  }
   if (eocd < 0) throw new Error('File bukan XLSX yang valid atau file rusak.')
   const count = view.getUint16(eocd + 10, true)
   const centralOffset = view.getUint32(eocd + 16, true)
@@ -147,6 +150,22 @@ function numberValue(value) {
   return Number.isFinite(n) ? n : null
 }
 
+// Data Service legacy menyimpan sebagian nominal numerik dalam satuan ribuan,
+// sementara nominal string seperti "1.238.000" sudah berupa Rupiah penuh.
+// Profil ini sengaja hanya dipakai untuk sheet Data Service agar modul lain
+// tidak ikut mengubah arti angka dari workbook mereka.
+function serviceCurrencyValue(value) {
+  const v = clean(value)
+  if (!v) return null
+  if (/^-?\d{1,3}(?:\.\d{3})+(?:,\d+)?$/.test(v)) return Number(v.replace(/\./g, '').replace(',', '.'))
+  if (/^-?\d+(?:,\d+)?$/.test(v)) {
+    const n = Number(v.replace(',', '.'))
+    return Number.isFinite(n) ? n * 1000 : null
+  }
+  const n = Number(v.replace(/,/g, ''))
+  return Number.isFinite(n) ? n * 1000 : null
+}
+
 function excelDate(value) {
   const v = clean(value)
   if (!v) return null
@@ -155,15 +174,19 @@ function excelDate(value) {
     const [d, m, y] = v.split(/[/-]/)
     return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
   }
+  const idMonth = { jan: 1, januari: 1, feb: 2, februari: 2, mar: 3, maret: 3, apr: 4, april: 4, mei: 5, may: 5, jun: 6, juni: 6, jul: 7, juli: 7, agu: 8, agustus: 8, sep: 9, september: 9, okt: 10, oktober: 10, nov: 11, november: 11, des: 12, desember: 12 }
+  const named = v.toLowerCase().replace(/\./g, '').match(/^(\d{1,2})[-\s/]([a-z]+)[-\s/](\d{2,4})$/)
+  if (named) {
+    const day = Number(named[1])
+    const month = idMonth[named[2]]
+    let year = Number(named[3])
+    if (year < 100) year += year >= 70 ? 1900 : 2000
+    if (month) return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+  }
   const serial = Number(v)
   if (Number.isFinite(serial) && serial > 20000 && serial < 80000) return new Date(Date.UTC(1899, 11, 30) + serial * 86400000).toISOString().slice(0, 10)
   const d = new Date(v)
   return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10)
-}
-
-function formatDate(v) {
-  if (!v) return '-'
-  return new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(`${v}T00:00:00`))
 }
 
 function parseRow(row, headers) {
@@ -173,16 +196,17 @@ function parseRow(row, headers) {
     merk: getValue(row, headers, 'merk'),
     tipe: getValue(row, headers, 'tipe'),
     jenis: getValue(row, headers, 'jenis'),
+    tahun: getValue(row, headers, 'tahun'),
     driver: getValue(row, headers, 'driver'),
     tanggal: excelDate(getValue(row, headers, 'tanggal')),
     jenis_pekerjaan: getValue(row, headers, 'jenis_pekerjaan'),
     uraian: getValue(row, headers, 'uraian'),
     qty: numberValue(getValue(row, headers, 'qty')) ?? 1,
     satuan: getValue(row, headers, 'satuan') || 'pcs',
-    harga_satuan: numberValue(getValue(row, headers, 'harga_satuan')) ?? 0,
-    nilai_dpp: numberValue(getValue(row, headers, 'nilai_dpp')) ?? 0,
-    ppn: numberValue(getValue(row, headers, 'ppn')) ?? 0,
-    total: numberValue(getValue(row, headers, 'total')) ?? 0,
+    harga_satuan: serviceCurrencyValue(getValue(row, headers, 'harga_satuan')) ?? 0,
+    nilai_dpp: serviceCurrencyValue(getValue(row, headers, 'nilai_dpp')) ?? 0,
+    ppn: serviceCurrencyValue(getValue(row, headers, 'ppn')) ?? 0,
+    total: serviceCurrencyValue(getValue(row, headers, 'total')) ?? 0,
     kilometer: numberValue(getValue(row, headers, 'kilometer')) ?? 0,
     bengkel: getValue(row, headers, 'bengkel') || null,
     keterangan: getValue(row, headers, 'keterangan') || null,
@@ -190,7 +214,7 @@ function parseRow(row, headers) {
 }
 
 function transactionType(rows) {
-  const raw = rows.map((row) => upper(row.jenis_pekerjaan)).join(' ')
+  const raw = rows.map((row) => upper(`${row.jenis_pekerjaan} ${row.uraian}`)).join(' ')
   if (/BAN/.test(raw)) return 'GANTI_BAN'
   if (/AKI|BATERAI/.test(raw)) return 'GANTI_AKI'
   if (/PEMERIKSA/.test(raw)) return 'PEMERIKSAAN'
@@ -262,6 +286,7 @@ async function importServiceHistory(rows, profile, sheetName) {
       skippedGroups.push(group)
       continue
     }
+
     const dpp = group.values.reduce((sum, row) => sum + row.nilai_dpp, 0)
     const ppn = group.values.reduce((sum, row) => sum + row.ppn, 0)
     const total = group.values.reduce((sum, row) => sum + row.total, 0)
@@ -270,6 +295,8 @@ async function importServiceHistory(rows, profile, sheetName) {
     const label = group.values.find((row) => row.jenis_pekerjaan)?.jenis_pekerjaan || 'Service'
     const complaint = group.values.find((row) => row.uraian)?.uraian || `Riwayat ${label}`
     const serviceNumber = `IMP-SRV-${Date.now()}-${importedGroups.length + 1}`
+    const historyNote = `Import histori Excel: ${sheetName}`
+
     const request = await supabase.from('permintaan_service').insert({
       pemohon_id: profile.id,
       kendaraan_id: vehicle.id,
@@ -300,7 +327,7 @@ async function importServiceHistory(rows, profile, sheetName) {
       nilai_dpp: dpp,
       ppn,
       total,
-      catatan: `Import histori Excel: ${sheetName}`,
+      catatan: historyNote,
       selesai_at: new Date().toISOString(),
     }).select('id').single()
     if (service.error) throw new Error(`Gagal membuat histori service ${first.nomor_polisi} (baris ${first.excelRow}): ${service.error.message}`)
@@ -365,7 +392,7 @@ export default function ServiceHistoryImportModal({ profile, onDone, onClose }) 
     setMessage('')
     if (!nextFile) return
     if (!/\.xlsx$/i.test(nextFile.name)) return setError('Gunakan file Excel .xlsx. Format .xls lama belum didukung.')
-    if (nextFile.size > MAX_FILE_SIZE) return setError('Ukuran file maksimal 10 MB.')
+    if (nextFile.size > MAX_FILE_SIZE) return setError('Ukuran file maksimal 25 MB.')
     setLoading(true)
     try {
       const sheets = await parseXlsx(nextFile)
@@ -377,7 +404,12 @@ export default function ServiceHistoryImportModal({ profile, onDone, onClose }) 
       const invalid = parsed.length - valid.length
       const transactions = groupRows(valid)
       const uniquePlates = [...new Set(valid.map((row) => row.nomor_polisi))]
-      setWorkbook({ sheet: chosen.sheet, header: chosen.header, dataRows: parsed, valid, invalid, transactions, uniquePlates })
+      const currencyTotals = {
+        dpp: valid.reduce((sum, row) => sum + row.nilai_dpp, 0),
+        ppn: valid.reduce((sum, row) => sum + row.ppn, 0),
+        total: valid.reduce((sum, row) => sum + row.total, 0),
+      }
+      setWorkbook({ sheet: chosen.sheet, header: chosen.header, dataRows: parsed, valid, invalid, transactions, uniquePlates, currencyTotals })
       setMessage(`Sheet “${chosen.sheet.name}” terdeteksi: ${parsed.length} baris sumber • ${valid.length} valid • ${transactions.length} transaksi service.`)
     } catch (e) {
       setError(e.message || 'File Excel tidak dapat dibaca.')
@@ -420,7 +452,7 @@ export default function ServiceHistoryImportModal({ profile, onDone, onClose }) 
       <div className="dpt-upload">
         <input ref={inputRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(e) => scan(e.target.files?.[0])}/>
         <button type="button" className="dpt-upload-button" onClick={() => inputRef.current?.click()} disabled={loading || saving}>{loading ? 'Membaca Excel…' : file ? 'Ganti File' : 'Pilih File Excel'}</button>
-        <div className="dpt-file-meta"><strong title={file?.name}>{file?.name || 'Belum ada file'}</strong><span>{file ? `✓ .xlsx • ${(file.size / 1024 / 1024).toFixed(2)} MB` : 'Maksimal 10 MB'}</span></div>
+        <div className="dpt-file-meta"><strong title={file?.name}>{file?.name || 'Belum ada file'}</strong><span>{file ? `✓ .xlsx • ${(file.size / 1024 / 1024).toFixed(2)} MB` : 'Maksimal 25 MB'}</span></div>
       </div>
       {workbook && <>
         <div className="service-import-stats">
@@ -434,8 +466,9 @@ export default function ServiceHistoryImportModal({ profile, onDone, onClose }) 
           <b>Penyesuaian sistem</b>
           <span>Beberapa baris item dengan kendaraan + tanggal + bengkel yang sama digabung menjadi 1 transaksi service.</span>
           <span>Uraian pekerjaan masuk ke detail item service.</span>
-          <span>DPP, PPN, dan Total dijumlahkan dari baris sumber.</span>
-          <span>Historis langsung berstatus SELESAI; tidak dibuat sebagai pengajuan aktif.</span>
+          <span>DPP, PPN, dan Total dinormalisasi ke Rupiah penuh sesuai format legacy Data Service.</span>
+          <span>Tanggal seperti 11-Des-25 juga dikenali otomatis.</span>
+          <span>Historis langsung berstatus SELESAI; tidak dibuat sebagai pengajuan aktif secara operasional.</span>
           <span>Plat yang belum ada di Master Kendaraan tidak dibuat otomatis.</span>
         </div>
         <div className="service-import-map">
@@ -445,9 +478,10 @@ export default function ServiceHistoryImportModal({ profile, onDone, onClose }) 
           <div><b>Uraian</b><span>→</span><span>Item Service</span></div>
           <div><b>Nilai DPP</b><span>→</span><span>DPP</span></div>
           <div><b>PPn</b><span>→</span><span>PPN</span></div>
-          <div><b>Total / Biaya</b><span>→</span><span>Total & Biaya Aktual</span></div>
+          <div><b>Total</b><span>→</span><span>Total & Biaya Aktual</span></div>
           <div><b>KM</b><span>→</span><span>KM Service + Master Kendaraan</span></div>
           <div><b>Nama Bengkel</b><span>→</span><span>Bengkel</span></div>
+          <div><b>Keterangan</b><span>→</span><span>Catatan Item</span></div>
         </div>
         <div className="dpt-preview">
           <div className="dpt-sheet-title"><b>Preview Sumber: {workbook.sheet.name}</b><span>8 baris pertama</span></div>
