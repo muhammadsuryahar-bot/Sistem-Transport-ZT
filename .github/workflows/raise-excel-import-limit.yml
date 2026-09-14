@@ -1,0 +1,65 @@
+name: Raise Excel import limit
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.head_commit.message != 'fix: raise Excel import limit to 25MB'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Update import limits and labels
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          targets = [
+              Path('frontend/src/modules/UnifiedExcelImportModal.jsx'),
+              Path('frontend/src/modules/ServiceHistoryImportModal.jsx'),
+              Path('frontend/src/modules/VehicleExcelImportModal.jsx'),
+              Path('frontend/src/modules/DataPageTools.jsx'),
+          ]
+
+          changed = []
+          for path in targets:
+              if not path.exists():
+                  continue
+              s = path.read_text()
+              original = s
+
+              s = s.replace('const MAX_FILE_SIZE = 10 * 1024 * 1024', 'const MAX_FILE_SIZE = 25 * 1024 * 1024')
+              s = s.replace('Ukuran file maksimal 10 MB.', 'Ukuran file maksimal 25 MB.')
+              s = s.replace('Ukuran file maksimum 10 MB.', 'Ukuran file maksimum 25 MB.')
+              s = s.replace('maksimal 10 MB', 'maksimal 25 MB')
+              s = s.replace('maks. 10 MB', 'maks. 25 MB')
+              s = s.replace('maximum 10 MB', 'maximum 25 MB')
+
+              if s != original:
+                  path.write_text(s)
+                  changed.append(str(path))
+
+          if not changed:
+              raise SystemExit('Tidak ada file import yang perlu diubah.')
+
+          print('Updated:')
+          for path in changed:
+              print(f'- {path}')
+          PY
+
+      - name: Remove temporary workflow and commit
+        shell: bash
+        run: |
+          rm -f .github/workflows/raise-excel-import-limit.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add frontend/src/modules/UnifiedExcelImportModal.jsx frontend/src/modules/ServiceHistoryImportModal.jsx frontend/src/modules/VehicleExcelImportModal.jsx frontend/src/modules/DataPageTools.jsx .github/workflows/raise-excel-import-limit.yml
+          git commit -m "fix: raise Excel import limit to 25MB"
+          git push origin main
