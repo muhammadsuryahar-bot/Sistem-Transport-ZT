@@ -2,70 +2,32 @@ import { useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
 const LABELS = {
-  kendaraan: 'Kendaraan',
   pengajuan: 'Pengajuan Service',
-  service: 'Service & Perbaikan',
   sewa: 'Kendaraan Sewa',
-  dokumen: 'Dokumen Kendaraan',
 }
 
 const ALIASES = {
   nomor_polisi: ['nomor_polisi', 'no_polisi', 'no_pol', 'no_plat', 'plat', 'nomor_kendaraan'],
-  kode_kendaraan: ['kode_kendaraan', 'kode', 'kode_unit'],
-  merk: ['merk', 'brand'],
-  tipe: ['tipe', 'type'],
-  jenis_kendaraan: ['jenis', 'jenis_kendaraan', 'jenis_unit'],
-  tahun: ['tahun', 'tahun_kendaraan'],
-  warna: ['warna'],
-  nomor_rangka: ['nomor_rangka', 'no_rangka', 'no_rangka_kendaraan'],
-  nomor_mesin: ['nomor_mesin', 'no_mesin', 'no_mesin_kendaraan'],
-  kepemilikan: ['kepemilikan', 'status_kepemilikan', 'ownership', 'status'],
-  jenis_sewa: ['jenis_sewa', 'jenis_pemilik'],
-  pemilik: ['pemilik', 'nama_pemilik', 'pemilik_pic', 'nama_pemilik_pic'],
-  driver: ['driver', 'nama_driver', 'driver_pic'],
-  lokasi: ['lokasi', 'lokasi_kerja', 'home_base', 'homebase'],
-  unit_kerja: ['unit_kerja', 'penggunaan_unit', 'pengunaan_unit'],
   kilometer: ['km', 'kilometer', 'km_terakhir', 'kilometer_terakhir', 'kilometer_pengajuan'],
-  status_operasional: ['status_operasional', 'status_unit', 'status_kendaraan'],
-  kondisi: ['kondisi', 'kondisi_kendaraan'],
-  masa_berlaku_pajak: ['masa_berlaku_pajak', 'masa_pajak', 'jatuh_tempo_pajak', 'pajak_jatuh_tempo'],
-  status_pajak: ['status_pajak'],
-  catatan_hutang: ['catatan_hutang'],
-  keterangan: ['keterangan', 'catatan'],
-  tanggal: ['tanggal', 'tgl', 'tanggal_pengajuan', 'tanggal_service'],
+  tanggal: ['tanggal', 'tgl', 'tanggal_pengajuan'],
   jenis_permintaan: ['jenis_permintaan', 'jenis_perbaikan', 'jenis_service'],
   keluhan: ['keluhan', 'keluhan_kerusakan', 'uraian_kerusakan', 'uraian'],
   prioritas: ['prioritas'],
-  jenis_pekerjaan: ['jenis_pekerjaan', 'jenis_pekerjan', 'pekerjaan'],
-  bengkel: ['bengkel', 'nama_bengkel', 'nama_bengkel_service'],
-  qty: ['qty', 'jumlah'],
-  satuan: ['satuan', 'sat', 'unit'],
-  harga_satuan: ['harga_satuan', 'harga_satuan_rp', 'harga'],
-  nilai_dpp: ['nilai_dpp', 'dpp'],
-  ppn: ['ppn', 'ppn_rp'],
-  total: ['total', 'jumlah_rp', 'nilai_total'],
-  stnk: ['stnk', 'jatuh_tempo_stnk'],
-  kir: ['kir', 'jatuh_tempo_kir'],
-  lima_tahun: ['5_tahun', 'lima_tahun', 'jatuh_tempo_5_tahun'],
-  nomor_dokumen: ['nomor_dokumen', 'no_dokumen', 'nomor_stnk', 'nomor_kir'],
   nomor_kontrak: ['nomor_kontrak', 'no_kontrak', 'kontrak'],
+  pemilik: ['pemilik', 'nama_pemilik', 'pemilik_pic', 'nama_pemilik_pic', 'supplier'],
   nama_perusahaan: ['nama_perusahaan', 'perusahaan'],
-  jenis_pemilik: ['jenis_pemilik'],
+  jenis_pemilik: ['jenis_pemilik', 'jenis_owner'],
   tanggal_mulai: ['tanggal_mulai', 'mulai'],
   tanggal_selesai: ['tanggal_selesai', 'selesai'],
   nilai_sewa_bulanan: ['nilai_sewa_bulanan', 'sewa_bulanan', 'harga_sewa'],
   tanggal_jatuh_tempo_bulanan: ['tanggal_jatuh_tempo_bulanan', 'jatuh_tempo_bulanan'],
 }
 
-const SHEET_HINTS = {
-  kendaraan: ['data kendaraan', 'list kendaraan', 'kendaraan', 'master kendaraan', 'armada'],
-  pengajuan: ['permintaan perbaikan', 'pengajuan perbaikan', 'pengajuan service', 'permintaan service', 'pengajuan'],
-  service: ['data service', 'service', 'perbaikan', 'histori service', 'riwayat service'],
-  sewa: ['sewa kendaraan', 'kendaraan sewa', 'rental', 'kontrak sewa', 'sewa'],
-  dokumen: ['stnk', 'kir', 'dokumen kendaraan', 'dokumen', 'pajak'],
-}
-
 const MAX_FILE_SIZE = 25 * 1024 * 1024
+const BLOCKED_SHEETS = {
+  pengajuan: new Set(['permintaan_perbaikan', 'pengajuan_perbaikan']),
+  sewa: new Set(['sewa_kendaraan', 'summery_rental']),
+}
 
 const clean = (value) => String(value ?? '').replace(/\s+/g, ' ').trim()
 const norm = (value) => clean(value).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
@@ -149,8 +111,8 @@ async function parseXlsx(file) {
   const sharedStrings = []
   const shared = await zip.read('xl/sharedStrings.xml')
   if (shared) {
-    const d = new DOMParser().parseFromString(text(shared), 'application/xml')
-    d.querySelectorAll('si').forEach((si) => sharedStrings.push(clean(Array.from(si.querySelectorAll('t')).map((t) => t.textContent || '').join(''))))
+    const doc = new DOMParser().parseFromString(text(shared), 'application/xml')
+    doc.querySelectorAll('si').forEach((si) => sharedStrings.push(clean(Array.from(si.querySelectorAll('t')).map((t) => t.textContent || '').join(''))))
   }
   const relMap = Object.fromEntries(Array.from(rels.querySelectorAll('Relationship')).map((r) => [r.getAttribute('Id'), r.getAttribute('Target')]))
   const sheets = []
@@ -173,13 +135,9 @@ function findHeader(rows) {
   return best.index >= 0 ? best : { index: 0, row: rows[0] || [], score: 0 }
 }
 
-function valueOf(row, headers, key) {
-  const aliases = ALIASES[key] || [key]
-  const index = headers.findIndex((header) => aliases.includes(norm(header)))
-  return index >= 0 ? clean(row[index]) : ''
-}
-
+function dataRows(sheet) { return sheet.rows.slice(sheet.headerIndex + 1).filter((row) => row.some((value) => clean(value))) }
 function hasHeader(headers, key) { return headers.some((header) => (ALIASES[key] || []).includes(norm(header))) }
+function valueOf(row, headers, key) { const aliases = ALIASES[key] || [key]; const index = headers.findIndex((header) => aliases.includes(norm(header))); return index >= 0 ? clean(row[index]) : '' }
 
 function numberValue(value) {
   const v = clean(value)
@@ -200,198 +158,141 @@ function excelDate(value) {
   return Number.isNaN(date.getTime()) ? null : date.toISOString().slice(0, 10)
 }
 
+function addMonths(dateText, months) { const d = new Date(`${dateText}T00:00:00`); const day = d.getDate(); d.setMonth(d.getMonth() + months); if (d.getDate() !== day) d.setDate(0); return d.toISOString().slice(0, 10) }
+function sixMonthEnd(start) { const end = addMonths(start, 6); const d = new Date(`${end}T00:00:00`); d.setDate(d.getDate() - 1); return d.toISOString().slice(0, 10) }
+
+function sheetInfo(sheet) {
+  const header = findHeader(sheet.rows)
+  return { ...sheet, headerIndex: header.index, headers: header.row }
+}
+
+function requiredKeys(context) {
+  return context === 'pengajuan' ? ['nomor_polisi', 'tanggal', 'keluhan'] : ['nomor_kontrak', 'nomor_polisi', 'pemilik', 'tanggal_mulai', 'tanggal_selesai', 'nilai_sewa_bulanan']
+}
+
+function scoreSheet(sheet, context) {
+  const name = norm(sheet.name); const headers = sheet.headers.map(norm)
+  if (BLOCKED_SHEETS[context]?.has(name)) return -100
+  const required = requiredKeys(context)
+  const hits = required.filter((key) => hasHeader(headers, key)).length
+  return hits === required.length ? 100 + required.length : hits * 10
+}
+
+function validateSource(sheet, context) {
+  const name = norm(sheet.name)
+  if (BLOCKED_SHEETS[context]?.has(name)) {
+    if (context === 'pengajuan') throw new Error('Sheet Pengajuan Perbaikan/PERMINTAAN PERBAIKAN pada FPD OPS adalah formulir blok historis, bukan tabel pengajuan. Import dihentikan agar data tidak salah mapping.')
+    throw new Error('Sheet Sewa KEndaraan/SUMMERY RENTAL pada FPD OPS berisi formulir dana dan rekap pembayaran, bukan tabel kontrak sewa. Gunakan file kontrak sewa yang memiliki Nomor Kontrak + kendaraan + periode 6 bulan.')
+  }
+  const missing = requiredKeys(context).filter((key) => !hasHeader(sheet.headers, key))
+  if (missing.length) {
+    const names = { nomor_polisi: 'Nomor Polisi', tanggal: 'Tanggal', keluhan: 'Keluhan', nomor_kontrak: 'Nomor Kontrak', pemilik: 'Pemilik', tanggal_mulai: 'Tanggal Mulai', tanggal_selesai: 'Tanggal Selesai', nilai_sewa_bulanan: 'Nilai Sewa Bulanan' }
+    throw new Error(`Format Excel ${LABELS[context]} tidak sesuai. Kolom wajib belum ada: ${missing.map((key) => names[key]).join(', ')}.`)
+  }
+  const rows = dataRows(sheet)
+  if (!rows.length) throw new Error('Sheet yang dipilih tidak memiliki baris data.')
+  return rows
+}
+
+async function importPengajuan(sheet, profile) {
+  const rows = validateSource(sheet, 'pengajuan')
+  const headers = sheet.headers
+  const vehicles = await supabase.from('kendaraan').select('id,nomor_polisi,kilometer_terakhir,status')
+  if (vehicles.error) throw new Error(`Tidak bisa membaca Master Kendaraan: ${vehicles.error.message}`)
+  const vehicleMap = Object.fromEntries((vehicles.data || []).map((v) => [upper(v.nomor_polisi), v]))
+  const valid = []
+  const invalid = []
+  for (const row of rows) {
+    const plate = upper(valueOf(row, headers, 'nomor_polisi'))
+    const complaint = valueOf(row, headers, 'keluhan')
+    const date = excelDate(valueOf(row, headers, 'tanggal'))
+    const vehicle = vehicleMap[plate]
+    if (!plate || !complaint || !date || !vehicle || vehicle.status === 'TIDAK_AKTIF') invalid.push({ plate, reason: !vehicle ? 'Plat belum ada di Master Kendaraan' : vehicle.status === 'TIDAK_AKTIF' ? 'Kendaraan tidak aktif' : 'Tanggal/Keluhan kosong atau tidak valid' })
+    else valid.push({ row, plate, complaint, date, vehicle })
+  }
+  if (!valid.length) throw new Error('Tidak ada baris Pengajuan Service yang valid. Pastikan plat sudah ada di Master Kendaraan dan Tanggal/Keluhan terisi benar.')
+  let added = 0
+  const unknownPlates = [...new Set(invalid.filter((item) => item.reason === 'Plat belum ada di Master Kendaraan').map((item) => item.plate).filter(Boolean))]
+  for (const item of valid) {
+    const result = await supabase.from('permintaan_service').insert({ pemohon_id: profile.id, kendaraan_id: item.vehicle.id, tanggal_pengajuan: item.date, kilometer_pengajuan: numberValue(valueOf(item.row, headers, 'kilometer')) ?? item.vehicle.kilometer_terakhir ?? 0, jenis_permintaan: valueOf(item.row, headers, 'jenis_permintaan') || 'SERVICE', keluhan: item.complaint, prioritas: upper(valueOf(item.row, headers, 'prioritas') || 'NORMAL'), status: 'MENUNGGU_TRANSPORT' })
+    if (result.error) throw new Error(`Gagal menyimpan pengajuan ${item.plate}: ${result.error.message}`)
+    added += 1
+  }
+  return { imported: added, skipped: invalid.length, unknownPlates, message: `${added} pengajuan ditambahkan, ${invalid.length} baris dilewati. Pengajuan hanya dibuat dari baris yang lengkap dan kendaraan aktif.` }
+}
+
+async function importSewa(sheet, profile) {
+  const rows = validateSource(sheet, 'sewa')
+  const headers = sheet.headers
+  const vehicles = await supabase.from('kendaraan').select('id,nomor_polisi,kepemilikan').eq('kepemilikan', 'SEWA')
+  if (vehicles.error) throw new Error(`Tidak bisa membaca Master Kendaraan Sewa: ${vehicles.error.message}`)
+  const vehicleMap = Object.fromEntries((vehicles.data || []).map((v) => [upper(v.nomor_polisi), v]))
+  const candidates = []
+  const invalid = []
+  for (const row of rows) {
+    const plate = upper(valueOf(row, headers, 'nomor_polisi'))
+    const nomorKontrak = valueOf(row, headers, 'nomor_kontrak')
+    const ownerName = valueOf(row, headers, 'pemilik')
+    const start = excelDate(valueOf(row, headers, 'tanggal_mulai'))
+    const end = excelDate(valueOf(row, headers, 'tanggal_selesai'))
+    const monthly = numberValue(valueOf(row, headers, 'nilai_sewa_bulanan'))
+    const vehicle = vehicleMap[plate]
+    if (!vehicle || !nomorKontrak || !ownerName || !start || !end || !monthly || monthly <= 0) { invalid.push(plate || nomorKontrak || '-'); continue }
+    if (end !== sixMonthEnd(start)) throw new Error(`Kontrak ${nomorKontrak} tidak tepat 6 bulan. Tanggal selesai yang valid untuk ${start} adalah ${sixMonthEnd(start)}.`)
+    candidates.push({ row, plate, nomorKontrak, ownerName, start, end, monthly, vehicle })
+  }
+  if (!candidates.length) throw new Error('Tidak ada kontrak sewa yang valid. Setiap baris wajib memiliki Nomor Kontrak, Plat Sewa, Pemilik, periode 6 bulan, dan Nilai Sewa Bulanan > 0.')
+  let added = 0; let skipped = invalid.length
+  const unknownPlates = [...new Set(invalid.filter(Boolean))]
+  for (const item of candidates) {
+    const duplicate = await supabase.from('kontrak_sewa').select('id').eq('nomor_kontrak', item.nomorKontrak).maybeSingle()
+    if (duplicate.error) throw new Error(`Gagal mengecek kontrak ${item.nomorKontrak}: ${duplicate.error.message}`)
+    if (duplicate.data) { skipped += 1; continue }
+
+    let owner = await supabase.from('pemilik_sewa').select('id,jenis_pemilik,nama_perusahaan,nomor_identitas').eq('nama_pemilik', item.ownerName).maybeSingle()
+    if (owner.error) throw new Error(`Gagal membaca pemilik ${item.ownerName}: ${owner.error.message}`)
+    if (!owner.data) {
+      const ownerType = upper(valueOf(item.row, headers, 'jenis_pemilik')).replace(/\s+/g, '_') || 'SEWA_PERORANGAN'
+      if (!['SEWA_PERORANGAN', 'SEWA_RENTAL'].includes(ownerType)) throw new Error(`Jenis pemilik ${ownerType} pada kontrak ${item.nomorKontrak} tidak valid.`)
+      if (ownerType === 'SEWA_RENTAL' && !valueOf(item.row, headers, 'nama_perusahaan')) throw new Error(`Nama perusahaan wajib diisi untuk pemilik rental pada kontrak ${item.nomorKontrak}.`)
+      const created = await supabase.from('pemilik_sewa').insert({ jenis_pemilik: ownerType, nama_pemilik: item.ownerName, nama_perusahaan: valueOf(item.row, headers, 'nama_perusahaan') || null, aktif: true }).select('id').single()
+      if (created.error) throw new Error(`Gagal membuat pemilik ${item.ownerName}: ${created.error.message}`)
+      owner = { data: created.data, error: null }
+    }
+    const result = await supabase.from('kontrak_sewa').insert({ nomor_kontrak: item.nomorKontrak, kendaraan_id: item.vehicle.id, pemilik_sewa_id: owner.data.id, tanggal_mulai: item.start, tanggal_selesai: item.end, periode_bulan: 6, nilai_sewa_bulanan: item.monthly, tanggal_jatuh_tempo_bulanan: excelDate(valueOf(item.row, headers, 'tanggal_jatuh_tempo_bulanan')), status: 'AKTIF', catatan: `Import Excel: ${sheet.name}`, dibuat_oleh: profile.id })
+    if (result.error) throw new Error(`Gagal menyimpan kontrak ${item.nomorKontrak}: ${result.error.message}`)
+    added += 1
+  }
+  return { imported: added, skipped, unknownPlates, message: `${added} kontrak sewa ditambahkan, ${skipped} baris dilewati. Sistem tidak mengubah rekap pembayaran menjadi kontrak.` }
+}
+
+const IMPORTERS = { pengajuan: importPengajuan, sewa: importSewa }
+
+function previewText(context) {
+  return context === 'pengajuan'
+    ? 'Template tabel wajib: Nomor Polisi, Tanggal, Keluhan. Kolom KM/Jenis/Prioritas boleh ditambahkan.'
+    : 'Template kontrak wajib: Nomor Kontrak, Nomor Polisi, Pemilik, Tanggal Mulai, Tanggal Selesai, Nilai Sewa Bulanan. Kontrak harus 6 bulan.'
+}
+
 function displayCell(value, header) {
   const raw = clean(value)
   if (!raw) return '-'
   const key = norm(header)
-  if (/^(masa_berlaku_pajak|masa_pajak|jatuh_tempo_pajak|pajak_jatuh_tempo|stnk|kir|5_tahun|lima_tahun|tanggal|tgl|tanggal_pengajuan|tanggal_service|tanggal_mulai|tanggal_selesai|tanggal_jatuh_tempo_bulanan)$/.test(key)) {
+  if (/^(tanggal|tgl|tanggal_pengajuan|tanggal_mulai|tanggal_selesai|tanggal_jatuh_tempo_bulanan)$/.test(key)) {
     const d = excelDate(raw)
     if (d) return new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(`${d}T00:00:00`))
   }
-  if (/^\d+\.0$/.test(raw)) return raw.slice(0, -2)
   return raw
 }
 
-function sheetScore(sheet, context) {
-  const { row: headers } = findHeader(sheet.rows)
-  const name = norm(sheet.name)
-  const h = headers.map(norm)
-  let score = 0
-  if (SHEET_HINTS[context]?.some((hint) => name === norm(hint))) score += 8
-  if (SHEET_HINTS[context]?.some((hint) => name.includes(norm(hint)))) score += 4
-  const hit = (key, points) => { if (h.some((x) => (ALIASES[key] || []).includes(x))) score += points }
-  if (context === 'kendaraan') { hit('nomor_polisi', 5); hit('merk', 3); hit('tipe', 1); hit('jenis_kendaraan', 1) }
-  if (context === 'pengajuan') { hit('nomor_polisi', 4); hit('keluhan', 4); hit('tanggal', 1); hit('prioritas', 1) }
-  if (context === 'service') { hit('nomor_polisi', 4); hit('tanggal', 3); hit('bengkel', 3); hit('nilai_dpp', 1); hit('jenis_pekerjaan', 1) }
-  if (context === 'sewa') { hit('nomor_kontrak', 5); hit('nomor_polisi', 3); hit('tanggal_mulai', 2); hit('tanggal_selesai', 2); hit('nilai_sewa_bulanan', 2) }
-  if (context === 'dokumen') { hit('nomor_polisi', 4); hit('stnk', 3); hit('kir', 3); hit('lima_tahun', 2); hit('nomor_dokumen', 1) }
-  return score
-}
-
-function prepareSheets(sheets, context) {
-  return sheets.map((sheet) => { const header = findHeader(sheet.rows); return { ...sheet, headerIndex: header.index, headers: header.row, score: sheetScore(sheet, context) } }).sort((a, b) => b.score - a.score)
-}
-function dataRows(sheet) { return sheet.rows.slice(sheet.headerIndex + 1).filter((row) => row.some((value) => clean(value))) }
-
-async function importKendaraan(sheet) {
-  const rows = dataRows(sheet)
-  const headers = sheet.headers
-  if (!hasHeader(headers, 'nomor_polisi') || !hasHeader(headers, 'merk')) throw new Error('Sheet Kendaraan minimal harus memiliki kolom Nomor Polisi dan Merk.')
-  const validRows = rows.filter((row) => valueOf(row, headers, 'nomor_polisi') && valueOf(row, headers, 'merk'))
-  if (!validRows.length) throw new Error('Tidak ada baris Kendaraan yang valid untuk diimport.')
-  const [vehiclesResult, driversResult] = await Promise.all([
-    supabase.from('kendaraan').select('id,kode_kendaraan,nomor_polisi,merk,tipe,jenis_kendaraan,tahun,warna,nomor_rangka,nomor_mesin,kepemilikan,jenis_sewa,pemilik,driver_id,lokasi,unit_kerja,kilometer_terakhir,status,kondisi,keterangan,masa_berlaku_pajak,status_pajak,catatan_hutang'),
-    supabase.from('driver').select('id,nama_lengkap,lokasi,status,keterangan'),
-  ])
-  if (vehiclesResult.error) throw new Error(`Tidak bisa membaca master kendaraan: ${vehiclesResult.error.message}`)
-  if (driversResult.error) throw new Error(`Tidak bisa membaca master driver: ${driversResult.error.message}`)
-  const existingByPlate = Object.fromEntries((vehiclesResult.data || []).map((v) => [upper(v.nomor_polisi), v]))
-  const existingCodes = new Set((vehiclesResult.data || []).map((v) => upper(v.kode_kendaraan)).filter(Boolean))
-  const driverByName = Object.fromEntries((driversResult.data || []).map((d) => [upper(d.nama_lengkap), d]))
-  const seen = new Set()
-  let added = 0; let updated = 0; let skipped = rows.length - validRows.length; let driversCreated = 0
-
-  for (const row of validRows) {
-    const plate = upper(valueOf(row, headers, 'nomor_polisi'))
-    if (seen.has(plate)) { skipped += 1; continue }
-    seen.add(plate)
-    const current = existingByPlate[plate]
-    const owner = valueOf(row, headers, 'pemilik') || current?.pemilik || null
-    const ownershipRaw = upper(valueOf(row, headers, 'kepemilikan'))
-    const isRental = /^(SEWA|RENTAL|KENDARAAN SEWA)$/.test(ownershipRaw)
-    const rawRental = upper(valueOf(row, headers, 'jenis_sewa')).replace(/\s+/g, '_')
-    const jenisSewa = isRental ? (['SEWA_PERORANGAN', 'SEWA_RENTAL'].includes(rawRental) ? rawRental : /RENTAL|PT\b|CV\b|UD\b|PD\b/.test(upper(owner || '')) ? 'SEWA_RENTAL' : 'SEWA_PERORANGAN') : null
-    const sourceStatus = upper(valueOf(row, headers, 'status_operasional'))
-
-    const driverName = valueOf(row, headers, 'driver')
-    let driverId = driverByName[upper(driverName)]?.id || current?.driver_id || null
-    if (driverName && !driverId) {
-      const created = await supabase.from('driver').insert({ nama_lengkap: driverName, lokasi: valueOf(row, headers, 'lokasi') || null, status: 'AKTIF', keterangan: 'Dibuat otomatis dari import Excel Kendaraan.' }).select('id,nama_lengkap,lokasi,status,keterangan').single()
-      if (created.error) throw new Error(`Gagal membuat driver ${driverName}: ${created.error.message}`)
-      driverId = created.data.id
-      driverByName[upper(driverName)] = created.data
-      driversCreated += 1
-    }
-
-    let code = upper(valueOf(row, headers, 'kode_kendaraan') || current?.kode_kendaraan || `KND-${plate.replace(/\W+/g, '')}`)
-    if (!current && existingCodes.has(code)) code = `${code}-${plate.replace(/\W+/g, '')}`
-    existingCodes.add(code)
-
-    const payload = {
-      kode_kendaraan: code,
-      nomor_polisi: plate,
-      merk: valueOf(row, headers, 'merk') || current?.merk || null,
-      tipe: valueOf(row, headers, 'tipe') || current?.tipe || null,
-      jenis_kendaraan: valueOf(row, headers, 'jenis_kendaraan') || current?.jenis_kendaraan || null,
-      tahun: numberValue(valueOf(row, headers, 'tahun')) ?? current?.tahun ?? null,
-      warna: valueOf(row, headers, 'warna') || current?.warna || null,
-      nomor_rangka: valueOf(row, headers, 'nomor_rangka') || current?.nomor_rangka || null,
-      nomor_mesin: valueOf(row, headers, 'nomor_mesin') || current?.nomor_mesin || null,
-      kepemilikan: isRental ? 'SEWA' : 'ASET_KANTOR',
-      jenis_sewa: isRental ? jenisSewa : null,
-      pemilik: owner,
-      driver_id: driverId,
-      lokasi: valueOf(row, headers, 'lokasi') || current?.lokasi || null,
-      unit_kerja: valueOf(row, headers, 'unit_kerja') || current?.unit_kerja || null,
-      kilometer_terakhir: numberValue(valueOf(row, headers, 'kilometer')) ?? current?.kilometer_terakhir ?? 0,
-      status: ['ACTIVE', 'SERVICE', 'TIDAK_AKTIF'].includes(sourceStatus) ? sourceStatus : (current?.status || 'ACTIVE'),
-      kondisi: valueOf(row, headers, 'kondisi') || current?.kondisi || null,
-      keterangan: valueOf(row, headers, 'keterangan') || current?.keterangan || null,
-      masa_berlaku_pajak: excelDate(valueOf(row, headers, 'masa_berlaku_pajak')) || current?.masa_berlaku_pajak || null,
-      status_pajak: valueOf(row, headers, 'status_pajak') || current?.status_pajak || null,
-      catatan_hutang: valueOf(row, headers, 'catatan_hutang') || current?.catatan_hutang || null,
-    }
-
-    const result = current ? await supabase.from('kendaraan').update(payload).eq('id', current.id) : await supabase.from('kendaraan').insert(payload).select('id').single()
-    if (result.error) throw new Error(`Gagal menyimpan kendaraan ${plate}: ${result.error.message}`)
-    if (current) updated += 1; else added += 1
-  }
-  return `${added} kendaraan baru, ${updated} diperbarui, ${driversCreated} driver dibuat, ${skipped} baris dilewati. Data pajak disimpan di master kendaraan; dokumen STNK tidak dibuat otomatis.`
-}
-
-async function importDokumen(sheet) {
-  const rows = dataRows(sheet); const headers = sheet.headers
-  if (!hasHeader(headers, 'nomor_polisi')) throw new Error('Sheet Dokumen wajib memiliki kolom Nomor Polisi.')
-  const vehicles = await supabase.from('kendaraan').select('id,nomor_polisi'); if (vehicles.error) throw vehicles.error
-  const vehicleMap = Object.fromEntries((vehicles.data || []).map((v) => [upper(v.nomor_polisi), v]))
-  let inserted = 0; let skipped = 0
-  for (const row of rows) {
-    const vehicle = vehicleMap[upper(valueOf(row, headers, 'nomor_polisi'))]
-    if (!vehicle) { skipped += 1; continue }
-    for (const [key, type] of [['stnk', 'STNK'], ['kir', 'KIR'], ['lima_tahun', '5_TAHUN']]) {
-      const due = excelDate(valueOf(row, headers, key)); if (!due) continue
-      const duplicate = await supabase.from('dokumen_kendaraan').select('id').eq('kendaraan_id', vehicle.id).eq('jenis_dokumen', type).eq('tanggal_jatuh_tempo', due).limit(1)
-      if (duplicate.error) throw new Error(`Gagal mengecek ${type} ${vehicle.nomor_polisi}: ${duplicate.error.message}`)
-      if (duplicate.data?.length) { skipped += 1; continue }
-      const result = await supabase.from('dokumen_kendaraan').insert({ kendaraan_id: vehicle.id, jenis_dokumen: type, nomor_dokumen: valueOf(row, headers, 'nomor_dokumen') || null, tanggal_jatuh_tempo: due, keterangan: `Import Excel: ${sheet.name}` })
-      if (result.error) throw new Error(`Gagal menyimpan ${type} ${vehicle.nomor_polisi}: ${result.error.message}`)
-      inserted += 1
-    }
-  }
-  return `${inserted} dokumen ditambahkan, ${skipped} dilewati.`
-}
-
-async function importPengajuan(sheet, profile) {
-  const rows = dataRows(sheet); const headers = sheet.headers
-  if (!hasHeader(headers, 'nomor_polisi') || !hasHeader(headers, 'keluhan')) throw new Error('Sheet Pengajuan minimal harus memiliki kolom Nomor Polisi dan Keluhan.')
-  const vehicles = await supabase.from('kendaraan').select('id,nomor_polisi,kilometer_terakhir'); if (vehicles.error) throw vehicles.error
-  const vehicleMap = Object.fromEntries((vehicles.data || []).map((v) => [upper(v.nomor_polisi), v]))
-  let added = 0; let skipped = 0
-  for (const row of rows) {
-    const vehicle = vehicleMap[upper(valueOf(row, headers, 'nomor_polisi'))]; const complaint = valueOf(row, headers, 'keluhan')
-    if (!vehicle || !complaint) { skipped += 1; continue }
-    const result = await supabase.from('permintaan_service').insert({ pemohon_id: profile.id, kendaraan_id: vehicle.id, tanggal_pengajuan: excelDate(valueOf(row, headers, 'tanggal')) || new Date().toISOString().slice(0, 10), kilometer_pengajuan: numberValue(valueOf(row, headers, 'kilometer')) ?? vehicle.kilometer_terakhir ?? 0, jenis_permintaan: valueOf(row, headers, 'jenis_permintaan') || 'SERVICE', keluhan: complaint, prioritas: valueOf(row, headers, 'prioritas') || 'NORMAL', status: 'MENUNGGU_TRANSPORT' })
-    if (result.error) throw new Error(`Gagal menyimpan pengajuan ${vehicle.nomor_polisi}: ${result.error.message}`)
-    added += 1
-  }
-  return `${added} pengajuan ditambahkan, ${skipped} baris dilewati.`
-}
-
-async function importService(sheet, profile) {
-  const rows = dataRows(sheet); const headers = sheet.headers
-  if (!hasHeader(headers, 'nomor_polisi') || !hasHeader(headers, 'tanggal')) throw new Error('Sheet Service minimal harus memiliki kolom Nomor Polisi dan Tanggal.')
-  const vehicles = await supabase.from('kendaraan').select('id,nomor_polisi,kilometer_terakhir'); if (vehicles.error) throw vehicles.error
-  const vehicleMap = Object.fromEntries((vehicles.data || []).map((v) => [upper(v.nomor_polisi), v]))
-  const groups = new Map()
-  for (const row of rows) { const plate = upper(valueOf(row, headers, 'nomor_polisi')); const date = excelDate(valueOf(row, headers, 'tanggal')); if (!plate || !date || !vehicleMap[plate]) continue; const shop = valueOf(row, headers, 'bengkel') || '-'; const key = `${plate}|${date}|${upper(shop)}`; if (!groups.has(key)) groups.set(key, []); groups.get(key).push(row) }
-  let created = 0; let skipped = 0; let items = 0
-  for (const group of groups.values()) {
-    const first = group[0]; const plate = upper(valueOf(first, headers, 'nomor_polisi')); const vehicle = vehicleMap[plate]; const date = excelDate(valueOf(first, headers, 'tanggal')); const shop = valueOf(first, headers, 'bengkel') || null
-    const duplicate = await supabase.from('service').select('id').eq('kendaraan_id', vehicle.id).eq('tanggal_service', date).eq('bengkel', shop).limit(1); if (duplicate.error) throw duplicate.error; if (duplicate.data?.length) { skipped += 1; continue }
-    const dpp = group.reduce((sum, row) => sum + (numberValue(valueOf(row, headers, 'nilai_dpp')) || 0), 0); const ppn = group.reduce((sum, row) => sum + (numberValue(valueOf(row, headers, 'ppn')) || 0), 0); const total = group.reduce((sum, row) => sum + (numberValue(valueOf(row, headers, 'total')) || 0), 0) || dpp + ppn
-    const km = numberValue(valueOf(first, headers, 'kilometer')) ?? vehicle.kilometer_terakhir ?? 0; const complaint = valueOf(first, headers, 'keluhan') || 'Import histori service dari Excel.'; const workRaw = group.map((row) => valueOf(row, headers, 'jenis_pekerjaan')).join(' ').toUpperCase(); const jenis = /BAN/.test(workRaw) ? 'GANTI_BAN' : /AKI|BATERAI/.test(workRaw) ? 'GANTI_AKI' : 'SERVICE'
-    const request = await supabase.from('permintaan_service').insert({ pemohon_id: profile.id, kendaraan_id: vehicle.id, tanggal_pengajuan: date, kilometer_pengajuan: km, jenis_permintaan: jenis, keluhan: complaint, prioritas: 'NORMAL', status: 'MENUNGGU_TRANSPORT' }).select('id').single(); if (request.error) throw new Error(`Gagal membuat pengajuan service ${plate}: ${request.error.message}`)
-    const service = await supabase.from('service').insert({ nomor_service: `IMP-SRV-${Date.now()}-${created + 1}`, permintaan_service_id: request.data.id, kendaraan_id: vehicle.id, tanggal_service: date, kilometer: km, bengkel: shop, jenis_service: jenis, keluhan: complaint, estimasi_biaya: dpp, biaya_aktual: total, status: 'DRAFT', diproses_oleh: profile.id, nilai_dpp: dpp, ppn, total, catatan: `Import histori Excel: ${sheet.name}` }).select('id').single(); if (service.error) throw new Error(`Gagal membuat service ${plate}: ${service.error.message}`)
-    const itemRows = group.map((row) => ({ service_id: service.data.id, nama_item: valueOf(row, headers, 'keterangan') || valueOf(row, headers, 'jenis_pekerjaan') || 'Item Excel', kategori: /JASA/i.test(valueOf(row, headers, 'jenis_pekerjaan')) ? 'JASA_SERVICE' : /BAN/i.test(valueOf(row, headers, 'jenis_pekerjaan')) ? 'BAN' : /AKI|BATERAI/i.test(valueOf(row, headers, 'jenis_pekerjaan')) ? 'AKI_BATERAI' : 'MATERIAL_SPAREPART', jumlah: numberValue(valueOf(row, headers, 'qty')) || 1, satuan: valueOf(row, headers, 'satuan') || 'pcs', harga_satuan: numberValue(valueOf(row, headers, 'harga_satuan')) || 0, subtotal: numberValue(valueOf(row, headers, 'nilai_dpp')) || 0, keterangan: valueOf(row, headers, 'keterangan') || null }))
-    if (itemRows.length) { const result = await supabase.from('service_item').insert(itemRows); if (result.error) throw new Error(`Gagal menyimpan item service ${plate}: ${result.error.message}`); items += itemRows.length }
-    const updateRequest = await supabase.from('permintaan_service').update({ status: 'DALAM_PROSES', diproses_oleh: profile.id, diproses_at: new Date().toISOString() }).eq('id', request.data.id); if (updateRequest.error) throw updateRequest.error
-    created += 1
-  }
-  return `${created} transaksi service dibuat, ${items} item tercatat, ${skipped} transaksi dilewati karena duplikat.`
-}
-
-async function importSewa(sheet, profile) {
-  const rows = dataRows(sheet); const headers = sheet.headers; const required = ['nomor_kontrak', 'nomor_polisi', 'tanggal_mulai', 'tanggal_selesai', 'nilai_sewa_bulanan']
-  if (!required.every((key) => hasHeader(headers, key))) throw new Error('Sheet Sewa wajib memiliki kolom Nomor Kontrak, Nomor Polisi, Tanggal Mulai, Tanggal Selesai, dan Nilai Sewa Bulanan.')
-  const vehicles = await supabase.from('kendaraan').select('id,nomor_polisi'); if (vehicles.error) throw vehicles.error
-  const vehicleMap = Object.fromEntries((vehicles.data || []).map((v) => [upper(v.nomor_polisi), v])); let added = 0; let skipped = 0
-  for (const row of rows) {
-    const plate = upper(valueOf(row, headers, 'nomor_polisi')); const vehicle = vehicleMap[plate]; const nomorKontrak = valueOf(row, headers, 'nomor_kontrak'); const start = excelDate(valueOf(row, headers, 'tanggal_mulai')); const end = excelDate(valueOf(row, headers, 'tanggal_selesai'))
-    if (!vehicle || !nomorKontrak || !start || !end) { skipped += 1; continue }
-    const ownerName = valueOf(row, headers, 'pemilik') || '-'; let owner = await supabase.from('pemilik_sewa').select('id').eq('nama_pemilik', ownerName).maybeSingle(); if (owner.error) throw owner.error
-    if (!owner.data) { const createdOwner = await supabase.from('pemilik_sewa').insert({ jenis_pemilik: valueOf(row, headers, 'jenis_pemilik') || 'SEWA_PERORANGAN', nama_pemilik: ownerName, nama_perusahaan: valueOf(row, headers, 'nama_perusahaan') || null, aktif: true }).select('id').single(); if (createdOwner.error) throw createdOwner.error; owner = { data: createdOwner.data, error: null } }
-    const duplicate = await supabase.from('kontrak_sewa').select('id').eq('nomor_kontrak', nomorKontrak).maybeSingle(); if (duplicate.error) throw duplicate.error; if (duplicate.data) { skipped += 1; continue }
-    const result = await supabase.from('kontrak_sewa').insert({ nomor_kontrak: nomorKontrak, kendaraan_id: vehicle.id, pemilik_sewa_id: owner.data.id, tanggal_mulai: start, tanggal_selesai: end, periode_bulan: 6, nilai_sewa_bulanan: numberValue(valueOf(row, headers, 'nilai_sewa_bulanan')) || 0, tanggal_jatuh_tempo_bulanan: excelDate(valueOf(row, headers, 'tanggal_jatuh_tempo_bulanan')), status: 'AKTIF', catatan: `Import Excel: ${sheet.name}`, dibuat_oleh: profile.id }); if (result.error) throw new Error(`Gagal menyimpan kontrak ${nomorKontrak}: ${result.error.message}`)
-    added += 1
-  }
-  return `${added} kontrak sewa ditambahkan, ${skipped} baris dilewati.`
-}
-
-const IMPORTERS = { kendaraan: importKendaraan, pengajuan: importPengajuan, service: importService, sewa: importSewa, dokumen: importDokumen }
-
 export default function UnifiedExcelImportModal({ context, profile, onDone, onClose }) {
   const inputRef = useRef(null)
-  const [file, setFile] = useState(null); const [selected, setSelected] = useState(null); const [loading, setLoading] = useState(false); const [saving, setSaving] = useState(false); const [error, setError] = useState(''); const [message, setMessage] = useState('')
+  const [file, setFile] = useState(null)
+  const [selected, setSelected] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
   const canImport = ['ADMIN', 'TRANSPORT'].includes(profile?.role)
 
   const scan = async (nextFile) => {
@@ -401,14 +302,16 @@ export default function UnifiedExcelImportModal({ context, profile, onDone, onCl
     if (nextFile.size > MAX_FILE_SIZE) { setError('Ukuran file maksimal 25 MB.'); return }
     setLoading(true)
     try {
-      const sheets = prepareSheets(await parseXlsx(nextFile), context)
+      if (!IMPORTERS[context]) throw new Error(`Import ${LABELS[context] || 'data ini'} belum memiliki format aman.`)
+      const sheets = (await parseXlsx(nextFile)).map(sheetInfo).map((sheet) => ({ ...sheet, score: scoreSheet(sheet, context) })).sort((a, b) => b.score - a.score)
       const candidate = sheets[0]
-      const candidateName = norm(candidate?.name || '')
-      if (context === 'pengajuan' && ['permintaan_perbaikan', 'pengajuan_perbaikan'].includes(candidateName)) throw new Error('Sheet Pengajuan Perbaikan/PERMINTAAN PERBAIKAN pada FPD OPS adalah formulir blok historis, bukan tabel pengajuan. Import otomatis dihentikan agar data tidak salah mapping.')
-      if (context === 'sewa' && ['sewa_kendaraan', 'summery_rental'].includes(candidateName)) throw new Error('Sheet Sewa KEndaraan/SUMMERY RENTAL pada FPD OPS berisi formulir dana dan rekap pembayaran, bukan tabel kontrak sewa. Import otomatis dihentikan agar pembayaran tidak salah dicatat sebagai kontrak.')
-      if (!candidate || candidate.score < 4) throw new Error(`Data ${LABELS[context]} tidak ditemukan secara meyakinkan. Periksa nama sheet dan header Excel.`)
+      if (!candidate || candidate.score < 100) {
+        const name = candidate?.name ? ` Sheet teratas: “${candidate.name}”.` : ''
+        throw new Error(`Format Excel ${LABELS[context]} belum cocok dengan template sistem.${name} ${previewText(context)}`)
+      }
+      validateSource(candidate, context)
       setSelected(candidate)
-      setMessage(`Sheet “${candidate.name}” terdeteksi • ${dataRows(candidate).length} baris data.`)
+      setMessage(`Sheet “${candidate.name}” valid • ${dataRows(candidate).length} baris data. ${previewText(context)}`)
     } catch (e) { setError(e.message || 'File Excel tidak dapat dibaca.') } finally { setLoading(false) }
   }
 
@@ -417,9 +320,9 @@ export default function UnifiedExcelImportModal({ context, profile, onDone, onCl
     setSaving(true); setError(''); setMessage('Memproses import...')
     try {
       const result = await IMPORTERS[context](selected, profile)
-      const report = { context, sourceRows: dataRows(selected).length, validRows: dataRows(selected).length, imported: Number((String(result).match(/^(\d+)/) || [0, 0])[1]), message: result, fileName: file?.name || '', completedAt: new Date().toISOString() }
+      const report = { context, sourceRows: dataRows(selected).length, validRows: Math.max(0, dataRows(selected).length - (result.skipped || 0)), imported: result.imported || 0, skipped: result.skipped || 0, unknownPlates: result.unknownPlates || [], message: result.message, fileName: file?.name || '', completedAt: new Date().toISOString() }
       sessionStorage.setItem('transport_import_report', JSON.stringify(report))
-      setMessage(`Import ${LABELS[context]} berhasil. ${result}`)
+      setMessage(`Import ${LABELS[context]} berhasil. ${result.message}`)
       onDone?.(report)
     } catch (e) {
       setError(e?.message || 'Import gagal. Data tidak dilanjutkan ke langkah berikutnya.')
@@ -427,14 +330,14 @@ export default function UnifiedExcelImportModal({ context, profile, onDone, onCl
     } finally { setSaving(false) }
   }
 
-  return <div className="dpt-overlay" role="dialog" aria-modal="true" aria-label={`Import ${LABELS[context]}`}>
+  return <div className="dpt-overlay" role="dialog" aria-modal="true" aria-label={`Import ${LABELS[context] || 'Excel'}`}>
     <section className="dpt-modal">
-      <header className="dpt-modal-head"><div><span className="eyebrow">IMPORT EXCEL</span><h3>Import {LABELS[context]}</h3><p>Upload → deteksi sheet → preview → validasi → cek duplikat → simpan.</p></div><button type="button" className="dpt-icon" onClick={onClose} aria-label="Tutup">×</button></header>
+      <header className="dpt-modal-head"><div><span className="eyebrow">IMPORT EXCEL</span><h3>Import {LABELS[context] || 'Excel'}</h3><p>Upload → deteksi format → validasi header → preview → cek data master → simpan.</p></div><button type="button" className="dpt-icon" onClick={onClose} aria-label="Tutup">×</button></header>
       {error && <div className="dpt-alert error">{error}</div>}
       {message && <div className="dpt-alert success">{message}</div>}
       <div className="dpt-upload"><input ref={inputRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(e) => scan(e.target.files?.[0])}/><button type="button" className="dpt-upload-button" onClick={() => inputRef.current?.click()} disabled={loading || saving}>{loading ? 'Membaca Excel…' : file ? 'Ganti File' : 'Pilih File Excel'}</button>{file ? <div className="dpt-file-meta"><strong title={file.name}>{file.name}</strong><span>✓ .xlsx • {(file.size / 1024 / 1024).toFixed(2)} MB</span></div> : <div className="dpt-file-meta"><span>Hanya .xlsx • maksimal 25 MB</span></div>}</div>
-      {file && selected && <><div className="dpt-selection"><div><b>Sheet: {selected.name}</b><span>Kecocokan {selected.score}/22</span></div><span>{dataRows(selected).length} baris data</span></div><div className="dpt-preview"><div className="dpt-sheet-title"><div><b>Preview Data</b><span className="dpt-preview-note">Tanggal Excel otomatis dibaca sebagai tanggal Indonesia.</span></div><span>maks. 8 baris</span></div><div className="dpt-preview-wrap"><table><thead><tr>{selected.headers.map((header, index) => <th key={`${header}-${index}`}>{header || `Kolom ${index + 1}`}</th>)}</tr></thead><tbody>{selected.rows.slice(selected.headerIndex + 1, selected.headerIndex + 9).map((row, rowIndex) => <tr key={rowIndex}>{selected.headers.map((header, columnIndex) => <td key={columnIndex}>{displayCell(row[columnIndex], header)}</td>)}</tr>)}</tbody></table></div></div></>}
-      <div className="dpt-actions"><button type="button" className="dpt-button" onClick={onClose} disabled={saving}>Batal</button><button type="button" className="dpt-button primary" onClick={start} disabled={!selected || saving || !canImport}>{saving ? 'Mengimport…' : `Import ${LABELS[context]}`}</button></div>
+      {file && selected && <><div className="dpt-selection"><div><b>Sheet: {selected.name}</b><span>Format cocok</span></div><span>{dataRows(selected).length} baris data</span></div><div className="dpt-preview"><div className="dpt-sheet-title"><div><b>Preview Data</b><span className="dpt-preview-note">Sistem hanya menerima tabel dengan header wajib yang sesuai.</span></div><span>maks. 8 baris</span></div><div className="dpt-preview-wrap"><table><thead><tr>{selected.headers.map((header, index) => <th key={`${header}-${index}`}>{header || `Kolom ${index + 1}`}</th>)}</tr></thead><tbody>{selected.rows.slice(selected.headerIndex + 1, selected.headerIndex + 9).map((row, rowIndex) => <tr key={rowIndex}>{selected.headers.map((header, columnIndex) => <td key={columnIndex}>{displayCell(row[columnIndex], header)}</td>)}</tr>)}</tbody></table></div></div></>}
+      <div className="dpt-actions"><button type="button" className="dpt-button" onClick={onClose} disabled={saving}>Batal</button><button type="button" className="dpt-button primary" onClick={start} disabled={!selected || saving || !canImport}>{saving ? 'Mengimport…' : `Import ${LABELS[context] || 'Excel'}`}</button></div>
     </section>
   </div>
 }
