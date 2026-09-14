@@ -57,7 +57,7 @@ const CONTEXT_LABEL = {
 }
 
 const EXACT_SHEETS = {
-  kendaraan: ['data kendaraan'],
+  kendaraan: ['data kendaraan', 'list kendaraan'],
   service: ['data service'],
   pengajuan: ['permintaan perbaikan', 'pengajuan perbaikan'],
   sewa: ['sewa kendaraan'],
@@ -154,7 +154,7 @@ function moneyValue(value) { return numberValue(value) }
 
 async function importKendaraan(sheet) {
   const { index, row: headers } = findHeader(sheet.rows)
-  const rows = sheet.rows.slice(index + 1).filter(r => r.some(v => clean(v)))
+  const rows = contextRows(sheet, 'kendaraan')
   const h = headers.map(norm)
   const required = [
     ['No. Pol', ['nomor_polisi','no_polisi','no_pol','plat','no_plat']],
