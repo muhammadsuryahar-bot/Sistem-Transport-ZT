@@ -1,0 +1,32 @@
+name: Finalize vehicle tax mapping
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor == 'muhammadsuryahar-bot'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch exact tax mapping
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('frontend/src/modules/DataPageTools.jsx')
+          s = p.read_text()
+          if "masa_berlaku_pajak: excelDate(valueOf(row, headers, 'masa_berlaku_pajak'))" not in s:
+              needle = "unit_kerja: valueOf(row, headers, 'unit_kerja') || null,\n      status_pajak:"
+              replacement = "unit_kerja: valueOf(row, headers, 'unit_kerja') || null,\n      masa_berlaku_pajak: excelDate(valueOf(row, headers, 'masa_berlaku_pajak')),\n      status_pajak:"
+              if needle not in s:
+                  raise SystemExit('vehicle payload mapping anchor not found')
+              s = s.replace(needle, replacement, 1)
+          p.write_text(s)
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add frontend/src/modules/DataPageTools.jsx
+          git commit -m "fix: store vehicle tax date from workbook" || exit 0
+          git push origin main
