@@ -210,10 +210,10 @@ function parseRow(row, headers) {
 }
 
 function transactionType(rows) {
-  const raw = rows.map((row) => upper(`${row.jenis_pekerjaan} ${row.uraian}`)).join(' ')
-  if (/BAN/.test(raw)) return 'GANTI_BAN'
-  if (/AKI|BATERAI/.test(raw)) return 'GANTI_AKI'
-  if (/PEMERIKSA/.test(raw)) return 'PEMERIKSAAN'
+  const raw = rows.map((row) => upper(row.jenis_pekerjaan)).join(' ')
+  if (/GANTI\s+BAN|PENGGANTIAN\s+BAN/.test(raw)) return 'GANTI_BAN'
+  if (/GANTI\s+(AKI|BATERAI)|PENGGANTIAN\s+(AKI|BATERAI)/.test(raw)) return 'GANTI_AKI'
+  if (/PEMERIKSAAN/.test(raw)) return 'PEMERIKSAAN'
   return 'SERVICE'
 }
 
