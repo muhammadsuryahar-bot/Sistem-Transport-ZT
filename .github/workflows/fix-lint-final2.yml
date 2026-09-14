@@ -14,19 +14,30 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Remove verified unnecessary slash escapes
+      - name: Apply exact remaining lint fixes
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
+
           p = Path('frontend/src/modules/VehicleExcelImportModal.jsx')
           s = p.read_text(encoding='utf-8')
-          old = r'\/'
-          count = s.count(old)
-          if count < 1:
-              raise SystemExit('Expected unnecessary slash escapes were not found.')
-          p.write_text(s.replace(old, '/'), encoding='utf-8')
-          print(f'Removed {count} unnecessary slash escapes.')
+          for old, new in [
+              ('[-/\\-]', '[-/]'),
+              ('[\\/-]', '[-/]'),
+              ('v.split(/[\\/-]/)', 'v.split(/[-/]/)'),
+          ]:
+              print('replace', repr(old), s.count(old))
+              s = s.replace(old, new)
+          p.write_text(s, encoding='utf-8')
+
+          p = Path('frontend/src/AppTransport.jsx')
+          s = p.read_text(encoding='utf-8')
+          old = 'const [exportingPage, setExportingPage] = useState(false)'
+          new = 'const [, setExportingPage] = useState(false)'
+          print('exportingPage declaration', s.count(old))
+          s = s.replace(old, new, 1)
+          p.write_text(s, encoding='utf-8')
           PY
       - name: Verify lint and build before commit
         working-directory: frontend
@@ -34,12 +45,12 @@ jobs:
           npm ci
           npm run lint
           npm run build
-      - name: Commit fix and remove temporary workflow
+      - name: Commit fixes and remove temporary workflow
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add frontend/src/modules/VehicleExcelImportModal.jsx .github/workflows/fix-lint-final2.yml
+          git add frontend/src/AppTransport.jsx frontend/src/modules/VehicleExcelImportModal.jsx .github/workflows/fix-lint-final2.yml
           git rm .github/workflows/fix-lint-final2.yml
           git commit -m "[lint-fix-final2] clear remaining frontend lint errors"
           git push origin HEAD:main
