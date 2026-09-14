@@ -37,7 +37,7 @@ const cleanRows = rows => rows.map(row => ({ ...row }))
 function AppTransport() {
   const [session, setSession] = useState(null), [profile, setProfile] = useState(null), [activePage, setActivePage] = useState('dashboard'), [sidebarOpen, setSidebarOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false), [, setErrorMessage] = useState('')
-  const [exportingPage, setExportingPage] = useState(false)
+  const [, setExportingPage] = useState(false)
   const allowedPages = useMemo(() => ROLE_ACCESS[profile?.role] || ['dashboard'], [profile?.role])
   const visibleNavItems = useMemo(() => NAV_ITEMS.filter((item) => allowedPages.includes(item.id)), [allowedPages])
 

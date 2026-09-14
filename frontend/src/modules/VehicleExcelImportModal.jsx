@@ -59,8 +59,8 @@ function excelDate(value) {
   const v = clean(value)
   if (!v) return null
   if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v
-  if (/^\d{1,2}[-/]\d{1,2}[\/-]\d{4}$/.test(v)) {
-    const [d, m, y] = v.split(/[\/-]/)
+  if (/^\d{1,2}[-/]\d{1,2}[-/]\d{4}$/.test(v)) {
+    const [d, m, y] = v.split(/[-/]/)
     return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
   }
   const serial = Number(v)
