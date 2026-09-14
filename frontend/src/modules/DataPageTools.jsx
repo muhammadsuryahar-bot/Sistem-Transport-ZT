@@ -28,7 +28,7 @@ export default function DataPageTools({ context, profile, onExport }) {
   const closeImport = () => setShowImport(false)
   const finishImport = () => {
     setShowImport(false)
-    window.setTimeout(() => window.location.reload(), 500)
+    window.setTimeout(() => window.location.reload(), 4000)
   }
 
   return <>
