@@ -178,7 +178,8 @@ function formatDate(v) { if (!v) return '-'; return new Intl.DateTimeFormat('id-
 function displayCell(value, header) { const raw = clean(value); if (!raw) return '-'; const k = norm(header); if (/masa_pajak|masa_berlaku_pajak|jatuh_tempo_pajak/.test(k)) { const d = excelDate(raw); if (d) return formatDate(d) } return /^\d+\.0$/.test(raw) ? raw.slice(0, -2) : raw }
 
 async function importVehicleRows(rows, profile) {
-  const repaired = rows.map((r) => repairRow(r, rows.headers)).filter((r) => r.nomor_polisi && r.merk)
+  const repaired = rows.filter((r) => r.nomor_polisi && r.merk)
+  if (!repaired.length) throw new Error('Tidak ada baris Kendaraan yang valid untuk diimport.')
   const invalid = repaired.filter((r) => !r.kepemilikan)
   if (invalid.length) throw new Error(`Ada ${invalid.length} baris dengan Status kepemilikan selain Aset/Sewa. Perbaiki kolom Status pada baris Excel: ${invalid.map((r) => r.excelRow).join(', ')}.`)
   const groups = new Map()
@@ -204,13 +205,12 @@ async function importVehicleRows(rows, profile) {
     if (result.error) throw new Error(`Gagal menyimpan kendaraan ${plate} (baris ${row.excelRow}): ${result.error.message}`)
     if (current) updated += 1; else added += 1; existingByPlate[plate] = { ...(current || {}), ...payload }
   }
-  return { added, updated, mergedDuplicates: repaired.length - merged.length, driversCreated, sourceRows: repaired.length, uniqueVehicles: merged.length, missingSourceRows: rows.missingSourceNumbers }
+  return { added, updated, mergedDuplicates: repaired.length - merged.length, driversCreated, sourceRows: repaired.length, uniqueVehicles: merged.length }
 }
 
 export default function VehicleExcelImportModal({ profile, onDone, onClose }) {
   const inputRef = useRef(null); const [file, setFile] = useState(null); const [workbook, setWorkbook] = useState(null); const [loading, setLoading] = useState(false); const [saving, setSaving] = useState(false); const [error, setError] = useState(''); const [message, setMessage] = useState('')
-  const canImport = ['ADMIN', 'TRANSPORT'].includes(profile?.role)
-  const selected = workbook?.sheet
+  const canImport = ['ADMIN', 'TRANSPORT'].includes(profile?.role); const selected = workbook?.sheet
   const scan = async (nextFile) => {
     setFile(nextFile || null); setWorkbook(null); setError(''); setMessage(''); if (!nextFile) return
     if (!/\.xlsx$/i.test(nextFile.name)) return setError('Gunakan file Excel .xlsx. Format .xls lama belum didukung.')
@@ -229,7 +229,7 @@ export default function VehicleExcelImportModal({ profile, onDone, onClose }) {
   const start = async () => {
     if (!workbook || !canImport || saving) return
     setSaving(true); setError(''); setMessage('Import berjalan...')
-    try { const result = await importVehicleRows(Object.assign(workbook.valid, { headers: workbook.header.row, missingSourceNumbers: workbook.missingSourceNumbers }), profile); setMessage(`Import selesai: ${result.uniqueVehicles} kendaraan unik diproses • ${result.added} baru • ${result.updated} diperbarui • ${result.mergedDuplicates} duplikat digabung • ${result.driversCreated} driver dibuat.`); onDone?.() } catch (e) { setError(e.message || 'Import gagal.') } finally { setSaving(false) }
+    try { const result = await importVehicleRows(workbook.valid, profile); setMessage(`Import selesai: ${result.uniqueVehicles} kendaraan unik diproses • ${result.added} baru • ${result.updated} diperbarui • ${result.mergedDuplicates} duplikat digabung • ${result.driversCreated} driver dibuat.`); onDone?.() } catch (e) { setError(e.message || 'Import gagal.') } finally { setSaving(false) }
   }
   return <div className="dpt-overlay" role="dialog" aria-modal="true"><section className="dpt-modal vehicle-import-modal">
     <header className="dpt-modal-head"><div><span className="eyebrow">IMPORT EXCEL KENDARAAN</span><h3>Data Kendaraan</h3><p>Mapping dibuat berdasarkan kolom sumber yang benar-benar ada di workbook. Tidak ada kolom sistem yang diisi asal.</p></div><button type="button" className="dpt-icon" onClick={onClose}>×</button></header>
