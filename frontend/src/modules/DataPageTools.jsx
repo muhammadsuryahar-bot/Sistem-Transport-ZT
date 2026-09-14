@@ -20,20 +20,21 @@ export default function DataPageTools({ context, profile, onExport }) {
   const [importReport, setImportReport] = useState(null)
   const [exporting, setExporting] = useState(false)
   const canImport = ['ADMIN', 'TRANSPORT'].includes(profile?.role)
-  if (!CONTEXT_LABEL[context]) return null
 
   useEffect(() => {
     try {
       const saved = sessionStorage.getItem('transport_import_report')
       if (saved) {
         const parsed = JSON.parse(saved)
-        if (hasReport(parsed)) setImportReport(parsed)
+        if (hasReport(parsed) && parsed.context === context) setImportReport(parsed)
         sessionStorage.removeItem('transport_import_report')
       }
     } catch {
       sessionStorage.removeItem('transport_import_report')
     }
-  }, [])
+  }, [context])
+
+  if (!CONTEXT_LABEL[context]) return null
 
   const doExport = async () => {
     if (!onExport || exporting) return
