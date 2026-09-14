@@ -242,6 +242,7 @@ async function importKendaraan(sheet) {
       kondisi: current?.kondisi || null,
       keterangan: valueOf(row, headers, 'keterangan') || null,
       unit_kerja: valueOf(row, headers, 'unit_kerja') || null,
+      masa_berlaku_pajak: excelDate(valueOf(row, headers, 'masa_berlaku_pajak')),
       status_pajak: valueOf(row, headers, 'status_pajak') || null,
       catatan_hutang: valueOf(row, headers, 'catatan_hutang') || null,
     }
