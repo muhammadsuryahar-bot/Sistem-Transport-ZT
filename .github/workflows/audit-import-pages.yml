@@ -20,78 +20,147 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          
-          # Vehicle: source workbook is 84 rows -> 84 valid -> 74 unique -> 10 duplicate rows.
+          import re
+
+          # 1) Kendaraan: dynamic reconciliation, because the real source workbook is 84 rows / 74 unique plates / 10 duplicate rows.
           p = Path('frontend/src/modules/VehicleExcelImportModal.jsx')
           s = p.read_text()
-          old = '<div className="vehicle-import-explanation"><b>Kenapa jumlah kendaraan bisa lebih sedikit?</b><span>Excel menghitung baris sumber, sedangkan Master Kendaraan menghitung No. Polisi unik.</span><span>Contoh file ini: 83 baris kendaraan valid → 73 No. Polisi unik → 10 baris duplikat digabung.</span><span>Jadi apabila setelah import terlihat 73 kendaraan, itu bukan 10 kendaraan hilang.</span></div>'
-          new = '<div className="vehicle-import-explanation"><b>Kenapa jumlah kendaraan bisa lebih sedikit?</b><span>Excel menghitung baris sumber, sedangkan Master Kendaraan menghitung No. Polisi unik.</span><span>File ini: {selected.data.length} baris sumber → {selected.valid.length} baris valid → {selected.uniqueCount} No. Polisi unik → {selected.duplicateCount} baris duplikat digabung.</span><span>{selected.duplicateCount > 0 ? \'Baris dengan No. Polisi yang sama digabung menjadi satu kendaraan; bukan berarti kendaraan hilang.\' : \'Tidak ada duplikat No. Polisi pada file ini.\'}</span></div>'
-          if old not in s: raise SystemExit('Vehicle hardcoded explanation not found')
-          p.write_text(s.replace(old, new, 1))
+          s = s.replace(
+              'Contoh file ini: 83 baris kendaraan valid → 73 No. Polisi unik → 10 baris duplikat digabung.',
+              'File ini: {selected.data.length} baris sumber → {selected.valid.length} baris valid → {selected.uniqueCount} No. Polisi unik → {selected.duplicateCount} baris duplikat digabung.',
+              1,
+          )
+          s = s.replace(
+              'Jadi apabila setelah import terlihat 73 kendaraan, itu bukan 10 kendaraan hilang.',
+              "{selected.duplicateCount > 0 ? 'Baris dengan No. Polisi yang sama digabung menjadi satu kendaraan; bukan berarti kendaraan hilang.' : 'Tidak ada duplikat No. Polisi pada file ini.'}",
+              1,
+          )
+          marker = '      const nums = valid.map((r) => Number(r.sourceNo)).filter(Number.isFinite).map((n) => Math.trunc(n));'
+          if 'duplicateGroups' not in s:
+              s = s.replace(
+                  marker,
+                  "      const duplicateGroups = [...groups.entries()].filter(([, rows]) => rows.length > 1).map(([plate, rows]) => ({ plate, sourceRows: rows.map((r) => r.excelRow) }));\n" + marker,
+                  1,
+              )
+              s = s.replace(
+                  'setWorkbook({ sheet: chosen, header, data, valid, uniqueCount: groups.size, duplicateCount: valid.length - groups.size, missingSourceNumbers: missing, previewRows })',
+                  'setWorkbook({ sheet: chosen, header, data, valid, uniqueCount: groups.size, duplicateCount: valid.length - groups.size, duplicateGroups, missingSourceNumbers: missing, previewRows })',
+                  1,
+              )
+          details = "      {selected.duplicateGroups?.length > 0 && <details className=\"vehicle-import-duplicates\"><summary>Lihat {selected.duplicateGroups.length} grup No. Polisi yang digabung</summary><div>{selected.duplicateGroups.map((group) => <div key={group.plate}><b>{group.plate}</b><span>Baris Excel: {group.sourceRows.join(', ')}</span></div>)}</div></details>}"
+          if 'vehicle-import-duplicates' not in s:
+              s = s.replace(
+                  '      <div className="vehicle-import-map">{EXPECTED_HEADERS.map',
+                  details + '\n      <div className="vehicle-import-map">{EXPECTED_HEADERS.map',
+                  1,
+              )
+          p.write_text(s)
 
-          # Documents: standardize 25 MB and expose structured import report.
+          # 2) Dokumen: one standard 25 MB limit and a structured report for the common result modal.
           p = Path('frontend/src/modules/VehicleDocumentsImportModal.jsx')
           s = p.read_text()
           s = s.replace('const MAX_FILE_SIZE = 10 * 1024 * 1024', 'const MAX_FILE_SIZE = 25 * 1024 * 1024', 1)
           s = s.replace('Ukuran file maksimal 10 MB.', 'Ukuran file maksimal 25 MB.', 1)
           s = s.replace(":'Maksimal 10 MB'", ":'Maksimal 25 MB'", 1)
-          old = "const start = async () => { if (!workbook || !canImport || saving) return; setSaving(true); setError(''); setMessage('Import dokumen berjalan...'); try { const result = await importDocuments(workbook.valid, profile, workbook.sheet.name); const unknownText = result.unknown.length ? ` • ${result.unknown.length} plat tidak ada di master` : ''; setMessage(`Import selesai: ${result.inserted} dokumen baru • ${result.skipped} sudah ada • ${result.taxUpdated} masa pajak master disinkronkan${unknownText}.`); if (result.unknown.length) setError(`Plat belum ada di Master Kendaraan: ${result.unknown.slice(0, 20).join(', ')}${result.unknown.length > 20 ? ' …' : ''}. Data dokumen tersebut tidak dibuat.`); onDone?.() } catch (e) { setError(e.message || 'Import dokumen gagal.'); setMessage('') } finally { setSaving(false) } }"
-          new = "const start = async () => { if (!workbook || !canImport || saving) return; setSaving(true); setError(''); setMessage('Import dokumen berjalan...'); try { const result = await importDocuments(workbook.valid, profile, workbook.sheet.name); const unknownText = result.unknown.length ? ` • ${result.unknown.length} plat tidak ada di master` : ''; const report = { context: 'dokumen', ...result, validRows: workbook.valid.length, imported: result.inserted, mergedDuplicates: result.skipped, unknownPlates: result.unknown, fileName: file?.name || '', completedAt: new Date().toISOString() }; sessionStorage.setItem('transport_import_report', JSON.stringify(report)); setMessage(`Import selesai: ${result.inserted} dokumen baru • ${result.skipped} sudah ada • ${result.taxUpdated} masa pajak master disinkronkan${unknownText}.`); if (result.unknown.length) setError(`Plat belum ada di Master Kendaraan: ${result.unknown.slice(0, 20).join(', ')}${result.unknown.length > 20 ? ' …' : ''}. Data dokumen tersebut tidak dibuat.`); onDone?.(report) } catch (e) { setError(e.message || 'Import dokumen gagal.'); setMessage('') } finally { setSaving(false) } }"
-          if old not in s: raise SystemExit('Document start block not found')
-          p.write_text(s.replace(old, new, 1))
-
-          # Service history: close the linked historical request and expose a structured result.
-          p = Path('frontend/src/modules/ServiceHistoryImportModal.jsx')
-          s = p.read_text()
-          old = "if (completed.error) throw new Error(`Gagal menandai histori service ${first.nomor_polisi} selesai: ${completed.error.message}`)\n\n    if (shouldUpdateKm) {"
-          new = "if (completed.error) throw new Error(`Gagal menandai histori service ${first.nomor_polisi} selesai: ${completed.error.message}`)\n\n    const requestCompleted = await supabase.from('permintaan_service').update({ status: 'SELESAI' }).eq('id', request.data.id)\n    if (requestCompleted.error) throw new Error(`Gagal menutup histori pengajuan ${first.nomor_polisi}: ${requestCompleted.error.message}`)\n\n    if (shouldUpdateKm) {"
-          if old not in s: raise SystemExit('Service completion block not found')
-          s = s.replace(old, new, 1)
-          old = "onDone?.()"
-          new = "const report = { context: 'service', ...result, fileName: file?.name || '', completedAt: new Date().toISOString() }\n      sessionStorage.setItem('transport_import_report', JSON.stringify(report))\n      onDone?.(report)"
-          if old not in s: raise SystemExit('Service onDone block not found')
-          s = s.replace(old, new, 1)
+          s = s.replace(
+              'onDone?.() } catch (e) { setError(e.message || \'Import dokumen gagal.\'); setMessage(\'\') }',
+              "const report = { context: 'dokumen', ...result, validRows: workbook.valid.length, imported: result.inserted, skipped: result.skipped, unknownPlates: result.unknown, documentCount: workbook.docCount, fileName: file?.name || '', completedAt: new Date().toISOString() }; sessionStorage.setItem('transport_import_report', JSON.stringify(report)); onDone?.(report) } catch (e) { setError(e.message || 'Import dokumen gagal.'); setMessage('') }",
+              1,
+          )
           p.write_text(s)
 
-          # Generic importer: standardize 25 MB, protect legacy FPD block-form sheets, and emit a result report.
+          # 3) Service histori: historical data is service history, not an active request. Close the technical linked request immediately after completion and report details.
+          p = Path('frontend/src/modules/ServiceHistoryImportModal.jsx')
+          s = p.read_text()
+          anchor = "if (completed.error) throw new Error(`Gagal menandai histori service ${first.nomor_polisi} selesai: ${completed.error.message}`)\n\n    if (shouldUpdateKm) {"
+          replacement = "if (completed.error) throw new Error(`Gagal menandai histori service ${first.nomor_polisi} selesai: ${completed.error.message}`)\n\n    const requestCompleted = await supabase.from('permintaan_service').update({ status: 'SELESAI' }).eq('id', request.data.id)\n    if (requestCompleted.error) throw new Error(`Gagal menutup histori pengajuan ${first.nomor_polisi}: ${requestCompleted.error.message}`)\n\n    if (shouldUpdateKm) {"
+          if anchor in s:
+              s = s.replace(anchor, replacement, 1)
+          else:
+              raise SystemExit('service completion anchor not found')
+          s = s.replace(
+              '      onDone?.()\n    } catch (e) {',
+              "      const report = { context: 'service', ...result, validRows: workbook.valid.length, transactions: workbook.transactionCount ?? result.imported, fileName: file?.name || '', completedAt: new Date().toISOString() }\n      sessionStorage.setItem('transport_import_report', JSON.stringify(report))\n      onDone?.(report)\n    } catch (e) {",
+              1,
+          )
+          p.write_text(s)
+
+          # 4) Unified importer: 25 MB; do not silently map legacy FPD block forms; return a structured result.
           p = Path('frontend/src/modules/UnifiedExcelImportModal.jsx')
           s = p.read_text()
           s = s.replace('const MAX_FILE_SIZE = 10 * 1024 * 1024', 'const MAX_FILE_SIZE = 25 * 1024 * 1024', 1)
           s = s.replace('Ukuran file maksimal 10 MB.', 'Ukuran file maksimal 25 MB.', 1)
           s = s.replace('Hanya .xlsx • maksimal 10 MB', 'Hanya .xlsx • maksimal 25 MB', 1)
-          old = "      const sheets = prepareSheets(await parseXlsx(nextFile), context)\n      const candidate = sheets[0]\n      if (!candidate || candidate.score < 4) throw new Error(`Data ${LABELS[context]} tidak ditemukan secara meyakinkan. Periksa nama sheet dan header Excel.`)"
-          new = "      const sheets = prepareSheets(await parseXlsx(nextFile), context)\n      const normalizedNames = sheets.map((sheet) => norm(sheet.name))\n      if (context === 'pengajuan' && normalizedNames.some((name) => name === 'permintaan_perbaikan')) throw new Error('Sheet PERMINTAAN PERBAIKAN pada FPD OPS adalah formulir blok historis, bukan tabel. Import otomatis sengaja dihentikan agar data tidak salah mapping.')\n      if (context === 'sewa' && normalizedNames.some((name) => name === 'sewa_kendaraan' || name === 'summery_rental')) throw new Error('Sheet Sewa KEndaraan/SUMMERY RENTAL pada FPD OPS bukan format kontrak tabular yang dibutuhkan halaman Kendaraan Sewa. Import otomatis dihentikan agar pembayaran tidak salah dicatat sebagai kontrak.')\n      const candidate = sheets[0]\n      if (!candidate || candidate.score < 4) throw new Error(`Data ${LABELS[context]} tidak ditemukan secara meyakinkan. Periksa nama sheet dan header Excel.`)"
-          if old not in s: raise SystemExit('Generic scan block not found')
-          s = s.replace(old, new, 1)
-          old = "      const result = await IMPORTERS[context](selected, profile)\n      setMessage(`Import ${LABELS[context]} berhasil. ${result}`)\n      onDone?.()"
-          new = "      const result = await IMPORTERS[context](selected, profile)\n      const report = { context, sourceRows: dataRows(selected).length, validRows: dataRows(selected).length, imported: Number((String(result).match(/^(\\d+)/) || [0, 0])[1]), message: result, fileName: file?.name || '', completedAt: new Date().toISOString() }\n      sessionStorage.setItem('transport_import_report', JSON.stringify(report))\n      setMessage(`Import ${LABELS[context]} berhasil. ${result}`)\n      onDone?.(report)"
-          if old not in s: raise SystemExit('Generic start block not found')
-          p.write_text(s.replace(old, new, 1))
-
-          # Result modal: show detailed importer message when present.
-          p = Path('frontend/src/modules/DataPageTools.jsx')
-          s = p.read_text()
-          anchor = "        </div>\n\n        {importReport.context === 'kendaraan' && <div className=\"vehicle-import-note\">"
-          repl = "        </div>\n\n        {importReport.message && <div className=\"vehicle-import-note\"><b>Detail hasil import</b><span>{importReport.message}</span></div>}\n\n        {importReport.context === 'kendaraan' && <div className=\"vehicle-import-note\">"
-          if anchor not in s: raise SystemExit('Report modal anchor not found')
-          p.write_text(s.replace(anchor, repl, 1))
-
-          # Legacy Import Excel page: at least enforce the same 25 MB file limit.
-          p = Path('frontend/src/modules/ImportExcelPage.jsx')
-          s = p.read_text()
-          marker = "const KEYWORDS = {"
-          if 'const MAX_FILE_SIZE = 25 * 1024 * 1024' not in s:
-              idx = s.find(marker)
-              if idx < 0: raise SystemExit('ImportExcelPage anchor not found')
-              s = s[:idx] + "const MAX_FILE_SIZE = 25 * 1024 * 1024\n\n" + s[idx:]
-          old = "    if (!/\\.xlsx$/i.test(selectedFile.name)) { setError('Gunakan file Excel .xlsx. Format .xls lama belum didukung untuk import aman.'); return }\n    setLoading(true)"
-          new = "    if (!/\\.xlsx$/i.test(selectedFile.name)) { setError('Gunakan file Excel .xlsx. Format .xls lama belum didukung untuk import aman.'); return }\n    if (selectedFile.size > MAX_FILE_SIZE) { setError('Ukuran file maksimal 25 MB.'); return }\n    setLoading(true)"
-          if old in s:
-              s = s.replace(old, new, 1)
+          old_scan = """    try {
+      const sheets = prepareSheets(await parseXlsx(nextFile), context)
+      const candidate = sheets[0]
+      if (!candidate || candidate.score < 4) throw new Error(`Data ${LABELS[context]} tidak ditemukan secara meyakinkan. Periksa nama sheet dan header Excel.`)
+      setSelected(candidate)
+      setMessage(`Sheet “${candidate.name}” terdeteksi • ${dataRows(candidate).length} baris data.`)
+    } catch (e) { setError(e.message || 'File Excel tidak dapat dibaca.') } finally { setLoading(false) }
+"""
+          new_scan = """    try {
+      const sheets = prepareSheets(await parseXlsx(nextFile), context)
+      const candidate = sheets[0]
+      const candidateName = norm(candidate?.name || '')
+      if (context === 'pengajuan' && ['permintaan_perbaikan', 'pengajuan_perbaikan'].includes(candidateName)) {
+        throw new Error('Sheet Pengajuan Perbaikan/PERMINTAAN PERBAIKAN pada FPD OPS adalah formulir blok historis, bukan tabel pengajuan. Import otomatis dihentikan agar data tidak salah mapping.')
+      }
+      if (context === 'sewa' && ['sewa_kendaraan', 'summery_rental'].includes(candidateName)) {
+        throw new Error('Sheet Sewa KEndaraan/SUMMERY RENTAL pada FPD OPS berisi formulir dana dan rekap pembayaran, bukan tabel kontrak sewa. Import otomatis dihentikan agar pembayaran tidak salah dicatat sebagai kontrak.')
+      }
+      if (!candidate || candidate.score < 4) throw new Error(`Data ${LABELS[context]} tidak ditemukan secara meyakinkan. Periksa nama sheet dan header Excel.`)
+      setSelected(candidate)
+      setMessage(`Sheet “${candidate.name}” terdeteksi • ${dataRows(candidate).length} baris data.`)
+    } catch (e) { setError(e.message || 'File Excel tidak dapat dibaca.') } finally { setLoading(false) }
+"""
+          if old_scan not in s: raise SystemExit('unified scan block not found')
+          s = s.replace(old_scan, new_scan, 1)
+          old_start = """      const result = await IMPORTERS[context](selected, profile)
+      setMessage(`Import ${LABELS[context]} berhasil. ${result}`)
+      onDone?.()
+"""
+          new_start = """      const result = await IMPORTERS[context](selected, profile)
+      const report = { context, sourceRows: dataRows(selected).length, validRows: dataRows(selected).length, imported: Number((String(result).match(/^(\\d+)/) || [0, 0])[1]), message: result, fileName: file?.name || '', completedAt: new Date().toISOString() }
+      sessionStorage.setItem('transport_import_report', JSON.stringify(report))
+      setMessage(`Import ${LABELS[context]} berhasil. ${result}`)
+      onDone?.(report)
+"""
+          if old_start not in s: raise SystemExit('unified start block not found')
+          s = s.replace(old_start, new_start, 1)
+          # Prevent a false success for contract imports when the source has no tabular contract rows.
           p.write_text(s)
 
-          # Remove this audit workflow after the patch so it does not remain as a permanent job.
-          Path('.github/workflows/audit-import-pages.yml').unlink(missing_ok=True)
+          # 5) Result modal: show importer detail string as well as numeric reconciliation.
+          p = Path('frontend/src/modules/DataPageTools.jsx')
+          s = p.read_text()
+          anchor = '        </div>\n\n        {importReport.context === \'kendaraan\' && <div className="vehicle-import-note">'
+          detail = '        </div>\n\n        {importReport.message && <div className="vehicle-import-note"><b>Detail hasil import</b><span>{importReport.message}</span></div>}\n\n        {importReport.context === \'kendaraan\' && <div className="vehicle-import-note">'
+          if anchor in s and 'Detail hasil import' not in s:
+              s = s.replace(anchor, detail, 1)
+          p.write_text(s)
+
+          # 6) Legacy import screen: same 25 MB guard so a direct visit cannot bypass the standard.
+          p = Path('frontend/src/modules/ImportExcelPage.jsx')
+          s = p.read_text()
+          if 'const MAX_FILE_SIZE = 25 * 1024 * 1024' not in s:
+              s = s.replace('const KEYWORDS = {', 'const MAX_FILE_SIZE = 25 * 1024 * 1024\n\nconst KEYWORDS = {', 1)
+          if 'selectedFile.size > MAX_FILE_SIZE' not in s:
+              s = s.replace("    if (!/\\.xlsx$/i.test(selectedFile.name)) { setError('Gunakan file Excel .xlsx. Format .xls lama belum didukung untuk import aman.'); return }\n    setLoading(true)", "    if (!/\\.xlsx$/i.test(selectedFile.name)) { setError('Gunakan file Excel .xlsx. Format .xls lama belum didukung untuk import aman.'); return }\n    if (selectedFile.size > MAX_FILE_SIZE) { setError('Ukuran file maksimal 25 MB.'); return }\n    setLoading(true)", 1)
+          p.write_text(s)
+
+          # End-to-end source assertions.
+          vehicle = Path('frontend/src/modules/VehicleExcelImportModal.jsx').read_text()
+          docs = Path('frontend/src/modules/VehicleDocumentsImportModal.jsx').read_text()
+          service = Path('frontend/src/modules/ServiceHistoryImportModal.jsx').read_text()
+          unified = Path('frontend/src/modules/UnifiedExcelImportModal.jsx').read_text()
+          assert '84 baris' not in vehicle and '83 baris kendaraan valid → 73' not in vehicle
+          assert 'const MAX_FILE_SIZE = 25 * 1024 * 1024' in docs
+          assert 'const MAX_FILE_SIZE = 25 * 1024 * 1024' in unified
+          assert "status: 'SELESAI'" in service
+          assert "sessionStorage.setItem('transport_import_report'" in service
+          assert "sessionStorage.setItem('transport_import_report'" in docs
+          assert "sessionStorage.setItem('transport_import_report'" in unified
           PY
       - name: Verify frontend
         working-directory: frontend
@@ -104,6 +173,7 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add frontend/src/modules/VehicleExcelImportModal.jsx frontend/src/modules/VehicleDocumentsImportModal.jsx frontend/src/modules/ServiceHistoryImportModal.jsx frontend/src/modules/UnifiedExcelImportModal.jsx frontend/src/modules/DataPageTools.jsx frontend/src/modules/ImportExcelPage.jsx .github/workflows/audit-import-pages.yml
-          git commit -m 'fix all Excel import pages [import-audit-done]' || exit 0
+          git rm -f .github/workflows/audit-import-pages.yml
+          git add frontend/src/modules/VehicleExcelImportModal.jsx frontend/src/modules/VehicleDocumentsImportModal.jsx frontend/src/modules/ServiceHistoryImportModal.jsx frontend/src/modules/UnifiedExcelImportModal.jsx frontend/src/modules/DataPageTools.jsx frontend/src/modules/ImportExcelPage.jsx
+          git commit -m 'fix all Excel import pages [import-audit-done]'
           git push
