@@ -1,0 +1,145 @@
+name: Repair all transport displays v2
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/transport-display-repair-v2.trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.actor == 'muhammadsuryahar-bot'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch all display limits and refresh synchronization
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          files = Path('frontend/src/modules')
+          changed = []
+
+          def replace(path, old, new):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              if old in text:
+                  text = text.replace(old, new, 1)
+                  p.write_text(text, encoding='utf-8')
+                  changed.append(path)
+              elif new not in text:
+                  raise SystemExit(f'Missing pattern in {path}: {old[:140]!r}')
+
+          # Remove artificial display ceilings, while keeping date-format slices and other non-display logic intact.
+          for p in files.glob('*.jsx'):
+              text = p.read_text(encoding='utf-8')
+              original = text
+              text = re.sub(r'\.slice\(0,\s*8\)\.map\(', '.map(', text)
+              text = re.sub(r'\.slice\(0,\s*20\)\.map\(', '.map(', text)
+              if text != original:
+                  p.write_text(text, encoding='utf-8')
+                  changed.append(str(p))
+
+          # Unified importer: preview every source row, not only eight.
+          replace(
+              'frontend/src/modules/UnifiedExcelImportModal.jsx',
+              '<span>maks. 8 baris</span>',
+              '<span>{dataRows(selected).length} baris sumber</span>',
+          )
+          replace(
+              'frontend/src/modules/UnifiedExcelImportModal.jsx',
+              'selected.rows.slice(selected.headerIndex + 1, selected.headerIndex + 9).map((row, rowIndex)',
+              'dataRows(selected).map((row, rowIndex)',
+          )
+
+          # Reports: no hidden last-20 rows in the summary tables.
+          replace(
+              'frontend/src/modules/ReportsFeaturePage.jsx',
+              ".slice(0, 20)",
+              "",
+          )
+          # The previous replacement intentionally strips only the literal row ceiling; it does not touch date slices like slice(0,10).
+
+          # Refresh all affected screens when any import reports that data changed.
+          replace(
+              'frontend/src/modules/DashboardFeaturePage.jsx',
+              "  useEffect(() => {\n    if (profile?.id) loadDashboard()\n    // Dashboard refreshes only when the authenticated profile/role changes.\n    // eslint-disable-next-line react-hooks/exhaustive-deps\n  }, [profile?.id, profile?.role])",
+              "  useEffect(() => {\n    if (profile?.id) loadDashboard()\n    // eslint-disable-next-line react-hooks/exhaustive-deps\n  }, [profile?.id, profile?.role])\n\n  useEffect(() => {\n    const handleImported = (event) => { if (event.detail?.context) loadDashboard() }\n    window.addEventListener('transport:data-imported', handleImported)\n    return () => window.removeEventListener('transport:data-imported', handleImported)\n    // eslint-disable-next-line react-hooks/exhaustive-deps\n  }, [])",
+          )
+          replace(
+              'frontend/src/modules/MasterKendaraanPage.jsx',
+              "  useEffect(() => { loadData() }, [])",
+              "  useEffect(() => {\n    loadData()\n    const handleImported = (event) => { if (['kendaraan', 'service'].includes(event.detail?.context)) loadData() }\n    window.addEventListener('transport:data-imported', handleImported)\n    return () => window.removeEventListener('transport:data-imported', handleImported)\n  }, [])",
+          )
+          replace(
+              'frontend/src/modules/RentalFeaturePage.jsx',
+              "  useEffect(() => { load() }, [])",
+              "  useEffect(() => {\n    load()\n    const handleImported = (event) => { if (['sewa', 'kendaraan'].includes(event.detail?.context)) load() }\n    window.addEventListener('transport:data-imported', handleImported)\n    return () => window.removeEventListener('transport:data-imported', handleImported)\n  }, [])",
+          )
+          replace(
+              'frontend/src/modules/ServiceCompletionPanel.jsx',
+              "  useEffect(() => { load() }, [canProcess])",
+              "  useEffect(() => {\n    load()\n    const handleImported = (event) => { if (['service', 'pengajuan'].includes(event.detail?.context)) load() }\n    window.addEventListener('transport:data-imported', handleImported)\n    return () => window.removeEventListener('transport:data-imported', handleImported)\n  }, [canProcess])",
+          )
+
+          # Existing service/request listeners were already added in the previous repair; widen their context coverage.
+          for path in ['frontend/src/modules/ServiceFeaturePage.jsx', 'frontend/src/modules/PermintaanServicePage.jsx']:
+              p = Path(path); text = p.read_text(encoding='utf-8'); original = text
+              text = text.replace("event.detail?.context === 'service'", "['service', 'pengajuan', 'kendaraan'].includes(event.detail?.context)", 1)
+              if text != original:
+                  p.write_text(text, encoding='utf-8'); changed.append(path)
+
+          # Documents listener is minified in this module.
+          p = Path('frontend/src/modules/DocumentsFeaturePage.jsx'); text = p.read_text(encoding='utf-8'); original = text
+          text = text.replace(" useEffect(()=>{load()},[])", " useEffect(()=>{load();const handleImported=(event)=>{if(['dokumen','kendaraan'].includes(event.detail?.context))load()};window.addEventListener('transport:data-imported',handleImported);return()=>window.removeEventListener('transport:data-imported',handleImported)},[])", 1)
+          if text != original:
+              p.write_text(text, encoding='utf-8'); changed.append(str(p))
+
+          # Final audit: no active module may advertise or render a fixed 8/20-row preview.
+          offenders = []
+          for p in files.glob('*.jsx'):
+              text = p.read_text(encoding='utf-8')
+              for pattern, label in [
+                  (r'\.slice\(0,\s*8\)\.map\(', 'slice(0,8).map'),
+                  (r'\.slice\(0,\s*20\)\.map\(', 'slice(0,20).map'),
+                  (r'\blimit\(8\)', 'limit(8)'),
+                  (r'8 baris pertama', '8 baris pertama'),
+                  (r'maks\.?\s*8\s*baris', 'maks. 8 baris'),
+              ]:
+                  if re.search(pattern, text, flags=re.I): offenders.append(f'{p}: {label}')
+          if offenders: raise SystemExit('Display-limit audit failed:\n' + '\n'.join(offenders))
+
+          print('Changed files:', *sorted(set(changed)), sep='\n - ')
+          PY
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+
+      - name: Commit verified repair and clean one-time tooling
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          rm -f .github/transport-display-repair-v2.trigger .github/workflows/repair-all-transport-display-v2.yml .github/transport-display-repair.trigger .github/workflows/repair-transport-display-once.yml
+          git add frontend/src/modules .github/transport-display-repair-v2.trigger .github/workflows/repair-all-transport-display-v2.yml .github/transport-display-repair.trigger .github/workflows/repair-transport-display-once.yml
+          git commit -m 'fix: remove display row caps and synchronize transport views'
+          git push origin main
