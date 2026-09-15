@@ -212,6 +212,7 @@ function parseRow(row, headers) {
     kilometer: numberValue(getValue(row, headers, 'kilometer')) ?? 0,
     bengkel: getValue(row, headers, 'bengkel') || null,
     keterangan: getValue(row, headers, 'keterangan') || null,
+    values: row.values,
   }
 }
 
@@ -320,8 +321,6 @@ async function importServiceHistory(rows, profile, sheetName, onProgress = () =>
     }).select('id').single()
     if (request.error) throw new Error(`Gagal membuat histori pengajuan ${first.nomor_polisi} (baris ${first.excelRow}): ${request.error.message}`)
 
-    // The historical-import AFTER INSERT trigger moves this request into DALAM_PROSES,
-    // so a separate request-progress round trip is unnecessary here.
     const service = await supabase.from('service').insert({
       nomor_service: serviceNumber,
       permintaan_service_id: request.data.id,
@@ -478,7 +477,7 @@ export default function ServiceHistoryImportModal({ profile, onDone, onClose }) 
       const invalid = parsed.length - valid.length
       const transactions = groupRows(valid)
       const uniquePlates = [...new Set(valid.map((row) => row.nomor_polisi))]
-      setWorkbook({ sheet: chosen.sheet, header: chosen.header, dataRows: parsed, valid, invalid, transactions, uniquePlates })
+      setWorkbook({ sheet: chosen.sheet, header: chosen.header, dataRows, valid, invalid, transactions, uniquePlates })
       setMessage(`Sheet “${chosen.sheet.name}” terdeteksi: ${parsed.length} baris sumber • ${valid.length} valid • ${transactions.length} transaksi service.`)
     } catch (e) {
       setError(e.message || 'File Excel tidak dapat dibaca.')
