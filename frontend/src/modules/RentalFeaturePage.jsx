@@ -74,7 +74,12 @@ export default function RentalFeaturePage({ profile }) {
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+    const handleImported = (event) => { if (['sewa', 'kendaraan'].includes(event.detail?.context)) load() }
+    window.addEventListener('transport:data-imported', handleImported)
+    return () => window.removeEventListener('transport:data-imported', handleImported)
+  }, [])
 
   const clearMessages = () => { setError(''); setSuccess('') }
 

@@ -42,7 +42,12 @@ export default function ServiceCompletionPanel({ profile }) {
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [canProcess])
+  useEffect(() => {
+    load()
+    const handleImported = (event) => { if (['service', 'pengajuan'].includes(event.detail?.context)) load() }
+    window.addEventListener('transport:data-imported', handleImported)
+    return () => window.removeEventListener('transport:data-imported', handleImported)
+  }, [canProcess])
 
   const vehicleMap = useMemo(() => Object.fromEntries(vehicles.map((v) => [v.id, v])), [vehicles])
   const completable = useMemo(() => services.filter((s) => {

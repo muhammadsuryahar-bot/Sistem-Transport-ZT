@@ -46,7 +46,12 @@ export default function MasterKendaraanPage({ profile }) {
     if (d.error) setError((x) => x || `Data driver: ${d.error.message}`); else setDrivers(d.data || [])
     setLoading(false)
   }
-  useEffect(() => { loadData() }, [])
+  useEffect(() => {
+    loadData()
+    const handleImported = (event) => { if (['kendaraan', 'service'].includes(event.detail?.context)) loadData() }
+    window.addEventListener('transport:data-imported', handleImported)
+    return () => window.removeEventListener('transport:data-imported', handleImported)
+  }, [])
 
   const driverMap = useMemo(() => Object.fromEntries(drivers.map((d) => [d.id, d])), [drivers])
   const filtered = useMemo(() => {

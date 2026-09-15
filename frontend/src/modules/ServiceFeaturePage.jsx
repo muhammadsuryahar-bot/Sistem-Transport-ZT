@@ -30,7 +30,7 @@ export default function ServiceFeaturePage({ profile }) {
   useEffect(() => {
     load()
     const handleImported = (event) => {
-      if (event.detail?.context === 'service') load()
+      if (['service', 'pengajuan', 'kendaraan'].includes(event.detail?.context)) load()
     }
     window.addEventListener('transport:data-imported', handleImported)
     return () => window.removeEventListener('transport:data-imported', handleImported)

@@ -35,7 +35,12 @@ export default function ReportsFeaturePage() {
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+    const handleImported = (event) => { if (event.detail?.context) load() }
+    window.addEventListener('transport:data-imported', handleImported)
+    return () => window.removeEventListener('transport:data-imported', handleImported)
+  }, [])
 
   const now = Date.now()
   const metrics = useMemo(() => {
@@ -55,8 +60,8 @@ export default function ReportsFeaturePage() {
     return { activeContracts, pendingRequests, pendingApproval, expiredDocs, soonDocs, serviceCost, rentalGross, rentalPaid, totalDeduction, overduePayments, repairedAndPaidByOffice, approved, totalVehicles: vehicles.length }
   }, [data, now])
 
-  const serviceRows = filter === 'SELESAI' ? data.services.filter(x => x.status === 'SELESAI') : filter === 'MENUNGGU_APPROVAL' ? data.services.filter(x => x.status === 'MENUNGGU_APPROVAL') : data.services.filter(x => x.status !== 'DIBATALKAN').slice(0, 20)
-  const problemPayments = data.payments.filter(x => x.status === 'TERLAMBAT' || (x.status === 'BELUM_LUNAS' && x.tanggal_jatuh_tempo && new Date(x.tanggal_jatuh_tempo).getTime() < now)).slice(0, 20)
+  const serviceRows = filter === 'SELESAI' ? data.services.filter(x => x.status === 'SELESAI') : filter === 'MENUNGGU_APPROVAL' ? data.services.filter(x => x.status === 'MENUNGGU_APPROVAL') : data.services.filter(x => x.status !== 'DIBATALKAN')
+  const problemPayments = data.payments.filter(x => x.status === 'TERLAMBAT' || (x.status === 'BELUM_LUNAS' && x.tanggal_jatuh_tempo && new Date(x.tanggal_jatuh_tempo).getTime() < now))
 
   const exportAll = async () => {
     setExporting(true)
@@ -164,7 +169,7 @@ export default function ReportsFeaturePage() {
 
     <section className="x-card"><div className="x-card-title"><h3>Pembayaran Sewa Terlambat / Belum Lunas</h3></div><div className="x-table-wrap"><table className="x-table"><thead><tr><th>Kontrak</th><th>Jatuh Tempo</th><th>Tagihan Bersih</th><th>Dibayar</th><th>Status</th></tr></thead><tbody>{problemPayments.map(x => <tr key={x.id}><td>#{x.kontrak_sewa_id}</td><td>{date(x.tanggal_jatuh_tempo)}</td><td>{money(x.jumlah_tagihan)}</td><td>{money(x.jumlah_dibayar)}</td><td>{x.status}</td></tr>)}{!problemPayments.length && <tr><td colSpan="5">Tidak ada pembayaran bermasalah.</td></tr>}</tbody></table></div></section>
 
-    <section className="x-card"><div className="x-card-title"><h3>Dokumen Hampir Jatuh Tempo</h3></div><div className="x-table-wrap"><table className="x-table"><thead><tr><th>Kendaraan</th><th>Dokumen</th><th>Jatuh Tempo</th><th>Status</th></tr></thead><tbody>{data.docs.filter(x => x.tanggal_jatuh_tempo && new Date(x.tanggal_jatuh_tempo).getTime() <= now + DAYS).slice(0, 20).map(x => { const diff = Math.ceil((new Date(x.tanggal_jatuh_tempo).getTime() - now) / 86400000); return <tr key={x.id}><td>{data.vehicles.find(k => k.id === x.kendaraan_id)?.nomor_polisi || '-'}</td><td>{x.jenis_dokumen} {x.nomor_dokumen ? `— ${x.nomor_dokumen}` : ''}</td><td>{date(x.tanggal_jatuh_tempo)}</td><td>{diff < 0 ? 'EXPIRED' : `${diff} hari lagi`}</td></tr> })}{!data.docs.some(x => x.tanggal_jatuh_tempo && new Date(x.tanggal_jatuh_tempo).getTime() <= now + DAYS) && <tr><td colSpan="4">Tidak ada dokumen yang perlu diperhatikan dalam 30 hari.</td></tr>}</tbody></table></div></section>
+    <section className="x-card"><div className="x-card-title"><h3>Dokumen Hampir Jatuh Tempo</h3></div><div className="x-table-wrap"><table className="x-table"><thead><tr><th>Kendaraan</th><th>Dokumen</th><th>Jatuh Tempo</th><th>Status</th></tr></thead><tbody>{data.docs.filter(x => x.tanggal_jatuh_tempo && new Date(x.tanggal_jatuh_tempo).getTime() <= now + DAYS).map(x => { const diff = Math.ceil((new Date(x.tanggal_jatuh_tempo).getTime() - now) / 86400000); return <tr key={x.id}><td>{data.vehicles.find(k => k.id === x.kendaraan_id)?.nomor_polisi || '-'}</td><td>{x.jenis_dokumen} {x.nomor_dokumen ? `— ${x.nomor_dokumen}` : ''}</td><td>{date(x.tanggal_jatuh_tempo)}</td><td>{diff < 0 ? 'EXPIRED' : `${diff} hari lagi`}</td></tr> })}{!data.docs.some(x => x.tanggal_jatuh_tempo && new Date(x.tanggal_jatuh_tempo).getTime() <= now + DAYS) && <tr><td colSpan="4">Tidak ada dokumen yang perlu diperhatikan dalam 30 hari.</td></tr>}</tbody></table></div></section>
 
     <section className="x-card"><div className="x-card-title"><h3>Ringkasan Penggunaan Sistem</h3></div><div className="x-detail"><p><b>Total pengajuan:</b> {data.requests.length}</p><p><b>Total service selesai:</b> {data.services.filter(x => x.status === 'SELESAI').length}</p><p><b>Total approval disetujui:</b> {metrics.approved}</p><p><b>Total tagihan rental:</b> {money(metrics.rentalGross)}</p><p><b>Total dibayar rental:</b> {money(metrics.rentalPaid)}</p><p><b>Total potongan repair rental:</b> {money(metrics.totalDeduction)}</p></div></section>
   </div>

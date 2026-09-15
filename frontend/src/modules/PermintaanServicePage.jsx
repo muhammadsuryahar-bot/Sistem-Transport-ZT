@@ -95,7 +95,7 @@ function PermintaanServicePage({ profile }) {
   useEffect(() => {
     loadData()
     const handleImported = (event) => {
-      if (event.detail?.context === 'service') loadData()
+      if (['service', 'pengajuan', 'kendaraan'].includes(event.detail?.context)) loadData()
     }
     window.addEventListener('transport:data-imported', handleImported)
     return () => window.removeEventListener('transport:data-imported', handleImported)

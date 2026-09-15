@@ -155,6 +155,13 @@ export default function DashboardFeaturePage({ profile, onNavigate }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.id, profile?.role])
 
+  useEffect(() => {
+    const handleImported = (event) => { if (event.detail?.context) loadDashboard() }
+    window.addEventListener('transport:data-imported', handleImported)
+    return () => window.removeEventListener('transport:data-imported', handleImported)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const stats = useMemo(() => {
     if (role === 'OPERASIONAL') return [
       ['pendingRequests', 'Pengajuan Saya', 'Masih diproses', 'request'],
