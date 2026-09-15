@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import UnifiedExcelImportModal from './UnifiedExcelImportModal.jsx'
+import UnifiedExcelImportModalSafe from './UnifiedExcelImportModalSafe.jsx'
 import VehicleExcelImportModal from './VehicleExcelImportModal.jsx'
 import ServiceHistoryImportModalFixed from './ServiceHistoryImportModalFixed.jsx'
 import VehicleDocumentsImportModal from './VehicleDocumentsImportModal.jsx'
@@ -55,8 +55,6 @@ export default function DataPageTools({ context, profile, onExport }) {
     const refreshContext = importReport?.context
     setImportReport(null)
     window.dispatchEvent(new CustomEvent('transport:data-imported', { detail: { context: refreshContext } }))
-    // The pages already listen for transport:data-imported. A hard reload is kept as a reliable fallback
-    // so the user never gets stuck with a stale list when a component is mounted through a different route.
     window.setTimeout(() => window.location.reload(), 120)
   }
 
@@ -69,7 +67,7 @@ export default function DataPageTools({ context, profile, onExport }) {
         ? <ServiceHistoryImportModalFixed profile={profile} onClose={closeImport} onDone={finishImport} />
         : context === 'dokumen'
           ? <VehicleDocumentsImportModal profile={profile} onClose={closeImport} onDone={finishImport} />
-          : <UnifiedExcelImportModal context={context} profile={profile} onClose={closeImport} onDone={finishImport} />
+          : <UnifiedExcelImportModalSafe context={context} profile={profile} onClose={closeImport} onDone={finishImport} />
     )}
 
     {importReport && <div className="dpt-overlay" role="dialog" aria-modal="true" aria-label="Laporan hasil import">
