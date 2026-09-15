@@ -1,0 +1,172 @@
+name: Repair all transport displays once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/transport-display-repair.trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.actor == 'muhammadsuryahar-bot'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch display limits and refresh synchronization
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          changed = []
+
+          def patch(path_text, replacements):
+              path = Path(path_text)
+              text = path.read_text(encoding='utf-8')
+              original = text
+              for old, new in replacements:
+                  if old in text:
+                      text = text.replace(old, new, 1)
+                  elif new in text:
+                      continue
+                  else:
+                      raise SystemExit(f'Missing expected source pattern in {path_text}: {old[:180]!r}')
+              if text != original:
+                  path.write_text(text, encoding='utf-8')
+                  changed.append(path_text)
+
+          # Reports: never hide real records behind a UI-only 20-row ceiling.
+          patch('frontend/src/modules/ReportsFeaturePage.jsx', [
+              (
+                  "  const serviceRows = filter === 'SELESAI' ? data.services.filter(x => x.status === 'SELESAI') : filter === 'MENUNGGU_APPROVAL' ? data.services.filter(x => x.status === 'MENUNGGU_APPROVAL') : data.services.filter(x => x.status !== 'DIBATALKAN').slice(0, 20)\n  const problemPayments = data.payments.filter(x => x.status === 'TERLAMBAT' || (x.status === 'BELUM_LUNAS' && x.tanggal_jatuh_tempo && new Date(x.tanggal_jatuh_tempo).getTime() < now)).slice(0, 20)",
+                  "  const serviceRows = filter === 'SELESAI' ? data.services.filter(x => x.status === 'SELESAI') : filter === 'MENUNGGU_APPROVAL' ? data.services.filter(x => x.status === 'MENUNGGU_APPROVAL') : data.services.filter(x => x.status !== 'DIBATALKAN')\n  const problemPayments = data.payments.filter(x => x.status === 'TERLAMBAT' || (x.status === 'BELUM_LUNAS' && x.tanggal_jatuh_tempo && new Date(x.tanggal_jatuh_tempo).getTime() < now))",
+              ),
+              (
+                  "  useEffect(() => { load() }, [])",
+                  "  useEffect(() => {\n    load()\n    const handleImported = (event) => {\n      if (event.detail?.context) load()\n    }\n    window.addEventListener('transport:data-imported', handleImported)\n    return () => window.removeEventListener('transport:data-imported', handleImported)\n  }, [])",
+              ),
+          ])
+
+          # Dashboard metrics: reflect newly imported/updated data without manual refresh.
+          patch('frontend/src/modules/DashboardFeaturePage.jsx', [
+              (
+                  "  useEffect(() => {\n    if (profile?.id) loadDashboard()\n    // Dashboard refreshes only when the authenticated profile/role changes.\n    // eslint-disable-next-line react-hooks/exhaustive-deps\n  }, [profile?.id, profile?.role])",
+                  "  useEffect(() => {\n    if (profile?.id) loadDashboard()\n    // Dashboard refreshes when the authenticated profile/role changes.\n    // Import and mutation flows also notify this page so counts stay current.\n    // eslint-disable-next-line react-hooks/exhaustive-deps\n  }, [profile?.id, profile?.role])\n\n  useEffect(() => {\n    const handleImported = (event) => {\n      if (event.detail?.context) loadDashboard()\n    }\n    window.addEventListener('transport:data-imported', handleImported)\n    return () => window.removeEventListener('transport:data-imported', handleImported)\n    // loadDashboard is intentionally stable for the lifetime of this mounted page.\n    // eslint-disable-next-line react-hooks/exhaustive-deps\n  }, [])",
+              ),
+          ])
+
+          # Master fleet refreshes after vehicle/service imports because service history can update KM.
+          patch('frontend/src/modules/MasterKendaraanPage.jsx', [
+              (
+                  "  useEffect(() => { loadData() }, [])",
+                  "  useEffect(() => {\n    loadData()\n    const handleImported = (event) => {\n      if (['kendaraan', 'service'].includes(event.detail?.context)) loadData()\n    }\n    window.addEventListener('transport:data-imported', handleImported)\n    return () => window.removeEventListener('transport:data-imported', handleImported)\n  }, [])",
+              ),
+          ])
+
+          # Request page refreshes for direct request imports and any flow that changes requests.
+          patch('frontend/src/modules/PermintaanServicePage.jsx', [
+              (
+                  "  useEffect(() => {\n    loadData()\n    const handleImported = (event) => {\n      if (event.detail?.context === 'service') loadData()\n    }\n    window.addEventListener('transport:data-imported', handleImported)\n    return () => window.removeEventListener('transport:data-imported', handleImported)\n  }, [])",
+                  "  useEffect(() => {\n    loadData()\n    const handleImported = (event) => {\n      if (['pengajuan', 'service', 'kendaraan'].includes(event.detail?.context)) loadData()\n    }\n    window.addEventListener('transport:data-imported', handleImported)\n    return () => window.removeEventListener('transport:data-imported', handleImported)\n  }, [])",
+              ),
+          ])
+
+          # Service page refreshes for service/request/vehicle imports.
+          patch('frontend/src/modules/ServiceFeaturePage.jsx', [
+              (
+                  "  useEffect(() => {\n    load()\n    const handleImported = (event) => {\n      if (event.detail?.context === 'service') load()\n    }\n    window.addEventListener('transport:data-imported', handleImported)\n    return () => window.removeEventListener('transport:data-imported', handleImported)\n  }, [])",
+                  "  useEffect(() => {\n    load()\n    const handleImported = (event) => {\n      if (['service', 'pengajuan', 'kendaraan'].includes(event.detail?.context)) load()\n    }\n    window.addEventListener('transport:data-imported', handleImported)\n    return () => window.removeEventListener('transport:data-imported', handleImported)\n  }, [])",
+              ),
+          ])
+
+          # Completion queue must react to imported service history as well.
+          patch('frontend/src/modules/ServiceCompletionPanel.jsx', [
+              (
+                  "  useEffect(() => { load() }, [canProcess])",
+                  "  useEffect(() => {\n    load()\n    const handleImported = (event) => {\n      if (['service', 'pengajuan'].includes(event.detail?.context)) load()\n    }\n    window.addEventListener('transport:data-imported', handleImported)\n    return () => window.removeEventListener('transport:data-imported', handleImported)\n  }, [canProcess])",
+              ),
+          ])
+
+          # Rental page refreshes after rental/vehicle imports.
+          patch('frontend/src/modules/RentalFeaturePage.jsx', [
+              (
+                  "  useEffect(() => { load() }, [])",
+                  "  useEffect(() => {\n    load()\n    const handleImported = (event) => {\n      if (['sewa', 'kendaraan'].includes(event.detail?.context)) load()\n    }\n    window.addEventListener('transport:data-imported', handleImported)\n    return () => window.removeEventListener('transport:data-imported', handleImported)\n  }, [])",
+              ),
+          ])
+
+          # Documents page refreshes after document/vehicle imports.
+          patch('frontend/src/modules/DocumentsFeaturePage.jsx', [
+              (
+                  " useEffect(()=>{load()},[])",
+                  " useEffect(()=>{\n  load()\n  const handleImported=(event)=>{\n   if(['dokumen','kendaraan'].includes(event.detail?.context)) load()\n  }\n  window.addEventListener('transport:data-imported',handleImported)\n  return ()=>window.removeEventListener('transport:data-imported',handleImported)\n },[])",
+              ),
+          ])
+
+          # Remove remaining active import-preview ceilings of eight rows.
+          module_dir = Path('frontend/src/modules')
+          for path in module_dir.glob('*.jsx'):
+              text = path.read_text(encoding='utf-8')
+              original = text
+              text = re.sub(r'\.slice\(0,\s*8\)\.map\(', '.map(', text)
+              text = text.replace('8 baris pertama', '{__ALL_ROWS__} baris sumber')
+              text = re.sub(r'Preview\s+8\s+baris', 'Preview semua baris sumber', text)
+              text = text.replace('Preview 8 baris', 'Preview semua baris sumber')
+              if text != original:
+                  # Avoid leaving a literal token in JSX where only a string was expected.
+                  text = text.replace('<span>{__ALL_ROWS__} baris sumber</span>', '<span>{rows.length} baris sumber</span>')
+                  path.write_text(text, encoding='utf-8')
+                  changed.append(str(path))
+
+          # Audit before commit: no active source may retain a fixed 8/20 row display cap.
+          offenders = []
+          for path in module_dir.glob('*.jsx'):
+              text = path.read_text(encoding='utf-8')
+              checks = [
+                  (r'\.slice\(0,\s*8\)\.map\(', 'slice(0,8).map'),
+                  (r'\.slice\(0,\s*20\)\.map\(', 'slice(0,20).map'),
+                  (r'\blimit\(8\)', 'limit(8)'),
+                  (r'8 baris pertama', '8 baris pertama'),
+                  (r'Preview\s+8\s+baris', 'Preview 8 baris'),
+                  (r'maks\.?\s*8\s*baris', 'maks. 8 baris'),
+              ]
+              for pattern, label in checks:
+                  if re.search(pattern, text, flags=re.I):
+                      offenders.append(f'{path}: {label}')
+          if offenders:
+              raise SystemExit('Display-limit audit failed:\n' + '\n'.join(offenders))
+
+          print('Changed:', *sorted(set(changed)), sep='\n - ')
+          PY
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Lint frontend
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Commit verified repair and remove one-time workflow
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          rm -f .github/transport-display-repair.trigger .github/workflows/repair-transport-display-once.yml
+          git add frontend/src/modules .github/transport-display-repair.trigger .github/workflows/repair-transport-display-once.yml
+          git status --short
+          git commit -m 'fix: remove display row caps and synchronize all transport views'
+          git push origin main
