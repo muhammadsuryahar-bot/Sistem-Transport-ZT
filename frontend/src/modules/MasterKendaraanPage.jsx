@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import './MasterKendaraanPage.css'
 
@@ -15,6 +15,7 @@ const RENTAL = { SEWA_PERORANGAN: 'Sewa Perorangan', SEWA_RENTAL: 'Sewa Rental' 
 
 const moneyOrNumber = (v) => v === '' || v == null ? null : Number(v)
 const fmtKm = (v) => v == null || v === '' ? '-' : `${new Intl.NumberFormat('id-ID').format(Number(v))} km`
+const isInteractiveTarget = (target) => Boolean(target?.closest?.('button, input, select, textarea, a'))
 
 export default function MasterKendaraanPage({ profile }) {
   const canDelete = profile?.role === 'ADMIN'
@@ -38,6 +39,10 @@ export default function MasterKendaraanPage({ profile }) {
   const [detail, setDetail] = useState(null)
   const [selectedVehicleIds, setSelectedVehicleIds] = useState([])
   const [selectedDriverIds, setSelectedDriverIds] = useState([])
+  const [vehicleSelectionMode, setVehicleSelectionMode] = useState(false)
+  const [driverSelectionMode, setDriverSelectionMode] = useState(false)
+  const selectionPressRef = useRef(null)
+  const ignoreRowClickRef = useRef(false)
 
   const loadData = async () => {
     setLoading(true); setError('')
@@ -47,7 +52,7 @@ export default function MasterKendaraanPage({ profile }) {
     ])
     if (v.error) setError(`Data kendaraan: ${v.error.message}`); else setVehicles(v.data || [])
     if (d.error) setError((x) => x || `Data driver: ${d.error.message}`); else setDrivers(d.data || [])
-    setSelectedVehicleIds([]); setSelectedDriverIds([])
+    setSelectedVehicleIds([]); setSelectedDriverIds([]); setVehicleSelectionMode(false); setDriverSelectionMode(false)
     setLoading(false)
   }
   useEffect(() => {
@@ -145,7 +150,7 @@ export default function MasterKendaraanPage({ profile }) {
     for (const vehicle of selected) {
       if (await deleteVehicle(vehicle)) removed += 1; else blocked += 1
     }
-    setSelectedVehicleIds([])
+    setSelectedVehicleIds([]); setVehicleSelectionMode(false)
     await loadData(); setSaving(false)
     if (removed) setSuccess(`${removed} kendaraan berhasil dihapus${blocked ? ` • ${blocked} kendaraan dilewati karena masih terhubung data` : ''}.`)
   }
@@ -168,21 +173,75 @@ export default function MasterKendaraanPage({ profile }) {
       const driver = drivers.find(d => d.id === id)
       if (driver && await deleteDriver(driver)) removed += 1; else blocked += 1
     }
-    setSelectedDriverIds([])
+    setSelectedDriverIds([]); setDriverSelectionMode(false)
     await loadData(); setSaving(false)
     if (removed) setSuccess(`${removed} driver berhasil dihapus${blocked ? ` • ${blocked} driver dilewati karena masih digunakan` : ''}.`)
   }
 
-  const toggleSelected = (setter, id) => setter(current => current.includes(id) ? current.filter(x => x !== id) : [...current, id])
+  const clearPress = () => {
+    const state = selectionPressRef.current
+    if (state?.timer) window.clearTimeout(state.timer)
+    selectionPressRef.current = null
+  }
+
+  const armLongPress = (event, id, kind) => {
+    if ((event.button !== undefined && event.button !== 0) || isInteractiveTarget(event.target)) return
+    if (kind === 'vehicle' && vehicleSelectionMode) return
+    if (kind === 'driver' && driverSelectionMode) return
+    clearPress()
+    const setter = kind === 'vehicle' ? setSelectedVehicleIds : setSelectedDriverIds
+    const setMode = kind === 'vehicle' ? setVehicleSelectionMode : setDriverSelectionMode
+    const startX = event.clientX
+    const startY = event.clientY
+    selectionPressRef.current = {
+      startX,
+      startY,
+      moved: false,
+      timer: window.setTimeout(() => {
+        setMode(true)
+        setter(current => current.includes(id) ? current : [...current, id])
+        ignoreRowClickRef.current = true
+        selectionPressRef.current = null
+      }, 480),
+    }
+    try { event.currentTarget.setPointerCapture?.(event.pointerId) } catch {}
+  }
+
+  const moveLongPress = (event) => {
+    const state = selectionPressRef.current
+    if (!state) return
+    if (Math.hypot(event.clientX - state.startX, event.clientY - state.startY) > 10) clearPress()
+  }
+
+  const finishLongPress = () => clearPress()
+  const stopRowInteraction = (event) => isInteractiveTarget(event.target)
+
+  const toggleVehicle = (id) => setSelectedVehicleIds(current => current.includes(id) ? current.filter(x => x !== id) : [...current, id])
+  const toggleDriver = (id) => setSelectedDriverIds(current => current.includes(id) ? current.filter(x => x !== id) : [...current, id])
+  const allVehiclesSelected = filtered.length > 0 && filtered.every(v => selectedVehicleIds.includes(v.id))
+  const allDriversSelected = drivers.length > 0 && drivers.every(d => selectedDriverIds.includes(d.id))
+  const toggleAllVehicles = () => setSelectedVehicleIds(current => allVehiclesSelected ? current.filter(id => !filtered.some(v => v.id === id)) : Array.from(new Set([...current, ...filtered.map(v => v.id)])))
+  const toggleAllDrivers = () => setSelectedDriverIds(current => allDriversSelected ? [] : drivers.map(d => d.id))
+
+  const exitVehicleSelection = () => { setSelectedVehicleIds([]); setVehicleSelectionMode(false) }
+  const exitDriverSelection = () => { setSelectedDriverIds([]); setDriverSelectionMode(false) }
 
   return <div className="master-page">
-    <div className="master-head"><div><span className="eyebrow">MASTER DATA</span><h2>Kendaraan & Driver</h2><p>Kelola pusat data armada, kepemilikan, driver/PIC, lokasi, pajak, dan catatan operasional.</p></div><div className="master-actions">{canDeleteDriver && selectedDriverIds.length>0 && <button className="m-btn danger" onClick={deleteSelectedDrivers} disabled={saving}>Hapus {selectedDriverIds.length} Driver</button>}{canDelete && selectedVehicleIds.length>0 && <button className="m-btn danger" onClick={deleteSelectedVehicles} disabled={saving}>Hapus {selectedVehicleIds.length} Kendaraan</button>}{canEditMaster && <button className="m-btn secondary" onClick={() => openDriver()}>+ Driver</button>}{canEditMaster && <button className="m-btn primary" onClick={() => openVehicle()}>+ Kendaraan</button>}</div></div>
+    <div className="master-head"><div><span className="eyebrow">MASTER DATA</span><h2>Kendaraan & Driver</h2><p>Kelola pusat data armada, kepemilikan, driver/PIC, lokasi, pajak, dan catatan operasional.</p></div><div className="master-actions">{canEditMaster && <button className="m-btn secondary" onClick={() => openDriver()}>+ Driver</button>}{canEditMaster && <button className="m-btn primary" onClick={() => openVehicle()}>+ Kendaraan</button>}</div></div>
     {success && <div className="m-alert success">{success}</div>}{error && !vehicleModal && !driverModal && <div className="m-alert error">{error}</div>}
     <div className="master-stats"><div><span>Total Kendaraan</span><b>{vehicles.length}</b></div><div><span>Aktif</span><b>{vehicles.filter(v=>v.status==='ACTIVE').length}</b></div><div><span>Service</span><b>{vehicles.filter(v=>v.status==='SERVICE').length}</b></div><div><span>Driver Aktif</span><b>{drivers.filter(d=>d.status==='AKTIF').length}</b></div></div>
-    <section className="m-card"><div className="m-toolbar"><input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="Cari plat, kode, merk, driver, lokasi, keterangan..."/><select value={statusFilter} onChange={(e)=>setStatusFilter(e.target.value)}><option value="SEMUA">Semua status</option>{Object.entries(STATUS).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select><select value={ownershipFilter} onChange={(e)=>setOwnershipFilter(e.target.value)}><option value="SEMUA">Semua kepemilikan</option><option value="ASET_KANTOR">Aset kantor</option><option value="SEWA">Sewa</option></select><button className="m-btn secondary" onClick={loadData} disabled={loading}>↻ Refresh</button></div>
-      <div className="m-table-wrap">{loading?<div className="m-empty">Memuat data...</div>:filtered.length===0?<div className="m-empty"><b>Belum ada data kendaraan.</b><span>Data kosong adalah kondisi normal sebelum armada dimasukkan.</span></div>:<table className="m-table"><thead><tr><th><input type="checkbox" aria-label="Pilih semua kendaraan" checked={filtered.length>0&&selectedVehicleIds.length===filtered.length} onChange={()=>setSelectedVehicleIds(selectedVehicleIds.length===filtered.length?[]:filtered.map(v=>v.id))}/></th><th>Kendaraan</th><th>Identitas</th><th>Kepemilikan</th><th>Driver / PIC</th><th>KM</th><th>Status</th><th>Catatan & Keterangan</th><th>Aksi</th></tr></thead><tbody>{filtered.map(v=>{const d=driverMap[v.driver_id]; return <tr key={v.id}><td><input type="checkbox" aria-label={`Pilih kendaraan ${v.nomor_polisi}`} checked={selectedVehicleIds.includes(v.id)} onChange={()=>toggleSelected(setSelectedVehicleIds,v.id)}/></td><td><b>{v.nomor_polisi}</b><span>{v.merk} {v.tipe||''}</span><small>{v.kode_kendaraan}</small></td><td><span>{v.jenis_kendaraan||'-'}</span><small>{v.tahun||'-'}{v.warna?` • ${v.warna}`:''}</small></td><td><b>{OWNERSHIP[v.kepemilikan]||v.kepemilikan}</b><small>{v.kepemilikan==='SEWA'?(RENTAL[v.jenis_sewa]||'-'):'Milik perusahaan'}</small></td><td><span>{d?.nama_lengkap||v.pemilik||'-'}</span><small>{v.lokasi||'-'}{v.unit_kerja?` • ${v.unit_kerja}`:''}</small></td><td><b>{fmtKm(v.kilometer_terakhir)}</b></td><td><em className={`m-status ${v.status}`}>{STATUS[v.status]||v.status}</em></td><td><div><b>{v.catatan_hutang||'-'}</b><small>{v.keterangan||'Tidak ada keterangan'}</small></div></td><td className="m-row-actions"><button onClick={()=>setDetail(v)}>Detail</button>{canEditMaster && <button onClick={()=>openVehicle(v)}>Edit</button>}{canDelete && <button onClick={()=>{if(window.confirm(`Hapus kendaraan ${v.nomor_polisi}?`)) deleteVehicle(v).then(ok=>ok&&loadData())}} disabled={saving}>Hapus</button>}</td></tr>})}</tbody></table>}</div>
+    <section className="m-card">
+      <div className="m-toolbar"><input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="Cari plat, kode, merk, driver, lokasi, keterangan..."/><select value={statusFilter} onChange={(e)=>setStatusFilter(e.target.value)}><option value="SEMUA">Semua status</option>{Object.entries(STATUS).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select><select value={ownershipFilter} onChange={(e)=>setOwnershipFilter(e.target.value)}><option value="SEMUA">Semua kepemilikan</option><option value="ASET_KANTOR">Aset kantor</option><option value="SEWA">Sewa</option></select><button className="m-btn secondary" onClick={loadData} disabled={loading}>↻ Refresh</button></div>
+      {vehicleSelectionMode && <div className="m-selection-bar"><div className="selection-meta"><span>Mode pilih kendaraan</span><strong>{selectedVehicleIds.length} dipilih</strong></div><div className="m-selection-actions"><button className="ghost" onClick={toggleAllVehicles}>{allVehiclesSelected?'Batalkan semua':'Pilih semua'}</button><button className="ghost" onClick={exitVehicleSelection}>Batal</button>{canDelete && <button className="danger" onClick={deleteSelectedVehicles} disabled={saving || !selectedVehicleIds.length}>Hapus {selectedVehicleIds.length} Kendaraan</button>}</div></div>}
+      {!vehicleSelectionMode && filtered.length > 0 && <p className="m-longpress-hint">Tekan dan tahan satu baris sekitar setengah detik untuk memilih banyak kendaraan.</p>}
+      <div className={`m-table-wrap ${vehicleSelectionMode ? 'm-selection-active' : ''}`}>{loading?<div className="m-empty">Memuat data...</div>:filtered.length===0?<div className="m-empty"><b>Belum ada data kendaraan.</b><span>Data kosong adalah kondisi normal sebelum armada dimasukkan.</span></div>:<table className={`m-table ${vehicleSelectionMode ? 'm-selection-active' : ''}`}><thead><tr>{vehicleSelectionMode&&<th className="m-select-cell"><input type="checkbox" aria-label="Pilih semua kendaraan" checked={allVehiclesSelected} onChange={toggleAllVehicles}/></th>}<th>Kendaraan</th><th>Identitas</th><th>Kepemilikan</th><th>Driver / PIC</th><th>KM</th><th>Status</th><th>Catatan & Keterangan</th><th>Aksi</th></tr></thead><tbody>{filtered.map(v=>{const d=driverMap[v.driver_id];const selected=selectedVehicleIds.includes(v.id);return <tr key={v.id} className={selected?'m-selected':''} onPointerDown={e=>armLongPress(e,v.id,'vehicle')} onPointerMove={moveLongPress} onPointerUp={finishLongPress} onPointerCancel={finishLongPress} onClick={e=>{if(stopRowInteraction(e))return;if(ignoreRowClickRef.current){ignoreRowClickRef.current=false;return}if(vehicleSelectionMode)toggleVehicle(v.id)}}>{vehicleSelectionMode&&<td className="m-select-cell"><input type="checkbox" aria-label={`Pilih kendaraan ${v.nomor_polisi}`} checked={selected} onChange={()=>toggleVehicle(v.id)}/></td>}<td><b>{v.nomor_polisi}</b><span>{v.merk} {v.tipe||''}</span><small>{v.kode_kendaraan}</small></td><td><span>{v.jenis_kendaraan||'-'}</span><small>{v.tahun||'-'}{v.warna?` • ${v.warna}`:''}</small></td><td><b>{OWNERSHIP[v.kepemilikan]||v.kepemilikan}</b><small>{v.kepemilikan==='SEWA'?(RENTAL[v.jenis_sewa]||'-'):'Milik perusahaan'}</small></td><td><span>{d?.nama_lengkap||v.pemilik||'-'}</span><small>{v.lokasi||'-'}{v.unit_kerja?` • ${v.unit_kerja}`:''}</small></td><td><b>{fmtKm(v.kilometer_terakhir)}</b></td><td><em className={`m-status ${v.status}`}>{STATUS[v.status]||v.status}</em></td><td><div><b>{v.catatan_hutang||'-'}</b><small>{v.keterangan||'Tidak ada keterangan'}</small></div></td><td className="m-row-actions"><button onClick={()=>setDetail(v)}>Detail</button>{canEditMaster && <button onClick={()=>openVehicle(v)}>Edit</button>}{canDelete && <button onClick={()=>{if(window.confirm(`Hapus kendaraan ${v.nomor_polisi}?`)) deleteVehicle(v).then(ok=>ok&&loadData())}} disabled={saving}>Hapus</button>}</td></tr>})}</tbody></table>}</div>
     </section>
-    <section className="m-card"><div className="m-section-head"><div><span className="eyebrow">DRIVER / PIC</span><h3>Daftar Driver</h3></div></div><div className="m-table-wrap"><table className="m-table"><thead><tr><th><input type="checkbox" aria-label="Pilih semua driver" checked={drivers.length>0&&selectedDriverIds.length===drivers.length} onChange={()=>setSelectedDriverIds(selectedDriverIds.length===drivers.length?[]:drivers.map(d=>d.id))}/></th><th>Nama</th><th>Kontak</th><th>SIM</th><th>Lokasi</th><th>Status</th><th>Aksi</th></tr></thead><tbody>{drivers.length===0?<tr><td colSpan="7"><div className="m-empty">Belum ada driver.</div></td></tr>:drivers.map(d=><tr key={d.id}><td><input type="checkbox" aria-label={`Pilih driver ${d.nama_lengkap}`} checked={selectedDriverIds.includes(d.id)} onChange={()=>toggleSelected(setSelectedDriverIds,d.id)}/></td><td><b>{d.nama_lengkap}</b><small>{d.keterangan||'-'}</small></td><td>{d.nomor_hp||'-'}</td><td><span>{d.nomor_sim||'-'}</span><small>Berlaku {d.masa_berlaku_sim||'-'}</small></td><td>{d.lokasi||'-'}</td><td><em className={`m-status ${d.status}`}>{DRIVER_STATUS[d.status]||d.status}</em></td><td className="m-row-actions">{canEditMaster && <button onClick={()=>openDriver(d)}>Edit</button>}{canDeleteDriver && <button onClick={()=>{if(window.confirm(`Hapus driver ${d.nama_lengkap}?`)) deleteDriver(d).then(ok=>ok&&loadData())}} disabled={saving}>Hapus</button>}</td></tr>)}</tbody></table></div></section>
+    <section className="m-card">
+      <div className="m-section-head"><div><span className="eyebrow">DRIVER / PIC</span><h3>Daftar Driver</h3></div></div>
+      {driverSelectionMode && <div className="m-selection-bar"><div className="selection-meta"><span>Mode pilih driver</span><strong>{selectedDriverIds.length} dipilih</strong></div><div className="m-selection-actions"><button className="ghost" onClick={toggleAllDrivers}>{allDriversSelected?'Batalkan semua':'Pilih semua'}</button><button className="ghost" onClick={exitDriverSelection}>Batal</button>{canDeleteDriver && <button className="danger" onClick={deleteSelectedDrivers} disabled={saving || !selectedDriverIds.length}>Hapus {selectedDriverIds.length} Driver</button>}</div></div>}
+      {!driverSelectionMode && drivers.length > 0 && <p className="m-longpress-hint">Tekan dan tahan satu baris sekitar setengah detik untuk memilih banyak driver.</p>}
+      <div className={`m-table-wrap ${driverSelectionMode ? 'm-selection-active' : ''}`}><table className={`m-table ${driverSelectionMode ? 'm-selection-active' : ''}`}><thead><tr>{driverSelectionMode&&<th className="m-select-cell"><input type="checkbox" aria-label="Pilih semua driver" checked={allDriversSelected} onChange={toggleAllDrivers}/></th>}<th>Nama</th><th>Kontak</th><th>SIM</th><th>Lokasi</th><th>Status</th><th>Aksi</th></tr></thead><tbody>{drivers.length===0?<tr><td colSpan={driverSelectionMode?7:6}><div className="m-empty">Belum ada driver.</div></td></tr>:drivers.map(d=>{const selected=selectedDriverIds.includes(d.id);return <tr key={d.id} className={selected?'m-selected':''} onPointerDown={e=>armLongPress(e,d.id,'driver')} onPointerMove={moveLongPress} onPointerUp={finishLongPress} onPointerCancel={finishLongPress} onClick={e=>{if(stopRowInteraction(e))return;if(ignoreRowClickRef.current){ignoreRowClickRef.current=false;return}if(driverSelectionMode)toggleDriver(d.id)}}>{driverSelectionMode&&<td className="m-select-cell"><input type="checkbox" aria-label={`Pilih driver ${d.nama_lengkap}`} checked={selected} onChange={()=>toggleDriver(d.id)}/></td>}<td><b>{d.nama_lengkap}</b><small>{d.keterangan||'-'}</small></td><td>{d.nomor_hp||'-'}</td><td><span>{d.nomor_sim||'-'}</span><small>Berlaku {d.masa_berlaku_sim||'-'}</small></td><td>{d.lokasi||'-'}</td><td><em className={`m-status ${d.status}`}>{DRIVER_STATUS[d.status]||d.status}</em></td><td className="m-row-actions">{canEditMaster && <button onClick={()=>openDriver(d)}>Edit</button>}{canDeleteDriver && <button onClick={()=>{if(window.confirm(`Hapus driver ${d.nama_lengkap}?`))deleteDriver(d).then(ok=>ok&&loadData())}} disabled={saving}>Hapus</button>}</td></tr>})}</tbody></table></div>
+    </section>
 
     {vehicleModal&&<div className="m-overlay"><section className="m-modal"><div className="m-modal-head"><div><span className="eyebrow">KENDARAAN</span><h3>{editingVehicle?'Edit Kendaraan':'Tambah Kendaraan'}</h3></div><button onClick={()=>setVehicleModal(false)}>×</button></div>{error&&<div className="m-alert error">{error}</div>}<form onSubmit={saveVehicle}><div className="m-form-grid">{[['kode_kendaraan','Kode Kendaraan'],['nomor_polisi','Nomor Polisi'],['merk','Merk'],['tipe','Tipe'],['jenis_kendaraan','Jenis Kendaraan'],['tahun','Tahun'],['warna','Warna'],['nomor_rangka','Nomor Rangka'],['nomor_mesin','Nomor Mesin'],['masa_berlaku_pajak','Masa Berlaku Pajak'],['status_pajak','Status Pajak'],['unit_kerja','Unit Kerja'],['pemilik','Pemilik / PIC'],['lokasi','Lokasi'],['kilometer_terakhir','KM Terakhir']].map(([name,label])=><label key={name}>{label}<input name={name} min={name==='tahun'||name==='kilometer_terakhir'?'0':undefined} type={name==='tahun'||name==='kilometer_terakhir'?'number':name==='masa_berlaku_pajak'?'date':'text'} value={vehicleForm[name]??''} onChange={changeVehicle}/></label>)}<label>Kepemilikan<select name="kepemilikan" value={vehicleForm.kepemilikan} onChange={changeVehicle}><option value="ASET_KANTOR">Aset Kantor</option><option value="SEWA">Sewa</option></select></label>{vehicleForm.kepemilikan==='SEWA'&&<label>Jenis Sewa<select name="jenis_sewa" value={vehicleForm.jenis_sewa} onChange={changeVehicle}><option value="">Pilih</option><option value="SEWA_PERORANGAN">Sewa Perorangan</option><option value="SEWA_RENTAL">Sewa Rental</option></select></label>}<label>Driver / PIC<select name="driver_id" value={vehicleForm.driver_id??''} onChange={changeVehicle}><option value="">Belum ditentukan</option>{drivers.filter(d=>d.status==='AKTIF' || d.id === vehicleForm.driver_id).map(d=><option key={d.id} value={d.id}>{d.nama_lengkap}{d.status==='TIDAK_AKTIF'?' (Tidak Aktif)':''}</option>)}</select></label><label>Status<select name="status" value={vehicleForm.status} onChange={changeVehicle}>{Object.entries(STATUS).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label><label className="m-full"><span>Keterangan Operasional</span><textarea name="keterangan" value={vehicleForm.keterangan??''} onChange={changeVehicle} placeholder="Catatan umum kendaraan, kebutuhan operasional, atau informasi penting..."/></label><label className="m-full"><span>Catatan Hutang</span><textarea name="catatan_hutang" value={vehicleForm.catatan_hutang??''} onChange={changeVehicle} placeholder="Contoh: Hutang 2 ban luar / rusak dari tgl 11 Juni 2026..."/></label><label className="m-full"><span>Kondisi</span><textarea name="kondisi" value={vehicleForm.kondisi??''} onChange={changeVehicle}/></label></div><div className="m-form-actions"><button type="button" className="m-btn secondary" onClick={()=>setVehicleModal(false)}>Batal</button><button type="submit" className="m-btn primary" disabled={saving}>{saving?'Menyimpan...':'Simpan Kendaraan'}</button></div></form></section></div>}
     {driverModal&&<div className="m-overlay"><section className="m-modal small"><div className="m-modal-head"><div><span className="eyebrow">DRIVER / PIC</span><h3>{editingDriver?'Edit Driver':'Tambah Driver'}</h3></div><button onClick={()=>setDriverModal(false)}>×</button></div>{error&&<div className="m-alert error">{error}</div>}<form onSubmit={saveDriver}><div className="m-form-grid">{[['nama_lengkap','Nama Lengkap'],['nomor_hp','Nomor HP'],['nomor_sim','Nomor SIM'],['masa_berlaku_sim','Masa Berlaku SIM'],['lokasi','Lokasi']].map(([name,label])=><label key={name}>{label}<input name={name} type={name==='masa_berlaku_sim'?'date':'text'} value={driverForm[name]??''} onChange={e=>setDriverForm(f=>({...f,[name]:e.target.value}))}/></label>)}<label>Status<select name="status" value={driverForm.status} onChange={e=>setDriverForm(f=>({...f,status:e.target.value}))}><option value="AKTIF">Aktif</option><option value="TIDAK_AKTIF">Tidak Aktif</option></select></label><label className="m-full">Keterangan<textarea name="keterangan" value={driverForm.keterangan??''} onChange={e=>setDriverForm(f=>({...f,keterangan:e.target.value}))}/></label></div><div className="m-form-actions"><button type="button" className="m-btn secondary" onClick={()=>setDriverModal(false)}>Batal</button><button type="submit" className="m-btn primary" disabled={saving}>{saving?'Menyimpan...':'Simpan Driver'}</button></div></form></section></div>}
