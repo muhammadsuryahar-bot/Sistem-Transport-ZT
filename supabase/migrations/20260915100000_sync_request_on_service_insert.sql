@@ -12,8 +12,8 @@ BEGIN
   UPDATE public.permintaan_service
   SET
     status = CASE
-      WHEN NEW.status = 'MENUNGGU_APPROVAL' THEN 'MENUNGGU_APPROVAL'::public.service_request_status
-      ELSE 'DALAM_PROSES'::public.service_request_status
+      WHEN NEW.status = 'MENUNGGU_APPROVAL' THEN 'MENUNGGU_APPROVAL'
+      ELSE 'DALAM_PROSES'
     END,
     diproses_oleh = COALESCE(NEW.diproses_oleh, diproses_oleh),
     diproses_at = COALESCE(NEW.created_at, now())
