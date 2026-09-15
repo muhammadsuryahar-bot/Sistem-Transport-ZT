@@ -94,6 +94,11 @@ function PermintaanServicePage({ profile }) {
 
   useEffect(() => {
     loadData()
+    const handleImported = (event) => {
+      if (event.detail?.context === 'service') loadData()
+    }
+    window.addEventListener('transport:data-imported', handleImported)
+    return () => window.removeEventListener('transport:data-imported', handleImported)
   }, [])
 
   const vehiclesById = useMemo(

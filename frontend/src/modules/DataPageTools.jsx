@@ -45,12 +45,15 @@ export default function DataPageTools({ context, profile, onExport }) {
   const closeImport = () => setShowImport(false)
   const finishImport = (report) => {
     setShowImport(false)
-    if (hasReport(report)) setImportReport(report)
+    if (hasReport(report)) {
+      setImportReport(report)
+      window.dispatchEvent(new CustomEvent('transport:data-imported', { detail: { context: report.context } }))
+    }
   }
 
   const refreshAfterImport = () => {
     setImportReport(null)
-    window.location.reload()
+    window.dispatchEvent(new CustomEvent('transport:data-imported', { detail: { context: importReport?.context } }))
   }
 
   const closeReport = () => setImportReport(null)
