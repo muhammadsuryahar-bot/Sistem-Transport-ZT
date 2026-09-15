@@ -58,7 +58,9 @@ function PermintaanServicePage({ profile }) {
   const [statusFilter, setStatusFilter] = useState('SEMUA')
   const [errorMessage, setErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
+  const [selectedRequestIds, setSelectedRequestIds] = useState([])
   const canCreate = ['ADMIN', 'OPERASIONAL'].includes(profile?.role)
+  const canDelete = profile?.role === 'ADMIN'
 
   const loadData = async () => {
     setLoading(true)
@@ -89,6 +91,7 @@ function PermintaanServicePage({ profile }) {
       setRequests(requestResult.data || [])
     }
 
+    setSelectedRequestIds([])
     setLoading(false)
   }
 
@@ -129,6 +132,51 @@ function PermintaanServicePage({ profile }) {
       )
     })
   }, [requests, vehiclesById, search, statusFilter])
+
+  const deleteRequest = async (request) => {
+    if (!canDelete) return false
+    if (!['SELESAI', 'DITOLAK', 'DIBATALKAN'].includes(request.status)) {
+      setErrorMessage('Hanya pengajuan berstatus selesai, ditolak, atau dibatalkan yang dapat dihapus.')
+      return false
+    }
+    const serviceCheck = await supabase
+      .from('service')
+      .select('id', { count: 'exact', head: true })
+      .eq('permintaan_service_id', request.id)
+    if (serviceCheck.error) {
+      setErrorMessage(`Gagal memeriksa histori service: ${serviceCheck.error.message}`)
+      return false
+    }
+    if (Number(serviceCheck.count || 0) > 0) {
+      setErrorMessage(`Pengajuan ${request.nomor_pengajuan || request.id} masih memiliki histori service dan tidak boleh dihapus.`)
+      return false
+    }
+    const { error } = await supabase.from('permintaan_service').delete().eq('id', request.id)
+    if (error) {
+      setErrorMessage(`Gagal menghapus pengajuan: ${error.message}`)
+      return false
+    }
+    return true
+  }
+
+  const deleteSelectedRequests = async () => {
+    if (!canDelete || !selectedRequestIds.length) return
+    if (!window.confirm(`Hapus ${selectedRequestIds.length} pengajuan yang dipilih? Hanya data terminal tanpa histori service yang akan dihapus.`)) return
+    setSaving(true)
+    setErrorMessage('')
+    setSuccessMessage('')
+    let removed = 0
+    let blocked = 0
+    for (const id of selectedRequestIds) {
+      const request = requests.find((item) => item.id === id)
+      if (request && await deleteRequest(request)) removed += 1
+      else blocked += 1
+    }
+    setSelectedRequestIds([])
+    await loadData()
+    setSaving(false)
+    if (removed) setSuccessMessage(`${removed} pengajuan berhasil dihapus${blocked ? ` • ${blocked} pengajuan dilewati karena masih terhubung atau belum terminal` : ''}.`)
+  }
 
   const openForm = () => {
     setForm(EMPTY_FORM)
@@ -275,7 +323,12 @@ function PermintaanServicePage({ profile }) {
               </option>
             ))}
           </select>
-          <button className="request-light-button" type="button" onClick={loadData} disabled={loading}>
+          {canDelete && selectedRequestIds.length > 0 && (
+            <button className="request-light-button danger" type="button" onClick={deleteSelectedRequests} disabled={saving}>
+              Hapus {selectedRequestIds.length} Pengajuan
+            </button>
+          )}
+          <button className="request-light-button" type="button" onClick={loadData} disabled={loading || saving}>
             ↻ Refresh
           </button>
         </div>
@@ -296,6 +349,7 @@ function PermintaanServicePage({ profile }) {
             <table className="request-table">
               <thead>
                 <tr>
+                  <th><input type="checkbox" aria-label="Pilih semua pengajuan" checked={filteredRequests.length > 0 && selectedRequestIds.length === filteredRequests.length} onChange={() => setSelectedRequestIds(selectedRequestIds.length === filteredRequests.length ? [] : filteredRequests.map((request) => request.id))} /></th>
                   <th>Pengajuan</th>
                   <th>Kendaraan</th>
                   <th>Kebutuhan</th>
@@ -311,6 +365,7 @@ function PermintaanServicePage({ profile }) {
 
                   return (
                     <tr key={request.id}>
+                      <td><input type="checkbox" aria-label={`Pilih pengajuan ${request.nomor_pengajuan || request.id}`} checked={selectedRequestIds.includes(request.id)} onChange={() => setSelectedRequestIds((current) => current.includes(request.id) ? current.filter((id) => id !== request.id) : [...current, request.id])} /></td>
                       <td>
                         <div className="request-main-cell">
                           <strong>{request.nomor_pengajuan || `#${request.id}`}</strong>
@@ -354,6 +409,7 @@ function PermintaanServicePage({ profile }) {
                         >
                           Detail
                         </button>
+                        {canDelete && <button className="request-detail-button danger" type="button" onClick={() => { if (window.confirm(`Hapus pengajuan ${request.nomor_pengajuan || request.id}?`)) deleteRequest(request).then((ok) => ok && loadData()) }} disabled={saving}>Hapus</button>}
                       </td>
                     </tr>
                   )
@@ -617,5 +673,3 @@ function PermintaanServicePage({ profile }) {
     </div>
   )
 }
-
-export default PermintaanServicePage
