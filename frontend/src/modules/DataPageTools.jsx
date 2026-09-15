@@ -55,7 +55,6 @@ export default function DataPageTools({ context, profile, onExport }) {
     const refreshContext = importReport?.context
     setImportReport(null)
     window.dispatchEvent(new CustomEvent('transport:data-imported', { detail: { context: refreshContext } }))
-    window.setTimeout(() => window.location.reload(), 120)
   }
 
   const closeReport = () => setImportReport(null)
