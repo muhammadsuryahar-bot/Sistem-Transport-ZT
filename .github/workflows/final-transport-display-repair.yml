@@ -1,0 +1,171 @@
+name: Final transport display repair
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/final-transport-display-repair.trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.actor == 'muhammadsuryahar-bot'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply targeted fixes and audit active displays
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          def replace(path, old, new):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              if old in text:
+                  text = text.replace(old, new, 1)
+                  p.write_text(text, encoding='utf-8')
+              elif new not in text:
+                  raise SystemExit(f'Expected pattern not found: {path}: {old[:180]!r}')
+
+          # Unified importer preview: all source rows, never an 8-row preview.
+          p = Path('frontend/src/modules/UnifiedExcelImportModal.jsx')
+          text = p.read_text(encoding='utf-8')
+          text = text.replace('<span>maks. 8 baris</span>', '<span>Semua baris sumber</span>')
+          text = re.sub(r'\.slice\(\s*selected\.headerIndex\s*\+\s*1\s*,\s*selected\.headerIndex\s*\+\s*9\s*\)\.map\(', '.slice(selected.headerIndex + 1).map(', text)
+          p.write_text(text, encoding='utf-8')
+
+          # Vehicle/document import previews: remove eight-row display slices and wording.
+          for name in ['VehicleExcelImportModal.jsx', 'VehicleDocumentsImportModal.jsx', 'ServiceHistoryImportModal.jsx']:
+              p = Path('frontend/src/modules') / name
+              text = p.read_text(encoding='utf-8')
+              text = text.replace('8 baris pertama', 'Semua baris sumber')
+              text = text.replace('maks. 8 baris', 'Semua baris sumber')
+              text = re.sub(r'\.slice\(\s*([^,()]+\+\s*1)\s*,\s*[^()]+\+\s*9\s*\)\.map\(', r'.slice(\1).map(', text)
+              text = re.sub(r'\.slice\(0\s*,\s*8\)\.map\(', '.map(', text)
+              p.write_text(text, encoding='utf-8')
+
+          # Reports: remove actual 20-row table ceilings, not date formatting.
+          replace(
+              'frontend/src/modules/ReportsFeaturePage.jsx',
+              "data.services.filter(x => x.status !== 'DIBATALKAN').slice(0, 20)",
+              "data.services.filter(x => x.status !== 'DIBATALKAN')",
+          )
+          replace(
+              'frontend/src/modules/ReportsFeaturePage.jsx',
+              "data.payments.filter(x => x.status === 'TERLAMBAT' || (x.status === 'BELUM_LUNAS' && x.tanggal_jatuh_tempo && new Date(x.tanggal_jatuh_tempo).getTime() < now)).slice(0, 20)",
+              "data.payments.filter(x => x.status === 'TERLAMBAT' || (x.status === 'BELUM_LUNAS' && x.tanggal_jatuh_tempo && new Date(x.tanggal_jatuh_tempo).getTime() < now))",
+          )
+
+          # Dashboard refresh after imports.
+          p = Path('frontend/src/modules/DashboardFeaturePage.jsx')
+          text = p.read_text(encoding='utf-8')
+          if 'transport:data-imported' not in text:
+              anchor = '  }, [profile?.id, profile?.role])'
+              replacement = anchor + "\n\n  useEffect(() => {\n    const handleImported = (event) => { if (event.detail?.context) loadDashboard() }\n    window.addEventListener('transport:data-imported', handleImported)\n    return () => window.removeEventListener('transport:data-imported', handleImported)\n    // eslint-disable-next-line react-hooks/exhaustive-deps\n  }, [])"
+              if anchor not in text: raise SystemExit('Dashboard refresh effect anchor not found')
+              p.write_text(text.replace(anchor, replacement, 1), encoding='utf-8')
+
+          # Master vehicle refresh after vehicle/service imports.
+          p = Path('frontend/src/modules/MasterKendaraanPage.jsx')
+          text = p.read_text(encoding='utf-8')
+          if 'transport:data-imported' not in text:
+              old = '  useEffect(() => { loadData() }, [])'
+              new = "  useEffect(() => {\n    loadData()\n    const handleImported = (event) => { if (['kendaraan', 'service'].includes(event.detail?.context)) loadData() }\n    window.addEventListener('transport:data-imported', handleImported)\n    return () => window.removeEventListener('transport:data-imported', handleImported)\n  }, [])"
+              if old not in text: raise SystemExit('Master vehicle refresh effect not found')
+              p.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          # Service completion queue refresh.
+          p = Path('frontend/src/modules/ServiceCompletionPanel.jsx')
+          text = p.read_text(encoding='utf-8')
+          if 'transport:data-imported' not in text:
+              old = '  useEffect(() => { load() }, [canProcess])'
+              new = "  useEffect(() => {\n    load()\n    const handleImported = (event) => { if (['service', 'pengajuan'].includes(event.detail?.context)) load() }\n    window.addEventListener('transport:data-imported', handleImported)\n    return () => window.removeEventListener('transport:data-imported', handleImported)\n  }, [canProcess])"
+              if old not in text: raise SystemExit('Service completion refresh effect not found')
+              p.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          # Rental refresh.
+          p = Path('frontend/src/modules/RentalFeaturePage.jsx')
+          text = p.read_text(encoding='utf-8')
+          if 'transport:data-imported' not in text:
+              old = '  useEffect(() => { load() }, [])'
+              new = "  useEffect(() => {\n    load()\n    const handleImported = (event) => { if (['sewa', 'kendaraan'].includes(event.detail?.context)) load() }\n    window.addEventListener('transport:data-imported', handleImported)\n    return () => window.removeEventListener('transport:data-imported', handleImported)\n  }, [])"
+              if old not in text: raise SystemExit('Rental refresh effect not found')
+              p.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          # Documents refresh.
+          p = Path('frontend/src/modules/DocumentsFeaturePage.jsx')
+          text = p.read_text(encoding='utf-8')
+          if 'transport:data-imported' not in text:
+              old = 'useEffect(()=>{load()},[])'
+              new = "useEffect(()=>{load();const handleImported=(event)=>{if(['dokumen','kendaraan'].includes(event.detail?.context))load()};window.addEventListener('transport:data-imported',handleImported);return()=>window.removeEventListener('transport:data-imported',handleImported)},[])"
+              if old not in text: raise SystemExit('Documents refresh effect not found')
+              p.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          # Widen existing listeners.
+          for name in ['ServiceFeaturePage.jsx', 'PermintaanServicePage.jsx']:
+              p = Path('frontend/src/modules') / name
+              text = p.read_text(encoding='utf-8')
+              text = text.replace("event.detail?.context === 'service'", "['service', 'pengajuan', 'kendaraan'].includes(event.detail?.context)", 1)
+              p.write_text(text, encoding='utf-8')
+
+          # Reports refresh on any import.
+          p = Path('frontend/src/modules/ReportsFeaturePage.jsx')
+          text = p.read_text(encoding='utf-8')
+          if 'transport:data-imported' not in text:
+              old = '  useEffect(() => { load() }, [])'
+              new = "  useEffect(() => {\n    load()\n    const handleImported = (event) => { if (event.detail?.context) load() }\n    window.addEventListener('transport:data-imported', handleImported)\n    return () => window.removeEventListener('transport:data-imported', handleImported)\n  }, [])"
+              if old not in text: raise SystemExit('Reports refresh effect not found')
+              p.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          # Audit only active display modules. ImportExcelPage.jsx is a stale/unreferenced legacy page and is not mounted by AppTransport.
+          active = set(['DashboardFeaturePage.jsx','DataPageTools.jsx','DocumentsFeaturePage.jsx','MasterKendaraanPage.jsx','PermintaanServicePage.jsx','RentalFeaturePage.jsx','ReportsFeaturePage.jsx','ServiceCompletionPanel.jsx','ServiceFeaturePage.jsx','UnifiedExcelImportModal.jsx','VehicleDocumentsImportModal.jsx','VehicleExcelImportModal.jsx','ServiceHistoryImportModal.jsx','UsersFeaturePage.jsx'])
+          offenders = []
+          for name in active:
+              p = Path('frontend/src/modules') / name
+              text = p.read_text(encoding='utf-8')
+              for pattern, label in [
+                  (r'maks\.?\s*8\s*baris', 'maks. 8 baris'),
+                  (r'8\s+baris\s+pertama', '8 baris pertama'),
+                  (r'\.slice\(\s*selected\.headerIndex\s*\+\s*1\s*,\s*selected\.headerIndex\s*\+\s*9\s*\)\.map\(', 'eight-row unified preview'),
+                  (r'\.slice\(\s*[^,()]+\+\s*1\s*,\s*[^()]+\+\s*9\s*\)\.map\(', 'eight-row import preview'),
+                  (r'\.slice\(0\s*,\s*8\)\.map\(', 'slice(0,8).map'),
+                  (r'\.slice\(0\s*,\s*20\)\.map\(', 'slice(0,20).map'),
+                  (r'\blimit\(8\)', 'limit(8)'),
+              ]:
+                  if re.search(pattern, text, flags=re.I): offenders.append(f'{p}: {label}')
+          if offenders: raise SystemExit('Active display-limit audit failed:\n' + '\n'.join(sorted(offenders)))
+          print('Active display audit: PASS')
+          PY
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Lint frontend
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Commit verified changes and remove one-time tooling
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          rm -f .github/final-transport-display-repair.trigger .github/workflows/final-transport-display-repair.yml \
+                .github/transport-display-repair-v3.trigger .github/workflows/repair-all-transport-display-v3.yml \
+                .github/transport-display-repair-v2.trigger .github/workflows/repair-all-transport-display-v2.yml \
+                .github/transport-display-repair.trigger .github/workflows/repair-transport-display-once.yml
+          git add frontend/src/modules .github
+          git commit -m 'fix: remove active display row caps and synchronize transport views'
+          git push origin main
