@@ -1,0 +1,438 @@
+/* Final visual normalization — loaded last so every module shares the same visual language. */
+:root {
+  --zt-green: #123b2a;
+  --zt-green-2: #1d6a4a;
+  --zt-green-soft: #edf6f1;
+  --zt-page: #f5f8f6;
+  --zt-card: #ffffff;
+  --zt-text: #16231c;
+  --zt-muted: #738079;
+  --zt-border: #e1e8e3;
+  --zt-border-strong: #d4dfd9;
+  --zt-danger: #a0443c;
+  --zt-danger-bg: #fff5f4;
+  --zt-warning: #8a6411;
+  --zt-warning-bg: #fff8e8;
+  --zt-shadow: 0 8px 24px rgba(18, 35, 27, 0.04);
+  --zt-shadow-hover: 0 12px 30px rgba(18, 35, 27, 0.07);
+  --zt-radius: 14px;
+  --zt-font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+html,
+body,
+#root,
+#root * {
+  font-family: var(--zt-font);
+}
+
+body {
+  background: var(--zt-page);
+  color: var(--zt-text);
+}
+
+/* Login / loading */
+.auth-shell {
+  background: radial-gradient(circle at 10% 5%, #f8fcf9 0%, var(--zt-page) 52%, #eaf1ed 100%);
+}
+
+.login-card,
+.loading-card {
+  border-color: var(--zt-border);
+  box-shadow: 0 24px 70px rgba(18, 59, 42, 0.10);
+}
+
+.login-panel input[type='email'],
+.login-panel input[type='password'],
+.login-panel input[type='text'],
+.login-card input[type='email'],
+.login-card input[type='password'],
+.login-card input[type='text'] {
+  border-color: var(--zt-border-strong);
+  background: #fbfdfc;
+}
+
+.login-panel input:focus,
+.login-card input:focus {
+  border-color: #79a790;
+  box-shadow: 0 0 0 3px rgba(29, 106, 74, 0.10);
+}
+
+.password-toggle {
+  color: var(--zt-green-2);
+}
+
+.primary-button {
+  background: var(--zt-green);
+  border-color: var(--zt-green);
+}
+
+/* Shared page rhythm */
+.dashboard-layout,
+.main-content {
+  color: var(--zt-text);
+}
+
+.content-container {
+  background: transparent;
+}
+
+.x-page,
+.master-page,
+.request-page {
+  color: var(--zt-text);
+}
+
+.x-card,
+.m-card,
+.request-panel,
+.panel,
+.stat-card,
+.dashboard-v2-panel,
+.dashboard-stat-card {
+  border-color: var(--zt-border) !important;
+  background: var(--zt-card) !important;
+  box-shadow: var(--zt-shadow) !important;
+}
+
+.x-card:hover,
+.m-card:hover,
+.request-panel:hover,
+.panel:hover,
+.stat-card:hover,
+.dashboard-v2-panel:hover,
+.dashboard-stat-card:hover {
+  box-shadow: var(--zt-shadow-hover) !important;
+}
+
+.x-head h2,
+.master-head h2,
+.request-header h2,
+.dashboard-v2-intro h2,
+.page-intro h2 {
+  color: var(--zt-text) !important;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+}
+
+.x-head p,
+.master-head p,
+.request-header p,
+.dashboard-v2-intro p,
+.page-intro p,
+.x-card-title p {
+  color: var(--zt-muted) !important;
+}
+
+/* Buttons */
+.x-btn,
+.m-btn,
+.request-primary-button,
+.request-light-button,
+.request-detail-button,
+.dashboard-refresh,
+.dpt-button,
+.dpt-upload-button {
+  border-radius: 10px !important;
+  font-weight: 750 !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.x-btn.primary,
+.m-btn.primary,
+.request-primary-button,
+.dpt-button.primary,
+.dpt-upload-button {
+  background: var(--zt-green) !important;
+  border-color: var(--zt-green) !important;
+  color: #fff !important;
+  box-shadow: 0 5px 14px rgba(18, 59, 42, 0.10);
+}
+
+.x-btn.primary:hover:not(:disabled),
+.m-btn.primary:hover:not(:disabled),
+.request-primary-button:hover:not(:disabled),
+.dpt-button.primary:hover:not(:disabled),
+.dpt-upload-button:hover:not(:disabled) {
+  background: #0e3123 !important;
+  border-color: #0e3123 !important;
+}
+
+.x-btn.secondary,
+.m-btn.secondary,
+.request-light-button,
+.dpt-button.secondary,
+.dashboard-refresh {
+  background: #fff !important;
+  border-color: var(--zt-border-strong) !important;
+  color: #365349 !important;
+}
+
+.x-btn.secondary:hover:not(:disabled),
+.m-btn.secondary:hover:not(:disabled),
+.request-light-button:hover:not(:disabled),
+.dpt-button.secondary:hover:not(:disabled),
+.dashboard-refresh:hover:not(:disabled) {
+  background: #f4f8f5 !important;
+  border-color: #cbdcd2 !important;
+}
+
+/* Forms */
+.x-grid input,
+.x-grid select,
+.x-grid textarea,
+.m-grid input,
+.m-grid select,
+.m-form-grid input,
+.m-form-grid select,
+.m-form-grid textarea,
+.x-filter,
+.request-toolbar input,
+.request-toolbar select,
+.request-field input,
+.request-field select,
+.request-field textarea,
+.m-toolbar input,
+.m-toolbar select {
+  border-color: var(--zt-border-strong) !important;
+  background: #fbfdfc !important;
+  color: #18241e !important;
+}
+
+.x-grid input:focus,
+.x-grid select:focus,
+.x-grid textarea:focus,
+.m-form-grid input:focus,
+.m-form-grid select:focus,
+.m-form-grid textarea:focus,
+.x-filter:focus,
+.request-toolbar input:focus,
+.request-toolbar select:focus,
+.request-field input:focus,
+.request-field select:focus,
+.request-field textarea:focus,
+.m-toolbar input:focus,
+.m-toolbar select:focus {
+  border-color: #79a790 !important;
+  box-shadow: 0 0 0 3px rgba(29, 106, 74, 0.09) !important;
+  background: #fff !important;
+}
+
+/* Tables */
+.x-table-wrap,
+.m-table-wrap,
+.request-table-wrap {
+  border-color: var(--zt-border) !important;
+  background: #fff !important;
+  border-radius: 12px !important;
+}
+
+.x-table th,
+.m-table th,
+.request-table th {
+  background: #f7faf8 !important;
+  color: #74817b !important;
+  border-bottom-color: var(--zt-border) !important;
+}
+
+.x-table td,
+.m-table td,
+.request-table td {
+  color: #33413a !important;
+  border-bottom-color: #edf1ef !important;
+}
+
+.x-table tbody tr:hover,
+.m-table tbody tr:hover,
+.request-table tbody tr:hover {
+  background: #fbfdfb !important;
+}
+
+/* Import tool was previously the only area using a teal/slate theme. Align it to the main green system. */
+.dpt-toolbar {
+  border-color: var(--zt-border) !important;
+  background: #fff !important;
+  box-shadow: var(--zt-shadow) !important;
+}
+
+.dpt-button,
+.dpt-upload-button {
+  border-color: var(--zt-border-strong);
+}
+
+.dpt-button.primary,
+.dpt-upload-button {
+  background: var(--zt-green) !important;
+  border-color: var(--zt-green) !important;
+}
+
+.dpt-overlay {
+  background: rgba(14, 30, 22, 0.48) !important;
+}
+
+.dpt-modal {
+  border: 1px solid var(--zt-border) !important;
+  border-radius: 18px !important;
+  background: #fff !important;
+  box-shadow: 0 26px 80px rgba(12, 35, 25, 0.20) !important;
+}
+
+.dpt-modal-head p,
+.dpt-file-meta span,
+.dpt-sheet-title > span,
+.dpt-preview-note {
+  color: var(--zt-muted) !important;
+}
+
+.dpt-icon {
+  background: #f2f6f3 !important;
+  color: var(--zt-text) !important;
+}
+
+.dpt-icon:hover {
+  background: #e8efeb !important;
+}
+
+.dpt-upload {
+  border-color: #c7d8ce !important;
+  background: #f6faf8 !important;
+}
+
+.dpt-selection {
+  border-color: #cfe3d8 !important;
+  background: #f2f8f5 !important;
+}
+
+.dpt-preview-wrap,
+.dpt-preview table {
+  border-color: var(--zt-border) !important;
+}
+
+.dpt-preview th {
+  background: #f7faf8 !important;
+  color: #63716b !important;
+}
+
+.dpt-alert.success {
+  background: #edf7f0 !important;
+  border-color: #cae6d2 !important;
+  color: #25613f !important;
+}
+
+.dpt-alert.error {
+  background: var(--zt-danger-bg) !important;
+  border-color: #f0cbc7 !important;
+  color: var(--zt-danger) !important;
+}
+
+/* Import preview/stat cards */
+.vehicle-import-stats > div,
+.service-import-stats > div,
+.docs-import-stats > div {
+  border-color: var(--zt-border) !important;
+  background: #f8faf9 !important;
+}
+
+.vehicle-import-stats b,
+.service-import-stats b,
+.docs-import-stats b,
+.vehicle-import-map b,
+.service-import-map b {
+  color: var(--zt-text) !important;
+}
+
+.vehicle-import-stats span,
+.service-import-stats span,
+.docs-import-stats span,
+.vehicle-import-map span:nth-child(3),
+.service-import-map span:nth-child(3) {
+  color: var(--zt-muted) !important;
+}
+
+.vehicle-import-note,
+.service-import-note,
+.docs-import-note {
+  border-color: #cfe3d8 !important;
+  background: #f2f8f5 !important;
+  color: #355c52 !important;
+}
+
+.vehicle-import-note span,
+.service-import-note span,
+.docs-import-note span {
+  background: #e4f1eb !important;
+}
+
+.vehicle-import-warning,
+.service-import-warning {
+  background: var(--zt-warning-bg) !important;
+  color: var(--zt-warning) !important;
+}
+
+/* Keep semantic status colours distinct: status colour is meaning, not decoration. */
+.status-menunggu_transport,
+.status-menunggu_approval { background: #fff5dd !important; color: #845d00 !important; }
+.status-ditolak,
+.status-dibatalkan { background: #fff0f0 !important; color: #a22e2e !important; }
+.status-disetujui,
+.status-selesai { background: #e9f6ee !important; color: #1d6945 !important; }
+.status-diterima_transport,
+.status-dalam_proses { background: #eaf2ff !important; color: #26558e !important; }
+
+/* Shared empty/loading states */
+.x-empty,
+.m-empty,
+.request-empty {
+  color: #84918b !important;
+}
+
+/* Responsive finishing pass */
+@media (max-width: 760px) {
+  .login-card {
+    width: min(100%, 520px);
+  }
+
+  .content-container {
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+  }
+
+  .topbar {
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+  }
+
+  .dpt-actions,
+  .x-actions,
+  .master-actions,
+  .request-form-actions {
+    gap: 8px;
+  }
+
+  .dpt-actions .dpt-button,
+  .x-actions .x-btn,
+  .master-actions .m-btn,
+  .request-form-actions button {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 430px) {
+  .login-panel {
+    padding: 32px 22px 28px;
+  }
+
+  .login-panel h1 {
+    font-size: 27px;
+  }
+
+  .topbar h1 {
+    font-size: 17px;
+  }
+
+  .x-page,
+  .master-page,
+  .request-page {
+    width: 100%;
+  }
+}
