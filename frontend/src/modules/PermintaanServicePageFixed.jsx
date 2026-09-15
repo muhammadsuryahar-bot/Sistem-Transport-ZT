@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import './PermintaanServicePage.css'
 
@@ -8,6 +8,7 @@ const ACTIVE = ['MENUNGGU_TRANSPORT', 'DITERIMA_TRANSPORT', 'DALAM_PROSES', 'MEN
 const EMPTY = { kendaraan_id: '', jenis_permintaan: 'SERVICE', kilometer: '', keluhan: '', prioritas: 'NORMAL' }
 const fmtDate = value => value ? new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(new Date(value)) : '-'
 const fmtNum = value => value === null || value === undefined || value === '' ? '-' : new Intl.NumberFormat('id-ID').format(Number(value))
+const isInteractiveTarget = target => Boolean(target?.closest?.('button,input,select,textarea,a'))
 
 export default function PermintaanServicePage({ profile }) {
   const [vehicles, setVehicles] = useState([])
@@ -20,10 +21,13 @@ export default function PermintaanServicePage({ profile }) {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('SEMUA')
   const [selectedIds, setSelectedIds] = useState([])
+  const [selectionMode, setSelectionMode] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const canCreate = ['ADMIN', 'OPERASIONAL'].includes(profile?.role)
   const canDelete = profile?.role === 'ADMIN'
+  const pressRef = useRef(null)
+  const ignoreClickRef = useRef(false)
 
   const loadData = async () => {
     setLoading(true); setError('')
@@ -33,7 +37,7 @@ export default function PermintaanServicePage({ profile }) {
     ])
     if (v.error) setError(`Data kendaraan: ${v.error.message}`); else setVehicles(v.data || [])
     if (r.error) setError(current => current || `Data pengajuan: ${r.error.message}`); else setRequests(r.data || [])
-    setSelectedIds([]); setLoading(false)
+    setSelectedIds([]); setSelectionMode(false); setLoading(false)
   }
 
   useEffect(() => {
@@ -91,21 +95,39 @@ export default function PermintaanServicePage({ profile }) {
       const request = requests.find(r => r.id === id)
       if (request && await deleteOne(request)) removed += 1; else blocked += 1
     }
-    setSelectedIds([]); await loadData(); setSaving(false)
+    setSelectedIds([]); setSelectionMode(false); await loadData(); setSaving(false)
     if (removed) setSuccess(`${removed} pengajuan berhasil dihapus${blocked ? ` • ${blocked} dilewati karena masih terhubung` : ''}.`)
   }
 
-  const allSelected = filtered.length > 0 && selectedIds.length === filtered.length
-  const toggleAll = () => setSelectedIds(allSelected ? [] : filtered.map(r => r.id))
+  const clearPress = () => {
+    if (pressRef.current?.timer) window.clearTimeout(pressRef.current.timer)
+    pressRef.current = null
+  }
+  const armLongPress = (event, id) => {
+    if (!canDelete || selectionMode || (event.button !== undefined && event.button !== 0) || isInteractiveTarget(event.target)) return
+    clearPress()
+    pressRef.current = { x: event.clientX, y: event.clientY, timer: window.setTimeout(() => { setSelectionMode(true); setSelectedIds(current => current.includes(id) ? current : [...current, id]); ignoreClickRef.current = true; pressRef.current = null }, 480) }
+    try { event.currentTarget.setPointerCapture?.(event.pointerId) } catch {}
+  }
+  const moveLongPress = event => {
+    const state = pressRef.current
+    if (state && Math.hypot(event.clientX - state.x, event.clientY - state.y) > 10) clearPress()
+  }
+  const finishLongPress = () => clearPress()
   const toggle = id => setSelectedIds(current => current.includes(id) ? current.filter(x => x !== id) : [...current, id])
+  const allSelected = filtered.length > 0 && filtered.every(request => selectedIds.includes(request.id))
+  const toggleAll = () => setSelectedIds(current => allSelected ? current.filter(id => !filtered.some(request => request.id === id)) : Array.from(new Set([...current, ...filtered.map(request => request.id)])))
+  const exitSelection = () => { setSelectedIds([]); setSelectionMode(false) }
 
   return <div className="request-page">
     <div className="request-header"><div><span className="eyebrow">OPERASIONAL • TRANSPORT</span><h2>Permintaan Service</h2><p>Ajukan kebutuhan kendaraan tanpa mengetik ulang data armada.</p></div>{canCreate && <button className="request-primary-button" onClick={openCreate}>+ Buat Pengajuan</button>}</div>
     {success && <div className="request-alert success">{success}</div>}{error && !showForm && <div className="request-alert error">{error}</div>}
     <section className="request-summary-grid"><div><span>Menunggu Transport</span><strong>{requests.filter(r => r.status === 'MENUNGGU_TRANSPORT').length}</strong><small>Perlu diproses</small></div><div><span>Masih Berjalan</span><strong>{requests.filter(r => ACTIVE.includes(r.status)).length}</strong><small>Belum selesai</small></div><div><span>Selesai / Batal</span><strong>{requests.filter(r => ['SELESAI', 'DIBATALKAN'].includes(r.status)).length}</strong><small>Riwayat</small></div></section>
     <section className="request-panel">
-      <div className="request-toolbar"><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Cari nomor, plat, merk, keluhan..."/><select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}><option value="SEMUA">Semua status</option>{Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>{canDelete && selectedIds.length > 0 && <button className="request-light-button danger" onClick={deleteSelected} disabled={saving}>Hapus {selectedIds.length} Pengajuan</button>}<button className="request-light-button" onClick={loadData} disabled={loading || saving}>↻ Refresh</button></div>
-      <div className="request-table-wrap">{loading?<div className="request-empty">Memuat pengajuan...</div>:filtered.length===0?<div className="request-empty"><strong>Belum ada pengajuan yang cocok.</strong><span>{canCreate?'Buat pengajuan pertama dari tombol di atas.':'Data akan muncul ketika pengajuan tersedia.'}</span></div>:<table className="request-table"><thead><tr><th><input type="checkbox" aria-label="Pilih semua pengajuan" checked={allSelected} onChange={toggleAll}/></th><th>Pengajuan</th><th>Kendaraan</th><th>Kebutuhan</th><th>KM</th><th>Prioritas</th><th>Status</th><th>Aksi</th></tr></thead><tbody>{filtered.map(r=>{const v=vehicleMap[r.kendaraan_id];return <tr key={r.id}><td><input type="checkbox" aria-label={`Pilih pengajuan ${r.nomor_pengajuan||r.id}`} checked={selectedIds.includes(r.id)} onChange={()=>toggle(r.id)}/></td><td><div className="request-main-cell"><strong>{r.nomor_pengajuan||`#${r.id}`}</strong><span>{fmtDate(r.tanggal_pengajuan)}</span></div></td><td><div className="request-main-cell"><strong>{v?.nomor_polisi||'-'}</strong><span>{v?`${v.merk}${v.tipe?` • ${v.tipe}`:''}`:'Data kendaraan tidak ditemukan'}</span></div></td><td><div className="request-main-cell"><strong>{TYPE_LABELS[r.jenis_permintaan]||r.jenis_permintaan}</strong><span>{r.keluhan}</span></div></td><td><strong>{fmtNum(r.kilometer_pengajuan)} km</strong></td><td><span className={`request-priority priority-${String(r.prioritas||'NORMAL').toLowerCase()}`}>{r.prioritas==='MENDESAK'?'Mendesak':'Normal'}</span></td><td><span className={`request-status status-${String(r.status||'').toLowerCase()}`}>{STATUS_LABELS[r.status]||r.status}</span></td><td><button className="request-detail-button" onClick={()=>setDetail(r)}>Detail</button>{canDelete&&<button className="request-detail-button danger" onClick={()=>{if(window.confirm(`Hapus pengajuan ${r.nomor_pengajuan||r.id}?`))deleteOne(r).then(ok=>ok&&loadData())}} disabled={saving}>Hapus</button>}</td></tr>})}</tbody></table>}</div>
+      <div className="request-toolbar"><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Cari nomor, plat, merk, keluhan..."/><select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}><option value="SEMUA">Semua status</option>{Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select><button className="request-light-button" onClick={loadData} disabled={loading || saving}>↻ Refresh</button></div>
+      {selectionMode && <div className="request-selection-bar"><div className="request-selection-meta"><span>Mode pilih pengajuan</span><strong>{selectedIds.length} dipilih</strong></div><div className="request-selection-actions"><button className="ghost" onClick={toggleAll}>{allSelected ? 'Batalkan semua' : 'Pilih semua'}</button><button className="ghost" onClick={exitSelection}>Batal</button>{canDelete && <button className="danger" onClick={deleteSelected} disabled={saving || !selectedIds.length}>Hapus {selectedIds.length} Pengajuan</button>}</div></div>}
+      {!selectionMode && filtered.length > 0 && <p className="request-selection-hint">Tekan dan tahan satu baris sekitar setengah detik untuk memilih banyak pengajuan.</p>}
+      <div className="request-table-wrap">{loading?<div className="request-empty">Memuat pengajuan...</div>:filtered.length===0?<div className="request-empty"><strong>Belum ada pengajuan yang cocok.</strong><span>{canCreate?'Buat pengajuan pertama dari tombol di atas.':'Data akan muncul ketika pengajuan tersedia.'}</span></div>:<table className={`request-table ${selectionMode?'request-selection-active':''}`}><thead><tr>{selectionMode&&<th className="request-select-cell"><input type="checkbox" aria-label="Pilih semua pengajuan" checked={allSelected} onChange={toggleAll}/></th>}<th>Pengajuan</th><th>Kendaraan</th><th>Kebutuhan</th><th>KM</th><th>Prioritas</th><th>Status</th><th>Aksi</th></tr></thead><tbody>{filtered.map(r=>{const v=vehicleMap[r.kendaraan_id];const selected=selectedIds.includes(r.id);return <tr key={r.id} className={selected?'request-selected':''} onPointerDown={e=>armLongPress(e,r.id)} onPointerMove={moveLongPress} onPointerUp={finishLongPress} onPointerCancel={finishLongPress} onClick={e=>{if(isInteractiveTarget(e.target))return;if(ignoreClickRef.current){ignoreClickRef.current=false;return}if(selectionMode)toggle(r.id)}}>{selectionMode&&<td className="request-select-cell"><input type="checkbox" aria-label={`Pilih pengajuan ${r.nomor_pengajuan||r.id}`} checked={selected} onChange={()=>toggle(r.id)}/></td>}<td><div className="request-main-cell"><strong>{r.nomor_pengajuan||`#${r.id}`}</strong><span>{fmtDate(r.tanggal_pengajuan)}</span></div></td><td><div className="request-main-cell"><strong>{v?.nomor_polisi||'-'}</strong><span>{v?`${v.merk}${v.tipe?` • ${v.tipe}`:''}`:'Data kendaraan tidak ditemukan'}</span></div></td><td><div className="request-main-cell"><strong>{TYPE_LABELS[r.jenis_permintaan]||r.jenis_permintaan}</strong><span>{r.keluhan}</span></div></td><td><strong>{fmtNum(r.kilometer_pengajuan)} km</strong></td><td><span className={`request-priority priority-${String(r.prioritas||'NORMAL').toLowerCase()}`}>{r.prioritas==='MENDESAK'?'Mendesak':'Normal'}</span></td><td><span className={`request-status status-${String(r.status||'').toLowerCase()}`}>{STATUS_LABELS[r.status]||r.status}</span></td><td><button className="request-detail-button" onClick={()=>setDetail(r)}>Detail</button>{canDelete&&<button className="request-detail-button danger" onClick={()=>{if(window.confirm(`Hapus pengajuan ${r.nomor_pengajuan||r.id}?`))deleteOne(r).then(ok=>ok&&loadData())}} disabled={saving}>Hapus</button>}</td></tr>})}</tbody></table>}</div>
       <div className="request-footer">Menampilkan {filtered.length} dari {requests.length} pengajuan</div>
     </section>
 
