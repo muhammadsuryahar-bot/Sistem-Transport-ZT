@@ -43,18 +43,19 @@ export default function DataPageTools({ context, profile, onExport }) {
   }
 
   const closeImport = () => setShowImport(false)
+
   const finishImport = (report) => {
     setShowImport(false)
-    if (hasReport(report)) {
-      setImportReport(report)
-      window.dispatchEvent(new CustomEvent('transport:data-imported', { detail: { context: report.context } }))
-    }
+    if (hasReport(report)) setImportReport(report)
   }
 
+  // Import selesai lebih aman dipisahkan dari refresh data runtime.
+  // Setelah user menekan Refresh Data Sistem, lakukan full reload agar semua
+  // state halaman membaca data terbaru sekali saja dan tidak terjadi beberapa
+  // listener load() yang berjalan bersamaan setelah import besar.
   const refreshAfterImport = () => {
-    const refreshContext = importReport?.context
     setImportReport(null)
-    window.dispatchEvent(new CustomEvent('transport:data-imported', { detail: { context: refreshContext } }))
+    window.location.reload()
   }
 
   const closeReport = () => setImportReport(null)
