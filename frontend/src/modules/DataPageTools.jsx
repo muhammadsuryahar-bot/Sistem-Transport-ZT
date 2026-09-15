@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import UnifiedExcelImportModalSafe from './UnifiedExcelImportModalSafe.jsx'
 import VehicleExcelImportModal from './VehicleExcelImportModal.jsx'
-import ServiceHistoryImportModalFixed from './ServiceHistoryImportModalFixed.jsx'
+import ServiceHistoryImportModalSafe from './ServiceHistoryImportModalSafe.jsx'
 import VehicleDocumentsImportModal from './VehicleDocumentsImportModal.jsx'
 import './DataPageTools.css'
 
@@ -43,28 +43,15 @@ export default function DataPageTools({ context, profile, onExport }) {
   }
 
   const closeImport = () => setShowImport(false)
-
-  const finishImport = (report) => {
-    setShowImport(false)
-    if (hasReport(report)) setImportReport(report)
-  }
-
-  // Import selesai lebih aman dipisahkan dari refresh data runtime.
-  // Setelah user menekan Refresh Data Sistem, lakukan full reload agar semua
-  // state halaman membaca data terbaru sekali saja dan tidak terjadi beberapa
-  // listener load() yang berjalan bersamaan setelah import besar.
-  const refreshAfterImport = () => {
-    setImportReport(null)
-    window.location.reload()
-  }
-
+  const finishImport = (report) => { setShowImport(false); if (hasReport(report)) setImportReport(report) }
+  const refreshAfterImport = () => { setImportReport(null); window.location.reload() }
   const closeReport = () => setImportReport(null)
 
   return <>
     {showImport && (context === 'kendaraan'
       ? <VehicleExcelImportModal profile={profile} onClose={closeImport} onDone={finishImport} />
       : context === 'service'
-        ? <ServiceHistoryImportModalFixed profile={profile} onClose={closeImport} onDone={finishImport} />
+        ? <ServiceHistoryImportModalSafe profile={profile} onClose={closeImport} onDone={finishImport} />
         : context === 'dokumen'
           ? <VehicleDocumentsImportModal profile={profile} onClose={closeImport} onDone={finishImport} />
           : <UnifiedExcelImportModalSafe context={context} profile={profile} onClose={closeImport} onDone={finishImport} />
