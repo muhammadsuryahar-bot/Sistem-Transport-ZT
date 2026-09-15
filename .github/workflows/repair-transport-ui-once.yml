@@ -1,0 +1,117 @@
+name: One-time transport UI repair
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/transport-ui-repair.trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch transport UI
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          replacements = {
+              'frontend/src/modules/ServiceHistoryImportModal.jsx': [
+                  (
+                      '<span>8 baris pertama</span>',
+                      '<span>{workbook.dataRows.length} baris sumber</span>',
+                  ),
+                  (
+                      '{workbook.dataRows.slice(0, 8).map((row) => <tr key={row.excelRow}>',
+                      '{workbook.dataRows.map((row) => <tr key={row.excelRow}>',
+                  ),
+              ],
+              'frontend/src/modules/DataPageTools.jsx': [
+                  (
+                      "  const refreshAfterImport = () => {\n    setImportReport(null)\n    window.location.reload()\n  }",
+                      "  const refreshAfterImport = () => {\n    setImportReport(null)\n    window.dispatchEvent(new CustomEvent('transport:data-imported', { detail: { context: importReport?.context } }))\n  }",
+                  ),
+                  (
+                      "  const finishImport = (report) => {\n    setShowImport(false)\n    if (hasReport(report)) setImportReport(report)\n  }",
+                      "  const finishImport = (report) => {\n    setShowImport(false)\n    if (hasReport(report)) {\n      setImportReport(report)\n      window.dispatchEvent(new CustomEvent('transport:data-imported', { detail: { context: report.context } }))\n    }\n  }",
+                  ),
+              ],
+              'frontend/src/modules/ServiceFeaturePage.jsx': [
+                  (
+                      "  useEffect(() => { load() }, [])",
+                      "  useEffect(() => {\n    load()\n    const handleImported = (event) => {\n      if (event.detail?.context === 'service') load()\n    }\n    window.addEventListener('transport:data-imported', handleImported)\n    return () => window.removeEventListener('transport:data-imported', handleImported)\n  }, [])",
+                  ),
+              ],
+              'frontend/src/modules/PermintaanServicePage.jsx': [
+                  (
+                      "  useEffect(() => {\n    loadData()\n  }, [])",
+                      "  useEffect(() => {\n    loadData()\n    const handleImported = (event) => {\n      if (event.detail?.context === 'service') loadData()\n    }\n    window.addEventListener('transport:data-imported', handleImported)\n    return () => window.removeEventListener('transport:data-imported', handleImported)\n  }, [])",
+                  ),
+              ],
+              'frontend/src/AppTransport.jsx': [
+                  (
+                      "  const allowedPages = useMemo(() => ROLE_ACCESS[profile?.role] || ['dashboard'], [profile?.role])\n  const visibleNavItems = useMemo(() => NAV_ITEMS.filter((item) => allowedPages.includes(item.id)), [allowedPages])",
+                      "  const allowedPages = useMemo(() => ROLE_ACCESS[profile?.role] || ['dashboard'], [profile?.role])\n  const visibleNavItems = useMemo(() => NAV_ITEMS.filter((item) => allowedPages.includes(item.id)), [allowedPages])\n  const navigateToPage = (page) => {\n    if (!page || !allowedPages.includes(page)) return\n    setActivePage(page)\n    localStorage.setItem('transport_active_page', page)\n  }",
+                  ),
+                  (
+                      "  useEffect(() => { if (session && profile && !allowedPages.includes(activePage)) setActivePage('dashboard') }, [activePage, allowedPages, profile, session])",
+                      "  useEffect(() => { if (session && profile && !allowedPages.includes(activePage)) setActivePage('dashboard') }, [activePage, allowedPages, profile, session])\n  useEffect(() => {\n    if (!session || !profile) return\n    const savedPage = localStorage.getItem('transport_active_page')\n    if (savedPage && allowedPages.includes(savedPage) && savedPage !== activePage) setActivePage(savedPage)\n  }, [session, profile, allowedPages, activePage])",
+                  ),
+                  (
+                      "  const handleLogout = async () => { setSubmitting(true); await supabase.auth.signOut(); setSession(null); setProfile(null); setActivePage('dashboard'); setSubmitting(false) }",
+                      "  const handleLogout = async () => { setSubmitting(true); await supabase.auth.signOut(); setSession(null); setProfile(null); localStorage.removeItem('transport_active_page'); setActivePage('dashboard'); setSubmitting(false) }",
+                  ),
+                  (
+                      "<DashboardFeaturePage profile={profile} onNavigate={setActivePage}/>",
+                      "<DashboardFeaturePage profile={profile} onNavigate={navigateToPage}/>",
+                  ),
+                  (
+                      "onClick={() => { setActivePage(item.id); setSidebarOpen(false) }}",
+                      "onClick={() => { navigateToPage(item.id); setSidebarOpen(false) }}",
+                  ),
+              ],
+          }
+
+          changed = []
+          for filename, pairs in replacements.items():
+              path = Path(filename)
+              text = path.read_text(encoding='utf-8')
+              original = text
+              for old, new in pairs:
+                  if old in text:
+                      text = text.replace(old, new, 1)
+                  elif new in text:
+                      continue
+                  else:
+                      raise SystemExit(f'Missing expected source pattern in {filename}: {old[:120]!r}')
+              if text != original:
+                  path.write_text(text, encoding='utf-8')
+                  changed.append(filename)
+
+          trigger = Path('.github/transport-ui-repair.trigger')
+          workflow = Path('.github/workflows/repair-transport-ui-once.yml')
+          if not changed:
+              raise SystemExit('No source changes were required; aborting without a commit.')
+
+          trigger.unlink(missing_ok=True)
+          workflow.unlink(missing_ok=True)
+          print('Changed:', ', '.join(changed))
+          PY
+
+      - name: Commit repair
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add frontend/src/modules/ServiceHistoryImportModal.jsx frontend/src/modules/DataPageTools.jsx frontend/src/modules/ServiceFeaturePage.jsx frontend/src/modules/PermintaanServicePage.jsx frontend/src/AppTransport.jsx .github/workflows/repair-transport-ui-once.yml .github/transport-ui-repair.trigger
+          git commit -m 'fix: refresh imported service data and preserve active page'
+          git push
