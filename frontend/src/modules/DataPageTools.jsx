@@ -52,8 +52,12 @@ export default function DataPageTools({ context, profile, onExport }) {
   }
 
   const refreshAfterImport = () => {
+    const refreshContext = importReport?.context
     setImportReport(null)
-    window.dispatchEvent(new CustomEvent('transport:data-imported', { detail: { context: importReport?.context } }))
+    window.dispatchEvent(new CustomEvent('transport:data-imported', { detail: { context: refreshContext } }))
+    // The pages already listen for transport:data-imported. A hard reload is kept as a reliable fallback
+    // so the user never gets stuck with a stale list when a component is mounted through a different route.
+    window.setTimeout(() => window.location.reload(), 120)
   }
 
   const closeReport = () => setImportReport(null)
