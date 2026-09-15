@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import UnifiedExcelImportModalSafe from './UnifiedExcelImportModalSafe.jsx'
 import VehicleExcelImportModal from './VehicleExcelImportModal.jsx'
-import ServiceHistoryImportModalSafe from './ServiceHistoryImportModalSafe.jsx'
+import ServiceHistoryImportModalRobust from './ServiceHistoryImportModalRobust.jsx'
 import VehicleDocumentsImportModal from './VehicleDocumentsImportModal.jsx'
 import './DataPageTools.css'
 
@@ -51,7 +51,7 @@ export default function DataPageTools({ context, profile, onExport }) {
     {showImport && (context === 'kendaraan'
       ? <VehicleExcelImportModal profile={profile} onClose={closeImport} onDone={finishImport} />
       : context === 'service'
-        ? <ServiceHistoryImportModalSafe profile={profile} onClose={closeImport} onDone={finishImport} />
+        ? <ServiceHistoryImportModalRobust profile={profile} onClose={closeImport} onDone={finishImport} />
         : context === 'dokumen'
           ? <VehicleDocumentsImportModal profile={profile} onClose={closeImport} onDone={finishImport} />
           : <UnifiedExcelImportModalSafe context={context} profile={profile} onClose={closeImport} onDone={finishImport} />
