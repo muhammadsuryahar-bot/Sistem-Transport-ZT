@@ -7,6 +7,7 @@ import './transport-ui-enterprise.css'
 import './sidebar-polish.css'
 import './sidebar-fixed.css'
 import './module-export.css'
+import './transport-ui-final.css'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
