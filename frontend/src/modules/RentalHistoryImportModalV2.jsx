@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { clearDeletedExcelRows, filterDeletedExcelRows } from '../utils/excelPreviewControls.js'
 import { parseXlsx } from '../utils/xlsxParser.js'
 import './DataPageTools.css'
 
@@ -161,6 +162,7 @@ export default function RentalHistoryImportModalV2({ profile, onClose, onDone })
   }
 
   const scan = async nextFile => {
+    clearDeletedExcelRows('sewa')
     setFile(nextFile || null)
     setRows([])
     setSheetName('')
@@ -192,7 +194,8 @@ export default function RentalHistoryImportModalV2({ profile, onClose, onDone })
     setError('')
     setMessage('Memproses pembayaran rental historis...')
     try {
-      const result = await importSummary(rows, profile)
+      const activeRows = filterDeletedExcelRows('sewa', rows)
+      const result = await importSummary(activeRows, profile)
       const report = {
         context: 'sewa',
         sourceRows: rows.length,
@@ -241,7 +244,7 @@ export default function RentalHistoryImportModalV2({ profile, onClose, onDone })
             <table>
               <thead><tr><th>Baris</th><th>Tahun</th><th>Supplier</th><th>Uraian</th><th>Periode Tagihan</th><th>Nilai Invoice</th></tr></thead>
               <tbody>
-                {pageRows.map(row => <tr key={row.id}>
+                {pageRows.map(row => <tr data-excel-row={row.excelRow} key={row.id}>
                   <td>{row.excelRow}</td>
                   <td><input className="dpt-editable-input" value={row.tahun} onChange={e => updateRow(row.id, 'tahun', e.target.value)} /></td>
                   <td><input className="dpt-editable-input" value={row.supplier} onChange={e => updateRow(row.id, 'supplier', e.target.value)} /></td>

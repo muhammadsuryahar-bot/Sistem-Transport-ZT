@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { clearDeletedExcelRows, filterDeletedExcelRows } from '../utils/excelPreviewControls.js'
 import { parseXlsx } from '../utils/xlsxParser.js'
 import './DataPageTools.css'
 import './EditableServiceExcelImportModal.css'
@@ -331,6 +332,7 @@ export default function EditableServiceExcelImportModal({ profile, onDone, onClo
   const canImport = ['ADMIN', 'TRANSPORT'].includes(profile?.role)
 
   const scan = async nextFile => {
+    clearDeletedExcelRows('service')
     setFile(nextFile || null); setSheet(null); setHeaders([]); setRows([]); setError(''); setMessage(''); setPage(1); setSearch('')
     if (!nextFile) return
     if (!/\.xlsx$/i.test(nextFile.name)) return setError('Gunakan file Excel .xlsx. Format .xls lama belum didukung.')
@@ -396,7 +398,8 @@ export default function EditableServiceExcelImportModal({ profile, onDone, onClo
     if (!rows.length || !canImport || saving) return
     setSaving(true); setError(''); setProgress({ completed: 0, total: transactions.length }); setMessage(`Memproses import ${transactions.length} transaksi...`)
     try {
-      const result = await importHistory(rows, profile, sheet?.name || 'Data Service', ({ completed, total }) => { setProgress({ completed, total }); setMessage(`Memproses import: ${completed}/${total} transaksi...`) })
+      const activeRows = filterDeletedExcelRows('service', rows)
+      const result = await importHistory(activeRows, profile, sheet?.name || 'Data Service', ({ completed, total }) => { setProgress({ completed, total }); setMessage(`Memproses import: ${completed}/${total} transaksi...`) })
       const report = { context: 'service', ...result, validRows: validRows.length, transactions: result.imported, fileName: file?.name || '', completedAt: new Date().toISOString(), message: `${result.imported} transaksi disimpan • ${result.skipped} dilewati • ${result.items} item tersimpan • ${result.kmUpdated} KM kendaraan diperbarui.` }
       sessionStorage.setItem('transport_import_report', JSON.stringify(report)); setProgress({ completed: transactions.length, total: transactions.length }); setMessage(report.message)
       if (result.unknownPlates.length) setError(`Plat belum ada di Master Kendaraan: ${result.unknownPlates.slice(0, 20).join(', ')}${result.unknownPlates.length > 20 ? ' …' : ''}. Baris tersebut tidak dibuat otomatis.`)
@@ -420,7 +423,7 @@ export default function EditableServiceExcelImportModal({ profile, onDone, onClo
         <div className="service-import-stats"><div><b>{rows.length}</b><span>baris Excel</span></div><div><b>{validRows.length}</b><span>baris valid</span></div><div><b>{transactions.length}</b><span>transaksi service</span></div><div><b>{uniquePlates.length}</b><span>kendaraan</span></div></div>
         {invalidCount > 0 && <div className="service-import-warning">{invalidCount} baris belum valid. Edit No. Polisi/Tanggal langsung di tabel agar ikut terimport.</div>}
         <div className="editable-service-toolbar"><div><strong>Baris {pageStart}-{pageEnd} dari {filteredRows.length}{search ? ` (filter dari ${rows.length})` : ''}</strong><span>Setiap sel di bawah ini bisa diedit. Perubahan dipakai saat tombol Import ditekan.</span></div><div className="editable-service-controls"><input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} placeholder="Cari data…" disabled={saving}/><label>Per halaman <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1) }} disabled={saving}>{PAGE_OPTIONS.map(size => <option key={size} value={size}>{size}</option>)}</select></label></div></div>
-        <div className="dpt-preview editable-service-preview"><table><thead><tr>{headers.map((header, index) => <th key={`${header}-${index}`}>{header || `Kolom ${index + 1}`}</th>)}</tr></thead><tbody>{visibleRows.map(row => <tr key={row.excelRow}>{headers.map((header, index) => { const key = fieldForHeader(header); const value = formatDisplay(row.values[index], header); const numeric = ['qty','harga_satuan','nilai_dpp','ppn','total','kilometer'].includes(key); const date = key === 'tanggal'; return <td key={`${row.excelRow}-${index}`}><input aria-label={`${header} baris ${row.excelRow}`} type={date ? 'text' : 'text'} inputMode={numeric ? 'decimal' : undefined} value={value} onChange={e => updateCell(row.excelRow, index, e.target.value)} disabled={saving} className={numeric ? 'numeric' : ''}/></td> })}</tr>)}</tbody></table></div>
+        <div className="dpt-preview editable-service-preview"><table><thead><tr>{headers.map((header, index) => <th key={`${header}-${index}`}>{header || `Kolom ${index + 1}`}</th>)}</tr></thead><tbody>{visibleRows.map(row => <tr data-excel-row={row.excelRow} key={row.excelRow}>{headers.map((header, index) => { const key = fieldForHeader(header); const value = formatDisplay(row.values[index], header); const numeric = ['qty','harga_satuan','nilai_dpp','ppn','total','kilometer'].includes(key); const date = key === 'tanggal'; return <td key={`${row.excelRow}-${index}`}><input aria-label={`${header} baris ${row.excelRow}`} type={date ? 'text' : 'text'} inputMode={numeric ? 'decimal' : undefined} value={value} onChange={e => updateCell(row.excelRow, index, e.target.value)} disabled={saving} className={numeric ? 'numeric' : ''}/></td> })}</tr>)}</tbody></table></div>
         <div className="editable-service-pagination"><button type="button" className="dpt-button" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage <= 1 || saving}>← Sebelumnya</button><strong>Halaman {safePage} / {pageCount}</strong><button type="button" className="dpt-button" onClick={() => setPage(p => Math.min(pageCount, p + 1))} disabled={safePage >= pageCount || saving}>Berikutnya →</button></div>
         <div className="service-import-note"><b>Yang bisa dikerjakan tanpa kembali ke Excel</b><span>Ganti No. Polisi, tanggal, pekerjaan, uraian, Qty, satuan, harga, DPP, PPN, Total, KM, driver, dan kolom lain langsung di tabel.</span><span>Semua {rows.length} baris tetap ada; tabel hanya memakai pagination supaya layar tidak berat.</span><span>Setelah diedit, sistem menghitung ulang baris valid, transaksi, kendaraan, dan item berdasarkan data terbaru.</span></div>
       </>}

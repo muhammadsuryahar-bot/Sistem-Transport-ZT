@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { clearDeletedExcelRows, filterDeletedExcelRows } from '../utils/excelPreviewControls.js'
 import { parseXlsx } from '../utils/xlsxParser.js'
 import './DataPageTools.css'
 import './VehicleExcelImportModal.css'
@@ -215,12 +216,14 @@ export default function VehicleExcelImportModalV2({ profile, onDone, onClose }) 
   const pageRows = useMemo(() => (workbook?.data || []).slice((page - 1) * pageSize, page * pageSize), [workbook, page, pageSize])
 
   const scan = async nextFile => {
+    clearDeletedExcelRows('kendaraan')
     setFile(nextFile || null); setWorkbook(null); setError(''); setMessage(''); setPage(1)
     if (!nextFile) return
     if (!/\.xlsx$/i.test(nextFile.name)) return setError('Gunakan file Excel .xlsx. Format .xls lama belum didukung.')
     if (nextFile.size > MAX_FILE_SIZE) return setError('Ukuran file maksimal 25 MB.')
     setLoading(true)
     try {
+      const activeRows = filterDeletedExcelRows('kendaraan', workbook.valid)
       const sheets = await parseXlsx(nextFile)
       const chosen = sheets.find(sheet => norm(sheet.name) === 'data_kendaraan') || sheets.find(sheet => /data\s*kendaraan/i.test(sheet.name))
       if (!chosen) throw new Error('Sheet Data Kendaraan tidak ditemukan.')
@@ -246,7 +249,7 @@ export default function VehicleExcelImportModalV2({ profile, onDone, onClose }) 
     if (!workbook || !canImport || saving) return
     setSaving(true); setError(''); setMessage('Import kendaraan berjalan...')
     try {
-      const result = await importVehicleRows(workbook.valid)
+      const result = await importVehicleRows(activeRows)
       const report = { context: 'kendaraan', ...result, sourceRows: workbook.data.length, validRows: workbook.valid.length, uniqueVehicles: workbook.uniqueCount, mergedDuplicates: workbook.duplicateCount, missingSourceNumbers: workbook.missingSourceNumbers, fileName: file?.name || '', completedAt: new Date().toISOString() }
       sessionStorage.setItem('transport_import_report', JSON.stringify(report))
       setMessage(`Import selesai: ${result.uniqueVehicles} kendaraan unik • ${result.added} baru • ${result.updated} diperbarui • ${result.mergedDuplicates} duplikat digabung • ${result.driversCreated} driver dibuat.`)
@@ -265,7 +268,7 @@ export default function VehicleExcelImportModalV2({ profile, onDone, onClose }) 
         {workbook.missingSourceNumbers.length > 0 && <div className="vehicle-import-warning">Nomor urut sumber yang tidak ada: <b>{workbook.missingSourceNumbers.join(', ')}</b>.</div>}
         <div className="vehicle-import-explanation"><b>Rekonsiliasi</b><span>Semua baris Excel tetap tampil di preview. No. Polisi dipakai sebagai identitas unik saat penyimpanan.</span><span>{workbook.data.length} baris sumber → {workbook.valid.length} valid → {workbook.uniqueCount} kendaraan unik → {workbook.duplicateCount} duplikat digabung.</span></div>
         <div className="vehicle-import-map">{EXPECTED_HEADERS.map(([src, target]) => <div key={src}><b>{src}</b><span>→</span><span>{target}</span></div>)}</div>
-        <div className="dpt-preview"><div className="dpt-sheet-title"><div><b>Preview Sumber: {selected.name}</b><span className="dpt-preview-note">Semua baris tersedia. Gunakan pagination untuk berpindah halaman.</span></div><span>{pageRows.length} dari {workbook.data.length} ditampilkan</span></div><div className="dpt-preview-wrap"><table><thead><tr>{workbook.header.row.map((header, index) => <th key={`${String(header)}-${index}`}>{header || `Kolom ${index + 1}`}</th>)}</tr></thead><tbody>{pageRows.map(row => <tr key={row.excelRow}>{workbook.header.row.map((header, index) => <td key={`${row.excelRow}-${index}`}>{displayCell(row.values[index], header)}</td>)}</tr>)}</tbody></table></div><div className="dpt-pagination"><label>Baris/halaman <select value={pageSize} onChange={event => { setPageSize(Number(event.target.value)); setPage(1) }}>{PAGE_OPTIONS.map(size => <option key={size} value={size}>{size}</option>)}</select></label><button type="button" className="dpt-button" onClick={() => setPage(current => Math.max(1, current - 1))} disabled={page <= 1}>‹</button><span>Halaman {page} / {pageCount}</span><button type="button" className="dpt-button" onClick={() => setPage(current => Math.min(pageCount, current + 1))} disabled={page >= pageCount}>›</button></div></div>
+        <div className="dpt-preview"><div className="dpt-sheet-title"><div><b>Preview Sumber: {selected.name}</b><span className="dpt-preview-note">Semua baris tersedia. Gunakan pagination untuk berpindah halaman.</span></div><span>{pageRows.length} dari {workbook.data.length} ditampilkan</span></div><div className="dpt-preview-wrap"><table><thead><tr>{workbook.header.row.map((header, index) => <th key={`${String(header)}-${index}`}>{header || `Kolom ${index + 1}`}</th>)}</tr></thead><tbody>{pageRows.map(row => <tr data-excel-row={row.excelRow} key={row.excelRow}>{workbook.header.row.map((header, index) => <td key={`${row.excelRow}-${index}`}>{displayCell(row.values[index], header)}</td>)}</tr>)}</tbody></table></div><div className="dpt-pagination"><label>Baris/halaman <select value={pageSize} onChange={event => { setPageSize(Number(event.target.value)); setPage(1) }}>{PAGE_OPTIONS.map(size => <option key={size} value={size}>{size}</option>)}</select></label><button type="button" className="dpt-button" onClick={() => setPage(current => Math.max(1, current - 1))} disabled={page <= 1}>‹</button><span>Halaman {page} / {pageCount}</span><button type="button" className="dpt-button" onClick={() => setPage(current => Math.min(pageCount, current + 1))} disabled={page >= pageCount}>›</button></div></div>
       </>}
       <div className="dpt-actions"><button type="button" className="dpt-button" onClick={onClose} disabled={saving}>Batal</button><button type="button" className="dpt-button primary" onClick={start} disabled={!workbook || !workbook.valid.length || saving || !canImport}>{saving ? 'Mengimport…' : `Import ${workbook?.valid?.length || ''} Kendaraan`}</button></div>
     </section>

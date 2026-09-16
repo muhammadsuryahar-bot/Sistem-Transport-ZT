@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { clearDeletedExcelRows, filterDeletedExcelRows } from '../utils/excelPreviewControls.js'
 import { parseXlsx } from '../utils/xlsxParser.js'
 import './DataPageTools.css'
 
@@ -85,6 +86,7 @@ export default function PengajuanExcelImportModal({ profile, onDone, onClose }) 
   const previewRows = useMemo(() => rows.slice(0, 100), [rows])
 
   const scan = async (nextFile) => {
+    clearDeletedExcelRows('pengajuan')
     setFile(nextFile || null); setSelected(null); setRows([]); setVehicles([]); setError(''); setMessage('')
     if (!nextFile) return
     if (!/\.xlsx$/i.test(nextFile.name)) return setError('Gunakan file Excel .xlsx.')
@@ -120,11 +122,12 @@ export default function PengajuanExcelImportModal({ profile, onDone, onClose }) 
     if (!selected || !canImport || saving) return
     setSaving(true); setError(''); setMessage('Memeriksa kendaraan, duplikat, dan menyimpan pengajuan...')
     try {
+      const activeRows = filterDeletedExcelRows('pengajuan', rows)
       const vehicleMap = Object.fromEntries((vehicles || []).map((v) => [upper(v.nomor_polisi), v]))
       const invalid = []
       const seen = new Set()
       const valid = []
-      for (const row of rows) {
+      for (const row of activeRows) {
         const vehicle = vehicleMap[row.nomor_polisi]
         if (!row.nomor_polisi || !row.tanggal || !row.keluhan) { invalid.push({ row: row.excelRow, reason: 'No Polisi/Tanggal/Keterangan belum lengkap' }); continue }
         if (!vehicle) { invalid.push({ row: row.excelRow, reason: `Plat ${row.nomor_polisi} belum ada di Master Kendaraan` }); continue }
@@ -160,7 +163,7 @@ export default function PengajuanExcelImportModal({ profile, onDone, onClose }) 
 
       const report = {
         context: 'pengajuan',
-        sourceRows: rows.length,
+        sourceRows: activeRows.length,
         validRows: valid.length,
         imported: toInsert.length,
         skipped: invalid.length + duplicate,
@@ -189,7 +192,7 @@ export default function PengajuanExcelImportModal({ profile, onDone, onClose }) 
       <div className="dpt-upload"><input ref={inputRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(e) => scan(e.target.files?.[0])}/><button type="button" className="dpt-upload-button" onClick={() => inputRef.current?.click()} disabled={loading || saving}>{loading ? 'Membaca Excel…' : file ? 'Ganti File' : 'Pilih File Excel'}</button><div className="dpt-file-meta"><strong title={file?.name}>{file?.name || 'Belum ada file'}</strong><span>{file ? `✓ .xlsx • ${(file.size / 1024 / 1024).toFixed(2)} MB` : 'Maksimal 25 MB'}</span></div></div>
       {selected && <>
         <div className="dpt-selection"><div><b>Sheet: {selected.sheet.name}</b><span>Format cocok</span></div><span>{rows.length} baris data</span></div>
-        <div className="dpt-preview"><div className="dpt-sheet-title"><div><b>Preview Data</b><span className="dpt-preview-note">Tabel sumber dibaca tanpa mengubah Excel asli.</span></div><span>{previewRows.length} baris ditampilkan</span></div><div className="dpt-preview-wrap"><table><thead><tr><th>Baris</th><th>No Polisi</th><th>Tanggal</th><th>Jenis</th><th>Keterangan</th><th>KM</th></tr></thead><tbody>{previewRows.map((row) => <tr key={row.excelRow}><td>{row.excelRow}</td><td>{row.nomor_polisi || '-'}</td><td>{row.tanggal || '-'}</td><td>{row.jenis}</td><td>{row.keluhan || '-'}</td><td>{row.kilometer ?? '-'}</td></tr>)}</tbody></table></div></div>
+        <div className="dpt-preview"><div className="dpt-sheet-title"><div><b>Preview Data</b><span className="dpt-preview-note">Tabel sumber dibaca tanpa mengubah Excel asli.</span></div><span>{previewRows.length} baris ditampilkan</span></div><div className="dpt-preview-wrap"><table><thead><tr><th>Baris</th><th>No Polisi</th><th>Tanggal</th><th>Jenis</th><th>Keterangan</th><th>KM</th></tr></thead><tbody>{previewRows.map((row) => <tr data-excel-row={row.excelRow} key={row.excelRow}><td>{row.excelRow}</td><td>{row.nomor_polisi || '-'}</td><td>{row.tanggal || '-'}</td><td>{row.jenis}</td><td>{row.keluhan || '-'}</td><td>{row.kilometer ?? '-'}</td></tr>)}</tbody></table></div></div>
       </>}
       <div className="dpt-actions"><button type="button" className="dpt-button" onClick={onClose} disabled={saving}>Batal</button><button type="button" className="dpt-button primary" onClick={start} disabled={!selected || saving || !canImport}>{saving ? 'Mengimport…' : 'Import Pengajuan'}</button></div>
     </section>
