@@ -49,7 +49,14 @@ export default function DataPageTools({ context, profile, onExport }) {
   const [showImport, setShowImport] = useState(false); const [importReport, setImportReport] = useState(null); const [exporting, setExporting] = useState(false)
   const canImport = ['ADMIN', 'TRANSPORT'].includes(profile?.role)
   useEffect(() => { try { const saved = sessionStorage.getItem('transport_import_report'); if (saved) { const parsed = JSON.parse(saved); if (hasReport(parsed) && parsed.context === context) setImportReport(parsed); sessionStorage.removeItem('transport_import_report') } } catch { sessionStorage.removeItem('transport_import_report') } }, [context])
-  useEffect(() => { let timer; const run = () => { if (showImport) { ensureRowMarks(context) } }; run(); const observer = new MutationObserver(() => { clearTimeout(timer); timer = setTimeout(run, 40) }); observer.observe(document.body, { childList: true, subtree: true }); return () => { clearTimeout(timer); observer.disconnect() } }, [context, showImport])
+  useEffect(() => {
+    let timer
+    const run = () => ensureRowMarks(context)
+    run()
+    const observer = new MutationObserver(() => { clearTimeout(timer); timer = setTimeout(run, 40) })
+    observer.observe(document.body, { childList: true, subtree: true })
+    return () => { clearTimeout(timer); observer.disconnect() }
+  }, [context])
   if (!CONTEXT_LABEL[context]) return null
   const doExport = async () => { if (!onExport || exporting) return; setExporting(true); try { await onExport() } finally { setExporting(false) } }
   const closeImport = () => setShowImport(false)
