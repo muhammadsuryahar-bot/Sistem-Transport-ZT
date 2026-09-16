@@ -1,10 +1,10 @@
 const XLSX_ROOTS = /<(?:workbook|Relationships|worksheet|sst)(?:\s|>)/
 
-// Be compatible with the many namespace variants produced by Excel/WPS/LibreOffice.
-// The import components query the XLSX XML using simple local selectors, so remove
-// namespace declarations while preserving attributes such as r:id.
+// XLSX XML may contain a default namespace plus prefixed namespaces such as r:.
+// Only remove the default namespace. Removing xmlns:r leaves attributes such as
+// r:id unbound and makes DOMParser reject an otherwise valid XLSX workbook.
 const stripXlsxNamespaces = (source) => source
-  .replace(/\sxmlns(?:\:[A-Za-z_][\w.-]*)?="[^"]*"/g, '')
+  .replace(/\sxmlns="[^"]*"/g, '')
 
 if (typeof DOMParser !== 'undefined' && !DOMParser.prototype.__transportXlsxCompat) {
   const nativeParse = DOMParser.prototype.parseFromString
