@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import UnifiedExcelImportModalSafe from './UnifiedExcelImportModalSafe.jsx'
 import VehicleExcelImportModal from './VehicleExcelImportModal.jsx'
-import ServiceHistoryImportModalRobust from './ServiceHistoryImportModalRobust.jsx'
+import EditableServiceExcelImportModal from './EditableServiceExcelImportModal.jsx'
 import VehicleDocumentsImportModal from './VehicleDocumentsImportModal.jsx'
 import PengajuanExcelImportModal from './PengajuanExcelImportModal.jsx'
 import RentalHistoryImportModal from './RentalHistoryImportModal.jsx'
@@ -36,7 +36,7 @@ function normalizeImportPreviewTables() {
             }
           }
         }
-        if (/^-?\d+\.0+$/.test(raw)) cell.textContent = raw.replace(/\.0+$/, '')
+        if (/^-?\d+\.0+$/.test(raw) && !cell.querySelector('input,select,textarea')) cell.textContent = raw.replace(/\.0+$/, '')
       })
     })
   })
@@ -88,7 +88,7 @@ export default function DataPageTools({ context, profile, onExport }) {
       : context === 'pengajuan'
         ? <PengajuanExcelImportModal profile={profile} onClose={closeImport} onDone={finishImport} />
         : context === 'service'
-          ? <ServiceHistoryImportModalRobust profile={profile} onClose={closeImport} onDone={finishImport} />
+          ? <EditableServiceExcelImportModal profile={profile} onClose={closeImport} onDone={finishImport} />
           : context === 'dokumen'
             ? <VehicleDocumentsImportModal profile={profile} onClose={closeImport} onDone={finishImport} />
             : context === 'sewa'
