@@ -78,7 +78,10 @@ function simpleHash(value) {
 function getRowKey(context, row) {
   const cells = Array.from(row.children).filter((cell) => !cell.classList.contains('dpt-row-mark-cell'))
   const values = cells.map((cell) => {
-    const controls = Array.from(cell.querySelectorAll('input,select,textarea')).map((control) => `${control.tagName}:${control.value}`).join('|')
+    const controls = Array.from(cell.querySelectorAll('input,select,textarea')).map((control) => {
+      const stableValue = control.defaultValue !== undefined && control.defaultValue !== '' ? control.defaultValue : control.value
+      return `${control.tagName}:${stableValue}`
+    }).join('|')
     const text = cell.textContent.trim()
     return controls || text
   })
