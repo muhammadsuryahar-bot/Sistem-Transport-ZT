@@ -16,7 +16,21 @@ function writeDeleted(context, rows) {
     const store = raw ? JSON.parse(raw) : {}
     store[context] = [...new Set(rows.map(String))]
     localStorage.setItem(STORAGE_KEY, JSON.stringify(store))
-  } catch {}
+  } catch {
+    return
+  }
+}
+
+function getPreviewContext() {
+  const label = document.querySelector('.dpt-toolbar b')?.textContent?.trim()
+  const labels = {
+    'Kendaraan': 'kendaraan',
+    'Pengajuan Service': 'pengajuan',
+    'Service & Perbaikan': 'service',
+    'Kendaraan Sewa': 'sewa',
+    'Dokumen Kendaraan': 'dokumen',
+  }
+  return labels[label] || document.body.dataset.importContext || 'excel'
 }
 
 function getRowNumber(row) {
@@ -119,9 +133,11 @@ function addSelectionUi(table, preview, context) {
         const cb = row.querySelector('.epv-row-check')
         if (cb) cb.checked = false
       })
-      table.querySelector('.epv-head-check')?.removeAttribute('checked')
-      table.querySelector('.epv-head-check') && (table.querySelector('.epv-head-check').checked = false)
-      table.querySelector('.epv-head-check') && (table.querySelector('.epv-head-check').indeterminate = false)
+      const head = table.querySelector('.epv-head-check')
+      if (head) {
+        head.checked = false
+        head.indeterminate = false
+      }
       delete table.dataset.epvSelectionMode
       preview.querySelector('.epv-toolbar')?.remove()
       table.querySelectorAll('.epv-select-cell').forEach(cell => cell.remove())
@@ -220,8 +236,8 @@ export function initExcelPreviewSelection() {
   const run = () => {
     document.querySelectorAll('.dpt-preview table').forEach(table => {
       const preview = table.closest('.dpt-preview')
-      const context = preview?.closest('[data-import-context]')?.dataset.importContext || document.body.dataset.importContext || 'excel'
       if (!preview) return
+      const context = getPreviewContext()
       applyDeletedRows(table, context)
       visibleRows(table).forEach(row => bindLongPress(table, preview, context, row))
     })
