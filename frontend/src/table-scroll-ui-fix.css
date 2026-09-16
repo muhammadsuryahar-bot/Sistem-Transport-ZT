@@ -1,77 +1,93 @@
-/* Table usability fixes: keep page scrolling when pointer is over tables and prevent header overlap. */
+/* Shared table behavior for the whole transport application. */
 
-/* Main data tables: horizontal scrolling stays on the table, vertical scrolling stays on the page. */
+/* Normal page tables: horizontal scrolling is local to the table; vertical wheel scrolling belongs to the page. */
 .x-table-wrap,
 .m-table-wrap,
 .request-table-wrap {
   overflow-x: auto !important;
-  overflow-y: hidden !important;
-  overscroll-behavior: auto !important;
+  overflow-y: clip !important;
+  overscroll-behavior-x: contain !important;
+  overscroll-behavior-y: auto !important;
   touch-action: pan-x pan-y !important;
-  -webkit-overflow-scrolling: touch;
+  -webkit-overflow-scrolling: touch !important;
+  scrollbar-gutter: stable !important;
+  position: relative;
 }
 
-/* Excel previews: keep their own scroll when content is larger, but allow wheel chaining at the edges. */
-.dpt-preview-wrap {
-  overscroll-behavior: auto !important;
-  touch-action: pan-x pan-y !important;
-  -webkit-overflow-scrolling: touch;
-}
-
-/* Never let long headings visually collide with the next column. */
 .x-table,
 .m-table,
-.request-table,
-.dpt-preview table {
+.request-table {
+  width: max-content !important;
+  min-width: 100% !important;
+  table-layout: auto !important;
   border-spacing: 0;
 }
 
+/* Prevent header collision on every normal page table. */
 .x-table th,
 .m-table th,
-.request-table th,
-.dpt-preview th {
+.request-table th {
   white-space: normal !important;
   overflow-wrap: anywhere;
   word-break: normal;
   line-height: 1.25 !important;
   vertical-align: middle !important;
-  min-height: 38px;
+  padding-top: 12px !important;
+  padding-bottom: 12px !important;
 }
 
-/* Give the most commonly long master-data columns enough room. */
-.m-table {
-  width: max-content !important;
-  min-width: 100% !important;
-  table-layout: auto !important;
+.x-table td,
+.m-table td,
+.request-table td {
+  white-space: normal;
 }
 
+/* Master vehicle table: explicit readable column widths. */
 .m-table th:nth-child(1),
-.m-table td:nth-child(1) { min-width: 58px; }
+.m-table td:nth-child(1) { min-width: 52px; width: 52px; }
 .m-table th:nth-child(2),
-.m-table td:nth-child(2) { min-width: 130px; }
+.m-table td:nth-child(2) { min-width: 120px; }
 .m-table th:nth-child(3),
-.m-table td:nth-child(3) { min-width: 190px; }
+.m-table td:nth-child(3) { min-width: 180px; }
 .m-table th:nth-child(4),
-.m-table td:nth-child(4) { min-width: 175px; }
+.m-table td:nth-child(4) { min-width: 165px; }
 .m-table th:nth-child(5),
-.m-table td:nth-child(5) { min-width: 190px; }
+.m-table td:nth-child(5) { min-width: 175px; }
 .m-table th:nth-child(6),
-.m-table td:nth-child(6) { min-width: 90px; }
+.m-table td:nth-child(6) { min-width: 180px; }
 .m-table th:nth-child(7),
-.m-table td:nth-child(7) { min-width: 95px; }
+.m-table td:nth-child(7) { min-width: 85px; }
 .m-table th:nth-child(8),
-.m-table td:nth-child(8) { min-width: 210px; }
+.m-table td:nth-child(8) { min-width: 90px; }
 .m-table th:nth-child(9),
 .m-table td:nth-child(9) { min-width: 210px; }
 .m-table th:nth-child(10),
 .m-table td:nth-child(10) { min-width: 135px; }
+.m-table th:nth-child(11),
+.m-table td:nth-child(11) { min-width: 135px; }
 
-/* Header text remains readable even when the table becomes horizontally scrollable. */
-.m-table th,
-.x-table th,
-.request-table th {
-  padding-top: 12px !important;
-  padding-bottom: 12px !important;
+/* Excel import previews intentionally own their bounded viewport inside the modal. */
+.dpt-preview-wrap {
+  overflow-x: auto !important;
+  overflow-y: auto !important;
+  overscroll-behavior: auto !important;
+  touch-action: pan-x pan-y !important;
+  -webkit-overflow-scrolling: touch !important;
+  scrollbar-gutter: stable both-edges !important;
+}
+
+.dpt-preview table {
+  width: max-content !important;
+  min-width: 100% !important;
+  table-layout: auto !important;
+  border-spacing: 0;
+}
+
+.dpt-preview th {
+  white-space: normal !important;
+  overflow-wrap: anywhere;
+  line-height: 1.25 !important;
+  vertical-align: middle !important;
 }
 
 @media (max-width: 850px) {
@@ -79,6 +95,6 @@
   .x-table-wrap,
   .request-table-wrap {
     overflow-x: auto !important;
-    overflow-y: hidden !important;
+    overflow-y: clip !important;
   }
 }
