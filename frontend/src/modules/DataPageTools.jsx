@@ -17,6 +17,31 @@ const CONTEXT_LABEL = {
 
 const hasReport = (value) => value && typeof value === 'object' && value.context
 
+function normalizeImportPreviewTables() {
+  const tables = document.querySelectorAll('.dpt-preview table')
+  tables.forEach((table) => {
+    const headers = Array.from(table.querySelectorAll('thead th')).map((cell) => cell.textContent.trim().toLowerCase())
+    table.querySelectorAll('tbody tr').forEach((row) => {
+      Array.from(row.children).forEach((cell, index) => {
+        const raw = cell.textContent.trim()
+        if (!raw) return
+        const header = headers[index] || ''
+        if (/tanggal|tgl|date/.test(header)) {
+          const serial = Number(raw)
+          if (Number.isFinite(serial) && serial > 20000 && serial < 80000) {
+            const date = new Date(Date.UTC(1899, 11, 30) + serial * 86400000)
+            if (!Number.isNaN(date.getTime())) {
+              cell.textContent = new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(date)
+              return
+            }
+          }
+        }
+        if (/^-?\d+\.0+$/.test(raw)) cell.textContent = raw.replace(/\.0+$/, '')
+      })
+    })
+  })
+}
+
 export default function DataPageTools({ context, profile, onExport }) {
   const [showImport, setShowImport] = useState(false)
   const [importReport, setImportReport] = useState(null)
@@ -35,6 +60,14 @@ export default function DataPageTools({ context, profile, onExport }) {
       sessionStorage.removeItem('transport_import_report')
     }
   }, [context])
+
+  useEffect(() => {
+    const run = () => normalizeImportPreviewTables()
+    run()
+    const observer = new MutationObserver(run)
+    observer.observe(document.body, { childList: true, subtree: true })
+    return () => observer.disconnect()
+  }, [showImport])
 
   if (!CONTEXT_LABEL[context]) return null
 
