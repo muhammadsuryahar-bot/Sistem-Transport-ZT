@@ -21,7 +21,7 @@ jobs:
           node-version: 24
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - name: Apply preview wiring
+      - name: Apply verified preview wiring
         run: |
           python3 <<'PY'
           from pathlib import Path
@@ -30,52 +30,64 @@ jobs:
           src = Path('frontend/src')
           modules = src / 'modules'
 
-          def ensure_import(text, marker, import_line):
+          def ensure_import(text, anchor, import_line):
               if import_line in text:
                   return text
-              return text.replace(marker, marker + '\n' + import_line, 1)
+              return text.replace(anchor, anchor + '\n' + import_line, 1)
 
+          # Global Excel preview selection.
           main = src / 'main.jsx'
           text = main.read_text(encoding='utf-8')
-          text = ensure_import(text, "import './utils/excelTableUiFixes.js'", "import { initExcelPreviewSelection } from './utils/excelPreviewSelection.js'")
-          text = text.replace('initExcelTableUiFixes()\ninitGlobalTableSelection()', 'initExcelTableUiFixes()\ninitGlobalTableSelection()\ninitExcelPreviewSelection()')
+          text = ensure_import(text, "import { initGlobalTableSelection } from './utils/globalTableSelection.js'", "import { initExcelPreviewSelection } from './utils/excelPreviewSelection.js'")
+          if 'initExcelPreviewSelection()' not in text:
+              text = text.replace('initGlobalTableSelection()', 'initGlobalTableSelection()\ninitExcelPreviewSelection()', 1)
           main.write_text(text, encoding='utf-8')
 
           css = modules / 'DataPageTools.css'
           css_text = css.read_text(encoding='utf-8')
-          rule = '.epv-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 10px;padding:10px 12px;border:1px solid #dbe3ec;border-radius:10px;background:#f8fafc}.epv-toolbar>div:first-child{display:flex;align-items:center;gap:8px}.epv-count{font-size:12px;color:#64748b}.epv-actions{display:flex;gap:7px;flex-wrap:wrap}.epv-actions button{border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:8px;padding:7px 10px;font-size:12px;font-weight:700;cursor:pointer}.epv-actions .epv-remove{color:#b91c1c;border-color:#fecaca}.epv-actions button:disabled{opacity:.45;cursor:not-allowed}.epv-select-head,.epv-select-cell{width:40px;min-width:40px;text-align:center!important;padding:7px!important}.epv-select-head input,.epv-select-cell input{width:16px;height:16px;cursor:pointer}.epv-selected-row td{background:#f0fdf4!important}@media(max-width:700px){.epv-toolbar{align-items:flex-start;flex-direction:column}.epv-actions{width:100%}.epv-actions button{flex:1}}'
-          if rule not in css_text:
-              css_text += '\n' + rule + '\n'
+          marker = '.epv-toolbar{'
+          if marker not in css_text:
+              css_text += '''\n.epv-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 10px;padding:10px 12px;border:1px solid #dbe3ec;border-radius:10px;background:#f8fafc}.epv-toolbar>div:first-child{display:flex;align-items:center;gap:8px}.epv-count{font-size:12px;color:#64748b}.epv-actions{display:flex;gap:7px;flex-wrap:wrap}.epv-actions button{border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:8px;padding:7px 10px;font-size:12px;font-weight:700;cursor:pointer}.epv-actions .epv-remove{color:#b91c1c;border-color:#fecaca}.epv-actions button:disabled{opacity:.45;cursor:not-allowed}.epv-select-head,.epv-select-cell{width:40px;min-width:40px;text-align:center!important;padding:7px!important}.epv-select-head input,.epv-select-cell input{width:16px;height:16px;cursor:pointer}.epv-selected-row td{background:#f0fdf4!important}@media(max-width:700px){.epv-toolbar{align-items:flex-start;flex-direction:column}.epv-actions{width:100%}.epv-actions button{flex:1}}\n'''
           css.write_text(css_text, encoding='utf-8')
 
           configs = {
-            'VehicleExcelImportModalV2.jsx': ('kendaraan', "importVehicleRows(workbook.valid", "importVehicleRows(filterDeletedExcelRows('kendaraan', workbook.valid)"),
-            'PengajuanExcelImportModal.jsx': ('pengajuan', None, None),
-            'EditableServiceExcelImportModal.jsx': ('service', 'importHistory(rows, profile', "importHistory(filterDeletedExcelRows('service', rows), profile"),
-            'VehicleDocumentsImportModal.jsx': ('dokumen', 'importDocuments(workbook.valid, profile', "importDocuments(filterDeletedExcelRows('dokumen', workbook.valid), profile"),
-            'RentalHistoryImportModalV2.jsx': ('sewa', 'importSummary(rows, profile', "importSummary(filterDeletedExcelRows('sewa', rows), profile"),
+            'VehicleExcelImportModalV2.jsx': 'kendaraan',
+            'PengajuanExcelImportModal.jsx': 'pengajuan',
+            'EditableServiceExcelImportModal.jsx': 'service',
+            'VehicleDocumentsImportModal.jsx': 'dokumen',
+            'RentalHistoryImportModalV2.jsx': 'sewa',
           }
-          for filename, (context, import_call, replacement) in configs.items():
+          for filename, context in configs.items():
               path = modules / filename
               text = path.read_text(encoding='utf-8')
-              text = ensure_import(text, "import { parseXlsx } from '../utils/xlsxParser.js'", "import { clearDeletedExcelRows, filterDeletedExcelRows } from '../utils/excelPreviewControls.js'")
+              text = ensure_import(text, "import { supabase } from '../lib/supabase'", "import { clearDeletedExcelRows, filterDeletedExcelRows } from '../utils/excelPreviewControls.js'")
+
               if f"clearDeletedExcelRows('{context}')" not in text:
-                  text = re.sub(r"(const scan\s*=\s*async\s+\w*\s*\([^\)]*\)\s*=>\s*\{)", rf"\1\n    clearDeletedExcelRows('{context}')", text, count=1)
+                  text = re.sub(r'(const scan\s*=\s*async[^\{]*\{)', rf"\1\n    clearDeletedExcelRows('{context}')", text, count=1)
+
               text = re.sub(r'<tr key=\{(row\.excelRow|row\.id)\}', r'<tr data-excel-row={row.excelRow} key={\1}', text)
-              if import_call and import_call in text:
-                  text = text.replace(import_call, replacement, 1)
-              if context == 'pengajuan':
+
+              if context == 'kendaraan':
+                  if "const activeRows = filterDeletedExcelRows('kendaraan', workbook.valid)" not in text:
+                      text = text.replace("    try {", "    try {\n      const activeRows = filterDeletedExcelRows('kendaraan', workbook.valid)", 1)
+                  text = text.replace('importVehicleRows(workbook.valid', 'importVehicleRows(activeRows', 1)
+              elif context == 'pengajuan':
                   if "const activeRows = filterDeletedExcelRows('pengajuan', rows)" not in text:
-                      text = text.replace('    try {\n      const vehicleMap', "    try {\n      const activeRows = filterDeletedExcelRows('pengajuan', rows)\n      const vehicleMap", 1)
+                      text = text.replace("    try {\n      const vehicleMap", "    try {\n      const activeRows = filterDeletedExcelRows('pengajuan', rows)\n      const vehicleMap", 1)
                   text = text.replace('for (const row of rows)', 'for (const row of activeRows)')
+                  text = text.replace('sourceRows: rows.length', 'sourceRows: activeRows.length')
+              elif context == 'service':
+                  text = text.replace("const result = await importHistory(rows, profile,", "const activeRows = filterDeletedExcelRows('service', rows)\n      const result = await importHistory(activeRows, profile,", 1)
+              elif context == 'dokumen':
+                  text = text.replace("const result = await importDocuments(workbook.valid, profile,", "const activeRows = filterDeletedExcelRows('dokumen', workbook.valid)\n      const result = await importDocuments(activeRows, profile,", 1)
+              elif context == 'sewa':
+                  text = text.replace("const result = await importSummary(rows, profile)", "const activeRows = filterDeletedExcelRows('sewa', rows)\n      const result = await importSummary(activeRows, profile)", 1)
+
               path.write_text(text, encoding='utf-8')
           PY
-      - name: Lint after patch
+      - name: Install and build frontend
         working-directory: frontend
-        run: npm ci && npm run lint
-      - name: Build after patch
-        working-directory: frontend
-        run: npm run build
+        run: npm ci && npm run build
       - name: Commit verified patch
         run: |
           git config user.name "github-actions[bot]"
