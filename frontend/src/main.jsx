@@ -15,6 +15,7 @@ import './transport-ui-final.css'
 import './table-scroll-ui-fix.css'
 import './master-vehicle-table-final.css'
 import './global-table-selection.css'
+import './data-row-mark-legend.css'
 
 initExcelTableUiFixes()
 initGlobalTableSelection()
