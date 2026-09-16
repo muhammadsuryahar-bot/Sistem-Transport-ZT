@@ -77,7 +77,12 @@ function simpleHash(value) {
 
 function getRowKey(context, row) {
   const cells = Array.from(row.children).filter((cell) => !cell.classList.contains('dpt-row-mark-cell'))
-  const text = cells.map((cell) => cell.textContent.trim()).join('\u241f')
+  const values = cells.map((cell) => {
+    const controls = Array.from(cell.querySelectorAll('input,select,textarea')).map((control) => `${control.tagName}:${control.value}`).join('|')
+    const text = cell.textContent.trim()
+    return controls || text
+  })
+  const text = values.join('\u241f')
   return `${context}:${simpleHash(text || `row-${row.rowIndex}`)}`
 }
 
@@ -100,7 +105,7 @@ function ensureRowMarkControls(context) {
       toolbar = document.createElement('div')
       toolbar.className = 'dpt-row-mark-toolbar'
       toolbar.innerHTML = `
-        <div class="dpt-row-mark-title"><b>Penanda kerja</b><span>Berikan status per baris supaya tim Transport cepat mengetahui pekerjaan yang sudah dikerjakan.</span></div>
+        <div class="dpt-row-mark-title"><b>Penanda kerja</b><span>Status per baris tersimpan di browser ini agar tanda kerja tidak hilang saat tabel berganti halaman.</span></div>
         <div class="dpt-row-mark-controls">
           <label>Filter
             <select class="dpt-row-mark-filter">
@@ -159,9 +164,10 @@ function ensureRowMarkControls(context) {
       filter.dataset.bound = '1'
       filter.addEventListener('change', () => {
         const value = filter.value
+        const latestMarks = readRowMarks()
         table.querySelectorAll('tbody tr').forEach((row) => {
           const key = row.dataset.dptRowMarkKey
-          const current = marks[key] || 'NONE'
+          const current = latestMarks[key] || 'NONE'
           row.style.display = value === 'ALL' || current === value ? '' : 'none'
         })
       })
