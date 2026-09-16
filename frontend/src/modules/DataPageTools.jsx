@@ -4,6 +4,7 @@ import VehicleExcelImportModal from './VehicleExcelImportModal.jsx'
 import ServiceHistoryImportModalRobust from './ServiceHistoryImportModalRobust.jsx'
 import VehicleDocumentsImportModal from './VehicleDocumentsImportModal.jsx'
 import PengajuanExcelImportModal from './PengajuanExcelImportModal.jsx'
+import RentalHistoryImportModal from './RentalHistoryImportModal.jsx'
 import './DataPageTools.css'
 
 const CONTEXT_LABEL = {
@@ -57,7 +58,9 @@ export default function DataPageTools({ context, profile, onExport }) {
           ? <ServiceHistoryImportModalRobust profile={profile} onClose={closeImport} onDone={finishImport} />
           : context === 'dokumen'
             ? <VehicleDocumentsImportModal profile={profile} onClose={closeImport} onDone={finishImport} />
-            : <UnifiedExcelImportModalSafe context={context} profile={profile} onClose={closeImport} onDone={finishImport} />
+            : context === 'sewa'
+              ? <RentalHistoryImportModal profile={profile} onClose={closeImport} onDone={finishImport} />
+              : <UnifiedExcelImportModalSafe context={context} profile={profile} onClose={closeImport} onDone={finishImport} />
     )}
 
     {importReport && <div className="dpt-overlay" role="dialog" aria-modal="true" aria-label="Laporan hasil import">
