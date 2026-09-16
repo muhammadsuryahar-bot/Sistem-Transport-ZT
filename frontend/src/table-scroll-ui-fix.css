@@ -1,0 +1,84 @@
+/* Table usability fixes: keep page scrolling when pointer is over tables and prevent header overlap. */
+
+/* Main data tables: horizontal scrolling stays on the table, vertical scrolling stays on the page. */
+.x-table-wrap,
+.m-table-wrap,
+.request-table-wrap {
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  overscroll-behavior: auto !important;
+  touch-action: pan-x pan-y !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Excel previews: keep their own scroll when content is larger, but allow wheel chaining at the edges. */
+.dpt-preview-wrap {
+  overscroll-behavior: auto !important;
+  touch-action: pan-x pan-y !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Never let long headings visually collide with the next column. */
+.x-table,
+.m-table,
+.request-table,
+.dpt-preview table {
+  border-spacing: 0;
+}
+
+.x-table th,
+.m-table th,
+.request-table th,
+.dpt-preview th {
+  white-space: normal !important;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  line-height: 1.25 !important;
+  vertical-align: middle !important;
+  min-height: 38px;
+}
+
+/* Give the most commonly long master-data columns enough room. */
+.m-table {
+  width: max-content !important;
+  min-width: 100% !important;
+  table-layout: auto !important;
+}
+
+.m-table th:nth-child(1),
+.m-table td:nth-child(1) { min-width: 58px; }
+.m-table th:nth-child(2),
+.m-table td:nth-child(2) { min-width: 130px; }
+.m-table th:nth-child(3),
+.m-table td:nth-child(3) { min-width: 190px; }
+.m-table th:nth-child(4),
+.m-table td:nth-child(4) { min-width: 175px; }
+.m-table th:nth-child(5),
+.m-table td:nth-child(5) { min-width: 190px; }
+.m-table th:nth-child(6),
+.m-table td:nth-child(6) { min-width: 90px; }
+.m-table th:nth-child(7),
+.m-table td:nth-child(7) { min-width: 95px; }
+.m-table th:nth-child(8),
+.m-table td:nth-child(8) { min-width: 210px; }
+.m-table th:nth-child(9),
+.m-table td:nth-child(9) { min-width: 210px; }
+.m-table th:nth-child(10),
+.m-table td:nth-child(10) { min-width: 135px; }
+
+/* Header text remains readable even when the table becomes horizontally scrollable. */
+.m-table th,
+.x-table th,
+.request-table th {
+  padding-top: 12px !important;
+  padding-bottom: 12px !important;
+}
+
+@media (max-width: 850px) {
+  .m-table-wrap,
+  .x-table-wrap,
+  .request-table-wrap {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+  }
+}
