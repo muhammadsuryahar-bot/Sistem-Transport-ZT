@@ -3,6 +3,7 @@ import UnifiedExcelImportModalSafe from './UnifiedExcelImportModalSafe.jsx'
 import VehicleExcelImportModal from './VehicleExcelImportModal.jsx'
 import ServiceHistoryImportModalRobust from './ServiceHistoryImportModalRobust.jsx'
 import VehicleDocumentsImportModal from './VehicleDocumentsImportModal.jsx'
+import PengajuanExcelImportModal from './PengajuanExcelImportModal.jsx'
 import './DataPageTools.css'
 
 const CONTEXT_LABEL = {
@@ -50,11 +51,13 @@ export default function DataPageTools({ context, profile, onExport }) {
   return <>
     {showImport && (context === 'kendaraan'
       ? <VehicleExcelImportModal profile={profile} onClose={closeImport} onDone={finishImport} />
-      : context === 'service'
-        ? <ServiceHistoryImportModalRobust profile={profile} onClose={closeImport} onDone={finishImport} />
-        : context === 'dokumen'
-          ? <VehicleDocumentsImportModal profile={profile} onClose={closeImport} onDone={finishImport} />
-          : <UnifiedExcelImportModalSafe context={context} profile={profile} onClose={closeImport} onDone={finishImport} />
+      : context === 'pengajuan'
+        ? <PengajuanExcelImportModal profile={profile} onClose={closeImport} onDone={finishImport} />
+        : context === 'service'
+          ? <ServiceHistoryImportModalRobust profile={profile} onClose={closeImport} onDone={finishImport} />
+          : context === 'dokumen'
+            ? <VehicleDocumentsImportModal profile={profile} onClose={closeImport} onDone={finishImport} />
+            : <UnifiedExcelImportModalSafe context={context} profile={profile} onClose={closeImport} onDone={finishImport} />
     )}
 
     {importReport && <div className="dpt-overlay" role="dialog" aria-modal="true" aria-label="Laporan hasil import">
@@ -67,14 +70,12 @@ export default function DataPageTools({ context, profile, onExport }) {
           </div>
           <button type="button" className="dpt-icon" onClick={closeReport}>×</button>
         </header>
-
         <div className="service-import-stats">
           <div><b>{importReport.sourceRows ?? 0}</b><span>baris sumber</span></div>
           <div><b>{importReport.validRows ?? importReport.sourceRows ?? 0}</b><span>baris valid</span></div>
           <div><b>{importReport.uniqueVehicles ?? importReport.transactions ?? importReport.imported ?? 0}</b><span>data unik</span></div>
           <div><b>{importReport.mergedDuplicates ?? importReport.skipped ?? 0}</b><span>duplikat/skip</span></div>
         </div>
-
         <div className="vehicle-import-explanation">
           <b>Hasil penyimpanan</b>
           {importReport.added != null && <span>Data baru: <strong>{importReport.added}</strong></span>}
@@ -84,28 +85,11 @@ export default function DataPageTools({ context, profile, onExport }) {
           {importReport.kmUpdated != null && <span>KM kendaraan diperbarui: <strong>{importReport.kmUpdated}</strong></span>}
           {importReport.unknownPlates?.length > 0 && <span>Plat belum ada di Master Kendaraan: <strong>{importReport.unknownPlates.length}</strong></span>}
         </div>
-
         {importReport.message && <div className="vehicle-import-note"><b>Detail hasil import</b><span>{importReport.message}</span></div>}
-
-        {importReport.context === 'kendaraan' && <div className="vehicle-import-note">
-          <b>Kenapa jumlah Excel dan Master bisa berbeda?</b>
-          <span>Excel menghitung baris sumber, sedangkan Master Kendaraan menghitung No. Polisi unik.</span>
-          <span>Baris dengan No. Polisi yang sama digabung menjadi satu kendaraan.</span>
-          <span>Jadi angka yang lebih kecil pada Master tidak otomatis berarti data hilang.</span>
-        </div>}
-
-        {importReport.missingSourceNumbers?.length > 0 && <div className="vehicle-import-warning">
-          Nomor urut sumber yang tidak ditemukan: <b>{importReport.missingSourceNumbers.join(', ')}</b>.
-        </div>}
-
-        {importReport.unknownPlates?.length > 0 && <div className="vehicle-import-warning">
-          Plat belum ada di Master Kendaraan: <b>{importReport.unknownPlates.slice(0, 20).join(', ')}</b>{importReport.unknownPlates.length > 20 ? ' …' : ''}
-        </div>}
-
-        <div className="dpt-actions">
-          <button type="button" className="dpt-button" onClick={closeReport}>Tutup</button>
-          <button type="button" className="dpt-button primary" onClick={refreshAfterImport}>Refresh Data Sistem</button>
-        </div>
+        {importReport.context === 'kendaraan' && <div className="vehicle-import-note"><b>Catatan rekonsiliasi kendaraan</b><span>Excel menghitung baris sumber, sedangkan Master Kendaraan menggunakan No. Polisi sebagai identitas unik.</span><span>Baris dengan No. Polisi yang sama dapat diperbarui, bukan dibuat sebagai kendaraan baru kedua.</span></div>}
+        {importReport.missingSourceNumbers?.length > 0 && <div className="vehicle-import-warning">Nomor urut sumber yang tidak ditemukan: <b>{importReport.missingSourceNumbers.join(', ')}</b>.</div>}
+        {importReport.unknownPlates?.length > 0 && <div className="vehicle-import-warning">Plat belum ada di Master Kendaraan: <b>{importReport.unknownPlates.slice(0, 20).join(', ')}</b>{importReport.unknownPlates.length > 20 ? ' …' : ''}</div>}
+        <div className="dpt-actions"><button type="button" className="dpt-button" onClick={closeReport}>Tutup</button><button type="button" className="dpt-button primary" onClick={refreshAfterImport}>Refresh Data Sistem</button></div>
       </section>
     </div>}
 
