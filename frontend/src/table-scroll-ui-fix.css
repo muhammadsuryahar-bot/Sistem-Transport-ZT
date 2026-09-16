@@ -32,8 +32,8 @@
   word-break: normal;
   line-height: 1.25 !important;
   vertical-align: middle !important;
-  padding-top: 12px !important;
-  padding-bottom: 12px !important;
+  padding: 12px 14px !important;
+  min-width: 72px;
 }
 
 .x-table td,
@@ -42,29 +42,14 @@
   white-space: normal;
 }
 
-/* Master vehicle table: explicit readable column widths. */
-.m-table th:nth-child(1),
-.m-table td:nth-child(1) { min-width: 52px; width: 52px; }
-.m-table th:nth-child(2),
-.m-table td:nth-child(2) { min-width: 120px; }
-.m-table th:nth-child(3),
-.m-table td:nth-child(3) { min-width: 180px; }
-.m-table th:nth-child(4),
-.m-table td:nth-child(4) { min-width: 165px; }
-.m-table th:nth-child(5),
-.m-table td:nth-child(5) { min-width: 175px; }
-.m-table th:nth-child(6),
-.m-table td:nth-child(6) { min-width: 180px; }
-.m-table th:nth-child(7),
-.m-table td:nth-child(7) { min-width: 85px; }
-.m-table th:nth-child(8),
-.m-table td:nth-child(8) { min-width: 90px; }
-.m-table th:nth-child(9),
-.m-table td:nth-child(9) { min-width: 210px; }
-.m-table th:nth-child(10),
-.m-table td:nth-child(10) { min-width: 135px; }
-.m-table th:nth-child(11),
-.m-table td:nth-child(11) { min-width: 135px; }
+/* Selection checkbox column stays compact when bulk-select mode is active. */
+.m-select-cell {
+  width: 42px !important;
+  min-width: 42px !important;
+  max-width: 42px !important;
+  padding-left: 10px !important;
+  padding-right: 10px !important;
+}
 
 /* Excel import previews intentionally own their bounded viewport inside the modal. */
 .dpt-preview-wrap {
