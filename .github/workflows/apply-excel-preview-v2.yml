@@ -29,86 +29,47 @@ jobs:
 
           src = Path('frontend/src')
           modules = src / 'modules'
-          util = src / 'utils'
 
           def ensure_import(text, marker, import_line):
               if import_line in text:
                   return text
               return text.replace(marker, marker + '\n' + import_line, 1)
 
-          def insert_once(text, marker, addition):
-              if addition.strip() in text:
-                  return text
-              return text.replace(marker, addition + marker, 1)
-
-          # main: initialize the preview selection controller globally.
           main = src / 'main.jsx'
           text = main.read_text(encoding='utf-8')
           text = ensure_import(text, "import './utils/excelTableUiFixes.js'", "import { initExcelPreviewSelection } from './utils/excelPreviewSelection.js'")
           text = text.replace('initExcelTableUiFixes()\ninitGlobalTableSelection()', 'initExcelTableUiFixes()\ninitGlobalTableSelection()\ninitExcelPreviewSelection()')
           main.write_text(text, encoding='utf-8')
 
-          # Keep preview selection styling in the global stylesheet so every import modal shares the same UX.
           css = modules / 'DataPageTools.css'
           css_text = css.read_text(encoding='utf-8')
-          css_text += '''\n.epv-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 10px;padding:10px 12px;border:1px solid #dbe3ec;border-radius:10px;background:#f8fafc}.epv-toolbar>div:first-child{display:flex;align-items:center;gap:8px}.epv-count{font-size:12px;color:#64748b}.epv-actions{display:flex;gap:7px;flex-wrap:wrap}.epv-actions button{border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:8px;padding:7px 10px;font-size:12px;font-weight:700;cursor:pointer}.epv-actions .epv-remove{color:#b91c1c;border-color:#fecaca}.epv-actions button:disabled{opacity:.45;cursor:not-allowed}.epv-select-head,.epv-select-cell{width:40px;min-width:40px;text-align:center!important;padding:7px!important}.epv-select-head input,.epv-select-cell input{width:16px;height:16px;cursor:pointer}.epv-selected-row td{background:#f0fdf4!important}@media(max-width:700px){.epv-toolbar{align-items:flex-start;flex-direction:column}.epv-actions{width:100%}.epv-actions button{flex:1}}\n'''
+          rule = '.epv-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 10px;padding:10px 12px;border:1px solid #dbe3ec;border-radius:10px;background:#f8fafc}.epv-toolbar>div:first-child{display:flex;align-items:center;gap:8px}.epv-count{font-size:12px;color:#64748b}.epv-actions{display:flex;gap:7px;flex-wrap:wrap}.epv-actions button{border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:8px;padding:7px 10px;font-size:12px;font-weight:700;cursor:pointer}.epv-actions .epv-remove{color:#b91c1c;border-color:#fecaca}.epv-actions button:disabled{opacity:.45;cursor:not-allowed}.epv-select-head,.epv-select-cell{width:40px;min-width:40px;text-align:center!important;padding:7px!important}.epv-select-head input,.epv-select-cell input{width:16px;height:16px;cursor:pointer}.epv-selected-row td{background:#f0fdf4!important}@media(max-width:700px){.epv-toolbar{align-items:flex-start;flex-direction:column}.epv-actions{width:100%}.epv-actions button{flex:1}}'
+          if rule not in css_text:
+              css_text += '\n' + rule + '\n'
           css.write_text(css_text, encoding='utf-8')
 
-          # Each importer gets persistent deletion filtering. A fresh file resets that file/context state.
           configs = {
-            'VehicleExcelImportModalV2.jsx': {
-              'context': 'kendaraan',
-              'import_call': "importVehicleRows(workbook.valid",
-              'replacement': "importVehicleRows(filterDeletedExcelRows('kendaraan', workbook.valid)",
-            },
-            'PengajuanExcelImportModal.jsx': {
-              'context': 'pengajuan',
-              'import_call': None,
-              'replacement': None,
-            },
-            'EditableServiceExcelImportModal.jsx': {
-              'context': 'service',
-              'import_call': 'importHistory(rows, profile',
-              'replacement': "importHistory(filterDeletedExcelRows('service', rows), profile",
-            },
-            'VehicleDocumentsImportModal.jsx': {
-              'context': 'dokumen',
-              'import_call': 'importDocuments(workbook.valid, profile',
-              'replacement': "importDocuments(filterDeletedExcelRows('dokumen', workbook.valid), profile",
-            },
-            'RentalHistoryImportModalV2.jsx': {
-              'context': 'sewa',
-              'import_call': 'importSummary(rows, profile',
-              'replacement': "importSummary(filterDeletedExcelRows('sewa', rows), profile",
-            },
+            'VehicleExcelImportModalV2.jsx': ('kendaraan', "importVehicleRows(workbook.valid", "importVehicleRows(filterDeletedExcelRows('kendaraan', workbook.valid)"),
+            'PengajuanExcelImportModal.jsx': ('pengajuan', None, None),
+            'EditableServiceExcelImportModal.jsx': ('service', 'importHistory(rows, profile', "importHistory(filterDeletedExcelRows('service', rows), profile"),
+            'VehicleDocumentsImportModal.jsx': ('dokumen', 'importDocuments(workbook.valid, profile', "importDocuments(filterDeletedExcelRows('dokumen', workbook.valid), profile"),
+            'RentalHistoryImportModalV2.jsx': ('sewa', 'importSummary(rows, profile', "importSummary(filterDeletedExcelRows('sewa', rows), profile"),
           }
-
-          for filename, cfg in configs.items():
+          for filename, (context, import_call, replacement) in configs.items():
               path = modules / filename
               text = path.read_text(encoding='utf-8')
               text = ensure_import(text, "import { parseXlsx } from '../utils/xlsxParser.js'", "import { clearDeletedExcelRows, filterDeletedExcelRows } from '../utils/excelPreviewControls.js'")
-
-              context = cfg['context']
-              # Insert the reset immediately after the scan function opens.
               if f"clearDeletedExcelRows('{context}')" not in text:
                   text = re.sub(r"(const scan\s*=\s*async\s+\w*\s*\([^\)]*\)\s*=>\s*\{)", rf"\1\n    clearDeletedExcelRows('{context}')", text, count=1)
-
-              # Give every preview row its XLSX row number for stable deletion tracking.
               text = re.sub(r'<tr key=\{(row\.excelRow|row\.id)\}', r'<tr data-excel-row={row.excelRow} key={\1}', text)
-
-              if cfg['import_call'] and cfg['import_call'] in text:
-                  text = text.replace(cfg['import_call'], cfg['replacement'], 1)
-
+              if import_call and import_call in text:
+                  text = text.replace(import_call, replacement, 1)
               if context == 'pengajuan':
                   if "const activeRows = filterDeletedExcelRows('pengajuan', rows)" not in text:
                       text = text.replace('    try {\n      const vehicleMap', "    try {\n      const activeRows = filterDeletedExcelRows('pengajuan', rows)\n      const vehicleMap", 1)
                   text = text.replace('for (const row of rows)', 'for (const row of activeRows)')
-
               path.write_text(text, encoding='utf-8')
-
-          # The old selection workflow is no longer needed; this workflow owns the patch.
           PY
-
       - name: Lint after patch
         working-directory: frontend
         run: npm ci && npm run lint
