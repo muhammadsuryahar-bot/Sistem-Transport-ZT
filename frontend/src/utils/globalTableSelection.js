@@ -7,8 +7,12 @@ function normalizeText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim().toLowerCase()
 }
 
+function hasNativeSelection(table) {
+  return Boolean(table.querySelector('.x-longpress-row, .m-longpress-row, .x-select-cell, .m-select-cell'))
+}
+
 function isDataTable(table) {
-  if (!table || table.matches(SKIP_TABLE_SELECTOR)) return false
+  if (!table || table.matches(SKIP_TABLE_SELECTOR) || hasNativeSelection(table)) return false
   const rows = [...table.querySelectorAll('tbody tr')].filter(row => !row.querySelector('td[colspan]'))
   return rows.length > 0
 }
@@ -64,7 +68,7 @@ function removeSelectionUi(table) {
   table.querySelector(`.${HEAD_CHECKBOX_CLASS}`)?.closest('th')?.remove()
   table.parentElement?.querySelector(`.${TOOLBAR_CLASS}`)?.remove()
   delete table.dataset.gtsSelectionMode
-  table.querySelectorAll('tbody tr').forEach(row => { delete row.dataset.gtsSelected })
+  table.querySelectorAll('tbody tr').forEach(row => row.classList.remove('gts-selected-row'))
 }
 
 function setSelectionMode(table, active) {
@@ -127,19 +131,13 @@ function ensureToolbar(table) {
         return
       }
       const warning = blocked ? `\n${blocked} data tidak memiliki aksi Hapus dan akan dilewati.` : ''
-      if (!window.confirm(`Hapus ${actionable.length} data yang dipilih?${warning}`)) return
-      const originalConfirm = window.confirm
-      try {
-        window.confirm = () => true
-        for (const row of actionable) {
-          const button = findDeleteButton(row)
-          if (button) {
-            button.click()
-            await new Promise(resolve => setTimeout(resolve, 80))
-          }
+      if (!window.confirm(`Hapus ${actionable.length} data yang dipilih?${warning}\n\nPenghapusan tetap mengikuti konfirmasi dari halaman masing-masing.`)) return
+      for (const row of actionable) {
+        const button = findDeleteButton(row)
+        if (button) {
+          button.click()
+          await new Promise(resolve => setTimeout(resolve, 180))
         }
-      } finally {
-        window.confirm = originalConfirm
       }
       setSelectionMode(table, false)
     })
@@ -161,7 +159,7 @@ function updateTableState(table) {
     head.checked = rows.length > 0 && selected.length === rows.length
     head.indeterminate = selected.length > 0 && selected.length < rows.length
   }
-  rows.forEach(row => { row.classList.toggle('gts-selected-row', Boolean(row.querySelector(`.${CHECKBOX_CLASS}`)?.checked)) })
+  rows.forEach(row => row.classList.toggle('gts-selected-row', Boolean(row.querySelector(`.${CHECKBOX_CLASS}`)?.checked)))
 }
 
 function bindRowInteractions(table, row) {
