@@ -11,6 +11,7 @@ import './sidebar-polish.css'
 import './sidebar-fixed.css'
 import './module-export.css'
 import './transport-ui-final.css'
+import './table-scroll-ui-fix.css'
 
 initExcelTableUiFixes()
 
