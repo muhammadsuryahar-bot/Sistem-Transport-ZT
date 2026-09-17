@@ -53,6 +53,26 @@ export default function RentalFeaturePage({ profile }) {
   const editable = ['ADMIN', 'TRANSPORT', 'AKUNTANSI'].includes(profile?.role)
   const vehicleMap = useMemo(() => Object.fromEntries(vehicles.map(v => [v.id, v])), [vehicles])
   const repairMap = useMemo(() => Object.fromEntries(repairs.map(r => [r.id, r])), [repairs])
+  const historicalRows = useMemo(() => {
+    const contractMap = Object.fromEntries(contracts.map(c => [c.id, c]))
+    const ownerMap = Object.fromEntries(owners.map(o => [o.id, o]))
+    return payments.map((payment, index) => {
+      const contract = contractMap[payment.kontrak_sewa_id]
+      const owner = ownerMap[contract?.pemilik_sewa_id]
+      const date = payment.bulan_pembayaran ? new Date(`${payment.bulan_pembayaran}T00:00:00`) : null
+      const note = payment.catatan || ''
+      const imported = note.match(/^Import SUMMERY RENTAL (\d{4}) • ([^•]+) • ([^•]+) • (.*)$/)
+      const monthName = date && !Number.isNaN(date.getTime()) ? new Intl.DateTimeFormat('id-ID', { month: 'long' }).format(date) : '-'
+      return {
+        no_excel: index + 1,
+        tahun: imported?.[1] || (date && !Number.isNaN(date.getTime()) ? date.getFullYear() : '-'),
+        supplier: imported?.[3]?.trim() || owner?.nama_pemilik || owner?.nama_perusahaan || '-',
+        uraian: imported?.[4]?.trim() || note || '-',
+        periode_tagihan: imported?.[2]?.trim() || monthName,
+        nilai_invoice: payment.jumlah_tagihan,
+      }
+    })
+  }, [payments, contracts, owners])
 
   const load = async () => {
     setLoading(true)
@@ -182,7 +202,7 @@ export default function RentalFeaturePage({ profile }) {
     <Header title="Kendaraan Sewa" text="Kelola pemilik, kontrak 6 bulan, pembayaran bulanan, bukti, perbaikan, dan potongan." action={<button className="x-btn secondary" onClick={load}>↻ Refresh</button>} />
     {error && <Alert type="error">{error}</Alert>}
     {success && <Alert>{success}</Alert>}
-    <div className="x-tabs">{[['kontrak', 'Kontrak'], ['pemilik', 'Pemilik'], ['pembayaran', 'Pembayaran'], ['repair', 'Perbaikan']].map(([v, l]) => <button key={v} className={tab === v ? 'active' : ''} onClick={() => { clearMessages(); setTab(v) }}>{l}</button>)}</div>
+    <div className="x-tabs">{[['kontrak', 'Kontrak'], ['pemilik', 'Pemilik'], ['pembayaran', 'Pembayaran'], ['historis', 'Riwayat Excel'], ['repair', 'Perbaikan']].map(([v, l]) => <button key={v} className={tab === v ? 'active' : ''} onClick={() => { clearMessages(); setTab(v) }}>{l}</button>)}</div>
 
     {tab === 'pemilik' && <section className="x-card">
       <div className="x-card-title"><h3>Data Pemilik Sewa</h3></div>
@@ -247,6 +267,10 @@ export default function RentalFeaturePage({ profile }) {
       {Object.entries(openedFiles).filter(([k, v]) => k.startsWith('payment-') && v && v !== 'loading').map(([k, v]) => <div key={k} className="x-alert"><a href={v} target="_blank" rel="noreferrer">Buka bukti pembayaran</a></div>)}
     </section>}
 
+    {tab === 'historis' && <section className="x-card">
+      <div className="x-card-title"><div><h3>Riwayat Rental — Format SUMMERY RENTAL</h3><p>Kolom mengikuti Excel: No, Tahun, Supplier, Uraian, Periode Tagihan, Nilai Invoice.</p></div></div>
+      <div className="x-table-wrap"><table className="x-table"><thead><tr><th>No</th><th>Tahun</th><th>Supplier</th><th>Uraian</th><th>Periode Tagihan</th><th>Nilai Invoice</th></tr></thead><tbody>{historicalRows.length ? historicalRows.map(row => <tr key={`${row.no_excel}-${row.tahun}-${row.periode_tagihan}-${row.supplier}`}><td>{row.no_excel}</td><td>{row.tahun}</td><td>{row.supplier}</td><td>{row.uraian}</td><td>{row.periode_tagihan}</td><td>{money(row.nilai_invoice)}</td></tr>) : <tr><td colSpan="6"><Empty /></td></tr>}</tbody></table></div>
+    </section>}
     {tab === 'repair' && <section className="x-card">
       <div className="x-card-title"><h3>Perbaikan Kendaraan Sewa</h3><p>Catat pembayaran kantor dan bukti perbaikan. Setelah dibayar kantor, biaya dapat ditandai untuk dipotong dari rental.</p></div>
       {editable && <form className="x-grid" onSubmit={saveRepair}>
