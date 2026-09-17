@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import './MasterKendaraanPage.css'
@@ -204,7 +205,7 @@ export default function MasterKendaraanPage({ profile }) {
         selectionPressRef.current = null
       }, 480),
     }
-    try { event.currentTarget.setPointerCapture?.(event.pointerId) } catch {}
+    try { event.currentTarget.setPointerCapture?.(event.pointerId) } catch { /* intentional no-op */ }
   }
 
   const moveLongPress = (event) => {

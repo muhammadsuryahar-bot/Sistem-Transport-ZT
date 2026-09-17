@@ -31,7 +31,6 @@ const ALIASES = {
   keterangan: ['keterangan', 'catatan'],
 }
 
-const EDITABLE_KEYS = new Set(['source_no', ...Object.keys(ALIASES)])
 const clean = value => String(value ?? '').replace(/\s+/g, ' ').trim()
 const norm = value => clean(value).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
 const upper = value => clean(value).toUpperCase()

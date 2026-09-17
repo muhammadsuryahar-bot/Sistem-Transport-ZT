@@ -11,7 +11,7 @@ function readStore() {
 }
 
 function writeStore(value) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(value)) } catch {}
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(value)) } catch { /* intentional no-op */ }
 }
 
 export function rowDeleteKey(context, excelRow) {

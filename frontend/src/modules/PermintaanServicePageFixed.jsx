@@ -107,7 +107,7 @@ export default function PermintaanServicePage({ profile }) {
     if (!canDelete || selectionMode || (event.button !== undefined && event.button !== 0) || isInteractiveTarget(event.target)) return
     clearPress()
     pressRef.current = { x: event.clientX, y: event.clientY, timer: window.setTimeout(() => { setSelectionMode(true); setSelectedIds(current => current.includes(id) ? current : [...current, id]); ignoreClickRef.current = true; pressRef.current = null }, 480) }
-    try { event.currentTarget.setPointerCapture?.(event.pointerId) } catch {}
+    try { event.currentTarget.setPointerCapture?.(event.pointerId) } catch { /* intentional no-op */ }
   }
   const moveLongPress = event => {
     const state = pressRef.current

@@ -103,9 +103,9 @@ function repairRow(row, headers) {
     out.driver = out.status_pajak
     out.status_pajak = ''
   }
-  if (['ASET', 'MILIK', 'MILIK KANTOR', 'ASET KANTOR'].includes(ownership)) out.kepemilikan = 'ASET_KANTOR'
+  if (['ASET', 'MILIK', 'MILIK KANTOR', 'ASET KANTOR'].includes(ownership)) out.kepemilikan = 'ASET'
   else if (/^(SEWA|RENTAL|KENDARAAN SEWA)$/.test(ownership)) out.kepemilikan = 'SEWA'
-  else if (!ownership) out.kepemilikan = 'ASET_KANTOR'
+  else if (!ownership) out.kepemilikan = 'ASET'
   else out.kepemilikan = null
   return out
 }
@@ -223,7 +223,6 @@ export default function VehicleExcelImportModalV2({ profile, onDone, onClose }) 
     if (nextFile.size > MAX_FILE_SIZE) return setError('Ukuran file maksimal 25 MB.')
     setLoading(true)
     try {
-      const activeRows = filterDeletedExcelRows('kendaraan', workbook.valid)
       const sheets = await parseXlsx(nextFile)
       const chosen = sheets.find(sheet => norm(sheet.name) === 'data_kendaraan') || sheets.find(sheet => /data\s*kendaraan/i.test(sheet.name))
       if (!chosen) throw new Error('Sheet Data Kendaraan tidak ditemukan.')
@@ -247,6 +246,7 @@ export default function VehicleExcelImportModalV2({ profile, onDone, onClose }) 
   }
   const start = async () => {
     if (!workbook || !canImport || saving) return
+    const activeRows = filterDeletedExcelRows('kendaraan', workbook.valid)
     setSaving(true); setError(''); setMessage('Import kendaraan berjalan...')
     try {
       const result = await importVehicleRows(activeRows)
