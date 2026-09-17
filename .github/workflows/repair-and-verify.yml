@@ -39,17 +39,14 @@ jobs:
 
           changes = []
 
-          # DocumentsFeaturePage: no-op pointer capture must not use an empty catch block.
           p = Path('frontend/src/modules/DocumentsFeaturePage.jsx')
           text = p.read_text(encoding='utf-8')
           old = "try{event.currentTarget.setPointerCapture?.(event.pointerId)}catch { /* intentional no-op */ }"
           new = "event.currentTarget.setPointerCapture?.(event.pointerId)"
           if old in text:
-              text = text.replace(old, new)
-              p.write_text(text, encoding='utf-8')
+              p.write_text(text.replace(old, new), encoding='utf-8')
               changes.append(str(p))
 
-          # EditableServiceExcelImportModal: remove the unused constant left by the import refactor.
           p = Path('frontend/src/modules/EditableServiceExcelImportModal.jsx')
           text = p.read_text(encoding='utf-8')
           text2 = re.sub(r"\nconst EDITABLE_KEYS = new Set\(\['source_no', \.\.\.Object\.keys\(ALIASES\)\]\)\n", "\n", text, count=1)
@@ -57,39 +54,24 @@ jobs:
               p.write_text(text2, encoding='utf-8')
               changes.append(str(p))
 
-          # Legacy MasterKendaraanPage: remove an unused local if it is still present.
           p = Path('frontend/src/modules/MasterKendaraanPage.jsx')
           text = p.read_text(encoding='utf-8')
           text2 = re.sub(r"\bconst current = detail;\s*", "", text, count=1)
+          text2 = re.sub(r"try\{event\.currentTarget\.setPointerCapture\?\.\(event\.pointerId\)\}catch\s*\{\s*\}\s*", "event.currentTarget.setPointerCapture?.(event.pointerId)", text2, count=1)
           if text2 != text:
               p.write_text(text2, encoding='utf-8')
               changes.append(str(p))
-          # Also remove the legacy empty pointer-capture catch if present.
-          text = p.read_text(encoding='utf-8')
-          text2 = re.sub(r"try\{event\.currentTarget\.setPointerCapture\?\.\(event\.pointerId\)\}catch\s*\{\s*\}\s*", "event.currentTarget.setPointerCapture?.(event.pointerId)", text, count=1)
-          if text2 != text:
-              p.write_text(text2, encoding='utf-8')
-              if str(p) not in changes:
-                  changes.append(str(p))
 
-          # VehicleExcelImportModalV2: keep deleted-preview filtering at import time,
-          # not inside scan/preview state construction.
           p = Path('frontend/src/modules/VehicleExcelImportModalV2.jsx')
           text = p.read_text(encoding='utf-8')
           marker = "const activeRows = filterDeletedExcelRows('kendaraan', workbook.valid)"
           text2 = text.replace(marker, '')
-          # Normalize accidental blank lines created by removing the declaration.
-          text2 = re.sub(r"\n{3,}", "\n\n", text2)
-          if 'async function start()' in text2:
-              start_match = re.search(r"async function start\(\)\s*\{", text2)
-              if start_match and marker not in text2[start_match.end():start_match.end()+200]:
-                  insert_at = start_match.end()
-                  text2 = text2[:insert_at] + "\n    const activeRows = filterDeletedExcelRows('kendaraan', workbook.valid)" + text2[insert_at:]
+          text2 = text2.replace('activeRows', "filterDeletedExcelRows('kendaraan', workbook.valid)")
           if text2 != text:
               p.write_text(text2, encoding='utf-8')
               changes.append(str(p))
 
-          print('Patched:', ', '.join(changes) if changes else 'no source changes needed')
+          print('Patched:', ', '.join(dict.fromkeys(changes)) if changes else 'no source changes needed')
 
       - name: Lint
         run: npm run lint
