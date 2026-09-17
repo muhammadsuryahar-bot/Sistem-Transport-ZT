@@ -92,3 +92,5 @@ jobs:
           git add frontend/src/modules/DocumentsFeaturePage.jsx frontend/src/modules/EditableServiceExcelImportModal.jsx frontend/src/modules/MasterKendaraanPage.jsx frontend/src/modules/VehicleExcelImportModalV2.jsx
           git commit -m 'fix: clear remaining frontend lint blockers'
           git push
+
+      # Production-source verification is intentionally triggered by this workflow file change.
