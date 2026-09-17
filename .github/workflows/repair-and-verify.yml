@@ -30,7 +30,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Repair known source blockers
+      - name: Repair known source blockers and Excel alignment
         working-directory: .
         shell: python
         run: |
@@ -39,6 +39,7 @@ jobs:
 
           changes = []
 
+          # Existing known lint/source repairs.
           p = Path('frontend/src/modules/DocumentsFeaturePage.jsx')
           text = p.read_text(encoding='utf-8')
           old = "try{event.currentTarget.setPointerCapture?.(event.pointerId)}catch { /* intentional no-op */ }"
@@ -71,6 +72,54 @@ jobs:
               p.write_text(text2, encoding='utf-8')
               changes.append(str(p))
 
+          # Add an Excel-aligned SUMMERY RENTAL view without removing the existing operational payment workflow.
+          p = Path('frontend/src/modules/RentalFeaturePage.jsx')
+          text = p.read_text(encoding='utf-8')
+          if "const historicalRows = useMemo" not in text:
+              anchor = "  const repairMap = useMemo(() => Object.fromEntries(repairs.map(r => [r.id, r])), [repairs])\n"
+              insert = anchor + "  const historicalRows = useMemo(() => {\n    const contractMap = Object.fromEntries(contracts.map(c => [c.id, c]))\n    const ownerMap = Object.fromEntries(owners.map(o => [o.id, o]))\n    return payments.map((payment, index) => {\n      const contract = contractMap[payment.kontrak_sewa_id]\n      const owner = ownerMap[contract?.pemilik_sewa_id]\n      const date = payment.bulan_pembayaran ? new Date(`${payment.bulan_pembayaran}T00:00:00`) : null\n      const note = payment.catatan || ''\n      const imported = note.match(/^Import SUMMERY RENTAL (\\d{4}) • ([^•]+) • ([^•]+) • (.*)$/)\n      const monthName = date && !Number.isNaN(date.getTime()) ? new Intl.DateTimeFormat('id-ID', { month: 'long' }).format(date) : '-'\n      return {\n        no_excel: index + 1,\n        tahun: imported?.[1] || (date && !Number.isNaN(date.getTime()) ? date.getFullYear() : '-'),\n        supplier: imported?.[3]?.trim() || owner?.nama_pemilik || owner?.nama_perusahaan || '-',\n        uraian: imported?.[4]?.trim() || note || '-',\n        periode_tagihan: imported?.[2]?.trim() || monthName,\n        nilai_invoice: payment.jumlah_tagihan,\n      }\n    })\n  }, [payments, contracts, owners])\n"
+              text = text.replace(anchor, insert, 1)
+              changes.append(str(p))
+
+          tab_anchor = "<div className=\"x-tabs\">{[['kontrak', 'Kontrak'], ['pemilik', 'Pemilik'], ['pembayaran', 'Pembayaran'], ['repair', 'Perbaikan']].map(([v, l]) => <button key={v} className={tab === v ? 'active' : ''} onClick={() => { clearMessages(); setTab(v) }}>{l}</button>)}</div>"
+          tab_new = "<div className=\"x-tabs\">{[['kontrak', 'Kontrak'], ['pemilik', 'Pemilik'], ['pembayaran', 'Pembayaran'], ['historis', 'Riwayat Excel'], ['repair', 'Perbaikan']].map(([v, l]) => <button key={v} className={tab === v ? 'active' : ''} onClick={() => { clearMessages(); setTab(v) }}>{l}</button>)}</div>"
+          if tab_anchor in text:
+              text = text.replace(tab_anchor, tab_new, 1)
+              changes.append(str(p))
+
+          if "{tab === 'historis' &&" not in text:
+              marker = "\n    {tab === 'repair' && <section className=\"x-card\">"
+              section = "\n    {tab === 'historis' && <section className=\"x-card\">\n      <div className=\"x-card-title\"><div><h3>Riwayat Rental — Format SUMMERY RENTAL</h3><p>Kolom mengikuti Excel: No, Tahun, Supplier, Uraian, Periode Tagihan, Nilai Invoice.</p></div></div>\n      <div className=\"x-table-wrap\"><table className=\"x-table\"><thead><tr><th>No</th><th>Tahun</th><th>Supplier</th><th>Uraian</th><th>Periode Tagihan</th><th>Nilai Invoice</th></tr></thead><tbody>{historicalRows.length ? historicalRows.map(row => <tr key={`${row.no_excel}-${row.tahun}-${row.periode_tagihan}-${row.supplier}`}><td>{row.no_excel}</td><td>{row.tahun}</td><td>{row.supplier}</td><td>{row.uraian}</td><td>{row.periode_tagihan}</td><td>{money(row.nilai_invoice)}</td></tr>) : <tr><td colSpan=\"6\"><Empty /></td></tr>}</tbody></table></div>\n    </section>}"
+              if marker in text:
+                  text = text.replace(marker, section + marker, 1)
+                  changes.append(str(p))
+
+          p.write_text(text, encoding='utf-8')
+
+          # Add exact SUMMERY RENTAL columns to the rental export while preserving operational export sheets.
+          p = Path('frontend/src/AppTransport.jsx')
+          text = p.read_text(encoding='utf-8')
+          if "title: 'RENTAL HISTORIS'" not in text:
+              old = "          { title: 'PEMBAYARAN SEWA', columns: columns([['kontrak_sewa_id','Kontrak ID'],['periode_ke','Periode Ke'],['bulan_pembayaran','Bulan Pembayaran'],['tanggal_jatuh_tempo','Jatuh Tempo'],['tanggal_pembayaran','Tanggal Pembayaran'],['jumlah_tagihan','Tagihan'],['jumlah_dibayar','Dibayar'],['status','Status'],['metode_pembayaran','Metode'],['nomor_referensi','Referensi'],['bukti_pembayaran_path','Bukti'],['catatan','Catatan']]), rows: cleanRows(rs[2].data || []) },\n"
+              new = old + "          { title: 'RENTAL HISTORIS', columns: columns([['no_excel','No'],['tahun','Tahun'],['supplier','Supplier'],['uraian','Uraian'],['periode_tagihan','Periode Tagihan'],['nilai_invoice','Nilai Invoice']]), rows: (rs[2].data || []).map((p, index) => { const c = contractMap[p.kontrak_sewa_id]; const o = ownerMap[c?.pemilik_sewa_id]; const d = p.bulan_pembayaran ? new Date(`${p.bulan_pembayaran}T00:00:00`) : null; const note = p.catatan || ''; const imported = note.match(/^Import SUMMERY RENTAL (\\d{4}) • ([^•]+) • ([^•]+) • (.*)$/); return { no_excel: index + 1, tahun: imported?.[1] || (d && !Number.isNaN(d.getTime()) ? d.getFullYear() : '-'), supplier: imported?.[3]?.trim() || o?.nama_pemilik || o?.nama_perusahaan || '-', uraian: imported?.[4]?.trim() || note || '-', periode_tagihan: imported?.[2]?.trim() || (d && !Number.isNaN(d.getTime()) ? new Intl.DateTimeFormat('id-ID', { month: 'long' }).format(d) : '-'), nilai_invoice: p.jumlah_tagihan } }) },\n"
+              if old in text:
+                  text = text.replace(old, new, 1)
+                  changes.append(str(p))
+
+          # Add an STNK/KIR monitoring export sheet aligned to the Excel source while preserving document-detail export.
+          if "title: 'STNK DAN KIR'" not in text:
+              old = "        const [{ data: documents, error: documentError }, { data: vehicles, error: vehicleError }] = await Promise.all([\n          supabase.from('dokumen_kendaraan').select('*').order('tanggal_jatuh_tempo', { ascending: true }),\n          supabase.from('kendaraan').select('id,nomor_polisi,merk,tipe').order('nomor_polisi'),\n        ])"
+              new = "        const [{ data: documents, error: documentError }, { data: vehicles, error: vehicleError }] = await Promise.all([\n          supabase.from('dokumen_kendaraan').select('*').order('tanggal_jatuh_tempo', { ascending: true }),\n          supabase.from('kendaraan').select('id,nomor_polisi,merk,tipe,tahun,nomor_rangka,pemilik').order('nomor_polisi'),\n        ])"
+              if old in text:
+                  text = text.replace(old, new, 1)
+                  changes.append(str(p))
+              old2 = "        const vehicleMap = Object.fromEntries((vehicles || []).map(x => [x.id, x]))\n        exportToExcel(`Rekap-Dokumen-Kendaraan-ZT-${stamp}.xls`, [{ title: 'DOKUMEN KENDARAAN', columns: columns([['kendaraan','Nomor Polisi'],['jenis_dokumen','Jenis Dokumen'],['nomor_dokumen','Nomor Dokumen'],['tanggal_terbit','Tanggal Terbit'],['tanggal_berlaku_mulai','Berlaku Mulai'],['tanggal_jatuh_tempo','Jatuh Tempo'],['file_path','File'],['keterangan','Keterangan']]), rows: cleanRows(documents || []).map(x => ({ ...x, kendaraan: vehicleMap[x.kendaraan_id]?.nomor_polisi || '-' })) }])"
+              new2 = "        const vehicleMap = Object.fromEntries((vehicles || []).map(x => [x.id, x]))\n        const documentByVehicle = {}\n        ;(documents || []).forEach(doc => { documentByVehicle[doc.kendaraan_id] = documentByVehicle[doc.kendaraan_id] || {}; documentByVehicle[doc.kendaraan_id][doc.jenis_dokumen] = doc })\n        const monitoringRows = (vehicles || []).map((v, index) => ({ no: index + 1, merk: v.merk || '-', tipe: v.tipe || '-', nomor_polisi: v.nomor_polisi || '-', tahun: v.tahun || '-', nomor_rangka: v.nomor_rangka || '-', stnk: documentByVehicle[v.id]?.STNK?.tanggal_jatuh_tempo || '-', kir: documentByVehicle[v.id]?.KIR?.tanggal_jatuh_tempo || '-', lima_tahun: documentByVehicle[v.id]?.5_TAHUNAN?.tanggal_jatuh_tempo || '-', pemilik: v.pemilik || '-' }))\n        exportToExcel(`Rekap-Dokumen-Kendaraan-ZT-${stamp}.xls`, [{ title: 'STNK DAN KIR', columns: columns([['no','NO'],['merk','MERK'],['tipe','TYPE'],['nomor_polisi','NO.POLISI'],['tahun','TAHUN'],['nomor_rangka','No Ranka'],['stnk','STNK'],['kir','KIR'],['lima_tahun','5 TAHUN'],['pemilik','PEMILIK']]), rows: monitoringRows }, { title: 'DOKUMEN KENDARAAN', columns: columns([['kendaraan','Nomor Polisi'],['jenis_dokumen','Jenis Dokumen'],['nomor_dokumen','Nomor Dokumen'],['tanggal_terbit','Tanggal Terbit'],['tanggal_berlaku_mulai','Berlaku Mulai'],['tanggal_jatuh_tempo','Jatuh Tempo'],['file_path','File'],['keterangan','Keterangan']]), rows: cleanRows(documents || []).map(x => ({ ...x, kendaraan: vehicleMap[x.kendaraan_id]?.nomor_polisi || '-' })) }])"
+              if old2 in text:
+                  text = text.replace(old2, new2, 1)
+                  changes.append(str(p))
+
+          p.write_text(text, encoding='utf-8')
           print('Patched:', ', '.join(dict.fromkeys(changes)) if changes else 'no source changes needed')
 
       - name: Lint
@@ -89,8 +138,8 @@ jobs:
           fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add frontend/src/modules/DocumentsFeaturePage.jsx frontend/src/modules/EditableServiceExcelImportModal.jsx frontend/src/modules/MasterKendaraanPage.jsx frontend/src/modules/VehicleExcelImportModalV2.jsx
-          git commit -m 'fix: clear remaining frontend lint blockers'
+          git add frontend/src/modules/DocumentsFeaturePage.jsx frontend/src/modules/EditableServiceExcelImportModal.jsx frontend/src/modules/MasterKendaraanPage.jsx frontend/src/modules/VehicleExcelImportModalV2.jsx frontend/src/modules/RentalFeaturePage.jsx frontend/src/AppTransport.jsx
+          git commit -m 'fix: align rental and document exports with source Excel'
           git push
 
       # Final verification must run against the latest main commit.
