@@ -1,0 +1,79 @@
+name: Final Lint Fix
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  fix:
+    if: ${{ !contains(github.event.head_commit.message, '[final-lint-fix]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Patch researched fixes
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          def load(path):
+              return Path(path).read_text(encoding='utf-8')
+          def save(path, text):
+              Path(path).write_text(text, encoding='utf-8')
+
+          # Vehicle import: make deleted-preview rows actually feed the importer and use DB ASET/SEWA values.
+          p = 'frontend/src/modules/VehicleExcelImportModalV2.jsx'
+          s = load(p)
+          s = re.sub(r"\n\s*const activeRows = filterDeletedExcelRows\('kendaraan', workbook\.valid\)", '', s)
+          anchor = "  const start = async () => {\n    if (!workbook || !canImport || saving) return"
+          if anchor in s and "const activeRows = filterDeletedExcelRows('kendaraan', workbook.valid)" not in s[s.index(anchor):s.index(anchor)+500]:
+              s = s.replace(anchor, anchor + "\n    const activeRows = filterDeletedExcelRows('kendaraan', workbook.valid)", 1)
+          s = s.replace('importVehicleRows(workbook.valid', 'importVehicleRows(activeRows')
+          s = s.replace("if (['ASET', 'MILIK', 'MILIK KANTOR', 'ASET KANTOR'].includes(ownership)) out.kepemilikan = 'ASET_KANTOR'", "if (['ASET', 'MILIK', 'MILIK KANTOR', 'ASET KANTOR'].includes(ownership)) out.kepemilikan = 'ASET'")
+          s = s.replace("else if (!ownership) out.kepemilikan = 'ASET_KANTOR'", "else if (!ownership) out.kepemilikan = 'ASET'")
+          save(p, s)
+
+          # Known lint blockers: remove unused setters/constants and illegal empty catches.
+          p = 'frontend/src/modules/DocumentsFeaturePage.jsx'; s = load(p)
+          s = s.replace("[editing,setEditing]=useState(null),[query,setQuery]=useState(''),[statusFilter,setStatusFilter]=useState('SEMUA'),[selectedDocIds,setSelectedDocIds]=useState([])", "[editing,setEditing]=useState(null),[query]=useState(''),[statusFilter]=useState('SEMUA'),[selectedDocIds,setSelectedDocIds]=useState([])")
+          s = re.sub(r'catch \{\}', 'catch { /* optional browser state */ }', s); save(p,s)
+          p = 'frontend/src/modules/EditableServiceExcelImportModal.jsx'; s=load(p); s=s.replace("const EDITABLE_KEYS = new Set(['source_no', ...Object.keys(ALIASES)])\n", ''); save(p,s)
+          p = 'frontend/src/modules/MasterKendaraanPage.jsx'; s=load(p); s=s.replace('const current = detail; setDetail(null); openVehicle(current)', 'setDetail(null); openVehicle(detail)'); s=re.sub(r'catch \{\}', 'catch { /* optional browser state */ }', s); save(p,s)
+          p = 'frontend/src/modules/PermintaanServicePageFixed.jsx'; s=load(p); s=re.sub(r'catch \{\}', 'catch { /* optional browser state */ }', s); save(p,s)
+          p = 'frontend/src/modules/DataPageTools.jsx'; s=load(p); s=s.replace('function writeRowMarks(value) { try { localStorage.setItem(ROW_MARK_STORAGE, JSON.stringify(value)) } catch {} }', 'function writeRowMarks(value) { try { localStorage.setItem(ROW_MARK_STORAGE, JSON.stringify(value)); return true } catch { return false } }'); s=re.sub(r'catch \{\}', 'catch { /* optional browser state */ }', s); save(p,s)
+          p = 'frontend/src/utils/excelPreviewControls.js'; s=load(p); s=re.sub(r'catch \{\}', 'catch { /* optional browser state */ }', s); save(p,s)
+
+          # Vehicle export: exact source columns from Data Kendaraan.xlsx; remove legacy KM/status/rental columns.
+          p='frontend/src/AppTransport.jsx'; s=load(p)
+          pattern=re.compile(r"\{ title: 'KENDARAAN', columns: columns\(\[\[.*?\]\]\), rows: cleanRows\(v\.data \|\| \[\]\)\.map\(x => \(\{ \.\.\.x, driver: driverMap\[x\.driver_id\]\?\.nama_lengkap \|\| '-' \}\)\) \},", re.S)
+          repl="{ title: 'KENDARAAN', columns: columns([['no_export','No'],['nomor_polisi','No. Pol'],['merk','Merk'],['tipe','Type'],['jenis_kendaraan','Jenis'],['tahun','Tahun'],['nomor_mesin','No. Mesin'],['nomor_rangka','No. Rangka'],['pemilik','Pemilik'],['kepemilikan','Status'],['masa_berlaku_pajak','Masa Berlaku Pajak'],['status_pajak','Status Pajak'],['unit_kerja','Unit Kerja'],['driver','Driver'],['lokasi','Lokasi Kerja'],['keterangan','Keterangan'],['catatan_hutang','Catatan Hutang']]), rows: cleanRows(v.data || []).map((x, index) => ({ ...x, no_export: index + 1, kepemilikan: x.kepemilikan === 'ASET' || x.kepemilikan === 'ASET_KANTOR' ? 'Aset' : 'Sewa', driver: driverMap[x.driver_id]?.nama_lengkap || '-' })) },"
+          s,n=pattern.subn(repl,s,count=1)
+          if n!=1: raise SystemExit(f'Kendaraan export block not found: {n}')
+          save(p,s)
+          PY
+      - name: Verify lint
+        working-directory: frontend
+        run: npm ci && npm run lint
+      - name: Verify production build
+        working-directory: frontend
+        run: npm run build
+      - name: Commit only after verification
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add frontend/src .github/workflows/final-lint-fix.yml .github/workflows/final-consistency-pass.yml
+          if git diff --cached --quiet; then echo 'No changes'; exit 0; fi
+          git rm -f .github/workflows/final-lint-fix.yml .github/workflows/final-consistency-pass.yml 2>/dev/null || true
+          git add frontend/src
+          git commit -m 'fix: finalize researched Excel alignment and lint [final-lint-fix]'
+          git push origin HEAD:main
