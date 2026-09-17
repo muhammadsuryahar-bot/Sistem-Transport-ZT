@@ -93,4 +93,4 @@ jobs:
           git commit -m 'fix: clear remaining frontend lint blockers'
           git push
 
-      # Production-source verification is intentionally triggered by this workflow file change.
+      # Final verification must run against the latest main commit.
