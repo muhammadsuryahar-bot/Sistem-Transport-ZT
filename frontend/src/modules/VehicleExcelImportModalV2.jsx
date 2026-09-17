@@ -223,6 +223,7 @@ export default function VehicleExcelImportModalV2({ profile, onDone, onClose }) 
     if (nextFile.size > MAX_FILE_SIZE) return setError('Ukuran file maksimal 25 MB.')
     setLoading(true)
     try {
+      const activeRows = filterDeletedExcelRows('kendaraan', workbook.valid)
       
       
       const sheets = await parseXlsx(nextFile)
