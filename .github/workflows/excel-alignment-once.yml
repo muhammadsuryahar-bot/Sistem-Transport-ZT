@@ -29,6 +29,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Final Excel alignment pass: Service + Rental.
       - name: Apply Excel-aligned table fixes and remove this one-time workflow
         working-directory: .
         shell: python
