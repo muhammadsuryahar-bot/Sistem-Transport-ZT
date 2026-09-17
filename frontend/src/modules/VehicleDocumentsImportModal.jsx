@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { clearDeletedExcelRows, filterDeletedExcelRows } from '../utils/excelPreviewControls.js'
 import './DataPageTools.css'
+import { encodeExcelMeta } from '../utils/excelSourceMeta.js'
 import './VehicleDocumentsImportModal.css'
 
 const ALIASES = {
@@ -14,6 +15,8 @@ const ALIASES = {
   lima_tahun: ['5_tahun', '5_tahunan', 'lima_tahun', 'jatuh_tempo_5_tahun'],
   nomor_dokumen: ['nomor_dokumen', 'no_dokumen', 'nomor_stnk', 'nomor_kir'],
   pemilik: ['pemilik', 'nama_pemilik'],
+  source_no: ['no', 'nomor', 'nomor_urut'],
+  nomor_rangka: ['no_rangka', 'no_ranka', 'nomor_rangka'],
 }
 const clean = (v) => String(v ?? '').replace(/\s+/g, ' ').trim()
 const norm = (v) => clean(v).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
@@ -71,7 +74,7 @@ async function importDocuments(rows, profile, sheetName) {
       const existing = await supabase.from('dokumen_kendaraan').select('id').eq('kendaraan_id', vehicle.id).eq('jenis_dokumen', type).eq('tanggal_jatuh_tempo', due).limit(1)
       if (existing.error) throw new Error(`Gagal mengecek ${type} ${row.nomor_polisi}: ${existing.error.message}`)
       if (existing.data?.length) { skipped += 1; continue }
-      const result = await supabase.from('dokumen_kendaraan').insert({ kendaraan_id: vehicle.id, jenis_dokumen: type, nomor_dokumen: row.nomor_dokumen || null, tanggal_jatuh_tempo: due, keterangan: `Import Excel: ${sheetName}` })
+      const result = await supabase.from('dokumen_kendaraan').insert({ kendaraan_id: vehicle.id, jenis_dokumen: type, nomor_dokumen: row.nomor_dokumen || null, tanggal_jatuh_tempo: due, keterangan: encodeExcelMeta({ source: 'STNK_DAN_KIR', source_no: row.source_no, nomor_polisi: row.nomor_polisi, merk: row.merk, type: row.tipe, tahun: row.tahun, nomor_rangka: row.nomor_rangka, pemilik: row.pemilik }, `Import Excel: ${sheetName}`) })
       if (result.error) throw new Error(`Gagal menyimpan ${type} ${row.nomor_polisi}: ${result.error.message}`)
       inserted += 1
     }
@@ -95,7 +98,7 @@ export default function VehicleDocumentsImportModal({ profile, onDone, onClose }
     setLoading(true)
     try {
       const sheets = await parseXlsx(nextFile); const chosen = chooseSheet(sheets); if (!chosen || chosen.score < 10) throw new Error('Sheet STNK/KIR tidak ditemukan secara meyakinkan.')
-      const data = chosen.sheet.rows.slice(chosen.header.index + 1).filter((r) => r.values.some((v) => clean(v))).map((r) => ({ excelRow: r.excelRow, nomor_polisi: upper(valueOf(r, chosen.header.row, 'nomor_polisi')), stnk: excelDate(valueOf(r, chosen.header.row, 'stnk')), kir: excelDate(valueOf(r, chosen.header.row, 'kir')), lima_tahun: excelDate(valueOf(r, chosen.header.row, 'lima_tahun')), nomor_dokumen: valueOf(r, chosen.header.row, 'nomor_dokumen') }))
+      const data = chosen.sheet.rows.slice(chosen.header.index + 1).filter((r) => r.values.some((v) => clean(v))).map((r) => ({ excelRow: r.excelRow, source_no: valueOf(r, chosen.header.row, 'source_no'), nomor_polisi: upper(valueOf(r, chosen.header.row, 'nomor_polisi')), merk: valueOf(r, chosen.header.row, 'merk'), tipe: valueOf(r, chosen.header.row, 'tipe'), tahun: valueOf(r, chosen.header.row, 'tahun'), nomor_rangka: valueOf(r, chosen.header.row, 'nomor_rangka'), pemilik: valueOf(r, chosen.header.row, 'pemilik'), stnk: excelDate(valueOf(r, chosen.header.row, 'stnk')), kir: excelDate(valueOf(r, chosen.header.row, 'kir')), lima_tahun: excelDate(valueOf(r, chosen.header.row, 'lima_tahun')), nomor_dokumen: valueOf(r, chosen.header.row, 'nomor_dokumen') }))
       const valid = data.filter((r) => r.nomor_polisi && (r.stnk || r.kir || r.lima_tahun)); const missing = data.length - valid.length; const docCount = valid.reduce((n, r) => n + [r.stnk, r.kir, r.lima_tahun].filter(Boolean).length, 0)
       setWorkbook({ sheet: chosen.sheet, header: chosen.header, data, valid, missing, docCount }); setMessage(`Sheet “${chosen.sheet.name}” terdeteksi: ${data.length} baris sumber • ${valid.length} kendaraan memiliki dokumen • ${docCount} dokumen terdeteksi.`)
     } catch (e) { setError(e.message || 'File Excel tidak dapat dibaca.') } finally { setLoading(false) }

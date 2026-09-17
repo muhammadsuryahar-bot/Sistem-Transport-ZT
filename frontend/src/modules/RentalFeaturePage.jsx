@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import './TransportOperationsFixed.css'
+import { decodeExcelMeta } from '../utils/excelSourceMeta.js'
 
 const money = (v) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(v || 0))
 const dateText = (v) => v ? new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(new Date(v)) : '-'
@@ -59,18 +60,11 @@ export default function RentalFeaturePage({ profile }) {
     return payments.map((payment, index) => {
       const contract = contractMap[payment.kontrak_sewa_id]
       const owner = ownerMap[contract?.pemilik_sewa_id]
+      const { meta } = decodeExcelMeta(payment.catatan)
+      if (meta?.source === 'SUMMERY_RENTAL') return { no_excel: Number(meta.source_no) || index + 1, tahun: meta.tahun || '-', supplier: meta.supplier || '-', uraian: meta.uraian || '-', periode_tagihan: meta.periode_tagihan || '-', nilai_invoice: meta.nilai_invoice ?? payment.jumlah_tagihan }
       const date = payment.bulan_pembayaran ? new Date(`${payment.bulan_pembayaran}T00:00:00`) : null
-      const note = payment.catatan || ''
-      const imported = note.match(/^Import SUMMERY RENTAL (\d{4}) • ([^•]+) • ([^•]+) • (.*)$/)
       const monthName = date && !Number.isNaN(date.getTime()) ? new Intl.DateTimeFormat('id-ID', { month: 'long' }).format(date) : '-'
-      return {
-        no_excel: index + 1,
-        tahun: imported?.[1] || (date && !Number.isNaN(date.getTime()) ? date.getFullYear() : '-'),
-        supplier: imported?.[3]?.trim() || owner?.nama_pemilik || owner?.nama_perusahaan || '-',
-        uraian: imported?.[4]?.trim() || note || '-',
-        periode_tagihan: imported?.[2]?.trim() || monthName,
-        nilai_invoice: payment.jumlah_tagihan,
-      }
+      return { no_excel: index + 1, tahun: date && !Number.isNaN(date.getTime()) ? date.getFullYear() : '-', supplier: owner?.nama_pemilik || owner?.nama_perusahaan || '-', uraian: payment.catatan || '-', periode_tagihan: monthName, nilai_invoice: payment.jumlah_tagihan }
     })
   }, [payments, contracts, owners])
 

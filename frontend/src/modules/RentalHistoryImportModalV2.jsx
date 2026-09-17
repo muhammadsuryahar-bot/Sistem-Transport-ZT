@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { clearDeletedExcelRows, filterDeletedExcelRows } from '../utils/excelPreviewControls.js'
 import { parseXlsx } from '../utils/xlsxParser.js'
 import './DataPageTools.css'
+import { encodeExcelMeta } from '../utils/excelSourceMeta.js'
 
 const MAX_FILE_SIZE = 25 * 1024 * 1024
 const PAGE_OPTIONS = [25, 50, 100]
@@ -60,6 +61,7 @@ function parseRows(sheet) {
       .map(row => ({
         id: `${row.excelRow}`,
         excelRow: row.excelRow,
+        source_no: valueOf(row, header.row, ['No', 'Nomor', 'No Excel']),
         tahun: valueOf(row, header.row, ['Tahun', 'Year']),
         supplier: valueOf(row, header.row, ['Supplier', 'Pemilik', 'Nama Supplier']),
         uraian: valueOf(row, header.row, ['Uraian', 'Keterangan', 'Deskripsi']),
@@ -128,7 +130,7 @@ async function importSummary(rows, profile) {
       metode_pembayaran: null,
       nomor_referensi: null,
       bukti_pembayaran_path: null,
-      catatan: `Import SUMMERY RENTAL ${row.tahun} • ${row.periode} • ${row.supplier} • ${row.uraian}`,
+      catatan: encodeExcelMeta({ source: 'SUMMERY_RENTAL', source_no: row.source_no, tahun: row.tahun, supplier: row.supplier, uraian: row.uraian, periode_tagihan: row.periode, nilai_invoice: invoice }),
       diproses_oleh: profile?.id || null,
     })
   }

@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { clearDeletedExcelRows, filterDeletedExcelRows } from '../utils/excelPreviewControls.js'
 import { parseXlsx } from '../utils/xlsxParser.js'
 import './DataPageTools.css'
+import { encodeExcelMeta } from '../utils/excelSourceMeta.js'
 import './EditableServiceExcelImportModal.css'
 
 const MAX_FILE_SIZE = 25 * 1024 * 1024
@@ -128,6 +129,7 @@ function parseRow(row, headers) {
     harga_satuan: currencyValue(get('harga_satuan')),
     nilai_dpp: currencyValue(get('nilai_dpp')),
     ppn: currencyValue(get('ppn')),
+    ppn_source: clean(get('ppn')) || '-',
     total: currencyValue(get('total')),
     kilometer: numberValue(get('kilometer')) ?? 0,
     bengkel: get('bengkel') || null,
@@ -269,7 +271,7 @@ async function importHistory(rows, profile, sheetName, onProgress = () => {}) {
             satuan: row.satuan || 'pcs',
             harga_satuan: harga || 0,
             subtotal: subtotal || 0,
-            keterangan: row.keterangan || null,
+            keterangan: encodeExcelMeta({ source: 'DATA_SERVICE', source_no: row.source_no, merk: row.merk, type: row.tipe, jenis: row.jenis, tahun: row.tahun, nomor_polisi: row.nomor_polisi, driver: row.driver, bulan: row.bulan, tanggal: row.tanggal, jenis_pekerjaan: row.jenis_pekerjaan, uraian: row.uraian, qty: row.qty, satuan: row.satuan, harga_satuan: row.harga_satuan, nilai_dpp: row.nilai_dpp, ppn: row.ppn, ppn_source: row.ppn_source, total: row.total, kilometer: row.kilometer, bengkel: row.bengkel, keterangan: row.keterangan || '' }, row.keterangan || ''),
           }
         })
         if (itemRows.length) {

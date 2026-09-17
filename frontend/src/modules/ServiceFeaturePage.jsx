@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import './TransportOperationsFixed.css'
+import { decodeExcelMeta } from '../utils/excelSourceMeta.js'
 
 const money = v => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(v || 0))
 const dateText = v => v ? new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(new Date(v)) : '-'
@@ -41,7 +42,23 @@ export default function ServiceFeaturePage({ profile }) {
   const serviceMap = useMemo(() => Object.fromEntries(services.map(s => [s.id, s])), [services])
   const serviceExcelRows = useMemo(() => {
     const rows = []
-    if (items.length) items.forEach((item, index) => { const s = serviceMap[item.service_id]; const v = vehicleMap[s?.kendaraan_id]; const date = s?.tanggal_service ? new Date(`${s.tanggal_service}T00:00:00`) : null; rows.push({ no: index + 1, merk: v?.merk || '-', type: v?.tipe || '-', jenis: v?.jenis_kendaraan || '-', tahun: v?.tahun || '-', nomor_polisi: v?.nomor_polisi || '-', driver: driverMap[v?.driver_id]?.nama_lengkap || '-', bulan: date && !Number.isNaN(date.getTime()) ? new Intl.DateTimeFormat('id-ID', { month: 'long' }).format(date) : '-', tanggal: s?.tanggal_service || '-', jenis_pekerjaan: TYPES[s?.jenis_service] || s?.jenis_service || '-', uraian: item.nama_item || s?.keluhan || '-', qty: item.jumlah ?? '-', satuan: item.satuan || '-', harga_satuan: item.harga_satuan ?? '-', nilai_dpp: item.subtotal ?? '-', ppn: '-', total: item.subtotal ?? '-', kilometer: s?.kilometer ?? '-', bengkel: s?.bengkel || '-', keterangan: item.keterangan || s?.catatan || '-' }) })
+    if (items.length) items.forEach((item, index) => {
+      const s = serviceMap[item.service_id]
+      const v = vehicleMap[s?.kendaraan_id]
+      const { meta, note } = decodeExcelMeta(item.keterangan)
+      const source = meta?.source === 'DATA_SERVICE' ? meta : null
+      const date = source?.tanggal || s?.tanggal_service
+      const parsedDate = date ? new Date(`${date}T00:00:00`) : null
+      rows.push({
+        no: Number.isFinite(Number(source?.source_no)) ? Number(source.source_no) : index + 1,
+        merk: source?.merk || v?.merk || '-', type: source?.type || v?.tipe || '-', jenis: source?.jenis || v?.jenis_kendaraan || '-',
+        tahun: source?.tahun || v?.tahun || '-', nomor_polisi: source?.nomor_polisi || v?.nomor_polisi || '-', driver: source?.driver || driverMap[v?.driver_id]?.nama_lengkap || '-',
+        bulan: source?.bulan || (parsedDate && !Number.isNaN(parsedDate.getTime()) ? new Intl.DateTimeFormat('id-ID', { month: 'long' }).format(parsedDate) : '-'),
+        tanggal: date || '-', jenis_pekerjaan: source?.jenis_pekerjaan || TYPES[s?.jenis_service] || s?.jenis_service || '-', uraian: source?.uraian || item.nama_item || s?.keluhan || '-',
+        qty: source?.qty ?? item.jumlah ?? '-', satuan: source?.satuan || item.satuan || '-', harga_satuan: source?.harga_satuan ?? item.harga_satuan ?? '-', nilai_dpp: source?.nilai_dpp ?? item.subtotal ?? '-',
+        ppn: source?.ppn_source ?? source?.ppn ?? '-', total: source?.total ?? item.subtotal ?? '-', kilometer: source?.kilometer ?? s?.kilometer ?? '-', bengkel: source?.bengkel || s?.bengkel || '-', keterangan: note || source?.keterangan || s?.catatan || '-',
+      })
+    })
     if (!rows.length) services.forEach((s, index) => { const v = vehicleMap[s.kendaraan_id]; const date = s.tanggal_service ? new Date(`${s.tanggal_service}T00:00:00`) : null; rows.push({ no: index + 1, merk: v?.merk || '-', type: v?.tipe || '-', jenis: v?.jenis_kendaraan || '-', tahun: v?.tahun || '-', nomor_polisi: v?.nomor_polisi || '-', driver: driverMap[v?.driver_id]?.nama_lengkap || '-', bulan: date && !Number.isNaN(date.getTime()) ? new Intl.DateTimeFormat('id-ID', { month: 'long' }).format(date) : '-', tanggal: s.tanggal_service || '-', jenis_pekerjaan: TYPES[s.jenis_service] || s.jenis_service || '-', uraian: s.keluhan || '-', qty: '-', satuan: '-', harga_satuan: '-', nilai_dpp: s.nilai_dpp ?? '-', ppn: s.ppn ?? '-', total: s.total ?? s.biaya_aktual ?? '-', kilometer: s.kilometer ?? '-', bengkel: s.bengkel || '-', keterangan: s.catatan || '-' }) })
     return rows
   }, [items, services, serviceMap, vehicleMap, driverMap])

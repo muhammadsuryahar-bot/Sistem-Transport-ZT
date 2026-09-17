@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import './PermintaanServicePage.css'
+import { decodeExcelMeta } from '../utils/excelSourceMeta.js'
 
 const TYPE_LABELS = { SERVICE: 'Service', GANTI_BAN: 'Ganti Ban', GANTI_AKI: 'Ganti Aki / Baterai', PEMERIKSAAN: 'Pemeriksaan' }
 const STATUS_LABELS = { MENUNGGU_TRANSPORT: 'Menunggu Transport', DITERIMA_TRANSPORT: 'Diterima Transport', DALAM_PROSES: 'Dalam Proses', MENUNGGU_APPROVAL: 'Menunggu Approval', DISETUJUI: 'Disetujui', DITOLAK: 'Ditolak', SELESAI: 'Selesai', DIBATALKAN: 'Dibatalkan' }
@@ -34,7 +35,7 @@ export default function PermintaanServicePage({ profile }) {
   const loadData = async () => {
     setLoading(true); setError('')
     const rs = await Promise.all([
-      supabase.from('kendaraan').select('id,kode_kendaraan,nomor_polisi,merk,tipe,kepemilikan,jenis_sewa,pemilik,lokasi,kilometer_terakhir,status').order('nomor_polisi'),
+      supabase.from('kendaraan').select('id,kode_kendaraan,nomor_polisi,merk,tipe,kepemilikan,jenis_sewa,pemilik,lokasi,unit_kerja,kilometer_terakhir,status').order('nomor_polisi'),
       supabase.from('permintaan_service').select('*').order('created_at', { ascending: false }),
       supabase.from('service').select('permintaan_service_id,biaya_aktual,estimasi_biaya,total').order('created_at', { ascending: false }),
     ])
@@ -62,7 +63,7 @@ export default function PermintaanServicePage({ profile }) {
   }, [requests, vehicleMap, search, statusFilter])
 
   const serviceCostMap = useMemo(() => Object.fromEntries(services.map(s => [s.permintaan_service_id, s.total ?? s.biaya_aktual ?? s.estimasi_biaya ?? null])), [services])
-  const requestExcelRows = useMemo(() => filtered.map((r, index) => { const v = vehicleMap[r.kendaraan_id]; return { no: index + 1, homebase: v?.lokasi || '-', unit_kendaraan: v?.unit_kerja || '-', nomor_polisi: v?.nomor_polisi || '-', merk: v?.merk || '-', type: v?.tipe || '-', tanggal: r.tanggal_pengajuan || '-', biaya: serviceCostMap[r.id], keterangan: r.keluhan || '-' } }), [filtered, vehicleMap, serviceCostMap])
+  const requestExcelRows = useMemo(() => filtered.map((r, index) => { const v = vehicleMap[r.kendaraan_id]; const { meta } = decodeExcelMeta(r.catatan_transport); const sourceNo = Number(meta?.source_no); return { no: Number.isFinite(sourceNo) ? sourceNo : index + 1, homebase: meta?.homebase || v?.lokasi || '-', unit_kendaraan: meta?.unit_kendaraan || v?.unit_kerja || '-', nomor_polisi: v?.nomor_polisi || '-', merk: meta?.merk || v?.merk || '-', type: meta?.type || v?.tipe || '-', tanggal: r.tanggal_pengajuan || '-', biaya: meta?.biaya != null ? Number(meta.biaya) : serviceCostMap[r.id], keterangan: r.keluhan || '-' } }), [filtered, vehicleMap, serviceCostMap])
   const openCreate = () => { setForm({ ...EMPTY }); setShowForm(true); setDetail(null); setError(''); setSuccess('') }
   const updateForm = (key, value) => setForm(current => ({ ...current, [key]: value }))
 

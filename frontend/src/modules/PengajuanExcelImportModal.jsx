@@ -2,12 +2,15 @@ import { useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { clearDeletedExcelRows, filterDeletedExcelRows } from '../utils/excelPreviewControls.js'
 import { parseXlsx } from '../utils/xlsxParser.js'
+import { encodeExcelMeta } from '../utils/excelSourceMeta.js'
 import './DataPageTools.css'
 
 const clean = (v) => String(v ?? '').replace(/\s+/g, ' ').trim()
 const norm = (v) => clean(v).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
 const upper = (v) => clean(v).toUpperCase()
 const MAX_FILE_SIZE = 25 * 1024 * 1024
+const fmtNum = value => value === null || value === undefined || value === '' ? '-' : new Intl.NumberFormat('id-ID').format(Number(value))
+const PAGE_OPTIONS = [25, 50, 100]
 
 const ALIASES = {
   nomor_polisi: ['no_polisi', 'nomor_polisi', 'no_pol', 'no_plat', 'plat'],
@@ -16,6 +19,12 @@ const ALIASES = {
   jenis: ['jenis_permintaan', 'jenis_perbaikan', 'jenis_service'],
   prioritas: ['prioritas'],
   kilometer: ['km', 'kilometer', 'kilometer_pengajuan'],
+  source_no: ['no', 'nomor', 'nomor_urut'],
+  homebase: ['homebase', 'home_base'],
+  unit_kendaraan: ['unit_kendaraan', 'unit kendaraan'],
+  merk_excel: ['merk', 'merek'],
+  type_excel: ['type', 'tipe'],
+  biaya: ['biaya_rp', 'biaya', 'nilai_biaya'],
 }
 
 const valueOf = (row, headers, key) => {
@@ -81,13 +90,17 @@ export default function PengajuanExcelImportModal({ profile, onDone, onClose }) 
   const [message, setMessage] = useState('')
   const [vehicles, setVehicles] = useState([])
   const [rows, setRows] = useState([])
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(50)
 
   const canImport = ['ADMIN', 'TRANSPORT'].includes(profile?.role)
-  const previewRows = useMemo(() => rows.slice(0, 100), [rows])
+  const pageCount = Math.max(1, Math.ceil(rows.length / pageSize))
+  const safePage = Math.min(page, pageCount)
+  const previewRows = useMemo(() => rows.slice((safePage - 1) * pageSize, safePage * pageSize), [rows, safePage, pageSize])
 
   const scan = async (nextFile) => {
     clearDeletedExcelRows('pengajuan')
-    setFile(nextFile || null); setSelected(null); setRows([]); setVehicles([]); setError(''); setMessage('')
+    setFile(nextFile || null); setSelected(null); setRows([]); setVehicles([]); setError(''); setMessage(''); setPage(1)
     if (!nextFile) return
     if (!/\.xlsx$/i.test(nextFile.name)) return setError('Gunakan file Excel .xlsx.')
     if (nextFile.size > MAX_FILE_SIZE) return setError('Ukuran file maksimal 25 MB.')
@@ -100,6 +113,12 @@ export default function PengajuanExcelImportModal({ profile, onDone, onClose }) 
       const headers = candidate.header.row
       const data = candidate.sheet.rows.slice(candidate.header.index + 1).filter((r) => r.values.some((v) => clean(v))).map((row) => ({
         excelRow: row.excelRow,
+        source_no: valueOf(row, headers, 'source_no'),
+        homebase: valueOf(row, headers, 'homebase'),
+        unit_kendaraan: valueOf(row, headers, 'unit_kendaraan'),
+        merk_excel: valueOf(row, headers, 'merk_excel'),
+        type_excel: valueOf(row, headers, 'type_excel'),
+        biaya: numberValue(valueOf(row, headers, 'biaya')),
         nomor_polisi: upper(valueOf(row, headers, 'nomor_polisi')),
         tanggal: excelDate(valueOf(row, headers, 'tanggal')),
         keluhan: valueOf(row, headers, 'keluhan'),
@@ -156,6 +175,7 @@ export default function PengajuanExcelImportModal({ profile, onDone, onClose }) 
           keluhan: x.keluhan,
           prioritas: ['RENDAH', 'NORMAL', 'TINGGI', 'URGENT'].includes(x.prioritas) ? x.prioritas : 'NORMAL',
           status: 'MENUNGGU_TRANSPORT',
+          catatan_transport: encodeExcelMeta({ source: 'REKAPAN_PERMINTAAN', source_no: x.source_no, homebase: x.homebase, unit_kendaraan: x.unit_kendaraan, merk: x.merk_excel, type: x.type_excel, biaya: x.biaya }),
         }))
         const insert = await supabase.from('permintaan_service').insert(payload)
         if (insert.error) throw insert.error
@@ -192,7 +212,7 @@ export default function PengajuanExcelImportModal({ profile, onDone, onClose }) 
       <div className="dpt-upload"><input ref={inputRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(e) => scan(e.target.files?.[0])}/><button type="button" className="dpt-upload-button" onClick={() => inputRef.current?.click()} disabled={loading || saving}>{loading ? 'Membaca Excel…' : file ? 'Ganti File' : 'Pilih File Excel'}</button><div className="dpt-file-meta"><strong title={file?.name}>{file?.name || 'Belum ada file'}</strong><span>{file ? `✓ .xlsx • ${(file.size / 1024 / 1024).toFixed(2)} MB` : 'Maksimal 25 MB'}</span></div></div>
       {selected && <>
         <div className="dpt-selection"><div><b>Sheet: {selected.sheet.name}</b><span>Format cocok</span></div><span>{rows.length} baris data</span></div>
-        <div className="dpt-preview"><div className="dpt-sheet-title"><div><b>Preview Data</b><span className="dpt-preview-note">Tabel sumber dibaca tanpa mengubah Excel asli.</span></div><span>{previewRows.length} baris ditampilkan</span></div><div className="dpt-preview-wrap"><table><thead><tr><th>Baris</th><th>No Polisi</th><th>Tanggal</th><th>Jenis</th><th>Keterangan</th><th>KM</th></tr></thead><tbody>{previewRows.map((row) => <tr data-excel-row={row.excelRow} key={row.excelRow}><td>{row.excelRow}</td><td>{row.nomor_polisi || '-'}</td><td>{row.tanggal || '-'}</td><td>{row.jenis}</td><td>{row.keluhan || '-'}</td><td>{row.kilometer ?? '-'}</td></tr>)}</tbody></table></div></div>
+        <div className="dpt-preview"><div className="dpt-sheet-title"><div><b>Preview Data</b><span className="dpt-preview-note">Kolom mengikuti sheet Rekapan Permintaan dan semua baris tersedia lewat pagination.</span></div><span>{previewRows.length} dari {rows.length} ditampilkan</span></div><div className="dpt-preview-wrap"><table><thead><tr><th>No</th><th>Homebase</th><th>Unit Kendaraan</th><th>No Polisi</th><th>Merk</th><th>Type</th><th>Tanggal</th><th>Biaya (Rp)</th><th>Keterangan</th></tr></thead><tbody>{previewRows.map((row) => <tr data-excel-row={row.excelRow} key={row.excelRow}><td>{row.source_no || row.excelRow}</td><td>{row.homebase || '-'}</td><td>{row.unit_kendaraan || '-'}</td><td>{row.nomor_polisi || '-'}</td><td>{row.merk_excel || '-'}</td><td>{row.type_excel || '-'}</td><td>{row.tanggal || '-'}</td><td>{row.biaya == null ? '-' : fmtNum(row.biaya)}</td><td>{row.keluhan || '-'}</td></tr>)}</tbody></table></div><div className="dpt-pagination"><label>Baris/halaman <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1) }}>{PAGE_OPTIONS.map(size => <option key={size} value={size}>{size}</option>)}</select></label><button type="button" className="dpt-button" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage <= 1}>‹</button><span>Halaman {safePage} / {pageCount}</span><button type="button" className="dpt-button" onClick={() => setPage(p => Math.min(pageCount, p + 1))} disabled={safePage >= pageCount}>›</button></div></div>
       </>}
       <div className="dpt-actions"><button type="button" className="dpt-button" onClick={onClose} disabled={saving}>Batal</button><button type="button" className="dpt-button primary" onClick={start} disabled={!selected || saving || !canImport}>{saving ? 'Mengimport…' : 'Import Pengajuan'}</button></div>
     </section>
