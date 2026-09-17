@@ -34,6 +34,10 @@ jobs:
         working-directory: .
         run: python scripts/align_excel_sources.py
 
+      - name: Normalize generated Excel source syntax
+        working-directory: .
+        run: python scripts/fix_excel_alignment_lint.py
+
       - name: Lint
         run: npm run lint
 
@@ -50,6 +54,6 @@ jobs:
           fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add scripts/align_excel_sources.py frontend/src/utils/excelSourceMeta.js frontend/src/modules/PengajuanExcelImportModal.jsx frontend/src/modules/PermintaanServicePageFixed.jsx frontend/src/modules/EditableServiceExcelImportModal.jsx frontend/src/modules/ServiceFeaturePage.jsx frontend/src/modules/VehicleDocumentsImportModal.jsx frontend/src/modules/DocumentsFeaturePage.jsx frontend/src/modules/RentalHistoryImportModalV2.jsx frontend/src/modules/RentalFeaturePage.jsx frontend/src/AppTransport.jsx
+          git add scripts/align_excel_sources.py scripts/fix_excel_alignment_lint.py frontend/src/utils/excelSourceMeta.js frontend/src/modules/PengajuanExcelImportModal.jsx frontend/src/modules/PermintaanServicePageFixed.jsx frontend/src/modules/EditableServiceExcelImportModal.jsx frontend/src/modules/ServiceFeaturePage.jsx frontend/src/modules/VehicleDocumentsImportModal.jsx frontend/src/modules/DocumentsFeaturePage.jsx frontend/src/modules/RentalHistoryImportModalV2.jsx frontend/src/modules/RentalFeaturePage.jsx frontend/src/AppTransport.jsx
           git commit -m 'fix: preserve exact Excel source fields across transport history'
           git push
