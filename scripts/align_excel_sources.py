@@ -37,7 +37,7 @@ def regex_once(path, pattern, replacement, required=True):
 # Pengajuan import: preserve all source columns and paginate all source rows.
 p = 'frontend/src/modules/PengajuanExcelImportModal.jsx'
 replace_once(p, "import { parseXlsx } from '../utils/xlsxParser.js'", "import { parseXlsx } from '../utils/xlsxParser.js'\nimport { encodeExcelMeta } from '../utils/excelSourceMeta.js'", required=True)
-replace_once(p, "const MAX_FILE_SIZE = 25 * 1024 * 1024", "const MAX_FILE_SIZE = 25 * 1024 * 1024\nconst PAGE_OPTIONS = [25, 50, 100]", required=True)
+replace_once(p, "const MAX_FILE_SIZE = 25 * 1024 * 1024", "const MAX_FILE_SIZE = 25 * 1024 * 1024\nconst fmtNum = value => value === null || value === undefined || value === '' ? '-' : new Intl.NumberFormat('id-ID').format(Number(value))\nconst PAGE_OPTIONS = [25, 50, 100]", required=True)
 replace_once(p, "  kilometer: ['km', 'kilometer', 'kilometer_pengajuan'],\n}", "  kilometer: ['km', 'kilometer', 'kilometer_pengajuan'],\n  source_no: ['no', 'nomor', 'nomor_urut'],\n  homebase: ['homebase', 'home_base'],\n  unit_kendaraan: ['unit_kendaraan', 'unit kendaraan'],\n  merk_excel: ['merk', 'merek'],\n  type_excel: ['type', 'tipe'],\n  biaya: ['biaya_rp', 'biaya', 'nilai_biaya'],\n}", required=True)
 replace_once(p, "  const [rows, setRows] = useState([])\n\n  const canImport", "  const [rows, setRows] = useState([])\n  const [page, setPage] = useState(1)\n  const [pageSize, setPageSize] = useState(50)\n\n  const canImport", required=True)
 replace_once(p, "  const previewRows = useMemo(() => rows.slice(0, 100), [rows])", "  const pageCount = Math.max(1, Math.ceil(rows.length / pageSize))\n  const safePage = Math.min(page, pageCount)\n  const previewRows = useMemo(() => rows.slice((safePage - 1) * pageSize, safePage * pageSize), [rows, safePage, pageSize])", required=True)
@@ -154,5 +154,21 @@ replace_once(p, old_rental, new_rental, required=True)
 old_doc = "const monitoringRows = (vehicles || []).map((v, index) => ({ no: index + 1, merk: v.merk || '-', tipe: v.tipe || '-', nomor_polisi: v.nomor_polisi || '-', tahun: v.tahun || '-', nomor_rangka: v.nomor_rangka || '-', stnk: documentByVehicle[v.id]?.STNK?.tanggal_jatuh_tempo || '-', kir: documentByVehicle[v.id]?.KIR?.tanggal_jatuh_tempo || '-', lima_tahun: documentByVehicle[v.id]?.['5_TAHUNAN']?.tanggal_jatuh_tempo || '-', pemilik: v.pemilik || '-' }))"
 new_doc = "const monitoringRows = (vehicles || []).map((v, index) => { const docsForVehicle = documentByVehicle[v.id] || {}; const sourceDoc = Object.values(docsForVehicle).find(doc => decodeExcelMeta(doc.keterangan).meta?.source === 'STNK_DAN_KIR'); const { meta } = sourceDoc ? decodeExcelMeta(sourceDoc.keterangan) : { meta: null }; return { no: Number(meta?.source_no) || index + 1, merk: meta?.merk || v.merk || '-', tipe: meta?.type || v.tipe || '-', nomor_polisi: meta?.nomor_polisi || v.nomor_polisi || '-', tahun: meta?.tahun || v.tahun || '-', nomor_rangka: meta?.nomor_rangka || v.nomor_rangka || '-', stnk: docsForVehicle.STNK?.tanggal_jatuh_tempo || '-', kir: docsForVehicle.KIR?.tanggal_jatuh_tempo || '-', lima_tahun: docsForVehicle['5_TAHUNAN']?.tanggal_jatuh_tempo || '-', pemilik: meta ? (meta.pemilik || '-') : (v.pemilik || '-') } })"
 replace_once(p, old_doc, new_doc, required=True)
+
+# Final lint guards for the generated source changes.
+p = 'frontend/src/modules/DocumentsFeaturePage.jsx'
+text = read(p)
+text2 = text.replace('const monitorRows=useMemo(()=>{', 'const monitorRows=(()=>{', 1)
+text2 = text2.replace(')},[vehicles,docs])', '})()', 1)
+if text2 != text:
+    write(p, text2)
+
+p = 'frontend/src/modules/PengajuanExcelImportModal.jsx'
+text = read(p)
+if 'const fmtNum =' not in text:
+    text2 = text.replace("const MAX_FILE_SIZE = 25 * 1024 * 1024", "const MAX_FILE_SIZE = 25 * 1024 * 1024\nconst fmtNum = value => value === null || value === undefined || value === '' ? '-' : new Intl.NumberFormat('id-ID').format(Number(value))", 1)
+    if text2 == text:
+        raise SystemExit('fmtNum anchor not found in PengajuanExcelImportModal.jsx')
+    write(p, text2)
 
 print('Changed:', ', '.join(changes) if changes else 'none')
