@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import './ServiceCompletionPanel.css'
 
@@ -14,7 +14,7 @@ export default function ServiceCompletionPanel({ profile }) {
   const [savingId, setSavingId] = useState(null)
   const [message, setMessage] = useState('')
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!canProcess) return
     setLoading(true)
     setMessage('')
@@ -40,14 +40,14 @@ export default function ServiceCompletionPanel({ profile }) {
     })
     setApprovalCounts(nextApprovalCounts)
     setLoading(false)
-  }
+  }, [canProcess])
 
   useEffect(() => {
     load()
     const handleImported = (event) => { if (['service', 'pengajuan'].includes(event.detail?.context)) load() }
     window.addEventListener('transport:data-imported', handleImported)
     return () => window.removeEventListener('transport:data-imported', handleImported)
-  }, [canProcess])
+  }, [load])
 
   const vehicleMap = useMemo(() => Object.fromEntries(vehicles.map((v) => [v.id, v])), [vehicles])
   const completable = useMemo(() => services.filter((s) => {
