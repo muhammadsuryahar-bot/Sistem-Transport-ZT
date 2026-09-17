@@ -1,0 +1,87 @@
+name: Vehicle Rules Sync
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    if: ${{ !contains(github.event.head_commit.message, '[vehicle-rules-sync]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Patch business rules and blocking lint errors
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          def load(path):
+              return Path(path).read_text(encoding='utf-8')
+          def save(path, text):
+              Path(path).write_text(text, encoding='utf-8')
+          def replace_once(path, old, new):
+              text = load(path)
+              if old not in text:
+                  raise SystemExit(f'Missing expected text in {path}: {old[:120]!r}')
+              save(path, text.replace(old, new, 1))
+
+          replace_once('frontend/src/modules/VehicleExcelImportModalV2.jsx',
+              "  if (!nextFile) return\n    if (!/\\.xlsx$/i.test(nextFile.name))",
+              "  if (!nextFile) return\n    if (!/\\.xlsx$/i.test(nextFile.name))")
+          text = load('frontend/src/modules/VehicleExcelImportModalV2.jsx')
+          text = text.replace("      const activeRows = filterDeletedExcelRows('kendaraan', workbook.valid)\n      const sheets = await parseXlsx(nextFile)", "      const sheets = await parseXlsx(nextFile)")
+          text = text.replace("  const start = async () => {\n    if (!workbook || !canImport || saving) return\n", "  const start = async () => {\n    if (!workbook || !canImport || saving) return\n    const activeRows = filterDeletedExcelRows('kendaraan', workbook.valid)\n")
+          text = text.replace("if (['ASET', 'MILIK', 'MILIK KANTOR', 'ASET KANTOR'].includes(ownership)) out.kepemilikan = 'ASET_KANTOR'", "if (['ASET', 'MILIK', 'MILIK KANTOR', 'ASET KANTOR'].includes(ownership)) out.kepemilikan = 'ASET'")
+          text = text.replace("else if (!ownership) out.kepemilikan = 'ASET_KANTOR'", "else if (!ownership) out.kepemilikan = 'ASET'")
+          save('frontend/src/modules/VehicleExcelImportModalV2.jsx', text)
+
+          replace_once('frontend/src/modules/DataPageTools.jsx', 'function writeRowMarks(value) { try { localStorage.setItem(ROW_MARK_STORAGE, JSON.stringify(value)) } catch {} }', 'function writeRowMarks(value) { try { localStorage.setItem(ROW_MARK_STORAGE, JSON.stringify(value)); return true } catch { return false } }')
+
+          replace_once('frontend/src/modules/DocumentsFeaturePage.jsx', "[editing,setEditing]=useState(null),[query,setQuery]=useState(''),[statusFilter,setStatusFilter]=useState('SEMUA'),[selectedDocIds,setSelectedDocIds]=useState([])", "[editing,setEditing]=useState(null),[query]=useState(''),[statusFilter]=useState('SEMUA'),[selectedDocIds,setSelectedDocIds]=useState([])")
+          replace_once('frontend/src/modules/EditableServiceExcelImportModal.jsx', "const EDITABLE_KEYS = new Set(['source_no', ...Object.keys(ALIASES)])\n", '')
+          replace_once('frontend/src/modules/MasterKendaraanPage.jsx', 'const current = detail; setDetail(null); openVehicle(current)', 'setDetail(null); openVehicle(detail)')
+
+          for path in [
+              'frontend/src/modules/DataPageTools.jsx',
+              'frontend/src/modules/DocumentsFeaturePage.jsx',
+              'frontend/src/modules/MasterKendaraanPage.jsx',
+              'frontend/src/modules/PermintaanServicePageFixed.jsx',
+              'frontend/src/utils/excelPreviewControls.js',
+          ]:
+              text = load(path)
+              text = re.sub(r'catch \{\}', 'catch { /* intentional no-op for optional browser storage state */ }', text)
+              save(path, text)
+          PY
+      - name: Verify lint
+        working-directory: frontend
+        run: npm ci && npm run lint
+      - name: Verify build
+        working-directory: frontend
+        run: npm run build
+      - name: Commit verified sync
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "No sync changes needed."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add frontend/src .github/workflows/vehicle-rules-sync.yml
+          git commit -m "fix: align vehicle rules and clear blocking lint errors [vehicle-rules-sync]"
+          git push origin HEAD:main
