@@ -24,28 +24,20 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           import re
-
           def read(p): return Path(p).read_text(encoding='utf-8')
           def write(p, s): Path(p).write_text(s, encoding='utf-8')
-
-          # Vehicle Excel import: normalize ownership to the database's final Aset/Sewa values.
           p = 'frontend/src/modules/VehicleExcelImportModalV2.jsx'
           s = read(p)
           s = s.replace("if (['ASET', 'MILIK', 'MILIK KANTOR', 'ASET KANTOR'].includes(ownership)) out.kepemilikan = 'ASET_KANTOR'", "if (['ASET', 'MILIK', 'MILIK KANTOR', 'ASET KANTOR'].includes(ownership)) out.kepemilikan = 'ASET'")
           s = s.replace("else if (!ownership) out.kepemilikan = 'ASET_KANTOR'", "else if (!ownership) out.kepemilikan = 'ASET'")
           write(p, s)
-
-          # Vehicle export: exact source columns from Data Kendaraan Excel.
           p = 'frontend/src/AppTransport.jsx'
           s = read(p)
           pattern = re.compile(r"\{ title: 'KENDARAAN', columns: columns\(\[\[.*?\]\]\), rows: cleanRows\(v\.data \|\| \[\]\)\.map\(x => \(\{ \.\.\.x, driver: driverMap\[x\.driver_id\]\?\.nama_lengkap \|\| '-' \}\)\) \},", re.S)
           replacement = "{ title: 'KENDARAAN', columns: columns([['no_export','No'],['nomor_polisi','No. Pol'],['merk','Merk'],['tipe','Type'],['jenis_kendaraan','Jenis'],['tahun','Tahun'],['nomor_mesin','No. Mesin'],['nomor_rangka','No. Rangka'],['pemilik','Pemilik'],['kepemilikan','Status'],['masa_berlaku_pajak','Masa Berlaku Pajak'],['status_pajak','Status Pajak'],['unit_kerja','Unit Kerja'],['driver','Driver'],['lokasi','Lokasi Kerja'],['keterangan','Keterangan'],['catatan_hutang','Catatan Hutang']]), rows: cleanRows(v.data || []).map((x, index) => ({ ...x, no_export: index + 1, kepemilikan: x.kepemilikan === 'ASET' || x.kepemilikan === 'ASET_KANTOR' ? 'Aset' : 'Sewa', driver: driverMap[x.driver_id]?.nama_lengkap || '-' })) },"
           s, n = pattern.subn(replacement, s, count=1)
-          if n != 1:
-            raise SystemExit(f'Kendaraan export block not found: {n}')
+          if n != 1: raise SystemExit(f'Kendaraan export block not found: {n}')
           write(p, s)
-
-          # Remove known empty catch lint blockers without changing behavior.
           for p in ['frontend/src/modules/DataPageTools.jsx','frontend/src/utils/excelPreviewControls.js','frontend/src/modules/PermintaanServicePageFixed.jsx','frontend/src/modules/MasterKendaraanPage.jsx']:
             s = read(p)
             s = re.sub(r'catch \{\}', 'catch { /* intentional no-op */ }', s)
@@ -78,3 +70,4 @@ jobs:
           git add frontend/src
           git commit -m 'fix: finalize Excel-aligned vehicle consistency [final-consistency-pass]'
           git push origin HEAD:main
+# final verification trigger
