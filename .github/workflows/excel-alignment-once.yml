@@ -1,0 +1,91 @@
+name: One-time Excel Alignment Audit
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  align:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply Excel-aligned table fixes and remove this one-time workflow
+        working-directory: .
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          changes = []
+
+          p = Path('frontend/src/modules/ServiceFeaturePage.jsx')
+          text = p.read_text(encoding='utf-8')
+          old = "  const [vehicles, setVehicles] = useState([]), [requests, setRequests] = useState([]), [services, setServices] = useState([]), [items, setItems] = useState([]), [proofs, setProofs] = useState([]), [approvals, setApprovals] = useState([]), [bans, setBans] = useState([]), [akis, setAkis] = useState([]), [kms, setKms] = useState([])"
+          new = "  const [vehicles, setVehicles] = useState([]), [drivers, setDrivers] = useState([]), [requests, setRequests] = useState([]), [services, setServices] = useState([]), [items, setItems] = useState([]), [proofs, setProofs] = useState([]), [approvals, setApprovals] = useState([]), [bans, setBans] = useState([]), [akis, setAkis] = useState([]), [kms, setKms] = useState([])"
+          text2 = text.replace(old, new, 1)
+          old = "  const vehicleMap = useMemo(() => Object.fromEntries(vehicles.map(v => [v.id, v])), [vehicles])"
+          new = "  const vehicleMap = useMemo(() => Object.fromEntries(vehicles.map(v => [v.id, v])), [vehicles])\n  const driverMap = useMemo(() => Object.fromEntries(drivers.map(d => [d.id, d])), [drivers])"
+          text2 = text2.replace(old, new, 1)
+          text2 = text2.replace("supabase.from('kendaraan').select('id,nomor_polisi,merk,tipe,kilometer_terakhir,status').order('nomor_polisi')", "supabase.from('kendaraan').select('id,nomor_polisi,merk,tipe,jenis_kendaraan,tahun,driver_id,kilometer_terakhir,status').order('nomor_polisi')", 1)
+          text2 = text2.replace("supabase.from('riwayat_kilometer').select('*').order('tanggal', { ascending: false })", "supabase.from('riwayat_kilometer').select('*').order('tanggal', { ascending: false }), supabase.from('driver').select('id,nama_lengkap').order('nama_lengkap')", 1)
+          old = "  const names = ['Kendaraan', 'Pengajuan', 'Service', 'Item', 'Bukti', 'Approval', 'Ban', 'Aki', 'KM']; rs.forEach((r, i) => { if (r.error) setError(e => e || `${names[i]}: ${r.error.message}`) }); setVehicles(rs[0].data || []); setRequests(rs[1].data || []); setServices(rs[2].data || []); setItems(rs[3].data || []); setProofs(rs[4].data || []); setApprovals(rs[5].data || []); setBans(rs[6].data || []); setAkis(rs[7].data || []); setKms(rs[8].data || []); setLoading(false)"
+          new = "  const names = ['Kendaraan', 'Pengajuan', 'Service', 'Item', 'Bukti', 'Approval', 'Ban', 'Aki', 'KM', 'Driver']; rs.forEach((r, i) => { if (r.error) setError(e => e || `${names[i]}: ${r.error.message}`) }); setVehicles(rs[0].data || []); setRequests(rs[1].data || []); setServices(rs[2].data || []); setItems(rs[3].data || []); setProofs(rs[4].data || []); setApprovals(rs[5].data || []); setBans(rs[6].data || []); setAkis(rs[7].data || []); setKms(rs[8].data || []); setDrivers(rs[9].data || []); setLoading(false)"
+          text2 = text2.replace(old, new, 1)
+          pattern = r'<div className="x-table-wrap"><table className="x-table"><thead><tr><th>Nomor</th><th>Kendaraan</th><th>Jenis</th><th>Estimasi / Aktual</th><th>Status</th><th>Aksi</th></tr></thead><tbody>.*?</tbody></table></div>'
+          replacement = '''<div className="x-table-wrap"><table className="x-table"><thead><tr><th>No</th><th>Merk</th><th>Type</th><th>Jenis</th><th>Tahun</th><th>No. Polisi</th><th>Driver/PIC</th><th>Bulan</th><th>Tanggal</th><th>Jenis Pekerjaan</th><th>Uraian</th><th>Qty</th><th>Sat</th><th>Harga Satuan</th><th>Nilai DPP</th><th>PPn</th><th>Total</th><th>Aksi</th></tr></thead><tbody>{services.map((s, index) => { const vehicle = vehicleMap[s.kendaraan_id]; const lineItems = items.filter(i => i.service_id === s.id); const uniqueUnits = Array.from(new Set(lineItems.map(i => i.satuan).filter(Boolean))); const uraian = lineItems.length ? lineItems.map(i => i.nama_item).filter(Boolean).join(' • ') : (s.keluhan || '-'); const qty = lineItems.length ? lineItems.reduce((sum, i) => sum + Number(i.jumlah || 0), 0) : ''; const hargaSatuan = lineItems.length === 1 ? money(lineItems[0].harga_satuan) : '-'; const count = approvedCount(s), initialNeed = Number(s.estimasi_biaya || 0) > 5000000 && count < 1, extraNeed = Number(s.biaya_aktual ?? 0) > Number(s.estimasi_biaya ?? 0) && count < 2, directorNeed = Number(s.biaya_aktual ?? s.estimasi_biaya ?? 0) > 5000000 && !hasDirectorApproval(s), needApproval = initialNeed || extraNeed || directorNeed, finishable = ['DISETUJUI', 'DALAM_PENGERJAAN'].includes(s.status); return <tr key={s.id}><td>{index + 1}</td><td>{vehicle?.merk || '-'}</td><td>{vehicle?.tipe || '-'}</td><td>{vehicle?.jenis_kendaraan || '-'}</td><td>{vehicle?.tahun || '-'}</td><td><b>{vehicle?.nomor_polisi || '-'}</b></td><td>{driverMap[vehicle?.driver_id]?.nama_lengkap || '-'}</td><td>{s.tanggal_service ? new Intl.DateTimeFormat('id-ID', { month: 'long' }).format(new Date(`${s.tanggal_service}T00:00:00`)) : '-'}</td><td>{dateText(s.tanggal_service)}</td><td>{TYPES[s.jenis_service] || s.jenis_service || '-'}</td><td>{uraian}</td><td>{qty || '-'}</td><td>{uniqueUnits.length === 1 ? uniqueUnits[0] : (uniqueUnits.length ? 'Campuran' : '-')}</td><td>{hargaSatuan}</td><td>{money(s.nilai_dpp)}</td><td>{s.ppn == null ? '-' : money(s.ppn)}</td><td>{money(s.total ?? s.biaya_aktual ?? s.estimasi_biaya)}</td><td>{needApproval && canApprove ? <button className="x-link" onClick={() => requestApproval(s)}>Approval</button> : finishable && canProcess ? <button className="x-link" onClick={() => finish(s)} disabled={saving}>Selesai</button> : <button className="x-link" onClick={() => openDetail(s)}>Detail</button>}</td></tr> })}</tbody></table></div>'''
+          text3, n = re.subn(pattern, replacement, text2, count=1, flags=re.S)
+          if n != 1:
+              raise SystemExit('Service table pattern was not found exactly once')
+          if text3 != text:
+              p.write_text(text3, encoding='utf-8')
+              changes.append(str(p))
+
+          p = Path('frontend/src/modules/RentalFeaturePage.jsx')
+          text = p.read_text(encoding='utf-8')
+          old = '<div className="x-table-wrap"><table className="x-table"><thead><tr><th>Kontrak</th><th>Periode</th><th>Jatuh Tempo</th><th>Tagihan</th><th>Dibayar</th><th>Status</th><th>Bukti</th></tr></thead><tbody>{payments.length ? payments.map(p => { const key = `payment-${p.id}`; return <tr key={p.id}><td>#{p.kontrak_sewa_id}</td><td>{p.periode_ke} — {dateText(p.bulan_pembayaran)}</td><td>{dateText(p.tanggal_jatuh_tempo)}</td><td>{money(p.jumlah_tagihan)}<small>{(p.catatan || '').startsWith('Tagihan bruto') ? p.catatan.split('. ')[0] : ''}</small></td><td>{dateText(p.tanggal_pembayaran)}<small>{money(p.jumlah_dibayar)}</small></td><td>{p.status}</td><td>{p.bukti_pembayaran_path ? <button className="x-btn secondary" onClick={() => openFile(key, 'dokumen-sewa', p.bukti_pembayaran_path)}>{openedFiles[key] === 'loading' ? '…' : 'Lihat'}</button> : '-'}</td></tr> }) : <tr><td colSpan="7"><Empty /></td></tr>}</tbody></table></div>'
+          new = '''<div className="x-table-wrap"><table className="x-table"><thead><tr><th>No</th><th>Tahun</th><th>Supplier</th><th>Uraian</th><th>Periode Tagihan</th><th>Nilai Invoice</th><th>Aksi</th></tr></thead><tbody>{payments.length ? payments.map((p, index) => { const key = `payment-${p.id}`; const contractRow = contracts.find(c => c.id === p.kontrak_sewa_id); const ownerRow = owners.find(o => o.id === contractRow?.pemilik_sewa_id); const parts = String(p.catatan || '').split(' • '); const uraian = parts.length >= 4 && parts[0].startsWith('Import SUMMERY RENTAL') ? parts.slice(3).join(' • ') : (p.catatan || '-'); const month = p.bulan_pembayaran ? new Intl.DateTimeFormat('id-ID', { month: 'long' }).format(new Date(`${p.bulan_pembayaran}T00:00:00`)) : '-'; const year = p.bulan_pembayaran ? new Date(`${p.bulan_pembayaran}T00:00:00`).getFullYear() : '-'; const supplier = ownerRow?.nama_perusahaan || ownerRow?.nama_pemilik || '-'; return <tr key={p.id}><td>{index + 1}</td><td>{year}</td><td>{supplier}</td><td>{uraian}</td><td>{month}</td><td>{money(p.jumlah_tagihan)}</td><td>{p.bukti_pembayaran_path ? <button className="x-btn secondary" onClick={() => openFile(key, 'dokumen-sewa', p.bukti_pembayaran_path)}>{openedFiles[key] === 'loading' ? '…' : 'Lihat'}</button> : '-'}</td></tr> }) : <tr><td colSpan="7"><Empty /></td></tr>}</tbody></table></div>'''
+          if old not in text:
+              raise SystemExit('Rental payment table pattern was not found')
+          text = text.replace(old, new, 1)
+          p.write_text(text, encoding='utf-8')
+          changes.append(str(p))
+
+          Path('.github/workflows/excel-alignment-once.yml').unlink()
+          changes.append('.github/workflows/excel-alignment-once.yml (deleted)')
+          print('Patched:', ', '.join(dict.fromkeys(changes)))
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Commit aligned sources and remove one-time workflow
+        working-directory: .
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A frontend/src/modules/ServiceFeaturePage.jsx frontend/src/modules/RentalFeaturePage.jsx .github/workflows/excel-alignment-once.yml
+          git commit -m 'fix: align service and rental tables with Excel sources'
+          git push
