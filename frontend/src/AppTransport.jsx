@@ -77,12 +77,17 @@ function AppTransport() {
       } else if (activePage === 'pengajuan') {
         const [{ data: requests, error: requestError }, { data: vehicles, error: vehicleError }] = await Promise.all([
           supabase.from('permintaan_service').select('*').order('created_at', { ascending: false }),
-          supabase.from('kendaraan').select('id,nomor_polisi,merk,tipe').order('nomor_polisi'),
+          supabase.from('kendaraan').select('id,nomor_polisi,merk,tipe,lokasi,unit_kerja').order('nomor_polisi'),
         ])
         if (requestError) throw requestError
         if (vehicleError) throw vehicleError
         const vehicleMap = Object.fromEntries((vehicles || []).map(x => [x.id, x]))
-        exportToExcel(`Rekap-Pengajuan-Service-ZT-${stamp}.xls`, [{ title: 'PENGAJUAN SERVICE', columns: columns([['nomor_pengajuan','Nomor Pengajuan'],['tanggal_pengajuan','Tanggal Pengajuan'],['pemohon_id','ID Pemohon'],['kendaraan','Nomor Polisi'],['kendaraan_detail','Merk / Tipe'],['kilometer_pengajuan','KM Pengajuan'],['jenis_permintaan','Jenis Permintaan'],['keluhan','Keluhan'],['prioritas','Prioritas'],['status','Status'],['catatan_transport','Catatan Transport'],['diproses_oleh','Diproses Oleh'],['diproses_at','Diproses At']]), rows: cleanRows(requests || []).map(x => ({ ...x, kendaraan: vehicleMap[x.kendaraan_id]?.nomor_polisi || '-', kendaraan_detail: vehicleMap[x.kendaraan_id] ? `${vehicleMap[x.kendaraan_id].merk || ''}${vehicleMap[x.kendaraan_id].tipe ? ` • ${vehicleMap[x.kendaraan_id].tipe}` : ''}` : '-' })) }])
+        const requestIds = (requests || []).map(x => x.id)
+        const { data: requestServices, error: requestServiceError } = requestIds.length ? await supabase.from('service').select('permintaan_service_id,biaya_aktual,estimasi_biaya,total').in('permintaan_service_id', requestIds) : { data: [], error: null }
+        if (requestServiceError) throw requestServiceError
+        const requestCostMap = Object.fromEntries((requestServices || []).map(s => [s.permintaan_service_id, s.total ?? s.biaya_aktual ?? s.estimasi_biaya ?? null]))
+        const sourceRequestRows = (requests || []).map((x, index) => ({ no: index + 1, homebase: vehicleMap[x.kendaraan_id]?.lokasi || '-', unit_kendaraan: vehicleMap[x.kendaraan_id]?.unit_kerja || '-', nomor_polisi: vehicleMap[x.kendaraan_id]?.nomor_polisi || '-', merk: vehicleMap[x.kendaraan_id]?.merk || '-', type: vehicleMap[x.kendaraan_id]?.tipe || '-', tanggal: x.tanggal_pengajuan || '-', biaya: requestCostMap[x.id], keterangan: x.keluhan || '-' }))
+        exportToExcel(`Rekap-Pengajuan-Service-ZT-${stamp}.xls`, [{ title: 'REKAPAN PERMINTAAN', columns: columns([['no','No'],['homebase','Homebase'],['unit_kendaraan','Unit Kendaraan'],['nomor_polisi','No Polisi'],['merk','Merk'],['type','Type'],['tanggal','Tanggal'],['biaya','Biaya (Rp)'],['keterangan','Keterangan']]), rows: sourceRequestRows }, { title: 'PENGAJUAN SERVICE', columns: columns([['nomor_pengajuan','Nomor Pengajuan'],['tanggal_pengajuan','Tanggal Pengajuan'],['pemohon_id','ID Pemohon'],['kendaraan','Nomor Polisi'],['kendaraan_detail','Merk / Tipe'],['kilometer_pengajuan','KM Pengajuan'],['jenis_permintaan','Jenis Permintaan'],['keluhan','Keluhan'],['prioritas','Prioritas'],['status','Status'],['catatan_transport','Catatan Transport'],['diproses_oleh','Diproses Oleh'],['diproses_at','Diproses At']]), rows: cleanRows(requests || []).map(x => ({ ...x, kendaraan: vehicleMap[x.kendaraan_id]?.nomor_polisi || '-', kendaraan_detail: vehicleMap[x.kendaraan_id] ? `${vehicleMap[x.kendaraan_id].merk || ''}${vehicleMap[x.kendaraan_id].tipe ? ` • ${vehicleMap[x.kendaraan_id].tipe}` : ''}` : '-' })) }])
       } else if (activePage === 'service') {
         const rs = await Promise.all([
           supabase.from('service').select('*').order('created_at', { ascending: false }),
@@ -92,14 +97,18 @@ function AppTransport() {
           supabase.from('riwayat_ban').select('*').order('tanggal_penggantian', { ascending: false }),
           supabase.from('riwayat_aki').select('*').order('tanggal_penggantian', { ascending: false }),
           supabase.from('riwayat_kilometer').select('*').order('tanggal', { ascending: false }),
-          supabase.from('kendaraan').select('id,nomor_polisi'),
+          supabase.from('kendaraan').select('id,nomor_polisi,merk,tipe,jenis_kendaraan,tahun,driver_id'),
           supabase.from('permintaan_service').select('id,nomor_pengajuan'),
         ])
-        const names = ['service','item','approval','bukti','ban','aki','kilometer','kendaraan','pengajuan']
+        const names = ['service','item','approval','bukti','ban','aki','kilometer','kendaraan','pengajuan','driver']
         rs.forEach((r, i) => { if (r.error) throw new Error(`${names[i]}: ${r.error.message}`) })
         const vehicleMap = Object.fromEntries((rs[7].data || []).map(x => [x.id, x]))
         const requestMap = Object.fromEntries((rs[8].data || []).map(x => [x.id, x]))
+        const driverMapExport = Object.fromEntries((rs[9].data || []).map(x => [x.id, x]))
+        const sourceServiceRows = []
+        ;(rs[1].data || []).forEach((item, index) => { const s = (rs[0].data || []).find(row => row.id === item.service_id); const v = vehicleMap[s?.kendaraan_id]; sourceServiceRows.push({ no: index + 1, merk: v?.merk || '-', type: v?.tipe || '-', jenis: v?.jenis_kendaraan || '-', tahun: v?.tahun || '-', nomor_polisi: v?.nomor_polisi || '-', driver: driverMapExport[v?.driver_id]?.nama_lengkap || '-', bulan: s?.tanggal_service ? new Intl.DateTimeFormat('id-ID', { month: 'long' }).format(new Date(s.tanggal_service)) : '-', tanggal: s?.tanggal_service || '-', jenis_pekerjaan: s ? (s.jenis_service || '-') : '-', uraian: item.nama_item || '-', qty: item.jumlah ?? '-', satuan: item.satuan || '-', harga_satuan: item.harga_satuan ?? '-', nilai_dpp: item.subtotal ?? '-', ppn: '-', total: item.subtotal ?? '-', kilometer: s?.kilometer ?? '-', bengkel: s?.bengkel || '-', keterangan: item.keterangan || s?.catatan || '-' }) })
         exportToExcel(`Rekap-Service-ZT-${stamp}.xls`, [
+          { title: 'DATA SERVICE', columns: columns([['no','No'],['merk','Merk'],['type','Type'],['jenis','Jenis'],['tahun','Tahun'],['nomor_polisi','No. Polisi'],['driver','Driver/PIC'],['bulan','Bulan'],['tanggal','Tanggal'],['jenis_pekerjaan','Jenis Pekerjan'],['uraian','Uraian'],['qty','Qty'],['satuan','Sat'],['harga_satuan','Harga Satuan (Rp)'],['nilai_dpp','Nilai DPP'],['ppn','PPn'],['total','Total'],['kilometer','KM'],['bengkel','Nama Bengkel'],['keterangan','Keterangan']]), rows: sourceServiceRows },
           { title: 'SERVICE', columns: columns([['nomor_service','Nomor Service'],['nomor_pengajuan','Nomor Pengajuan'],['nomor_polisi','Nomor Polisi'],['tanggal_service','Tanggal Service'],['kilometer','KM'],['bengkel','Bengkel'],['jenis_service','Jenis Service'],['keluhan','Keluhan'],['estimasi_biaya','Estimasi Biaya'],['biaya_aktual','Biaya Aktual'],['status','Status'],['catatan','Catatan']]), rows: cleanRows(rs[0].data || []).map(x => ({ ...x, nomor_pengajuan: requestMap[x.permintaan_service_id]?.nomor_pengajuan || '-', nomor_polisi: vehicleMap[x.kendaraan_id]?.nomor_polisi || '-' })) },
           { title: 'ITEM SERVICE', columns: columns([['service_id','Service ID'],['nama_item','Nama Item'],['kategori','Kategori'],['jumlah','Jumlah'],['satuan','Satuan'],['harga_satuan','Harga Satuan'],['subtotal','Subtotal'],['keterangan','Keterangan']]), rows: cleanRows(rs[1].data || []) },
           { title: 'APPROVAL', columns: columns([['service_id','Service ID'],['urutan','Urutan'],['jenis_approval','Jenis Approval'],['pemberi_approval','Pemberi Approval'],['status','Status'],['waktu_approval','Waktu Approval'],['catatan','Catatan']]), rows: cleanRows(rs[2].data || []) },
