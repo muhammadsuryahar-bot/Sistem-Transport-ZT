@@ -99,6 +99,7 @@ function AppTransport() {
           supabase.from('riwayat_kilometer').select('*').order('tanggal', { ascending: false }),
           supabase.from('kendaraan').select('id,nomor_polisi,merk,tipe,jenis_kendaraan,tahun,driver_id'),
           supabase.from('permintaan_service').select('id,nomor_pengajuan'),
+          supabase.from('driver').select('id,nama_lengkap').order('nama_lengkap'),
         ])
         const names = ['service','item','approval','bukti','ban','aki','kilometer','kendaraan','pengajuan','driver']
         rs.forEach((r, i) => { if (r.error) throw new Error(`${names[i]}: ${r.error.message}`) })
