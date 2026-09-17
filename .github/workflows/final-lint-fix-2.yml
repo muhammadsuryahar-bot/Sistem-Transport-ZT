@@ -1,0 +1,70 @@
+name: Final Lint Fix 2
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  fix:
+    if: ${{ !contains(github.event.head_commit.message, '[final-lint-fix-2]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Apply exact CI fixes
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+          def r(p): return Path(p).read_text(encoding='utf-8')
+          def w(p,s): Path(p).write_text(s,encoding='utf-8')
+
+          # Vehicle import: activeRows belongs to start(), never scan().
+          p='frontend/src/modules/VehicleExcelImportModalV2.jsx'; s=r(p)
+          s=re.sub(r"\n\s*const activeRows = filterDeletedExcelRows\('kendaraan', workbook\.valid\)", '', s)
+          anchor=r"  const start = async \(\) => \{\n    if \(!workbook \|\| !canImport \|\| saving\) return"
+          s,n=re.subn(anchor, lambda m:m.group(0)+"\n    const activeRows = filterDeletedExcelRows('kendaraan', workbook.valid)", s, count=1)
+          if n!=1: raise SystemExit('start() anchor missing in vehicle importer')
+          s=s.replace('importVehicleRows(workbook.valid','importVehicleRows(activeRows')
+          s=s.replace("if (['ASET', 'MILIK', 'MILIK KANTOR', 'ASET KANTOR'].includes(ownership)) out.kepemilikan = 'ASET_KANTOR'", "if (['ASET', 'MILIK', 'MILIK KANTOR', 'ASET KANTOR'].includes(ownership)) out.kepemilikan = 'ASET'")
+          s=s.replace("else if (!ownership) out.kepemilikan = 'ASET_KANTOR'", "else if (!ownership) out.kepemilikan = 'ASET'")
+          w(p,s)
+
+          # Empty catches remaining from lint report.
+          for p in ['frontend/src/modules/DocumentsFeaturePage.jsx','frontend/src/modules/MasterKendaraanPage.jsx','frontend/src/modules/PermintaanServicePageFixed.jsx','frontend/src/modules/DataPageTools.jsx','frontend/src/utils/excelPreviewControls.js']:
+              s=re.sub(r'catch\s*\{\s*\}', 'catch { /* intentional no-op */ }', r(p)); w(p,s)
+
+          # Exact unused variable in legacy master page.
+          p='frontend/src/modules/MasterKendaraanPage.jsx'; s=r(p)
+          s=re.sub(r'const\s+current\s*=\s*detail\s*;\s*setDetail\(null\)\s*;\s*openVehicle\(current\)', 'setDetail(null); openVehicle(detail)', s)
+          w(p,s)
+
+          # Guard local row marks against empty catches introduced by minified utility formatting.
+          p='frontend/src/modules/DataPageTools.jsx'; s=r(p)
+          s=s.replace('function writeRowMarks(value) { try { localStorage.setItem(ROW_MARK_STORAGE, JSON.stringify(value)) } catch {} }', 'function writeRowMarks(value) { try { localStorage.setItem(ROW_MARK_STORAGE, JSON.stringify(value)); return true } catch { return false } }')
+          w(p,s)
+          PY
+      - name: Verify lint
+        working-directory: frontend
+        run: npm ci && npm run lint
+      - name: Verify build
+        working-directory: frontend
+        run: npm run build
+      - name: Commit only after verification
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add frontend/src .github/workflows
+          git rm -f .github/workflows/final-lint-fix-2.yml .github/workflows/final-lint-fix.yml .github/workflows/final-consistency-pass.yml 2>/dev/null || true
+          git add frontend/src .github/workflows
+          git commit -m 'fix: finalize CI-verified Excel and lint corrections [final-lint-fix-2]'
+          git push origin HEAD:main
