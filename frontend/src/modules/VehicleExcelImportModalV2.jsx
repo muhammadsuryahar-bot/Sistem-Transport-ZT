@@ -246,10 +246,10 @@ export default function VehicleExcelImportModalV2({ profile, onDone, onClose }) 
   }
   const start = async () => {
     if (!workbook || !canImport || saving) return
-    const activeRows = filterDeletedExcelRows('kendaraan', workbook.valid)
+    
     setSaving(true); setError(''); setMessage('Import kendaraan berjalan...')
     try {
-      const result = await importVehicleRows(activeRows)
+      const result = await importVehicleRows(filterDeletedExcelRows('kendaraan', workbook.valid))
       const report = { context: 'kendaraan', ...result, sourceRows: workbook.data.length, validRows: workbook.valid.length, uniqueVehicles: workbook.uniqueCount, mergedDuplicates: workbook.duplicateCount, missingSourceNumbers: workbook.missingSourceNumbers, fileName: file?.name || '', completedAt: new Date().toISOString() }
       sessionStorage.setItem('transport_import_report', JSON.stringify(report))
       setMessage(`Import selesai: ${result.uniqueVehicles} kendaraan unik • ${result.added} baru • ${result.updated} diperbarui • ${result.mergedDuplicates} duplikat digabung • ${result.driversCreated} driver dibuat.`)
