@@ -8,6 +8,13 @@ import RentalHistoryImportModalV2 from './RentalHistoryImportModalV2.jsx'
 import './DataPageTools.css'
 
 const CONTEXT_LABEL = { kendaraan: 'Kendaraan', pengajuan: 'Pengajuan Service', service: 'Service & Perbaikan', sewa: 'Kendaraan Sewa', dokumen: 'Dokumen Kendaraan' }
+const DATA_TABLE_SELECTOR = {
+  kendaraan: '.mep-table',
+  pengajuan: '.request-table',
+  service: '.x-table',
+  sewa: '.x-table',
+  dokumen: '.x-table',
+}
 const ROW_MARKS = {
   NONE: { label: 'Belum ditandai', className: '' },
   TODO: { label: 'Perlu dikerjakan', className: 'dpt-row-mark-todo' },
@@ -33,29 +40,39 @@ function writeRowMarks(value) {
 function simpleHash(value) { let hash = 2166136261; for (let i = 0; i < value.length; i += 1) { hash ^= value.charCodeAt(i); hash = Math.imul(hash, 16777619) } return (hash >>> 0).toString(16) }
 function rowKey(context, row) { const cells = Array.from(row.children).filter(cell => !cell.classList.contains('dpt-row-mark-cell')); const values = cells.map(cell => { const control = cell.querySelector('input,select,textarea'); return control ? `${control.tagName}:${control.defaultValue || control.value}` : cell.textContent.trim() }); return `${context}:${simpleHash(values.join('\u241f') || `row-${row.rowIndex}`)}` }
 function applyMark(row, mark) { Object.values(ROW_MARKS).forEach(item => { if (item.className) row.classList.remove(item.className) }); if (ROW_MARKS[mark]?.className) row.classList.add(ROW_MARKS[mark].className) }
-function ensureRowMarks(context) {
+function createRowMarkToolbar() { const toolbar = document.createElement('div'); toolbar.className = 'dpt-row-mark-toolbar'; toolbar.innerHTML = '<div class="dpt-row-mark-title"><b>Penanda kerja</b><span>Tandai status tiap baris.</span></div><div class="dpt-row-mark-controls"><label>Filter <select class="dpt-row-mark-filter"><option value="ALL">Semua</option><option value="NONE">Belum ditandai</option><option value="TODO">Perlu dikerjakan</option><option value="PROCESS">Sedang dikerjakan</option><option value="DONE">Sudah selesai</option><option value="CHECKED">Sudah dicek</option></select></label><button type="button" class="dpt-row-mark-clear">Hapus semua tanda</button></div>'; return toolbar }
+function ensureTableMarks(context, table, scope) {
+  if (!table || table.dataset.dptRowMarksReady === '1') return
   const marks = readRowMarks()
-  document.querySelectorAll('.dpt-preview table').forEach(table => {
-    const preview = table.closest('.dpt-preview'); if (!preview) return
-    let toolbar = preview.querySelector('.dpt-row-mark-toolbar')
-    if (!toolbar) { toolbar = document.createElement('div'); toolbar.className = 'dpt-row-mark-toolbar'; toolbar.innerHTML = '<div class="dpt-row-mark-title"><b>Penanda kerja</b><span>Tandai status tiap baris.</span></div><div class="dpt-row-mark-controls"><label>Filter <select class="dpt-row-mark-filter"><option value="ALL">Semua</option><option value="NONE">Belum ditandai</option><option value="TODO">Perlu dikerjakan</option><option value="PROCESS">Sedang dikerjakan</option><option value="DONE">Sudah selesai</option><option value="CHECKED">Sudah dicek</option></select></label><button type="button" class="dpt-row-mark-clear">Hapus semua tanda</button></div>'; table.parentElement?.parentElement?.insertBefore(toolbar, table.parentElement) }
-    const header = table.querySelector('thead tr')
-    if (header && !header.querySelector('.dpt-row-mark-head')) { const th = document.createElement('th'); th.className = 'dpt-row-mark-head'; th.textContent = 'Tanda'; header.insertBefore(th, header.firstChild) }
-    table.querySelectorAll('tbody tr').forEach(row => {
-      if (row.querySelector('.dpt-row-mark-cell')) return
-      const key = rowKey(context, row); row.dataset.dptRowMarkKey = key
-      const td = document.createElement('td'); td.className = 'dpt-row-mark-cell'
-      const select = document.createElement('select'); select.className = 'dpt-row-mark-select'
-      Object.entries(ROW_MARKS).forEach(([value, item]) => { const option = document.createElement('option'); option.value = value; option.textContent = item.label; select.appendChild(option) })
-      const current = marks[key] || 'NONE'; select.value = current; applyMark(row, current)
-      select.addEventListener('change', () => { const latest = readRowMarks(); if (select.value === 'NONE') delete latest[key]; else latest[key] = select.value; writeRowMarks(latest); applyMark(row, select.value) })
-      td.appendChild(select); row.insertBefore(td, row.firstChild)
-    })
-    const filter = toolbar.querySelector('.dpt-row-mark-filter')
-    if (filter && !filter.dataset.bound) { filter.dataset.bound = '1'; filter.addEventListener('change', () => { const latest = readRowMarks(); table.querySelectorAll('tbody tr').forEach(row => { const key = row.dataset.dptRowMarkKey; const value = filter.value; row.style.display = value === 'ALL' || (latest[key] || 'NONE') === value ? '' : 'none' }) }) }
-    const clear = toolbar.querySelector('.dpt-row-mark-clear')
-    if (clear && !clear.dataset.bound) { clear.dataset.bound = '1'; clear.addEventListener('click', () => { const latest = readRowMarks(); table.querySelectorAll('tbody tr').forEach(row => { const key = row.dataset.dptRowMarkKey; if (key) delete latest[key]; const select = row.querySelector('.dpt-row-mark-select'); if (select) select.value = 'NONE'; row.style.display = ''; applyMark(row, 'NONE') }); writeRowMarks(latest); if (filter) filter.value = 'ALL' }) }
+  table.dataset.dptRowMarksReady = '1'
+  let toolbar = scope.querySelector('.dpt-row-mark-toolbar')
+  if (!toolbar) {
+    toolbar = createRowMarkToolbar()
+    const tableHost = table.closest('.x-table-wrap, .request-table-wrap, .dpt-preview') || table.parentElement
+    tableHost?.parentElement?.insertBefore(toolbar, tableHost)
+  }
+  const header = table.querySelector('thead tr')
+  if (header && !header.querySelector('.dpt-row-mark-head')) { const th = document.createElement('th'); th.className = 'dpt-row-mark-head'; th.textContent = 'Tanda'; header.insertBefore(th, header.firstChild) }
+  table.querySelectorAll('tbody tr').forEach(row => {
+    if (row.querySelector('.dpt-row-mark-cell') || row.querySelector('td[colspan]')) return
+    const key = rowKey(context, row); row.dataset.dptRowMarkKey = key
+    const td = document.createElement('td'); td.className = 'dpt-row-mark-cell'
+    const select = document.createElement('select'); select.className = 'dpt-row-mark-select'
+    Object.entries(ROW_MARKS).forEach(([value, item]) => { const option = document.createElement('option'); option.value = value; option.textContent = item.label; select.appendChild(option) })
+    const current = marks[key] || 'NONE'; select.value = current; applyMark(row, current)
+    select.addEventListener('change', () => { const latest = readRowMarks(); if (select.value === 'NONE') delete latest[key]; else latest[key] = select.value; writeRowMarks(latest); applyMark(row, select.value) })
+    td.appendChild(select); row.insertBefore(td, row.firstChild)
   })
+  const filter = toolbar.querySelector('.dpt-row-mark-filter')
+  if (filter && !filter.dataset.bound) { filter.dataset.bound = '1'; filter.addEventListener('change', () => { const latest = readRowMarks(); table.querySelectorAll('tbody tr').forEach(row => { const key = row.dataset.dptRowMarkKey; const value = filter.value; row.style.display = value === 'ALL' || (latest[key] || 'NONE') === value ? '' : 'none' }) }) }
+  const clear = toolbar.querySelector('.dpt-row-mark-clear')
+  if (clear && !clear.dataset.bound) { clear.dataset.bound = '1'; clear.addEventListener('click', () => { const latest = readRowMarks(); table.querySelectorAll('tbody tr').forEach(row => { const key = row.dataset.dptRowMarkKey; if (key) delete latest[key]; const select = row.querySelector('.dpt-row-mark-select'); if (select) select.value = 'NONE'; row.style.display = ''; applyMark(row, 'NONE') }); writeRowMarks(latest); if (filter) filter.value = 'ALL' }) }
+}
+function ensureRowMarks(context) {
+  const previewTables = Array.from(document.querySelectorAll('.dpt-preview table')).map(table => ({ table, scope: table.closest('.dpt-preview') || document.body }))
+  const selector = DATA_TABLE_SELECTOR[context]
+  const dataTables = selector ? Array.from(document.querySelectorAll(selector)).filter(table => !table.closest('.dpt-preview') && !table.matches('.m-table') && !table.hasAttribute('data-no-row-marks')).map(table => ({ table, scope: table.closest('.x-card, .request-panel, .master-excel-page') || table.parentElement || document.body })) : []
+  ;[...previewTables, ...dataTables].forEach(({ table, scope }) => ensureTableMarks(context, table, scope))
 }
 
 export default function DataPageTools({ context, profile, onExport }) {
@@ -65,16 +82,8 @@ export default function DataPageTools({ context, profile, onExport }) {
   const canImport = ['ADMIN', 'TRANSPORT'].includes(profile?.role)
 
   useEffect(() => {
-    try {
-      const saved = sessionStorage.getItem('transport_import_report')
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        if (hasReport(parsed) && parsed.context === context) setImportReport(parsed)
-        sessionStorage.removeItem('transport_import_report')
-      }
-    } catch {
-      sessionStorage.removeItem('transport_import_report')
-    }
+    try { const saved = sessionStorage.getItem('transport_import_report'); if (saved) { const parsed = JSON.parse(saved); if (hasReport(parsed) && parsed.context === context) setImportReport(parsed); sessionStorage.removeItem('transport_import_report') } }
+    catch { sessionStorage.removeItem('transport_import_report') }
   }, [context])
 
   useEffect(() => {
@@ -91,15 +100,7 @@ export default function DataPageTools({ context, profile, onExport }) {
   const closeImport = () => setShowImport(false)
   const finishImport = report => { setShowImport(false); if (hasReport(report)) setImportReport(report) }
   const refreshAfterImport = () => { setImportReport(null); window.location.reload() }
-
-  const modal = showImport && (
-    context === 'kendaraan' ? <VehicleExcelImportFinal profile={profile} onClose={closeImport} onDone={finishImport} /> :
-    context === 'pengajuan' ? <PengajuanExcelImportModal profile={profile} onClose={closeImport} onDone={finishImport} /> :
-    context === 'service' ? <EditableServiceExcelImportModal profile={profile} onClose={closeImport} onDone={finishImport} /> :
-    context === 'dokumen' ? <VehicleDocumentsImportModal profile={profile} onClose={closeImport} onDone={finishImport} /> :
-    context === 'sewa' ? <RentalHistoryImportModalV2 profile={profile} onClose={closeImport} onDone={finishImport} /> :
-    <UnifiedExcelImportModalSafe context={context} profile={profile} onClose={closeImport} onDone={finishImport} />
-  )
+  const modal = showImport && (context === 'kendaraan' ? <VehicleExcelImportFinal profile={profile} onClose={closeImport} onDone={finishImport} /> : context === 'pengajuan' ? <PengajuanExcelImportModal profile={profile} onClose={closeImport} onDone={finishImport} /> : context === 'service' ? <EditableServiceExcelImportModal profile={profile} onClose={closeImport} onDone={finishImport} /> : context === 'dokumen' ? <VehicleDocumentsImportModal profile={profile} onClose={closeImport} onDone={finishImport} /> : context === 'sewa' ? <RentalHistoryImportModalV2 profile={profile} onClose={closeImport} onDone={finishImport} /> : <UnifiedExcelImportModalSafe context={context} profile={profile} onClose={closeImport} onDone={finishImport} />)
 
   return <>
     {modal}
