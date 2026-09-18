@@ -118,15 +118,18 @@ async function importSummary(rows, profile) {
       continue
     }
     existing.add(key)
+    const dueDay = Number(contract.tanggal_jatuh_tempo_bulanan || 1)
+    const monthEnd = new Date(Date.UTC(Number(row.tahun), Number(payMonth.slice(5, 7)), 0)).getUTCDate()
+    const dueDate = `${payMonth.slice(0, 8)}${String(Math.min(Math.max(dueDay, 1), monthEnd)).padStart(2, '0')}`
     payloads.push({
       kontrak_sewa_id: contract.id,
       periode_ke: periodNo,
       bulan_pembayaran: payMonth,
-      tanggal_jatuh_tempo: null,
+      tanggal_jatuh_tempo: dueDate,
       tanggal_pembayaran: null,
       jumlah_tagihan: invoice,
       jumlah_dibayar: 0,
-      status: 'BELUM_LUNAS',
+      status: 'BELUM_DIBAYAR',
       metode_pembayaran: null,
       nomor_referensi: null,
       bukti_pembayaran_path: null,
