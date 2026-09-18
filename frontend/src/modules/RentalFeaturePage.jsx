@@ -111,7 +111,7 @@ export default function RentalFeaturePage({ profile }) {
 
   const saveContract = async e => {
     e.preventDefault(); clearMessages()
-    if (!contract.kendaraan_id || !contract.pemilik_sewa_id || !contract.tanggal_mulai || !contract.tanggal_selesai) return setError('Kendaraan, pemilik, tanggal mulai dan selesai wajib diisi.')
+    if (!contract.nomor_kontrak.trim() || !contract.kendaraan_id || !contract.pemilik_sewa_id || !contract.tanggal_mulai || !contract.tanggal_selesai) return setError('Nomor kontrak, kendaraan, pemilik, tanggal mulai dan selesai wajib diisi.')
     if (!contract.nilai_sewa_bulanan || Number(contract.nilai_sewa_bulanan) <= 0) return setError('Nilai sewa bulanan wajib lebih dari 0.')
     const start = new Date(`${contract.tanggal_mulai}T00:00:00`)
     const expectedEnd = new Date(start)
@@ -121,6 +121,7 @@ export default function RentalFeaturePage({ profile }) {
     if (actualEnd.getTime() !== expectedEnd.getTime()) return setError('Kontrak sewa harus tepat 6 bulan. Tanggal selesai otomatis harus 1 hari sebelum tanggal yang sama pada bulan ke-6.')
     setSaving(true)
     try {
+      if (!contractFile) throw new Error('Dokumen kontrak wajib diunggah.')
       const contractPath = await uploadRentalFile(contractFile, `kontrak/${contract.kendaraan_id}`)
       const payload = { ...contract, kendaraan_id: Number(contract.kendaraan_id), pemilik_sewa_id: Number(contract.pemilik_sewa_id), periode_bulan: 6, nilai_sewa_bulanan: Number(contract.nilai_sewa_bulanan), tanggal_jatuh_tempo_bulanan: Number(contract.tanggal_jatuh_tempo_bulanan || 0) || null, dokumen_kontrak_path: contractPath }
       const { error: e1 } = await supabase.from('kontrak_sewa').insert(payload)
@@ -132,7 +133,7 @@ export default function RentalFeaturePage({ profile }) {
 
   const savePayment = async e => {
     e.preventDefault(); clearMessages()
-    if (!payment.kontrak_sewa_id || !payment.periode_ke || !payment.bulan_pembayaran || !payment.jumlah_tagihan) return setError('Kontrak, periode, bulan dan tagihan wajib diisi.')
+    if (!payment.kontrak_sewa_id || !payment.periode_ke || !payment.bulan_pembayaran || !payment.tanggal_jatuh_tempo || !payment.jumlah_tagihan) return setError('Kontrak, periode, bulan, jatuh tempo, dan tagihan wajib diisi.')
     if (Number(payment.periode_ke) < 1 || Number(payment.periode_ke) > 6) return setError('Periode pembayaran hanya 1 sampai 6.')
     const gross = Number(payment.jumlah_tagihan || 0)
     const requestedDeduction = Number(payment.jumlah_potongan || 0)
