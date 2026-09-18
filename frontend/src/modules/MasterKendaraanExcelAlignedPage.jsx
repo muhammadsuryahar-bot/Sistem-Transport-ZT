@@ -149,13 +149,29 @@ export default function MasterKendaraanExcelAlignedPage({ profile }) {
       if (result.error) throw result.error
       const vehicle = result.data
       if (canPhoto) {
-        for (const [side] of PHOTO_SIDES) {
-          const file = photoFiles[side]
-          if (!file) continue
-          const path = await uploadPhoto(vehicle.id, side, file)
-          const field = PHOTO_SIDES.find(([key]) => key === side)[2]
-          const { error: updateError } = await supabase.from('kendaraan').update({ [field]: path }).eq('id', vehicle.id)
-          if (updateError) throw updateError
+        const photoPayload = {}
+        const uploadedPaths = []
+        const oldPaths = []
+        try {
+          for (const [side, , field] of PHOTO_SIDES) {
+            const file = photoFiles[side]
+            if (!file) continue
+            const path = await uploadPhoto(vehicle.id, side, file)
+            photoPayload[field] = path
+            uploadedPaths.push(path)
+            if (editing?.[field] && editing[field] !== path) oldPaths.push(editing[field])
+          }
+          if (Object.keys(photoPayload).length) {
+            const { error: photoUpdateError } = await supabase.from('kendaraan').update(photoPayload).eq('id', vehicle.id)
+            if (photoUpdateError) throw photoUpdateError
+            if (oldPaths.length) {
+              const { error: oldPhotoError } = await supabase.storage.from('kendaraan').remove(oldPaths)
+              if (oldPhotoError) console.warn('Foto lama kendaraan tidak dapat dibersihkan:', oldPhotoError.message)
+          }
+        } catch (photoError) {
+          if (uploadedPaths.length) await supabase.storage.from('kendaraan').remove(uploadedPaths)
+          if (!editing) await supabase.from('kendaraan').delete().eq('id', vehicle.id)
+          throw photoError
         }
       }
       setSuccess(editing ? 'Data kendaraan diperbarui.' : 'Kendaraan baru berhasil ditambahkan.')
