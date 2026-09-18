@@ -169,7 +169,7 @@ export default function RentalFeaturePage({ profile }) {
         if (e2) throw e2
       }
       setPayment(EMPTY_PAYMENT); setPaymentFile(null); setSuccess(requestedDeduction > 0 ? `Pembayaran tersimpan dengan potongan ${money(requestedDeduction)}. Tagihan bersih ${money(netBill)}.` : 'Pembayaran sewa tersimpan.'); await load()
-    } catch (e3) { setError(e3.message) }
+    } catch (e3) { if (proofPath) await supabase.storage.from('dokumen-sewa').remove([proofPath]); setError(e3.message) }
     setSaving(false)
   }
 
