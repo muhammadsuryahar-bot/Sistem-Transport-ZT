@@ -1,1 +1,1 @@
-export { default } from './MasterKendaraanFinalPage.jsx'
+export { default } from './MasterKendaraanExcelAlignedPage.jsx'
