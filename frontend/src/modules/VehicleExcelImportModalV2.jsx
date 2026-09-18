@@ -105,7 +105,7 @@ function repairRow(row, headers) {
   }
   if (['ASET', 'MILIK', 'MILIK KANTOR', 'ASET KANTOR'].includes(ownership)) out.kepemilikan = 'ASET'
   else if (/^(SEWA|RENTAL|KENDARAAN SEWA)$/.test(ownership)) out.kepemilikan = 'SEWA'
-  else if (!ownership) out.kepemilikan = 'ASET'
+  else if (!ownership) out.kepemilikan = null
   else out.kepemilikan = null
   return out
 }
@@ -139,11 +139,11 @@ async function importVehicleRows(rows) {
   const repaired = rows.filter(row => row.nomor_polisi && row.merk)
   if (!repaired.length) throw new Error('Tidak ada baris Kendaraan valid. Pastikan No. Pol dan Merk terisi.')
   const invalid = repaired.filter(row => !row.kepemilikan)
-  if (invalid.length) throw new Error(`Ada ${invalid.length} baris dengan Status kepemilikan selain Aset/Sewa: ${invalid.map(row => row.excelRow).join(', ')}.`)
+  if (invalid.length) throw new Error(`Ada ${invalid.length} baris dengan Status kepemilikan kosong/tidak valid. Gunakan hanya Aset atau Sewa (baris: ${invalid.map(row => row.excelRow).join(', ')}).`)
   const groups = new Map()
   repaired.forEach(row => { const key = upper(row.nomor_polisi); if (!groups.has(key)) groups.set(key, []); groups.get(key).push(row) })
   const merged = [...groups.values()].map(mergeRows)
-  const vehiclesResult = await supabase.from('kendaraan').select('id,kode_kendaraan,nomor_polisi,merk,tipe,jenis_kendaraan,tahun,warna,nomor_rangka,nomor_mesin,kepemilikan,jenis_sewa,pemilik,driver_id,lokasi,unit_kerja,kilometer_terakhir,status,kondisi,keterangan,masa_berlaku_pajak,status_pajak,catatan_hutang')
+  const vehiclesResult = await supabase.from('kendaraan').select('id,kode_kendaraan,nomor_polisi,merk,tipe,jenis_kendaraan,tahun,warna,nomor_rangka,nomor_mesin,kepemilikan,pemilik,driver_id,lokasi,unit_kerja,kilometer_terakhir,status,kondisi,keterangan,masa_berlaku_pajak,status_pajak,catatan_hutang')
   const driversResult = await supabase.from('driver').select('id,nama_lengkap,lokasi,status,keterangan')
   if (vehiclesResult.error) throw new Error(`Tidak bisa membaca master kendaraan: ${vehiclesResult.error.message}`)
   if (driversResult.error) throw new Error(`Tidak bisa membaca master driver: ${driversResult.error.message}`)
