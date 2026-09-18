@@ -1,7 +1,7 @@
 const TOOLBAR_CLASS = 'gts-toolbar'
 const CHECKBOX_CLASS = 'gts-row-checkbox'
 const HEAD_CHECKBOX_CLASS = 'gts-head-checkbox'
-const SKIP_TABLE_SELECTOR = '.dpt-preview table, .m-table, .mep-table, [data-no-bulk-select="true"]'
+const SKIP_TABLE_SELECTOR = '.dpt-preview table, .m-table, .mep-table, .request-table, [data-no-bulk-select="true"]'
 
 function normalizeText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim().toLowerCase()
