@@ -150,14 +150,18 @@ export default function MasterKendaraanExcelAlignedPage({ profile }) {
       const vehicle = result.data
       if (canPhoto) {
         const uploadedPaths = []
+        const photoPayload = {}
         try {
           for (const [side, , field] of PHOTO_SIDES) {
             const file = photoFiles[side]
             if (!file) continue
-            const path = await uploadPhoto(vehicle.id, side, file)
-            uploadedPaths.push(path)
-            const { error: updateError } = await supabase.from('kendaraan').update({ [field]: path }).eq('id', vehicle.id)
-            if (updateError) throw updateError
+            const uploadedPath = await uploadPhoto(vehicle.id, side, file)
+            uploadedPaths.push(uploadedPath)
+            photoPayload[field] = uploadedPath
+          }
+          if (Object.keys(photoPayload).length) {
+            const { error: photoUpdateError } = await supabase.from('kendaraan').update(photoPayload).eq('id', vehicle.id)
+            if (photoUpdateError) throw photoUpdateError
           }
         } catch (photoError) {
           if (uploadedPaths.length) await supabase.storage.from('kendaraan').remove(uploadedPaths)
