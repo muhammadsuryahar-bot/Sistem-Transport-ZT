@@ -151,11 +151,13 @@ export default function PengajuanExcelImportModal({ profile, onDone, onClose }) 
         if (!row.nomor_polisi || !row.tanggal || !row.keluhan) { invalid.push({ row: row.excelRow, reason: 'No Polisi/Tanggal/Keterangan belum lengkap' }); continue }
         if (!vehicle) { invalid.push({ row: row.excelRow, reason: `Plat ${row.nomor_polisi} belum ada di Master Kendaraan` }); continue }
         if (vehicle.status === 'TIDAK_AKTIF') { invalid.push({ row: row.excelRow, reason: 'Kendaraan tidak aktif' }); continue }
+        const jenis = ['SERVICE', 'GANTI_BAN', 'GANTI_AKI', 'PEMERIKSAAN'].includes(row.jenis) ? row.jenis : (/BAN/.test(row.jenis) ? 'GANTI_BAN' : /AKI|BATERAI/.test(row.jenis) ? 'GANTI_AKI' : /PEMERIKSAAN/.test(row.jenis) ? 'PEMERIKSAAN' : 'SERVICE')
+        const prioritas = row.prioritas === 'MENDESAK' ? 'MENDESAK' : 'NORMAL'
         const km = row.kilometer ?? Number(vehicle.kilometer_terakhir || 0)
-        const key = [vehicle.id, row.tanggal, row.jenis, row.keluhan.toUpperCase(), km].join('|')
+        const key = [vehicle.id, row.tanggal, jenis, row.keluhan.toUpperCase(), km].join('|')
         if (seen.has(key)) { invalid.push({ row: row.excelRow, reason: 'Duplikat di file Excel' }); continue }
         seen.add(key)
-        valid.push({ ...row, vehicle, km, key })
+        valid.push({ ...row, jenis, prioritas, vehicle, km, key })
       }
       if (!valid.length) throw new Error('Tidak ada baris Pengajuan yang valid. Pastikan No Polisi sudah ada di Master Kendaraan dan tanggal/keterangan terisi.')
 
@@ -173,7 +175,7 @@ export default function PengajuanExcelImportModal({ profile, onDone, onClose }) 
           kilometer_pengajuan: x.km,
           jenis_permintaan: x.jenis,
           keluhan: x.keluhan,
-          prioritas: ['RENDAH', 'NORMAL', 'TINGGI', 'URGENT'].includes(x.prioritas) ? x.prioritas : 'NORMAL',
+          prioritas: x.prioritas,
           status: 'MENUNGGU_TRANSPORT',
           catatan_transport: encodeExcelMeta({ source: 'REKAPAN_PERMINTAAN', source_no: x.source_no, homebase: x.homebase, unit_kendaraan: x.unit_kendaraan, merk: x.merk_excel, type: x.type_excel, biaya: x.biaya }),
         }))
