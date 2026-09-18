@@ -127,9 +127,10 @@ export default function RentalFeaturePage({ profile }) {
     const actualEnd = new Date(`${contract.tanggal_selesai}T00:00:00`)
     if (actualEnd.getTime() !== expectedEnd.getTime()) return setError('Kontrak sewa harus tepat 6 bulan. Tanggal selesai otomatis harus 1 hari sebelum tanggal yang sama pada bulan ke-6.')
     setSaving(true)
+    let contractPath = null
     try {
       if (!contractFile) throw new Error('Dokumen kontrak wajib diunggah.')
-      const contractPath = await uploadRentalFile(contractFile, `kontrak/${contract.kendaraan_id}`)
+      contractPath = await uploadRentalFile(contractFile, `kontrak/${contract.kendaraan_id}`)
       const payload = { ...contract, kendaraan_id: Number(contract.kendaraan_id), pemilik_sewa_id: Number(contract.pemilik_sewa_id), periode_bulan: 6, nilai_sewa_bulanan: Number(contract.nilai_sewa_bulanan), tanggal_jatuh_tempo_bulanan: Number(contract.tanggal_jatuh_tempo_bulanan || 0) || null, dokumen_kontrak_path: contractPath }
       const { error: e1 } = await supabase.from('kontrak_sewa').insert(payload)
       if (e1) throw e1
