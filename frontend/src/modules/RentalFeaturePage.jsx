@@ -135,7 +135,7 @@ export default function RentalFeaturePage({ profile }) {
       const { error: e1 } = await supabase.from('kontrak_sewa').insert(payload)
       if (e1) throw e1
       setContract(EMPTY_CONTRACT); setContractFile(null); setSuccess('Kontrak 6 bulan dan dokumen kontrak tersimpan.'); await load()
-    } catch (e2) { setError(e2.message) }
+    } catch (e2) { if (contractPath) await supabase.storage.from('dokumen-sewa').remove([contractPath]); setError(e2.message) }
     setSaving(false)
   }
 
