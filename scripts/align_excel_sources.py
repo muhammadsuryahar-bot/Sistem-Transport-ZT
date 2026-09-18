@@ -192,11 +192,13 @@ old_doc = "const monitoringRows = (vehicles || []).map((v, index) => ({ no: inde
 new_doc = "const monitoringRows = (vehicles || []).map((v, index) => { const docsForVehicle = documentByVehicle[v.id] || {}; const sourceDoc = Object.values(docsForVehicle).find(doc => decodeExcelMeta(doc.keterangan).meta?.source === 'STNK_DAN_KIR'); const { meta } = sourceDoc ? decodeExcelMeta(sourceDoc.keterangan) : { meta: null }; return { no: Number(meta?.source_no) || index + 1, merk: meta?.merk || v.merk || '-', tipe: meta?.type || v.tipe || '-', nomor_polisi: meta?.nomor_polisi || v.nomor_polisi || '-', tahun: meta?.tahun || v.tahun || '-', nomor_rangka: meta?.nomor_rangka || v.nomor_rangka || '-', stnk: docsForVehicle.STNK?.tanggal_jatuh_tempo || '-', kir: docsForVehicle.KIR?.tanggal_jatuh_tempo || '-', lima_tahun: docsForVehicle['5_TAHUNAN']?.tanggal_jatuh_tempo || '-', pemilik: meta ? (meta.pemilik || '-') : (v.pemilik || '-') } })"
 replace_once(p, old_doc, new_doc, required=True)
 
-# Final lint guard for Pengajuan preview formatting.\ntext = read(p)
+# Final lint guard for Pengajuan preview formatting.
+p = 'frontend/src/modules/PengajuanExcelImportModal.jsx'
+text = read(p)
 if 'const fmtNum =' not in text:
     text2 = text.replace("const MAX_FILE_SIZE = 25 * 1024 * 1024", "const MAX_FILE_SIZE = 25 * 1024 * 1024\nconst fmtNum = value => value === null || value === undefined || value === '' ? '-' : new Intl.NumberFormat('id-ID').format(Number(value))", 1)
     if text2 == text:
         raise SystemExit('fmtNum anchor not found in PengajuanExcelImportModal.jsx')
     write(p, text2)
-\n
+
 print('Changed:', ', '.join(changes) if changes else 'none')
