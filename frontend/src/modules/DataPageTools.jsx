@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import UnifiedExcelImportModalSafe from './UnifiedExcelImportModalSafe.jsx'
-import VehicleExcelImportFinal from './VehicleExcelImportFinal.jsx'
+import VehicleExcelImportV2 from './VehicleExcelImportModalV2.jsx'
 import EditableServiceExcelImportModal from './EditableServiceExcelImportModal.jsx'
 import VehicleDocumentsImportModal from './VehicleDocumentsImportModal.jsx'
 import PengajuanExcelImportModal from './PengajuanExcelImportModal.jsx'
@@ -100,7 +100,7 @@ export default function DataPageTools({ context, profile, onExport }) {
   const closeImport = () => setShowImport(false)
   const finishImport = report => { setShowImport(false); if (hasReport(report)) setImportReport(report) }
   const refreshAfterImport = () => { setImportReport(null); window.location.reload() }
-  const modal = showImport && (context === 'kendaraan' ? <VehicleExcelImportFinal profile={profile} onClose={closeImport} onDone={finishImport} /> : context === 'pengajuan' ? <PengajuanExcelImportModal profile={profile} onClose={closeImport} onDone={finishImport} /> : context === 'service' ? <EditableServiceExcelImportModal profile={profile} onClose={closeImport} onDone={finishImport} /> : context === 'dokumen' ? <VehicleDocumentsImportModal profile={profile} onClose={closeImport} onDone={finishImport} /> : context === 'sewa' ? <RentalHistoryImportModalV2 profile={profile} onClose={closeImport} onDone={finishImport} /> : <UnifiedExcelImportModalSafe context={context} profile={profile} onClose={closeImport} onDone={finishImport} />)
+  const modal = showImport && (context === 'kendaraan' ? <VehicleExcelImportV2 profile={profile} onClose={closeImport} onDone={finishImport} /> : context === 'pengajuan' ? <PengajuanExcelImportModal profile={profile} onClose={closeImport} onDone={finishImport} /> : context === 'service' ? <EditableServiceExcelImportModal profile={profile} onClose={closeImport} onDone={finishImport} /> : context === 'dokumen' ? <VehicleDocumentsImportModal profile={profile} onClose={closeImport} onDone={finishImport} /> : context === 'sewa' ? <RentalHistoryImportModalV2 profile={profile} onClose={closeImport} onDone={finishImport} /> : <UnifiedExcelImportModalSafe context={context} profile={profile} onClose={closeImport} onDone={finishImport} />)
 
   return <>
     {modal}
