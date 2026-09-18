@@ -278,7 +278,7 @@ export default function RentalFeaturePage({ profile }) {
     </section>}
     {tab === 'repair' && <section className="x-card">
       <div className="x-card-title"><h3>Perbaikan Kendaraan Sewa</h3><p>Catat pembayaran kantor dan bukti perbaikan. Setelah dibayar kantor, biaya dapat ditandai untuk dipotong dari rental.</p></div>
-      {editable && <form className="x-grid" onSubmit={saveRepair}>
+      {repairEditable && <form className="x-grid" onSubmit={saveRepair}>
         <label>Kontrak<select value={repair.kontrak_sewa_id} onChange={e => setRepair({ ...repair, kontrak_sewa_id: e.target.value })}><option value="">Pilih kontrak</option>{contracts.map(c => <option key={c.id} value={c.id}>{c.nomor_kontrak || `#${c.id}`}</option>)}</select></label>
         <label>Kendaraan<select value={repair.kendaraan_id} onChange={e => setRepair({ ...repair, kendaraan_id: e.target.value })}><option value="">Pilih</option>{vehicles.map(v => <option key={v.id} value={v.id}>{v.nomor_polisi} — {v.merk} {v.tipe || ''}</option>)}</select></label>
         <label>Tanggal<input type="date" value={repair.tanggal_kejadian} onChange={e => setRepair({ ...repair, tanggal_kejadian: e.target.value })} /></label>
