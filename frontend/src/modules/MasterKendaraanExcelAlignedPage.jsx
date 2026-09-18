@@ -149,13 +149,20 @@ export default function MasterKendaraanExcelAlignedPage({ profile }) {
       if (result.error) throw result.error
       const vehicle = result.data
       if (canPhoto) {
-        for (const [side] of PHOTO_SIDES) {
-          const file = photoFiles[side]
-          if (!file) continue
-          const path = await uploadPhoto(vehicle.id, side, file)
-          const field = PHOTO_SIDES.find(([key]) => key === side)[2]
-          const { error: updateError } = await supabase.from('kendaraan').update({ [field]: path }).eq('id', vehicle.id)
-          if (updateError) throw updateError
+        const uploadedPaths = []
+        try {
+          for (const [side, , field] of PHOTO_SIDES) {
+            const file = photoFiles[side]
+            if (!file) continue
+            const path = await uploadPhoto(vehicle.id, side, file)
+            uploadedPaths.push(path)
+            const { error: updateError } = await supabase.from('kendaraan').update({ [field]: path }).eq('id', vehicle.id)
+            if (updateError) throw updateError
+          }
+        } catch (photoError) {
+          if (uploadedPaths.length) await supabase.storage.from('kendaraan').remove(uploadedPaths)
+          if (!editing) await supabase.from('kendaraan').delete().eq('id', vehicle.id)
+          throw photoError
         }
       }
       setSuccess(editing ? 'Data kendaraan diperbarui.' : 'Kendaraan baru berhasil ditambahkan.')
