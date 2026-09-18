@@ -15,10 +15,10 @@ export default function ReportsFeaturePage({ profile }) {
   const [exporting, setExporting] = useState(false)
   const [error, setError] = useState('')
   const [filter, setFilter] = useState('SEMUA')
+  const canReadRental = ['ADMIN', 'TRANSPORT', 'AKUNTANSI'].includes(profile?.role)
 
   const load = async () => {
     setLoading(true); setError('')
-    const canReadRental = ['ADMIN', 'TRANSPORT', 'AKUNTANSI'].includes(profile?.role)
     const rs = await Promise.all([
       supabase.from('kendaraan').select('*'),
       supabase.from('service').select('*').order('created_at', { ascending: false }),
@@ -68,6 +68,7 @@ export default function ReportsFeaturePage({ profile }) {
     setExporting(true)
     setError('')
     try {
+      const canReadRental = ['ADMIN', 'TRANSPORT', 'AKUNTANSI'].includes(profile?.role)
       const vehicleMap = Object.fromEntries(data.vehicles.map(v => [v.id, v]))
       const requestMap = Object.fromEntries(data.requests.map(r => [r.id, r]))
       const contractMap = Object.fromEntries(data.contracts.map(c => [c.id, c]))
