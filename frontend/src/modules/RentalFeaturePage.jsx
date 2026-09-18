@@ -192,7 +192,7 @@ export default function RentalFeaturePage({ profile }) {
       const { error: e1 } = await supabase.from('perbaikan_sewa').insert(payload)
       if (e1) throw e1
       setRepair(EMPTY_REPAIR); setRepairPhoto(null); setRepairProof(null); setSuccess('Perbaikan kendaraan sewa, dokumentasi dan status potongannya tersimpan.'); await load()
-    } catch (e2) { setError(e2.message) }
+    } catch (e2) { const paths = [fotoPath, proofPath].filter(Boolean); if (paths.length) await supabase.storage.from('dokumen-sewa').remove(paths); setError(e2.message) }
     setSaving(false)
   }
 
