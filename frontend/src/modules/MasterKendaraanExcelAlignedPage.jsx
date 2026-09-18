@@ -173,9 +173,12 @@ export default function MasterKendaraanExcelAlignedPage({ profile }) {
       supabase.from('dokumen_kendaraan').select('id', { count: 'exact', head: true }).eq('kendaraan_id', vehicle.id),
       supabase.from('kontrak_sewa').select('id', { count: 'exact', head: true }).eq('kendaraan_id', vehicle.id),
       supabase.from('perbaikan_sewa').select('id', { count: 'exact', head: true }).eq('kendaraan_id', vehicle.id),
+      supabase.from('riwayat_ban').select('id', { count: 'exact', head: true }).eq('kendaraan_id', vehicle.id),
+      supabase.from('riwayat_aki').select('id', { count: 'exact', head: true }).eq('kendaraan_id', vehicle.id),
+      supabase.from('riwayat_kilometer').select('id', { count: 'exact', head: true }).eq('kendaraan_id', vehicle.id),
     ])
     if (checks.some(item => item.error)) return { ok: false, reason: 'Pemeriksaan relasi kendaraan gagal.' }
-    if (checks.some(item => Number(item.count || 0) > 0)) return { ok: false, reason: `Kendaraan ${vehicle.nomor_polisi} masih terhubung ke transaksi lain. Data tidak dihapus.` }
+    if (checks.some(item => Number(item.count || 0) > 0)) return { ok: false, reason: `Kendaraan ${vehicle.nomor_polisi} masih terhubung ke riwayat/transaksi lain. Data tidak dihapus.` }
     return { ok: true }
   }
   const deleteOne = async vehicle => {
@@ -184,6 +187,11 @@ export default function MasterKendaraanExcelAlignedPage({ profile }) {
     if (!check.ok) { setError(check.reason); return false }
     const { error: deleteError } = await supabase.from('kendaraan').delete().eq('id', vehicle.id)
     if (deleteError) { setError(deleteError.message); return false }
+    const photoPaths = PHOTO_SIDES.map(([, , field]) => vehicle[field]).filter(Boolean)
+    if (photoPaths.length) {
+      const { error: photoDeleteError } = await supabase.storage.from('kendaraan').remove(photoPaths)
+      if (photoDeleteError) console.warn('Foto kendaraan gagal dibersihkan dari Storage:', photoDeleteError.message)
+    }
     return true
   }
 
