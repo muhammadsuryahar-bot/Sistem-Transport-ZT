@@ -130,7 +130,7 @@ export default function DashboardFeaturePage({ profile, onNavigate }) {
 
       if (canReadRental) {
         pushCount('kontrak segera berakhir', supabase.from('kontrak_sewa').select('id', { count: 'exact', head: true }).eq('status', 'AKTIF').gte('tanggal_selesai', todayKey).lte('tanggal_selesai', maxDate), 'expiringContracts')
-        pushCount('pembayaran belum lunas', supabase.from('pembayaran_sewa').select('id', { count: 'exact', head: true }).in('status', ['BELUM_LUNAS', 'TERLAMBAT']), 'unpaidRentals')
+        pushCount('pembayaran belum lunas', supabase.from('pembayaran_sewa').select('id', { count: 'exact', head: true }).in('status', ['BELUM_DIBAYAR', 'SEBAGIAN_DIBAYAR', 'TERLAMBAT']), 'unpaidRentals')
         pushCount('kontrak sewa aktif', supabase.from('kontrak_sewa').select('id', { count: 'exact', head: true }).eq('status', 'AKTIF'), 'activeContracts')
       }
 
