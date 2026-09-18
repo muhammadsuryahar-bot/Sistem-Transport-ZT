@@ -81,3 +81,6 @@
   .login-card{padding:24px 20px;border-radius:20px}
   .login-heading h1{font-size:27px}
 }
+.app-loading-screen{min-height:100vh;display:grid;place-items:center;background:#f4f8f5;padding:20px;}
+.app-loading-card{display:grid;gap:7px;text-align:center;background:#fff;border:1px solid #dbe7df;border-radius:16px;padding:22px 28px;box-shadow:0 12px 40px rgba(20,52,35,.08);color:#183627;}
+.app-loading-card span{font-size:13px;color:#68766f;}
