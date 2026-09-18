@@ -110,7 +110,44 @@ required=True)
 p = 'frontend/src/modules/DocumentsFeaturePage.jsx'
 replace_once(p, "import './TransportOperationsFixed.css'", "import './TransportOperationsFixed.css'\nimport { decodeExcelMeta } from '../utils/excelSourceMeta.js'", required=True)
 old_monitor = " const monitorRows=useMemo(()=>vehicles.map((v,index)=>{const byType={};docs.filter(d=>d.kendaraan_id===v.id).forEach(d=>{byType[d.jenis_dokumen]=d});return{no:index+1,merk:v.merk||'-',tipe:v.tipe||'-',nomor_polisi:v.nomor_polisi||'-',tahun:v.tahun||'-',nomor_rangka:v.nomor_rangka||'-',stnk:byType.STNK?.tanggal_jatuh_tempo||'-',kir:byType.KIR?.tanggal_jatuh_tempo||'-',lima_tahun:byType['5_TAHUNAN']?.tanggal_jatuh_tempo||'-',pemilik:v.pemilik||'-'}}),[vehicles,docs])"
-new_monitor = " const monitorRows=useMemo(()=>{const sourceRows=[];vehicles.forEach((v,index)=>{const byType={};docs.filter(d=>d.kendaraan_id===v.id).forEach(d=>{byType[d.jenis_dokumen]=d});const sourceDoc=Object.values(byType).find(d=>decodeExcelMeta(d.keterangan).meta?.source==='STNK_DAN_KIR');const meta=sourceDoc?decodeExcelMeta(sourceDoc.keterangan).meta:null;if(meta)sourceRows.push({no:Number(meta.source_no)||index+1,merk:meta.merk||'-',tipe:meta.type||'-',nomor_polisi:meta.nomor_polisi||v.nomor_polisi||'-',tahun:meta.tahun||'-',nomor_rangka:meta.nomor_rangka||'-',stnk:byType.STNK?.tanggal_jatuh_tempo||'-',kir:byType.KIR?.tanggal_jatuh_tempo||'-',lima_tahun:byType['5_TAHUNAN']?.tanggal_jatuh_tempo||'-',pemilik:meta.pemilik||'-'});});if(sourceRows.length)return sourceRows.sort((a,b)=>a.no-b.no);return vehicles.map((v,index)=>{const byType={};docs.filter(d=>d.kendaraan_id===v.id).forEach(d=>{byType[d.jenis_dokumen]=d});return{no:index+1,merk:v.merk||'-',tipe:v.tipe||'-',nomor_polisi:v.nomor_polisi||'-',tahun:v.tahun||'-',nomor_rangka:v.nomor_rangka||'-',stnk:byType.STNK?.tanggal_jatuh_tempo||'-',kir:byType.KIR?.tanggal_jatuh_tempo||'-',lima_tahun:byType['5_TAHUNAN']?.tanggal_jatuh_tempo||'-',pemilik:v.pemilik||'-'}})},[vehicles,docs])"
+new_monitor = """ const monitorRows=useMemo(() => {
+  const sourceRows=[]
+  vehicles.forEach((v,index)=>{
+    const byType={}
+    docs.filter(d=>d.kendaraan_id===v.id).forEach(d=>{byType[d.jenis_dokumen]=d})
+    const sourceDoc=Object.values(byType).find(d=>decodeExcelMeta(d.keterangan).meta?.source==='STNK_DAN_KIR')
+    const meta=sourceDoc?decodeExcelMeta(sourceDoc.keterangan).meta:null
+    if(meta) sourceRows.push({
+      no:Number(meta.source_no)||index+1,
+      merk:meta.merk||'-',
+      tipe:meta.type||'-',
+      nomor_polisi:meta.nomor_polisi||v.nomor_polisi||'-',
+      tahun:meta.tahun||'-',
+      nomor_rangka:meta.nomor_rangka||'-',
+      stnk:byType.STNK?.tanggal_jatuh_tempo||'-',
+      kir:byType.KIR?.tanggal_jatuh_tempo||'-',
+      lima_tahun:byType['5_TAHUNAN']?.tanggal_jatuh_tempo||'-',
+      pemilik:meta.pemilik||'-'
+    })
+  })
+  if(sourceRows.length) return sourceRows.sort((a,b)=>a.no-b.no)
+  return vehicles.map((v,index)=>{
+    const byType={}
+    docs.filter(d=>d.kendaraan_id===v.id).forEach(d=>{byType[d.jenis_dokumen]=d})
+    return {
+      no:index+1,
+      merk:v.merk||'-',
+      tipe:v.tipe||'-',
+      nomor_polisi:v.nomor_polisi||'-',
+      tahun:v.tahun||'-',
+      nomor_rangka:v.nomor_rangka||'-',
+      stnk:byType.STNK?.tanggal_jatuh_tempo||'-',
+      kir:byType.KIR?.tanggal_jatuh_tempo||'-',
+      lima_tahun:byType['5_TAHUNAN']?.tanggal_jatuh_tempo||'-',
+      pemilik:v.pemilik||'-'
+    }
+  })
+}, [vehicles,docs])"""
 replace_once(p, old_monitor, new_monitor, required=True)
 
 # Rental import: preserve the exact source line number and source values.
@@ -155,20 +192,11 @@ old_doc = "const monitoringRows = (vehicles || []).map((v, index) => ({ no: inde
 new_doc = "const monitoringRows = (vehicles || []).map((v, index) => { const docsForVehicle = documentByVehicle[v.id] || {}; const sourceDoc = Object.values(docsForVehicle).find(doc => decodeExcelMeta(doc.keterangan).meta?.source === 'STNK_DAN_KIR'); const { meta } = sourceDoc ? decodeExcelMeta(sourceDoc.keterangan) : { meta: null }; return { no: Number(meta?.source_no) || index + 1, merk: meta?.merk || v.merk || '-', tipe: meta?.type || v.tipe || '-', nomor_polisi: meta?.nomor_polisi || v.nomor_polisi || '-', tahun: meta?.tahun || v.tahun || '-', nomor_rangka: meta?.nomor_rangka || v.nomor_rangka || '-', stnk: docsForVehicle.STNK?.tanggal_jatuh_tempo || '-', kir: docsForVehicle.KIR?.tanggal_jatuh_tempo || '-', lima_tahun: docsForVehicle['5_TAHUNAN']?.tanggal_jatuh_tempo || '-', pemilik: meta ? (meta.pemilik || '-') : (v.pemilik || '-') } })"
 replace_once(p, old_doc, new_doc, required=True)
 
-# Final lint guards for the generated source changes.
-p = 'frontend/src/modules/DocumentsFeaturePage.jsx'
-text = read(p)
-text2 = text.replace('const monitorRows=useMemo(()=>{', 'const monitorRows=(()=>{', 1)
-text2 = text2.replace(')},[vehicles,docs])', '})()', 1)
-if text2 != text:
-    write(p, text2)
-
-p = 'frontend/src/modules/PengajuanExcelImportModal.jsx'
-text = read(p)
+# Final lint guard for Pengajuan preview formatting.\ntext = read(p)
 if 'const fmtNum =' not in text:
     text2 = text.replace("const MAX_FILE_SIZE = 25 * 1024 * 1024", "const MAX_FILE_SIZE = 25 * 1024 * 1024\nconst fmtNum = value => value === null || value === undefined || value === '' ? '-' : new Intl.NumberFormat('id-ID').format(Number(value))", 1)
     if text2 == text:
         raise SystemExit('fmtNum anchor not found in PengajuanExcelImportModal.jsx')
     write(p, text2)
-
+\n
 print('Changed:', ', '.join(changes) if changes else 'none')
