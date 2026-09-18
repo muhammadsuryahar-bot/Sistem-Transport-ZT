@@ -52,6 +52,7 @@ export default function RentalFeaturePage({ profile }) {
   const [openedFiles, setOpenedFiles] = useState({})
 
   const editable = ['ADMIN', 'TRANSPORT', 'AKUNTANSI'].includes(profile?.role)
+  const repairEditable = ['ADMIN', 'TRANSPORT'].includes(profile?.role)
   const vehicleMap = useMemo(() => Object.fromEntries(vehicles.map(v => [v.id, v])), [vehicles])
   const repairMap = useMemo(() => Object.fromEntries(repairs.map(r => [r.id, r])), [repairs])
   const historicalRows = useMemo(() => {
