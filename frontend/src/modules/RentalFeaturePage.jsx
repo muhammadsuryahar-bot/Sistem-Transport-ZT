@@ -158,8 +158,9 @@ export default function RentalFeaturePage({ profile }) {
     const status = payment.tanggal_pembayaran && paid >= netBill ? 'SUDAH_DIBAYAR' : (paid > 0 ? 'SEBAGIAN_DIBAYAR' : (payment.tanggal_jatuh_tempo && new Date(payment.tanggal_jatuh_tempo) < new Date() ? 'TERLAMBAT' : 'BELUM_DIBAYAR'))
     if (paid > netBill) return setError('Jumlah dibayar tidak boleh melebihi tagihan bersih setelah potongan.')
     setSaving(true)
+    let proofPath = null
     try {
-      const proofPath = await uploadRentalFile(paymentFile, `pembayaran/${payment.kontrak_sewa_id}`)
+      proofPath = await uploadRentalFile(paymentFile, `pembayaran/${payment.kontrak_sewa_id}`)
       const notePrefix = requestedDeduction > 0 ? `Tagihan bruto ${gross}; potongan repair ${requestedDeduction}; tagihan bersih ${netBill}.` : `Tagihan rental ${gross}.`
       const { data: savedPayment, error: e1 } = await supabase.from('pembayaran_sewa').insert({ kontrak_sewa_id: Number(payment.kontrak_sewa_id), periode_ke: Number(payment.periode_ke), bulan_pembayaran: payment.bulan_pembayaran, tanggal_jatuh_tempo: payment.tanggal_jatuh_tempo || null, tanggal_pembayaran: payment.tanggal_pembayaran || null, jumlah_tagihan: netBill, jumlah_dibayar: paid, status, metode_pembayaran: payment.metode_pembayaran.trim() || null, nomor_referensi: payment.nomor_referensi.trim() || null, bukti_pembayaran_path: proofPath, catatan: [notePrefix, payment.catatan.trim()].filter(Boolean).join(' ') || null, diproses_oleh: profile?.id || null }).select('*').single()
       if (e1) throw e1
