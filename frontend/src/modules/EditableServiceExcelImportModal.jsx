@@ -158,9 +158,9 @@ function typeFor(rows) {
 function itemCategory(value) {
   const raw = upper(value)
   if (/BAN/.test(raw)) return 'BAN'
-  if (/AKI|BATERAI/.test(raw)) return 'AKI_BATERAI'
-  if (/JASA|SERVICE/.test(raw)) return 'JASA_SERVICE'
-  return 'MATERIAL_SPAREPART'
+  if (/AKI|BATERAI/.test(raw)) return 'AKI'
+  if (/JASA|SERVICE/.test(raw)) return 'JASA'
+  return 'SPAREPART'
 }
 
 function chooseServiceSheet(sheets) {
@@ -303,7 +303,7 @@ async function importHistory(rows, profile, sheetName, onProgress = () => {}) {
     if (!result.km) return
     const previous = kmUpdates.get(result.km.kendaraan_id)
     if (!previous || result.km.kilometer > previous.kilometer) kmUpdates.set(result.km.kendaraan_id, result.km)
-    kmHistory.push({ kendaraan_id: result.km.kendaraan_id, tanggal: result.km.tanggal, kilometer: result.km.kilometer, sumber: 'IMPORT_EXCEL_SERVICE', keterangan: result.km.keterangan, dicatat_oleh: profile.id })
+    kmHistory.push({ kendaraan_id: result.km.kendaraan_id, tanggal: result.km.tanggal, kilometer: result.km.kilometer, sumber: 'SERVICE', keterangan: result.km.keterangan, dicatat_oleh: profile.id })
   })
   await Promise.all([...kmUpdates.values()].map(async update => {
     const { error } = await supabase.from('kendaraan').update({ kilometer_terakhir: update.kilometer }).eq('id', update.kendaraan_id)
