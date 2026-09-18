@@ -6,17 +6,16 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'kendaraan_kepemilikan_rule') THEN
     ALTER TABLE public.kendaraan
       ADD CONSTRAINT kendaraan_kepemilikan_rule
-      CHECK (kepemilikan IN ('ASET_KANTOR','SEWA'));
+      CHECK (kepemilikan IN ('ASET','SEWA'));
   END IF;
 
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'kendaraan_jenis_sewa_rule') THEN
+  -- Jenis kepemilikan kendaraan hanya ASET atau SEWA.
+  -- Kolom jenis_sewa dipertahankan untuk kompatibilitas data lama,
+  -- tetapi tidak menjadi bagian dari aturan bisnis master kendaraan.
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'kendaraan_jenis_sewa_legacy_rule') THEN
     ALTER TABLE public.kendaraan
-      ADD CONSTRAINT kendaraan_jenis_sewa_rule
-      CHECK (
-        (kepemilikan = 'SEWA' AND jenis_sewa IN ('SEWA_PERORANGAN','SEWA_RENTAL'))
-        OR
-        (kepemilikan = 'ASET_KANTOR' AND (jenis_sewa IS NULL OR jenis_sewa = ''))
-      );
+      ADD CONSTRAINT kendaraan_jenis_sewa_legacy_rule
+      CHECK (jenis_sewa IS NULL);
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'kontrak_sewa_periode_6_bulan') THEN
