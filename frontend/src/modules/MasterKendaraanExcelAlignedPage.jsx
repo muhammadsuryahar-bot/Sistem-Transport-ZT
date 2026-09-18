@@ -151,6 +151,7 @@ export default function MasterKendaraanExcelAlignedPage({ profile }) {
       if (canPhoto) {
         const uploadedPaths = []
         const photoPayload = {}
+        const oldPhotoPaths = []
         try {
           for (const [side, , field] of PHOTO_SIDES) {
             const file = photoFiles[side]
@@ -158,10 +159,15 @@ export default function MasterKendaraanExcelAlignedPage({ profile }) {
             const uploadedPath = await uploadPhoto(vehicle.id, side, file)
             uploadedPaths.push(uploadedPath)
             photoPayload[field] = uploadedPath
+            if (editing?.[field]) oldPhotoPaths.push(editing[field])
           }
           if (Object.keys(photoPayload).length) {
             const { error: photoUpdateError } = await supabase.from('kendaraan').update(photoPayload).eq('id', vehicle.id)
             if (photoUpdateError) throw photoUpdateError
+            if (oldPhotoPaths.length) {
+              const { error: cleanupError } = await supabase.storage.from('kendaraan').remove(oldPhotoPaths)
+              if (cleanupError) console.warn('Foto lama kendaraan gagal dibersihkan:', cleanupError.message)
+            }
           }
         } catch (photoError) {
           if (uploadedPaths.length) await supabase.storage.from('kendaraan').remove(uploadedPaths)
