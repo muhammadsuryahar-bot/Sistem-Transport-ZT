@@ -185,6 +185,7 @@ function AppTransport() {
 
   if (authLoading) return <div className="app-loading-screen"><div className="app-loading-card"><strong>PT ZAMAN TEKNINDO</strong><span>Memeriksa sesi login…</span></div></div>
   if (!session) return <LoginPage message={errorMessage} />
+  if (!profile && errorMessage) return <LoginPage message={errorMessage} />
   if (!profile) return <div className="app-loading-screen"><div className="app-loading-card"><strong>PT ZAMAN TEKNINDO</strong><span>Memuat profil pengguna…</span></div></div>
 
   const pageContent = { dashboard: <DashboardFeaturePage profile={profile} onNavigate={navigateToPage}/>, kendaraan: <KendaraanPage profile={profile}/>, pengajuan: <PermintaanServicePage profile={profile}/>, service: <ServicePage profile={profile}/>, sewa: <RentalPage profile={profile}/>, dokumen: <DocumentsPage profile={profile}/>, laporan: <ReportsPage profile={profile} />, pengguna: <UsersPage profile={profile} /> }
