@@ -50,7 +50,26 @@ function AppTransport() {
   }
 
   const loadProfile = async (userId) => { const { data, error } = await supabase.from('profiles').select('id,nama_lengkap,email,nomor_hp,role,aktif').eq('id', userId).single(); if (error || !data) { console.error('Profile error:', error); setProfile(null); setErrorMessage('Profil pengguna tidak dapat dimuat.'); return } if (!data.aktif) { await supabase.auth.signOut(); setSession(null); setProfile(null); setErrorMessage('Akun ini sedang dinonaktifkan. Hubungi administrator.'); return } setProfile(data); setErrorMessage('') }
-  useEffect(() => { let mounted = true; const initialize = async () => { const { data, error } = await supabase.auth.getSession(); if (!mounted) return; if (error) setErrorMessage('Sesi login tidak dapat diperiksa. Silakan coba lagi.'); setSession(data.session); if (data.session?.user) await loadProfile(data.session.user.id) }; initialize(); const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, nextSession) => { if (!mounted) return; setSession(nextSession); if (nextSession?.user) await loadProfile(nextSession.user.id); else setProfile(null) }); return () => { mounted = false; subscription.unsubscribe() } }, [])
+  useEffect(() => {
+    let mounted = true
+    const initialize = async () => {
+      const { data, error } = await supabase.auth.getSession()
+      if (!mounted) return
+      if (error) setErrorMessage('Sesi login tidak dapat diperiksa. Silakan coba lagi.')
+      setSession(data.session)
+      if (data.session?.user) await loadProfile(data.session.user.id)
+      if (mounted) setAuthLoading(false)
+    }
+    initialize()
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
+      if (!mounted) return
+      setSession(nextSession)
+      if (nextSession?.user) await loadProfile(nextSession.user.id)
+      else setProfile(null)
+      if (mounted) setAuthLoading(false)
+    })
+    return () => { mounted = false; subscription.unsubscribe() }
+  }, [])
   useEffect(() => { if (session && profile && !allowedPages.includes(activePage)) setActivePage('dashboard') }, [activePage, allowedPages, profile, session])
   useEffect(() => {
     if (!session || !profile) return
