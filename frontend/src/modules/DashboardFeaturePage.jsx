@@ -124,13 +124,14 @@ export default function DashboardFeaturePage({ profile, onNavigate }) {
         pushCount('service selesai', supabase.from('permintaan_service').select('id', { count: 'exact', head: true }).eq('status', 'SELESAI'), 'completedRequests')
       }
 
-      if (canReadRental) {
+      if (canReadFleet) {
         pushCount('dokumen mendekati jatuh tempo', supabase.from('dokumen_kendaraan').select('id', { count: 'exact', head: true }).not('tanggal_jatuh_tempo', 'is', null).gte('tanggal_jatuh_tempo', todayKey).lte('tanggal_jatuh_tempo', maxDate), 'expiringDocuments')
+      }
+
+      if (canReadRental) {
         pushCount('kontrak segera berakhir', supabase.from('kontrak_sewa').select('id', { count: 'exact', head: true }).eq('status', 'AKTIF').gte('tanggal_selesai', todayKey).lte('tanggal_selesai', maxDate), 'expiringContracts')
         pushCount('pembayaran belum lunas', supabase.from('pembayaran_sewa').select('id', { count: 'exact', head: true }).in('status', ['BELUM_LUNAS', 'TERLAMBAT']), 'unpaidRentals')
         pushCount('kontrak sewa aktif', supabase.from('kontrak_sewa').select('id', { count: 'exact', head: true }).eq('status', 'AKTIF'), 'activeContracts')
-      } else if (canReadFleet) {
-        pushCount('dokumen mendekati jatuh tempo', supabase.from('dokumen_kendaraan').select('id', { count: 'exact', head: true }).not('tanggal_jatuh_tempo', 'is', null).gte('tanggal_jatuh_tempo', todayKey).lte('tanggal_jatuh_tempo', maxDate), 'expiringDocuments')
       }
 
       await Promise.all(countTasks)
