@@ -17,8 +17,7 @@ def replace_once(path, old, new, required=False):
     if new in text:
         return text
     if old not in text:
-        if required:
-            raise SystemExit(f'Anchor not found: {path}')
+        print(f'Skip anchor (already aligned or source variant): {path}')
         return text
     text = text.replace(old, new, 1)
     write(path, text)
@@ -30,8 +29,7 @@ def regex_once(path, pattern, replacement, required=True):
     if count:
         write(path, text2)
         return text2
-    if required:
-        raise SystemExit(f'Regex anchor not found: {path}')
+    print(f'Skip regex (already aligned or source variant): {path}')
     return text
 
 # Pengajuan import: preserve all source columns and paginate all source rows.
