@@ -178,7 +178,6 @@ async function importVehicleRows(rows) {
       nomor_rangka: row.nomor_rangka || current?.nomor_rangka || null,
       nomor_mesin: row.nomor_mesin || current?.nomor_mesin || null,
       kepemilikan: row.kepemilikan,
-      jenis_sewa: null,
       pemilik: owner,
       driver_id: driverId,
       lokasi: row.lokasi || current?.lokasi || null,
