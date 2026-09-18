@@ -61,11 +61,16 @@ function AppTransport() {
       if (mounted) setAuthLoading(false)
     }
     initialize()
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (!mounted) return
       setSession(nextSession)
-      if (nextSession?.user) await loadProfile(nextSession.user.id)
-      else setProfile(null)
+      if (nextSession?.user) {
+        window.setTimeout(() => {
+          if (mounted) loadProfile(nextSession.user.id)
+        }, 0)
+      } else {
+        setProfile(null)
+      }
       if (mounted) setAuthLoading(false)
     })
     return () => { mounted = false; subscription.unsubscribe() }
