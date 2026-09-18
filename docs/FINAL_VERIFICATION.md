@@ -30,11 +30,11 @@ Dokumen ini menjadi checklist pengujian manual sebelum sistem Transport dipakai 
 
 ### Kendaraan
 
-- [ ] Tambah kendaraan aset kantor.
-- [ ] Tambah kendaraan sewa perorangan.
-- [ ] Tambah kendaraan sewa rental.
-- [ ] Kepemilikan `SEWA` wajib memiliki jenis sewa.
-- [ ] Mengubah kepemilikan menjadi `ASET_KANTOR` membersihkan jenis sewa.
+- [ ] Tambah kendaraan dengan kepemilikan `ASET` (milik kantor).
+- [ ] Tambah kendaraan dengan kepemilikan `SEWA` (sewa/rental).
+- [ ] Kepemilikan hanya boleh `ASET` atau `SEWA`.
+- [ ] Import Excel hanya menerima Status `Aset` atau `Sewa`.
+- [ ] Status kepemilikan kosong/tidak valid pada Excel ditolak dan tidak otomatis dianggap Aset.
 - [ ] Edit seluruh identitas kendaraan bekerja.
 - [ ] Filter status dan kepemilikan bekerja.
 - [ ] Pencarian plat/kode/merk/driver/lokasi bekerja.
