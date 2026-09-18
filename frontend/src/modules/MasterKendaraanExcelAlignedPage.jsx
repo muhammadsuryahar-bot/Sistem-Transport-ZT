@@ -137,7 +137,7 @@ export default function MasterKendaraanExcelAlignedPage({ profile }) {
         nomor_polisi: clean(form.nomor_polisi).toUpperCase(), merk: clean(form.merk), tipe: clean(form.tipe) || null,
         jenis_kendaraan: clean(form.jenis_kendaraan) || null, tahun: form.tahun === '' ? null : Number(form.tahun),
         nomor_mesin: clean(form.nomor_mesin) || null, nomor_rangka: clean(form.nomor_rangka) || null,
-        kepemilikan: ownership, pemilik: owner || null,
+        kepemilikan: ownership, jenis_sewa: null, pemilik: owner || null,
         driver_id: form.driver_id === '' ? null : Number(form.driver_id), lokasi: clean(form.lokasi) || null, unit_kerja: clean(form.unit_kerja) || null,
         masa_berlaku_pajak: form.masa_berlaku_pajak || null, status_pajak: clean(form.status_pajak) || null,
         keterangan: clean(form.keterangan) || null, catatan_hutang: clean(form.catatan_hutang) || null,
