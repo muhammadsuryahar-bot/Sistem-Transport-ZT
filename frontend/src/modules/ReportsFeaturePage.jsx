@@ -9,7 +9,7 @@ const DAYS = 30 * 86400000
 
 const columns = (keys) => keys.map(([key, label]) => ({ key, label }))
 
-export default function ReportsFeaturePage() {
+export default function ReportsFeaturePage({ profile }) {
   const [data, setData] = useState({ vehicles: [], services: [], requests: [], contracts: [], payments: [], docs: [], approvals: [], repairs: [], deductions: [] })
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
@@ -18,16 +18,17 @@ export default function ReportsFeaturePage() {
 
   const load = async () => {
     setLoading(true); setError('')
+    const canReadRental = ['ADMIN', 'TRANSPORT', 'AKUNTANSI'].includes(profile?.role)
     const rs = await Promise.all([
       supabase.from('kendaraan').select('*'),
       supabase.from('service').select('*').order('created_at', { ascending: false }),
       supabase.from('permintaan_service').select('*').order('created_at', { ascending: false }),
-      supabase.from('kontrak_sewa').select('*').order('created_at', { ascending: false }),
-      supabase.from('pembayaran_sewa').select('*').order('bulan_pembayaran', { ascending: false }),
+      canReadRental ? supabase.from('kontrak_sewa').select('*').order('created_at', { ascending: false }) : Promise.resolve({ data: [], error: null }),
+      canReadRental ? supabase.from('pembayaran_sewa').select('*').order('bulan_pembayaran', { ascending: false }) : Promise.resolve({ data: [], error: null }),
       supabase.from('dokumen_kendaraan').select('*'),
       supabase.from('service_approval').select('*').order('waktu_approval', { ascending: false }),
-      supabase.from('perbaikan_sewa').select('*').order('tanggal_kejadian', { ascending: false }),
-      supabase.from('potongan_pembayaran_sewa').select('*').order('created_at', { ascending: false }),
+      canReadRental ? supabase.from('perbaikan_sewa').select('*').order('tanggal_kejadian', { ascending: false }) : Promise.resolve({ data: [], error: null }),
+      canReadRental ? supabase.from('potongan_pembayaran_sewa').select('*').order('created_at', { ascending: false }) : Promise.resolve({ data: [], error: null }),
     ])
     const names = ['kendaraan', 'service', 'pengajuan', 'kontrak', 'pembayaran', 'dokumen', 'approval', 'perbaikan', 'potongan']
     rs.forEach((r, i) => { if (r.error) setError(e => e || `Gagal memuat ${names[i]}: ${r.error.message}`) })
@@ -36,11 +37,11 @@ export default function ReportsFeaturePage() {
   }
 
   useEffect(() => {
-    load()
+    if (profile?.id) load()
     const handleImported = (event) => { if (event.detail?.context) load() }
     window.addEventListener('transport:data-imported', handleImported)
     return () => window.removeEventListener('transport:data-imported', handleImported)
-  }, [])
+  }, [profile?.id, profile?.role])
 
   const now = Date.now()
   const metrics = useMemo(() => {
@@ -54,14 +55,14 @@ export default function ReportsFeaturePage() {
     const rentalGross = payments.reduce((n, x) => n + Number(x.jumlah_tagihan || 0), 0)
     const rentalPaid = payments.reduce((n, x) => n + Number(x.jumlah_dibayar || 0), 0)
     const totalDeduction = deductions.reduce((n, x) => n + Number(x.jumlah_potongan || 0), 0)
-    const overduePayments = payments.filter(x => x.status === 'TERLAMBAT' || (x.status === 'BELUM_LUNAS' && x.tanggal_jatuh_tempo && new Date(x.tanggal_jatuh_tempo).getTime() < now)).length
+    const overduePayments = payments.filter(x => x.status === 'TERLAMBAT' || ((x.status === 'BELUM_DIBAYAR' || x.status === 'SEBAGIAN_DIBAYAR') && x.tanggal_jatuh_tempo && new Date(x.tanggal_jatuh_tempo).getTime() < now)).length
     const repairedAndPaidByOffice = repairs.filter(x => x.dibayar_kantor).length
     const approved = approvals.filter(x => x.status === 'DISETUJUI').length
     return { activeContracts, pendingRequests, pendingApproval, expiredDocs, soonDocs, serviceCost, rentalGross, rentalPaid, totalDeduction, overduePayments, repairedAndPaidByOffice, approved, totalVehicles: vehicles.length }
   }, [data, now])
 
   const serviceRows = filter === 'SELESAI' ? data.services.filter(x => x.status === 'SELESAI') : filter === 'MENUNGGU_APPROVAL' ? data.services.filter(x => x.status === 'MENUNGGU_APPROVAL') : data.services.filter(x => x.status !== 'DIBATALKAN')
-  const problemPayments = data.payments.filter(x => x.status === 'TERLAMBAT' || (x.status === 'BELUM_LUNAS' && x.tanggal_jatuh_tempo && new Date(x.tanggal_jatuh_tempo).getTime() < now))
+  const problemPayments = data.payments.filter(x => x.status === 'TERLAMBAT' || ((x.status === 'BELUM_DIBAYAR' || x.status === 'SEBAGIAN_DIBAYAR') && x.tanggal_jatuh_tempo && new Date(x.tanggal_jatuh_tempo).getTime() < now))
 
   const exportAll = async () => {
     setExporting(true)
