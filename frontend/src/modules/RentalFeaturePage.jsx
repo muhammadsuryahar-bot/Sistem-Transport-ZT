@@ -5,10 +5,10 @@ import { decodeExcelMeta } from '../utils/excelSourceMeta.js'
 
 const money = (v) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(v || 0))
 const dateText = (v) => v ? new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(new Date(v)) : '-'
-const EMPTY_OWNER = { jenis_pemilik: 'SEWA_PERORANGAN', nama_pemilik: '', nomor_hp: '', email: '', alamat: '', nomor_identitas: '', nama_perusahaan: '', nomor_rekening: '', nama_bank: '', keterangan: '', aktif: true }
+const EMPTY_OWNER = { jenis_pemilik: 'PERORANGAN', nama_pemilik: '', nomor_hp: '', email: '', alamat: '', nomor_identitas: '', nama_perusahaan: '', nomor_rekening: '', nama_bank: '', keterangan: '', aktif: true }
 const EMPTY_CONTRACT = { nomor_kontrak: '', kendaraan_id: '', pemilik_sewa_id: '', tanggal_mulai: '', tanggal_selesai: '', waktu_mulai: '', waktu_selesai: '', periode_bulan: 6, nilai_sewa_bulanan: '', tanggal_jatuh_tempo_bulanan: '', status: 'AKTIF', catatan: '' }
 const EMPTY_PAYMENT = { kontrak_sewa_id: '', periode_ke: '', bulan_pembayaran: '', tanggal_jatuh_tempo: '', tanggal_pembayaran: '', jumlah_tagihan: '', jumlah_dibayar: '', metode_pembayaran: '', nomor_referensi: '', catatan: '', perbaikan_sewa_id: '', jumlah_potongan: '' }
-const EMPTY_REPAIR = { kontrak_sewa_id: '', kendaraan_id: '', tanggal_kejadian: new Date().toISOString().slice(0, 10), kilometer: '', jenis_kerusakan: '', deskripsi_kerusakan: '', penyebab: '', estimasi_biaya: '', biaya_aktual: '', metode_penanganan: '', dibayar_kantor: false, tanggal_dibayar: '', pemilik_diberitahu: false, status: 'DIPROSES', dapat_dipotong: false, jumlah_dipotong: '', catatan: '' }
+const EMPTY_REPAIR = { kontrak_sewa_id: '', kendaraan_id: '', tanggal_kejadian: new Date().toISOString().slice(0, 10), kilometer: '', jenis_kerusakan: '', deskripsi_kerusakan: '', penyebab: '', estimasi_biaya: '', biaya_aktual: '', metode_penanganan: '', dibayar_kantor: false, tanggal_dibayar: '', pemilik_diberitahu: false, status: 'DILAPORKAN', dapat_dipotong: false, jumlah_dipotong: '', catatan: '' }
 
 function Alert({ type = 'success', children }) { return <div className={`x-alert ${type}`}>{children}</div> }
 function Header({ title, text, action }) { return <div className="x-head"><div><span className="eyebrow">KENDARAAN SEWA</span><h2>{title}</h2><p>{text}</p></div>{action}</div> }
@@ -100,8 +100,8 @@ export default function RentalFeaturePage({ profile }) {
   const saveOwner = async e => {
     e.preventDefault(); clearMessages()
     if (!owner.nama_pemilik.trim()) return setError('Nama pemilik wajib diisi.')
-    if (owner.jenis_pemilik === 'SEWA_RENTAL' && !owner.nama_perusahaan.trim()) return setError('Nama perusahaan/rental wajib diisi untuk pemilik rental.')
-    if (owner.jenis_pemilik === 'SEWA_PERORANGAN' && !owner.nomor_identitas.trim()) return setError('Nomor identitas pemilik wajib diisi untuk pemilik perorangan.')
+    if (owner.jenis_pemilik === 'PERUSAHAAN_RENTAL' && !owner.nama_perusahaan.trim()) return setError('Nama perusahaan/rental wajib diisi untuk pemilik rental.')
+    if (owner.jenis_pemilik === 'PERORANGAN' && !owner.nomor_identitas.trim()) return setError('Nomor identitas pemilik wajib diisi untuk pemilik perorangan.')
     setSaving(true)
     const { error: e1 } = await supabase.from('pemilik_sewa').insert({ ...owner, nama_pemilik: owner.nama_pemilik.trim(), nama_perusahaan: owner.nama_perusahaan.trim() || null, nomor_identitas: owner.nomor_identitas.trim() || null })
     if (e1) setError(e1.message)
@@ -146,7 +146,7 @@ export default function RentalFeaturePage({ profile }) {
     }
     const netBill = Math.max(0, gross - requestedDeduction)
     const paid = Number(payment.jumlah_dibayar || 0)
-    const status = payment.tanggal_pembayaran && paid >= netBill ? 'LUNAS' : (payment.tanggal_jatuh_tempo && new Date(payment.tanggal_jatuh_tempo) < new Date() && paid < netBill ? 'TERLAMBAT' : 'BELUM_LUNAS')
+    const status = payment.tanggal_pembayaran && paid >= netBill ? 'SUDAH_DIBAYAR' : (paid > 0 ? 'SEBAGIAN_DIBAYAR' : (payment.tanggal_jatuh_tempo && new Date(payment.tanggal_jatuh_tempo) < new Date() ? 'TERLAMBAT' : 'BELUM_DIBAYAR'))
     if (paid > netBill) return setError('Jumlah dibayar tidak boleh melebihi tagihan bersih setelah potongan.')
     setSaving(true)
     try {
@@ -165,15 +165,18 @@ export default function RentalFeaturePage({ profile }) {
 
   const saveRepair = async e => {
     e.preventDefault(); clearMessages()
-    if (!repair.kendaraan_id || !repair.jenis_kerusakan.trim()) return setError('Kendaraan dan jenis kerusakan wajib diisi.')
+    if (!repair.kontrak_sewa_id || !repair.kendaraan_id || !repair.jenis_kerusakan.trim() || !repair.deskripsi_kerusakan.trim()) return setError('Kontrak, kendaraan, jenis kerusakan, dan deskripsi wajib diisi.')
     if (repair.dibayar_kantor && !repair.tanggal_dibayar) return setError('Tanggal pembayaran perbaikan wajib diisi jika dibayar kantor.')
     if (repair.dapat_dipotong && !repair.dibayar_kantor) return setError('Perbaikan baru boleh ditandai dapat dipotong setelah dibayar kantor.')
     if (repair.dapat_dipotong && Number(repair.jumlah_dipotong || 0) <= 0) return setError('Jumlah potongan wajib diisi jika perbaikan dapat dipotong.')
+    const selectedContract = contracts.find(c => Number(c.id) === Number(repair.kontrak_sewa_id))
+    if (!selectedContract) return setError('Kontrak rental tidak ditemukan.')
+    if (Number(selectedContract.kendaraan_id) !== Number(repair.kendaraan_id)) return setError('Kendaraan perbaikan harus sama dengan kendaraan pada kontrak rental.')
     setSaving(true)
     try {
       const fotoPath = await uploadRentalFile(repairPhoto, `perbaikan/${repair.kendaraan_id}`)
       const proofPath = await uploadRentalFile(repairProof, `perbaikan/${repair.kendaraan_id}/bukti`)
-      const payload = { ...repair, kontrak_sewa_id: repair.kontrak_sewa_id ? Number(repair.kontrak_sewa_id) : null, kendaraan_id: Number(repair.kendaraan_id), kilometer: repair.kilometer === '' ? null : Number(repair.kilometer), estimasi_biaya: Number(repair.estimasi_biaya || 0), biaya_aktual: repair.biaya_aktual === '' ? null : Number(repair.biaya_aktual), jumlah_dipotong: repair.dapat_dipotong ? Number(repair.jumlah_dipotong || 0) : 0, foto_kerusakan_path: fotoPath, bukti_perbaikan_path: proofPath, dicatat_oleh: profile?.id || null }
+      const payload = { ...repair, nomor_perbaikan: `REP-${Date.now()}`, kontrak_sewa_id: Number(repair.kontrak_sewa_id), kendaraan_id: Number(repair.kendaraan_id), kilometer: repair.kilometer === '' ? null : Number(repair.kilometer), estimasi_biaya: Number(repair.estimasi_biaya || 0), biaya_aktual: repair.biaya_aktual === '' ? null : Number(repair.biaya_aktual), jumlah_dipotong: repair.dapat_dipotong ? Number(repair.jumlah_dipotong || 0) : 0, foto_kerusakan_path: fotoPath, bukti_perbaikan_path: proofPath, dicatat_oleh: profile?.id || null }
       const { error: e1 } = await supabase.from('perbaikan_sewa').insert(payload)
       if (e1) throw e1
       setRepair(EMPTY_REPAIR); setRepairPhoto(null); setRepairProof(null); setSuccess('Perbaikan kendaraan sewa, dokumentasi dan status potongannya tersimpan.'); await load()
@@ -201,7 +204,7 @@ export default function RentalFeaturePage({ profile }) {
     {tab === 'pemilik' && <section className="x-card">
       <div className="x-card-title"><h3>Data Pemilik Sewa</h3></div>
       {editable && <form className="x-grid" onSubmit={saveOwner}>
-        <label>Jenis Pemilik<select value={owner.jenis_pemilik} onChange={e => setOwner({ ...owner, jenis_pemilik: e.target.value })}><option value="SEWA_PERORANGAN">Perorangan</option><option value="SEWA_RENTAL">Perusahaan / Rental</option></select></label>
+        <label>Jenis Pemilik<select value={owner.jenis_pemilik} onChange={e => setOwner({ ...owner, jenis_pemilik: e.target.value })}><option value="PERORANGAN">Perorangan</option><option value="PERUSAHAAN_RENTAL">Perusahaan / Rental</option></select></label>
         <label>Nama Pemilik / Kontak Utama<input value={owner.nama_pemilik} onChange={e => setOwner({ ...owner, nama_pemilik: e.target.value })} /></label>
         <label>No HP<input value={owner.nomor_hp} onChange={e => setOwner({ ...owner, nomor_hp: e.target.value })} /></label>
         <label>Email<input type="email" value={owner.email} onChange={e => setOwner({ ...owner, email: e.target.value })} /></label>
@@ -268,7 +271,7 @@ export default function RentalFeaturePage({ profile }) {
     {tab === 'repair' && <section className="x-card">
       <div className="x-card-title"><h3>Perbaikan Kendaraan Sewa</h3><p>Catat pembayaran kantor dan bukti perbaikan. Setelah dibayar kantor, biaya dapat ditandai untuk dipotong dari rental.</p></div>
       {editable && <form className="x-grid" onSubmit={saveRepair}>
-        <label>Kontrak<select value={repair.kontrak_sewa_id} onChange={e => setRepair({ ...repair, kontrak_sewa_id: e.target.value })}><option value="">Opsional</option>{contracts.map(c => <option key={c.id} value={c.id}>{c.nomor_kontrak || `#${c.id}`}</option>)}</select></label>
+        <label>Kontrak<select value={repair.kontrak_sewa_id} onChange={e => setRepair({ ...repair, kontrak_sewa_id: e.target.value })}><option value="">Pilih kontrak</option>{contracts.map(c => <option key={c.id} value={c.id}>{c.nomor_kontrak || `#${c.id}`}</option>)}</select></label>
         <label>Kendaraan<select value={repair.kendaraan_id} onChange={e => setRepair({ ...repair, kendaraan_id: e.target.value })}><option value="">Pilih</option>{vehicles.map(v => <option key={v.id} value={v.id}>{v.nomor_polisi} — {v.merk} {v.tipe || ''}</option>)}</select></label>
         <label>Tanggal<input type="date" value={repair.tanggal_kejadian} onChange={e => setRepair({ ...repair, tanggal_kejadian: e.target.value })} /></label>
         <label>KM<input type="number" min="0" value={repair.kilometer} onChange={e => setRepair({ ...repair, kilometer: e.target.value })} /></label>
@@ -276,8 +279,8 @@ export default function RentalFeaturePage({ profile }) {
         <label>Penyebab<input value={repair.penyebab} onChange={e => setRepair({ ...repair, penyebab: e.target.value })} /></label>
         <label>Estimasi Biaya<input type="number" min="0" value={repair.estimasi_biaya} onChange={e => setRepair({ ...repair, estimasi_biaya: e.target.value })} /></label>
         <label>Biaya Aktual<input type="number" min="0" value={repair.biaya_aktual} onChange={e => setRepair({ ...repair, biaya_aktual: e.target.value })} /></label>
-        <label>Metode Penanganan<input value={repair.metode_penanganan} onChange={e => setRepair({ ...repair, metode_penanganan: e.target.value })} /></label>
-        <label>Status<select value={repair.status} onChange={e => setRepair({ ...repair, status: e.target.value })}><option>DIPROSES</option><option>SELESAI</option><option>DIBATALKAN</option></select></label>
+        <label>Metode Penanganan<select value={repair.metode_penanganan} onChange={e => setRepair({ ...repair, metode_penanganan: e.target.value })}><option value="">Pilih</option><option value="KAS_KANTOR">Kas Kantor</option><option value="BENGKEL_LANGGANAN">Bengkel Langganan</option><option value="LAINNYA">Lainnya</option></select></label>
+        <label>Status<select value={repair.status} onChange={e => setRepair({ ...repair, status: e.target.value })}><option value="DILAPORKAN">Dilaporkan</option><option value="DIPERIKSA">Diperiksa</option><option value="DALAM_PERBAIKAN">Dalam Perbaikan</option><option value="SELESAI">Selesai</option><option value="DIBATALKAN">Dibatalkan</option></select></label>
         <label>Dibayar Kantor<select value={String(repair.dibayar_kantor)} onChange={e => setRepair({ ...repair, dibayar_kantor: e.target.value === 'true' })}><option value="false">Tidak</option><option value="true">Ya</option></select></label>
         <label>Tanggal Dibayar<input type="date" value={repair.tanggal_dibayar} onChange={e => setRepair({ ...repair, tanggal_dibayar: e.target.value })} /></label>
         <label>Pemilik Diberitahu<select value={String(repair.pemilik_diberitahu)} onChange={e => setRepair({ ...repair, pemilik_diberitahu: e.target.value === 'true' })}><option value="false">Belum</option><option value="true">Ya</option></select></label>
