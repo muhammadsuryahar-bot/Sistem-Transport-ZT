@@ -183,9 +183,11 @@ export default function RentalFeaturePage({ profile }) {
     if (!selectedContract) return setError('Kontrak rental tidak ditemukan.')
     if (Number(selectedContract.kendaraan_id) !== Number(repair.kendaraan_id)) return setError('Kendaraan perbaikan harus sama dengan kendaraan pada kontrak rental.')
     setSaving(true)
+    let fotoPath = null
+    let proofPath = null
     try {
-      const fotoPath = await uploadRentalFile(repairPhoto, `perbaikan/${repair.kendaraan_id}`)
-      const proofPath = await uploadRentalFile(repairProof, `perbaikan/${repair.kendaraan_id}/bukti`)
+      fotoPath = await uploadRentalFile(repairPhoto, `perbaikan/${repair.kendaraan_id}`)
+      proofPath = await uploadRentalFile(repairProof, `perbaikan/${repair.kendaraan_id}/bukti`)
       const payload = { ...repair, nomor_perbaikan: `REP-${Date.now()}`, kontrak_sewa_id: Number(repair.kontrak_sewa_id), kendaraan_id: Number(repair.kendaraan_id), kilometer: repair.kilometer === '' ? null : Number(repair.kilometer), estimasi_biaya: Number(repair.estimasi_biaya || 0), biaya_aktual: repair.biaya_aktual === '' ? null : Number(repair.biaya_aktual), jumlah_dipotong: repair.dapat_dipotong ? Number(repair.jumlah_dipotong || 0) : 0, foto_kerusakan_path: fotoPath, bukti_perbaikan_path: proofPath, dicatat_oleh: profile?.id || null }
       const { error: e1 } = await supabase.from('perbaikan_sewa').insert(payload)
       if (e1) throw e1
