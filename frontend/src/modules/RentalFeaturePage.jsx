@@ -77,7 +77,7 @@ export default function RentalFeaturePage({ profile }) {
       supabase.from('kontrak_sewa').select('*').order('created_at', { ascending: false }),
       supabase.from('pembayaran_sewa').select('*').order('bulan_pembayaran', { ascending: false }),
       supabase.from('perbaikan_sewa').select('*').order('tanggal_kejadian', { ascending: false }),
-      supabase.from('kendaraan').select('id,nomor_polisi,merk,tipe,kepemilikan,jenis_sewa').eq('kepemilikan', 'SEWA').order('nomor_polisi'),
+      supabase.from('kendaraan').select('id,nomor_polisi,merk,tipe,kepemilikan,pemilik').eq('kepemilikan', 'SEWA').order('nomor_polisi'),
     ])
     const names = ['Pemilik', 'Kontrak', 'Pembayaran', 'Perbaikan', 'Kendaraan']
     rs.forEach((r, i) => { if (r.error) setError(e => e || `${names[i]}: ${r.error.message}`) })
