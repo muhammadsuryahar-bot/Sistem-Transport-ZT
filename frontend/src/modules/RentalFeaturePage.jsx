@@ -207,7 +207,7 @@ export default function RentalFeaturePage({ profile }) {
     <Header title="Kendaraan Sewa" text="Kelola pemilik, kontrak 6 bulan, pembayaran bulanan, bukti, perbaikan, dan potongan." action={<button className="x-btn secondary" onClick={load}>↻ Refresh</button>} />
     {error && <Alert type="error">{error}</Alert>}
     {success && <Alert>{success}</Alert>}
-    <div className="x-tabs">{[['kontrak', 'Kontrak'], ['pemilik', 'Pemilik'], ['pembayaran', 'Pembayaran'], ['historis', 'Riwayat Excel'], ['repair', 'Perbaikan']].map(([v, l]) => <button key={v} className={tab === v ? 'active' : ''} onClick={() => { clearMessages(); setTab(v) }}>{l}</button>)}</div>
+    <div className="x-tabs">{[['kontrak', 'Kontrak'], ['pemilik', 'Pemilik'], ['pembayaran', 'Pembayaran'], ['historis', 'Riwayat Excel'], ...(repairEditable ? [['repair', 'Perbaikan']] : [])].map(([v, l]) => <button key={v} className={tab === v ? 'active' : ''} onClick={() => { clearMessages(); setTab(v) }}>{l}</button>)}</div>
 
     {tab === 'pemilik' && <section className="x-card">
       <div className="x-card-title"><h3>Data Pemilik Sewa</h3></div>
