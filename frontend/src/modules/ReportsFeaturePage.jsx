@@ -73,9 +73,10 @@ export default function ReportsFeaturePage({ profile }) {
       const contractMap = Object.fromEntries(data.contracts.map(c => [c.id, c]))
       const ownerMap = {}
 
-      const [ownerResult] = await Promise.all([
-        supabase.from('pemilik_sewa').select('*').order('nama_pemilik'),
-      ])
+      const ownerResult = canReadRental
+        ? await supabase.from('pemilik_sewa').select('*').order('nama_pemilik')
+        : { data: [], error: null }
+      if (ownerResult.error) throw ownerResult.error
       ;(ownerResult.data || []).forEach(o => { ownerMap[o.id] = o })
 
       const exportRows = rows => rows.map(row => ({ ...row }))
