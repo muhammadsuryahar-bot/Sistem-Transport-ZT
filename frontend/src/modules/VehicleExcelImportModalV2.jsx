@@ -178,7 +178,7 @@ async function importVehicleRows(rows) {
       nomor_rangka: row.nomor_rangka || current?.nomor_rangka || null,
       nomor_mesin: row.nomor_mesin || current?.nomor_mesin || null,
       kepemilikan: row.kepemilikan,
-      jenis_sewa: row.kepemilikan === 'SEWA' ? (current?.jenis_sewa || (/^(PT|CV|UD|PD)\b/i.test(owner || '') ? 'SEWA_RENTAL' : 'SEWA_PERORANGAN')) : null,
+      jenis_sewa: null,
       pemilik: owner,
       driver_id: driverId,
       lokasi: row.lokasi || current?.lokasi || null,
