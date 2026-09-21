@@ -231,7 +231,8 @@ async function importHistory(rows, profile, sheetName, onProgress = () => {}) {
         const first = group.values[0]
         const dpp = group.values.reduce((sum, row) => sum + row.nilai_dpp, 0)
         const ppn = group.values.reduce((sum, row) => sum + row.ppn, 0)
-        const total = dpp + ppn
+        const sourceTotal = group.values.reduce((sum, row) => sum + row.total, 0)
+        const total = sourceTotal > 0 ? sourceTotal : dpp + ppn
         const kilometer = Math.max(...group.values.map(row => row.kilometer || 0))
         const jenisService = typeFor(group.values)
         const label = group.values.find(row => row.jenis_pekerjaan)?.jenis_pekerjaan || 'Service'
@@ -373,9 +374,24 @@ export default function EditableServiceExcelImportModal({ profile, onDone, onClo
       const chosen = chooseServiceSheet(sheets)
       if (!chosen || chosen.score < 12) throw new Error(`Sheet histori service tidak ditemukan. File terbaca tetapi sheet “Data Service” tidak sesuai.`)
       const sourceRows = chosen.sheet.rows.slice(chosen.header.index + 1).filter(row => row.values.some(value => clean(value)))
+      const mappedFields = new Set(chosen.header.row.map(fieldForHeader).filter(Boolean))
+      const requiredFields = [
+        ['nomor_polisi', 'No. Polisi'],
+        ['tanggal', 'Tanggal'],
+        ['kilometer', 'KM'],
+        ['harga_satuan', 'Harga Satuan'],
+        ['nilai_dpp', 'Nilai DPP'],
+        ['ppn', 'PPN'],
+        ['total', 'Total'],
+        ['bengkel', 'Nama Bengkel'],
+      ]
+      const missingFields = requiredFields.filter(([field]) => !mappedFields.has(field))
+      if (missingFields.length) {
+        throw new Error(`Kolom Data Service belum terbaca: ${missingFields.map(([, label]) => label).join(', ')}. Periksa nama header Excel sebelum import.`)
+      }
       const parsed = sourceRows.map(row => parseRow(row, chosen.header.row))
       setSheet(chosen.sheet); setHeaders(chosen.header.row); setRows(parsed)
-      setMessage(`Sheet “${chosen.sheet.name}” terbaca: ${parsed.length} baris. Semua baris dipertahankan dan bisa diedit sebelum disimpan.`)
+      setMessage(`Sheet “${chosen.sheet.name}” terbaca: ${parsed.length} baris. Kolom No. Polisi, Harga Satuan, DPP, PPN, Total, KM, dan Nama Bengkel berhasil dikenali.`)
     } catch (e) { setError(e.message || 'File Excel tidak dapat dibaca.') } finally { setLoading(false) }
   }
 
