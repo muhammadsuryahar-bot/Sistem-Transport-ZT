@@ -171,7 +171,7 @@ function AppTransport() {
       } else if (activePage === 'dokumen') {
         const [{ data: documents, error: documentError }, { data: vehicles, error: vehicleError }] = await Promise.all([
           supabase.from('dokumen_kendaraan').select('*').order('tanggal_jatuh_tempo', { ascending: true }),
-          supabase.from('kendaraan').select('id,nomor_polisi,merk,tipe,tahun,nomor_rangka,pemilik').order('nomor_polisi'),
+          supabase.from('kendaraan').select('id,nomor_polisi,merk,tipe,tahun,nomor_rangka,pemilik,foto_stnk_path').order('nomor_polisi'),
         ])
         if (documentError) throw documentError
         if (vehicleError) throw vehicleError
@@ -179,7 +179,7 @@ function AppTransport() {
         const documentByVehicle = {}
         ;(documents || []).forEach(doc => { documentByVehicle[doc.kendaraan_id] = documentByVehicle[doc.kendaraan_id] || {}; documentByVehicle[doc.kendaraan_id][doc.jenis_dokumen] = doc })
         const monitoringRows = (vehicles || []).map((v, index) => { const docsForVehicle = documentByVehicle[v.id] || {}; const sourceDoc = Object.values(docsForVehicle).find(doc => decodeExcelMeta(doc.keterangan).meta?.source === 'STNK_DAN_KIR'); const { meta } = sourceDoc ? decodeExcelMeta(sourceDoc.keterangan) : { meta: null }; return { no: Number(meta?.source_no) || index + 1, merk: meta?.merk || v.merk || '-', tipe: meta?.type || v.tipe || '-', nomor_polisi: meta?.nomor_polisi || v.nomor_polisi || '-', tahun: meta?.tahun || v.tahun || '-', nomor_rangka: meta?.nomor_rangka || v.nomor_rangka || '-', stnk: docsForVehicle.STNK?.tanggal_jatuh_tempo || '-', kir: docsForVehicle.KIR?.tanggal_jatuh_tempo || '-', lima_tahun: docsForVehicle['5_TAHUNAN']?.tanggal_jatuh_tempo || '-', pemilik: meta ? (meta.pemilik || '-') : (v.pemilik || '-') } })
-        exportToExcel(`Rekap-Dokumen-Kendaraan-ZT-${stamp}.xls`, [{ title: 'STNK DAN KIR', columns: columns([['no','NO'],['merk','MERK'],['tipe','TYPE'],['nomor_polisi','NO.POLISI'],['tahun','TAHUN'],['nomor_rangka','No Ranka'],['stnk','STNK'],['kir','KIR'],['lima_tahun','5 TAHUN'],['pemilik','PEMILIK']]), rows: monitoringRows }, { title: 'DOKUMEN KENDARAAN', columns: columns([['kendaraan','Nomor Polisi'],['jenis_dokumen','Jenis Dokumen'],['nomor_dokumen','Nomor Dokumen'],['tanggal_terbit','Tanggal Terbit'],['tanggal_berlaku_mulai','Berlaku Mulai'],['tanggal_jatuh_tempo','Jatuh Tempo'],['file_path','File'],['keterangan','Keterangan']]), rows: cleanRows(documents || []).map(x => ({ ...x, kendaraan: vehicleMap[x.kendaraan_id]?.nomor_polisi || '-' })) }])
+        exportToExcel(`Rekap-Dokumen-Kendaraan-ZT-${stamp}.xls`, [{ title: 'STNK DAN KIR', columns: columns([['no','NO'],['merk','MERK'],['tipe','TYPE'],['nomor_polisi','NO.POLISI'],['tahun','TAHUN'],['nomor_rangka','No Ranka'],['stnk','STNK'],['foto_stnk','FOTO STNK'],['kir','KIR'],['lima_tahun','5 TAHUN'],['pemilik','PEMILIK']]), rows: monitoringRows }, { title: 'DOKUMEN KENDARAAN', columns: columns([['kendaraan','Nomor Polisi'],['jenis_dokumen','Jenis Dokumen'],['nomor_dokumen','Nomor Dokumen'],['tanggal_terbit','Tanggal Terbit'],['tanggal_berlaku_mulai','Berlaku Mulai'],['tanggal_jatuh_tempo','Jatuh Tempo'],['file_path','File'],['keterangan','Keterangan']]), rows: cleanRows(documents || []).map(x => ({ ...x, kendaraan: vehicleMap[x.kendaraan_id]?.nomor_polisi || '-' })) }])
       }
     } catch (error) {
       console.error('Export error:', error)
