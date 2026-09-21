@@ -81,9 +81,10 @@ export default function MasterKendaraanExcelAlignedPage({ profile }) {
 
   const cards = useMemo(() => ({
     total: vehicles.length,
+    aset: vehicles.filter(v => normalizeOwnership(v.kepemilikan) === 'ASET').length,
+    sewa: vehicles.filter(v => normalizeOwnership(v.kepemilikan) === 'SEWA').length,
     pickup: vehicles.filter(v => clean(v.jenis_kendaraan).toLowerCase() === 'pickup').length,
     minibus: vehicles.filter(v => clean(v.jenis_kendaraan).toLowerCase() === 'minibus').length,
-    dumpTruck: vehicles.filter(v => clean(v.jenis_kendaraan).toLowerCase() === 'dump truck').length,
   }), [vehicles])
 
   const resetModal = () => { setEditing(null); setForm({ ...EMPTY }); setPhotoFiles({}); setPhotoUrls({}); setModal(false); setError('') }
@@ -234,7 +235,7 @@ export default function MasterKendaraanExcelAlignedPage({ profile }) {
   return <div className="master-excel-page">
     <div className="mep-head"><div><span className="eyebrow">MASTER DATA KENDARAAN</span><h2>Kendaraan</h2><p>Kolom dan pilihan mengikuti Data Kendaraan Excel. Kepemilikan hanya Aset atau Sewa.</p></div>{canEdit && <button className="mep-primary" type="button" onClick={openNew}>+ Kendaraan</button>}</div>
     {success && <div className="mep-alert success">{success}</div>}{error && !modal && <div className="mep-alert error">{error}</div>}
-    <div className="mep-cards"><div><span>Total Kendaraan</span><b>{cards.total}</b></div><div><span>Pickup</span><b>{cards.pickup}</b></div><div><span>Minibus</span><b>{cards.minibus}</b></div><div><span>Dump Truck</span><b>{cards.dumpTruck}</b></div></div>
+    <div className="mep-cards"><div><span>Total Kendaraan</span><b>{cards.total}</b></div><div><span>Aset</span><b>{cards.aset}</b></div><div><span>Sewa</span><b>{cards.sewa}</b></div><div><span>Pickup</span><b>{cards.pickup}</b></div><div><span>Minibus</span><b>{cards.minibus}</b></div></div>
     <section className="mep-card"><div className="mep-toolbar"><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Cari No. Pol, merk, pemilik, driver, lokasi..."/><select value={ownershipFilter} onChange={e => setOwnershipFilter(e.target.value)}><option value="SEMUA">Semua kepemilikan</option><option value="ASET">Aset</option><option value="SEWA">Sewa</option></select><select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}><option value="SEMUA">Semua jenis</option>{typeOptions.map(item => <option key={item} value={item}>{item}</option>)}</select><button type="button" className="mep-secondary" onClick={loadData} disabled={loading}>↻ Refresh</button></div>
       {selectionMode && <div className="mep-selection"><span><b>{selected.length}</b> kendaraan dipilih</span><div><button type="button" onClick={toggleAll}>{allSelected ? 'Batal pilih semua' : 'Pilih semua'}</button><button type="button" onClick={exitSelection}>Batal</button>{canDelete && <button type="button" className="danger" onClick={bulkDelete} disabled={saving}>Hapus yang dipilih</button>}</div></div>}
       {!selectionMode && filtered.length > 0 && <p className="mep-hint">Tekan dan tahan baris sekitar 0,5 detik untuk masuk mode pilih.</p>}
