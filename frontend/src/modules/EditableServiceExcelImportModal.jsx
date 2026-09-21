@@ -296,40 +296,34 @@ async function importHistory(rows, profile, sheetName, onProgress = () => {}) {
   if (failure) throw failure
 
   const kmUpdates = new Map()
-  const kmHistoryByVehicle = new Map()
+  const kmHistory = []
   let itemCount = 0
   results.filter(Boolean).forEach(result => {
     itemCount += result.itemCount
     if (!result.km) return
     const previous = kmUpdates.get(result.km.kendaraan_id)
     if (!previous || result.km.kilometer > previous.kilometer) kmUpdates.set(result.km.kendaraan_id, result.km)
-    if (!kmHistoryByVehicle.has(result.km.kendaraan_id)) kmHistoryByVehicle.set(result.km.kendaraan_id, [])
-    kmHistoryByVehicle.get(result.km.kendaraan_id).push({
+    kmHistory.push({
       kendaraan_id: result.km.kendaraan_id,
       tanggal: result.km.tanggal,
       kilometer: result.km.kilometer,
-      sumber: 'SERVICE',
+      sumber: 'IMPORT_SERVICE',
       keterangan: result.km.keterangan,
       dicatat_oleh: profile.id,
     })
   })
 
-  // Simpan histori KM lebih dulu, urut naik per kendaraan. Guard database memang
-  // menolak histori yang lebih kecil dari KM master saat ini, jadi histori lama
-  // yang sudah berada di bawah KM master cukup dilewati; master tetap memakai nilai
-  // terbesar dari data import.
-  const skippedKmHistory = []
-  for (const [kendaraanId, historyRows] of kmHistoryByVehicle.entries()) {
-    const vehicle = vehicles.find(item => item.id === kendaraanId)
-    const currentKm = Number(vehicle?.kilometer_terakhir || 0)
-    const ordered = [...historyRows].sort((a, b) =>
-      a.tanggal.localeCompare(b.tanggal) || Number(a.kilometer) - Number(b.kilometer)
+  // Histori hasil import diberi sumber khusus agar log historis boleh lebih kecil
+  // dari KM master saat ini. Setelah histori tersimpan, KM master dinaikkan ke nilai
+  // terbesar hasil import.
+  if (kmHistory.length) {
+    const orderedHistory = [...kmHistory].sort((a, b) =>
+      a.kendaraan_id - b.kendaraan_id ||
+      a.tanggal.localeCompare(b.tanggal) ||
+      Number(a.kilometer) - Number(b.kilometer)
     )
-    const eligible = ordered.filter(row => Number(row.kilometer) >= currentKm)
-    skippedKmHistory.push(...ordered.filter(row => Number(row.kilometer) < currentKm))
-    if (!eligible.length) continue
-    const { error } = await supabase.from('riwayat_kilometer').insert(eligible)
-    if (error) throw new Error(`Histori service tersimpan tetapi riwayat KM gagal dicatat untuk kendaraan ID ${kendaraanId}: ${error.message}`)
+    const { error } = await supabase.from('riwayat_kilometer').insert(orderedHistory)
+    if (error) throw new Error(`Histori service tersimpan tetapi riwayat KM gagal dicatat: ${error.message}`)
   }
 
   await Promise.all([...kmUpdates.values()].map(async update => {
@@ -337,17 +331,7 @@ async function importHistory(rows, profile, sheetName, onProgress = () => {}) {
     if (error) throw new Error(`Histori service tersimpan tetapi KM ${update.nomor_polisi} gagal diperbarui: ${error.message}`)
   }))
 
-  return {
-    sourceRows: rows.length,
-    validRows: valid.length,
-    transactions: groups.length,
-    imported: results.filter(Boolean).length,
-    skipped,
-    unknownPlates,
-    items: itemCount,
-    kmUpdated: kmUpdates.size,
-    kmHistorySkipped: skippedKmHistory.length,
-  }
+  return { sourceRows: rows.length, validRows: valid.length, transactions: groups.length, imported: results.filter(Boolean).length, skipped, unknownPlates, items: itemCount, kmUpdated: kmUpdates.size, kmHistorySaved: kmHistory.length }
 }
 
 export default function EditableServiceExcelImportModal({ profile, onDone, onClose }) {
