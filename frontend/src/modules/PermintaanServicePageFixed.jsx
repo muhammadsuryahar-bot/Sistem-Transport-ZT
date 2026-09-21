@@ -10,7 +10,7 @@ const EMPTY = { kendaraan_id: '', jenis_permintaan: 'SERVICE', kilometer: '', ke
 const fmtDate = value => {
   const raw = String(value ?? '').trim()
   if (!raw) return '-'
-  const match = /^(\\d{4})-(\\d{2})-(\\d{2})/.exec(raw)
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(raw)
   return match ? `${match[3]}/${match[2]}/${match[1]}` : raw
 }
 const fmtNum = value => value === null || value === undefined || value === '' ? '-' : new Intl.NumberFormat('id-ID').format(Number(value))
