@@ -209,10 +209,15 @@ export default function RentalFeaturePage({ profile }) {
   const getRepairAvailableAmount = r => r.dapat_dipotong && r.dibayar_kantor ? Number(r.jumlah_dipotong || 0) : 0
 
   return <div className="x-page">
-    <Header title="Kendaraan Sewa" text="Kelola pemilik, kontrak 6 bulan, pembayaran bulanan, bukti, perbaikan, dan potongan." action={<button className="x-btn secondary" onClick={load}>↻ Refresh</button>} />
+    <Header title="Kendaraan Sewa" text="Daftar kendaraan sewa mengambil data dari Master Kendaraan. Di sini fokus pada pemilik, kontrak 6 bulan, pembayaran, bukti, perbaikan, dan potongan." action={<button className="x-btn secondary" onClick={load}>↻ Refresh</button>} />
     {error && <Alert type="error">{error}</Alert>}
     {success && <Alert>{success}</Alert>}
-    <div className="x-tabs">{[['kontrak', 'Kontrak'], ['pemilik', 'Pemilik'], ['pembayaran', 'Pembayaran'], ['historis', 'Riwayat Excel'], ...(repairEditable ? [['repair', 'Perbaikan']] : [])].map(([v, l]) => <button key={v} className={tab === v ? 'active' : ''} onClick={() => { clearMessages(); setTab(v) }}>{l}</button>)}</div>
+    <div className="x-tabs">{[['kendaraan', 'Kendaraan Sewa'], ['kontrak', 'Kontrak'], ['pemilik', 'Pemilik'], ['pembayaran', 'Pembayaran'], ['historis', 'Riwayat Excel'], ...(repairEditable ? [['repair', 'Perbaikan']] : [])].map(([v, l]) => <button key={v} className={tab === v ? 'active' : ''} onClick={() => { clearMessages(); setTab(v) }}>{l}</button>)}</div>
+
+    {tab === 'kendaraan' && <section className="x-card">
+      <div className="x-card-title"><div><h3>Daftar Kendaraan Sewa</h3><p>Data kendaraan diambil dari Master Kendaraan dengan kepemilikan <b>Sewa</b>. Tambah atau edit kendaraan tetap dilakukan di menu Kendaraan agar tidak ada data kendaraan ganda.</p></div></div>
+      <div className="x-table-wrap"><table className="x-table"><thead><tr><th>No. Polisi</th><th>Merk / Type</th><th>Pemilik</th><th>Kontrak</th><th>Periode</th><th>Nilai Sewa</th><th>Status</th></tr></thead><tbody>{vehicles.length ? vehicles.map(v => { const contractRow = contracts.find(c => Number(c.kendaraan_id) === Number(v.id) && c.status === 'AKTIF') || contracts.find(c => Number(c.kendaraan_id) === Number(v.id)); const ownerRow = owners.find(o => Number(o.id) === Number(contractRow?.pemilik_sewa_id)); return <tr key={v.id}><td><b>{v.nomor_polisi}</b></td><td>{v.merk} {v.tipe || ''}</td><td>{ownerRow?.nama_pemilik || v.pemilik || '-' }<small>{ownerRow?.nama_perusahaan || ''}</small></td><td>{contractRow?.nomor_kontrak || '-'}</td><td>{contractRow ? `${dateText(contractRow.tanggal_mulai)} s/d ${dateText(contractRow.tanggal_selesai)}` : '-'}</td><td>{contractRow ? money(contractRow.nilai_sewa_bulanan) : '-'}</td><td>{contractRow?.status || 'BELUM ADA KONTRAK'}</td></tr> }) : <tr><td colSpan="7"><Empty /></td></tr>}</tbody></table></div>
+    </section>}
 
     {tab === 'pemilik' && <section className="x-card">
       <div className="x-card-title"><h3>Data Pemilik Sewa</h3></div>
