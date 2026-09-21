@@ -209,10 +209,10 @@ export default function RentalFeaturePage({ profile }) {
   const getRepairAvailableAmount = r => r.dapat_dipotong && r.dibayar_kantor ? Number(r.jumlah_dipotong || 0) : 0
 
   return <div className="x-page">
-    <Header title="Kendaraan Sewa" text="Daftar kendaraan sewa mengambil data dari Master Kendaraan. Di sini fokus pada pemilik, kontrak 6 bulan, pembayaran, bukti, perbaikan, dan potongan." action={<button className="x-btn secondary" onClick={load}>↻ Refresh</button>} />
+    <Header title="Administrasi Kendaraan Sewa" text="Master kendaraan tetap berada di menu Kendaraan. Halaman ini khusus untuk administrasi kendaraan Sewa: pemilik, kontrak 6 bulan, pembayaran, bukti, perbaikan, dan potongan." action={<button className="x-btn secondary" onClick={load}>↻ Refresh</button>} />
     {error && <Alert type="error">{error}</Alert>}
     {success && <Alert>{success}</Alert>}
-    <div className="x-tabs">{[['kendaraan', 'Kendaraan Sewa'], ['kontrak', 'Kontrak'], ['pemilik', 'Pemilik'], ['pembayaran', 'Pembayaran'], ['historis', 'Riwayat Excel'], ...(repairEditable ? [['repair', 'Perbaikan']] : [])].map(([v, l]) => <button key={v} className={tab === v ? 'active' : ''} onClick={() => { clearMessages(); setTab(v) }}>{l}</button>)}</div>
+    <div className="x-tabs">{[['kendaraan', 'Daftar Kendaraan'], ['kontrak', 'Kontrak'], ['pemilik', 'Pemilik'], ['pembayaran', 'Pembayaran'], ['historis', 'Riwayat Excel'], ...(repairEditable ? [['repair', 'Perbaikan']] : [])].map(([v, l]) => <button key={v} className={tab === v ? 'active' : ''} onClick={() => { clearMessages(); setTab(v) }}>{l}</button>)}</div>
 
     {tab === 'kendaraan' && <section className="x-card">
       <div className="x-card-title"><div><h3>Daftar Kendaraan Sewa</h3><p>Data kendaraan diambil dari Master Kendaraan dengan kepemilikan <b>Sewa</b>. Tambah atau edit kendaraan tetap dilakukan di menu Kendaraan agar tidak ada data kendaraan ganda.</p></div></div>
