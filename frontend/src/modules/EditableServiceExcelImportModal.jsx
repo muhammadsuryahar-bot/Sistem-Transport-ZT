@@ -128,7 +128,7 @@ function normalizeMoneyField(value) {
   const base = parseMoneyBase(raw)
   if (!raw || raw === '-') return 0
   if (hasFullRupiahFormat(raw)) return base
-  return Number.isFinite(base) && Math.abs(base) < 1000 ? base * 1000 : base
+  return Number.isFinite(base) && Math.abs(base) < 10000 ? base * 1000 : base
 }
 
 function normalizePpn(dpp, rawPpn) {
@@ -136,7 +136,7 @@ function normalizePpn(dpp, rawPpn) {
   if (!raw || raw === '-') return 0
   const base = parseMoneyBase(raw)
   const candidates = [base]
-  if (!hasFullRupiahFormat(raw) && Math.abs(base) < 1000) candidates.push(base * 1000)
+  if (!hasFullRupiahFormat(raw) && Math.abs(base) < 10000) candidates.push(base * 1000)
   const expected = Number(dpp || 0) * 0.11
   return candidates.reduce((best, value) => Math.abs(value - expected) < Math.abs(best - expected) ? value : best, candidates[0])
 }
@@ -161,6 +161,16 @@ function normalizeServiceMoney({ qty, harga, dpp, ppn, total }) {
     total: finalTotal,
     ppn_source: clean(ppn) || '-',
   }
+}
+
+function normalizeKilometer(value) {
+  const raw = clean(value)
+  if (!raw || raw === '-') return 0
+  const numeric = numberValue(raw)
+  if (!Number.isFinite(numeric)) return 0
+  // Data Service mixes full KM values (e.g. 200345) with Excel shorthand
+  // values written as decimal thousands (e.g. 36.667 = 36,667 KM).
+  return Math.abs(numeric) < 1000 && !Number.isInteger(numeric) ? numeric * 1000 : numeric
 }
 
 function formatNumberId(value) {
@@ -216,7 +226,7 @@ function parseRow(row, headers) {
     ppn: money.ppn,
     ppn_source: money.ppn_source,
     total: money.total,
-    kilometer: numberValue(get('kilometer')) ?? 0,
+    kilometer: normalizeKilometer(get('kilometer')),
     bengkel: get('bengkel') || null,
     keterangan: get('keterangan') || null,
   }
@@ -503,7 +513,7 @@ export default function EditableServiceExcelImportModal({ profile, onDone, onClo
       else if (key === 'uraian') next.uraian = rawValue
       else if (key === 'qty') next.qty = numberValue(rawValue) ?? 0
       else if (key === 'satuan') next.satuan = rawValue
-      else if (key === 'kilometer') next.kilometer = numberValue(rawValue) ?? 0
+      else if (key === 'kilometer') next.kilometer = normalizeKilometer(rawValue)
       else if (key === 'bengkel') next.bengkel = rawValue || null
       else if (key === 'keterangan') next.keterangan = rawValue || null
 
