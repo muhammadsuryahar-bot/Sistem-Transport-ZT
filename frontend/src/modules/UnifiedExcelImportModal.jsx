@@ -278,9 +278,14 @@ async function importSewa(sheet, profile) {
     let owner = await supabase.from('pemilik_sewa').select('id,jenis_pemilik,nama_perusahaan,nomor_identitas').eq('nama_pemilik', item.ownerName).maybeSingle()
     if (owner.error) throw new Error(`Gagal membaca pemilik ${item.ownerName}: ${owner.error.message}`)
     if (!owner.data) {
-      const ownerType = upper(valueOf(item.row, headers, 'jenis_pemilik')).replace(/\s+/g, '_') || 'SEWA_PERORANGAN'
-      if (!['SEWA_PERORANGAN', 'SEWA_RENTAL'].includes(ownerType)) throw new Error(`Jenis pemilik ${ownerType} pada kontrak ${item.nomorKontrak} tidak valid.`)
-      if (ownerType === 'SEWA_RENTAL' && !valueOf(item.row, headers, 'nama_perusahaan')) throw new Error(`Nama perusahaan wajib diisi untuk pemilik rental pada kontrak ${item.nomorKontrak}.`)
+      const rawOwnerType = upper(valueOf(item.row, headers, 'jenis_pemilik')).replace(/\s+/g, '_')
+      const ownerType = rawOwnerType === 'SEWA_PERORANGAN' || rawOwnerType === 'PERORANGAN'
+        ? 'PERORANGAN'
+        : rawOwnerType === 'SEWA_RENTAL' || rawOwnerType === 'PERUSAHAAN_RENTAL'
+          ? 'PERUSAHAAN_RENTAL'
+          : 'PERORANGAN'
+      if (!['PERORANGAN', 'PERUSAHAAN_RENTAL'].includes(ownerType)) throw new Error(`Jenis pemilik ${rawOwnerType} pada kontrak ${item.nomorKontrak} tidak valid.`)
+      if (ownerType === 'PERUSAHAAN_RENTAL' && !valueOf(item.row, headers, 'nama_perusahaan')) throw new Error(`Nama perusahaan wajib diisi untuk pemilik rental pada kontrak ${item.nomorKontrak}.`)
       const created = await supabase.from('pemilik_sewa').insert({ jenis_pemilik: ownerType, nama_pemilik: item.ownerName, nama_perusahaan: valueOf(item.row, headers, 'nama_perusahaan') || null, aktif: true }).select('id').single()
       if (created.error) throw new Error(`Gagal membuat pemilik ${item.ownerName}: ${created.error.message}`)
       owner = { data: created.data, error: null }
