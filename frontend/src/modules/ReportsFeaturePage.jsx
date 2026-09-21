@@ -37,12 +37,12 @@ export default function ReportsFeaturePage({ profile }) {
     setLoading(false)
   }
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (profile?.id) load()
     const handleImported = (event) => { if (event.detail?.context) load() }
     window.addEventListener('transport:data-imported', handleImported)
     return () => window.removeEventListener('transport:data-imported', handleImported)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.id, profile?.role])
   const now = Date.now()
   const metrics = useMemo(() => {
