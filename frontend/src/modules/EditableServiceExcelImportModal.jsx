@@ -53,10 +53,22 @@ function numberValue(value) {
 }
 
 function currencyValue(value) {
-  const v = clean(value)
+  let v = clean(value)
   if (!v) return 0
-  if (/^-?\d{1,3}(?:[.]\d{3})+(?:[,]\d+)?$/.test(v)) return Number(v.replace(/\./g, '').replace(',', '.'))
-  const n = Number(v.replace(/,/g, ''))
+  v = v.replace(/^(rp|idr)\.?\s*/i, '').replace(/\s/g, '').replace(/[^0-9,.-]/g, '')
+  if (!v) return 0
+  const comma = v.lastIndexOf(',')
+  const dot = v.lastIndexOf('.')
+  if (comma >= 0 && dot >= 0) {
+    v = comma > dot ? v.replace(/\./g, '').replace(',', '.') : v.replace(/,/g, '')
+  } else if (comma >= 0) {
+    const decimals = v.length - comma - 1
+    v = decimals === 1 || decimals === 2 ? v.replace(',', '.') : v.replace(/,/g, '')
+  } else if (dot >= 0) {
+    const decimals = v.length - dot - 1
+    if (decimals !== 1 && decimals !== 2) v = v.replace(/\./g, '')
+  }
+  const n = Number(v)
   return Number.isFinite(n) ? n : 0
 }
 
