@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { formatDateSafe } from '../utils/dateSafe'
 
 const LABELS = {
   pengajuan: 'Pengajuan Service',
@@ -306,7 +307,7 @@ function displayCell(value, header) {
   const key = norm(header)
   if (/^(tanggal|tgl|tanggal_pengajuan|tanggal_mulai|tanggal_selesai|tanggal_jatuh_tempo_bulanan)$/.test(key)) {
     const d = excelDate(raw)
-    if (d) return new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(`${d}T00:00:00`))
+    if (d) return formatDateSafe(d, { day: '2-digit', month: '2-digit', year: 'numeric' })
   }
   return raw
 }
