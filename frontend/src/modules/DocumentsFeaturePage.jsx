@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import './TransportOperationsFixed.css'
+import { formatDateSafe } from '../utils/dateSafe'
 import { decodeExcelMeta } from '../utils/excelSourceMeta.js'
 
 const EMPTY={kendaraan_id:'',jenis_dokumen:'STNK',nomor_dokumen:'',tanggal_terbit:'',tanggal_berlaku_mulai:'',tanggal_jatuh_tempo:'',keterangan:''}
-const fmt=v=>v?new Intl.DateTimeFormat('id-ID',{dateStyle:'medium'}).format(new Date(v)):'-'
+const fmt=v=>formatDateSafe(v)
 const Alert=({type='success',children})=><div className={`x-alert ${type}`}>{children}</div>
 const isInteractiveTarget=target=>Boolean(target?.closest?.('button,input,select,textarea,a'))
 
