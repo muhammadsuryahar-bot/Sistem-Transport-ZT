@@ -112,6 +112,72 @@ function findHeader(sheet) {
   return best
 }
 
+function parseMoneyBase(value) {
+  const raw = clean(value)
+  if (!raw || raw === '-') return 0
+  return currencyValue(raw)
+}
+
+function hasFullRupiahFormat(value) {
+  const raw = clean(value)
+  return /^-?\d{1,3}(?:[.]\d{3})+(?:[,]\d+)?$/.test(raw)
+}
+
+function normalizeMoneyField(value) {
+  const raw = clean(value)
+  const base = parseMoneyBase(raw)
+  if (!raw || raw === '-') return 0
+  if (hasFullRupiahFormat(raw)) return base
+  return Number.isFinite(base) && Math.abs(base) < 1000 ? base * 1000 : base
+}
+
+function normalizePpn(dpp, rawPpn) {
+  const raw = clean(rawPpn)
+  if (!raw || raw === '-') return 0
+  const base = parseMoneyBase(raw)
+  const candidates = [base]
+  if (!hasFullRupiahFormat(raw) && Math.abs(base) < 1000) candidates.push(base * 1000)
+  const expected = Number(dpp || 0) * 0.11
+  return candidates.reduce((best, value) => Math.abs(value - expected) < Math.abs(best - expected) ? value : best, candidates[0])
+}
+
+function normalizeServiceMoney({ qty, harga, dpp, ppn, total }) {
+  const normalizedDpp = normalizeMoneyField(dpp)
+  const normalizedHarga = normalizeMoneyField(harga)
+  const normalizedTotal = normalizeMoneyField(total)
+  const normalizedPpn = normalizePpn(normalizedDpp, ppn)
+  const q = Number(qty || 0)
+  const priceFromDpp = q > 0 ? normalizedDpp / q : normalizedHarga
+  const finalHarga = normalizedHarga > 0 && normalizedDpp > 0 && Math.abs((normalizedHarga * q) - normalizedDpp) <= Math.max(1, normalizedDpp * 0.001)
+    ? normalizedHarga
+    : (priceFromDpp || normalizedHarga)
+  const finalDpp = normalizedDpp || (q > 0 ? finalHarga * q : 0)
+  const finalPpn = normalizedPpn
+  const finalTotal = normalizedTotal || (finalDpp + finalPpn)
+  return {
+    harga_satuan: finalHarga,
+    nilai_dpp: finalDpp,
+    ppn: finalPpn,
+    total: finalTotal,
+    ppn_source: clean(ppn) || '-',
+  }
+}
+
+function formatNumberId(value) {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return value == null ? '' : String(value)
+  return new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2, minimumFractionDigits: 0 }).format(numeric)
+}
+
+function displayValueForRow(row, header, key, index) {
+  if (key === 'harga_satuan') return formatNumberId(row.harga_satuan)
+  if (key === 'nilai_dpp') return formatNumberId(row.nilai_dpp)
+  if (key === 'ppn') return row.ppn_source === '-' ? '-' : formatNumberId(row.ppn)
+  if (key === 'total') return formatNumberId(row.total)
+  if (key === 'kilometer') return formatNumberId(row.kilometer)
+  return formatDisplay(row.values[index], header)
+}
+
 function parseRow(row, headers) {
   const get = key => {
     const index = headers.findIndex(header => fieldForHeader(header) === key)
@@ -121,6 +187,14 @@ function parseRow(row, headers) {
     const index = headers.findIndex(header => fieldForHeader(header) === 'source_no')
     return index >= 0 ? clean(row.values[index]) : ''
   }
+  const qty = numberValue(get('qty')) ?? 1
+  const money = normalizeServiceMoney({
+    qty,
+    harga: get('harga_satuan'),
+    dpp: get('nilai_dpp'),
+    ppn: get('ppn'),
+    total: get('total'),
+  })
   return {
     excelRow: row.excelRow,
     values: [...row.values],
@@ -135,13 +209,13 @@ function parseRow(row, headers) {
     tanggal: excelDate(get('tanggal')),
     jenis_pekerjaan: get('jenis_pekerjaan'),
     uraian: get('uraian'),
-    qty: numberValue(get('qty')) ?? 1,
+    qty,
     satuan: get('satuan') || 'pcs',
-    harga_satuan: currencyValue(get('harga_satuan')),
-    nilai_dpp: currencyValue(get('nilai_dpp')),
-    ppn: currencyValue(get('ppn')),
-    ppn_source: clean(get('ppn')) || '-',
-    total: currencyValue(get('total')),
+    harga_satuan: money.harga_satuan,
+    nilai_dpp: money.nilai_dpp,
+    ppn: money.ppn,
+    ppn_source: money.ppn_source,
+    total: money.total,
     kilometer: numberValue(get('kilometer')) ?? 0,
     bengkel: get('bengkel') || null,
     keterangan: get('keterangan') || null,
@@ -429,13 +503,26 @@ export default function EditableServiceExcelImportModal({ profile, onDone, onClo
       else if (key === 'uraian') next.uraian = rawValue
       else if (key === 'qty') next.qty = numberValue(rawValue) ?? 0
       else if (key === 'satuan') next.satuan = rawValue
-      else if (key === 'harga_satuan') next.harga_satuan = currencyValue(rawValue)
-      else if (key === 'nilai_dpp') next.nilai_dpp = currencyValue(rawValue)
-      else if (key === 'ppn') next.ppn = currencyValue(rawValue)
-      else if (key === 'total') next.total = currencyValue(rawValue)
       else if (key === 'kilometer') next.kilometer = numberValue(rawValue) ?? 0
       else if (key === 'bengkel') next.bengkel = rawValue || null
       else if (key === 'keterangan') next.keterangan = rawValue || null
+
+      const getCurrent = field => {
+        const i = headers.findIndex(item => fieldForHeader(item) === field)
+        return i >= 0 ? clean(next.values[i]) : ''
+      }
+      const money = normalizeServiceMoney({
+        qty: Number(next.qty || getCurrent('qty')) || 1,
+        harga: getCurrent('harga_satuan'),
+        dpp: getCurrent('nilai_dpp'),
+        ppn: getCurrent('ppn'),
+        total: getCurrent('total'),
+      })
+      next.harga_satuan = money.harga_satuan
+      next.nilai_dpp = money.nilai_dpp
+      next.ppn = money.ppn
+      next.ppn_source = money.ppn_source
+      next.total = money.total
       return next
     }))
   }
@@ -469,7 +556,7 @@ export default function EditableServiceExcelImportModal({ profile, onDone, onClo
         <div className="service-import-stats"><div><b>{rows.length}</b><span>baris Excel</span></div><div><b>{validRows.length}</b><span>baris valid</span></div><div><b>{transactions.length}</b><span>transaksi service</span></div><div><b>{uniquePlates.length}</b><span>kendaraan</span></div></div>
         {invalidCount > 0 && <div className="service-import-warning">{invalidCount} baris belum valid. Edit No. Polisi/Tanggal langsung di tabel agar ikut terimport.</div>}
         <div className="editable-service-toolbar"><div><strong>Baris {pageStart}-{pageEnd} dari {filteredRows.length}{search ? ` (filter dari ${rows.length})` : ''}</strong><span>Setiap sel di bawah ini bisa diedit. Perubahan dipakai saat tombol Import ditekan.</span></div><div className="editable-service-controls"><input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} placeholder="Cari data…" disabled={saving}/><label>Per halaman <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1) }} disabled={saving}>{PAGE_OPTIONS.map(size => <option key={size} value={size}>{size}</option>)}</select></label></div></div>
-        <div className="dpt-preview editable-service-preview"><table><thead><tr>{headers.map((header, index) => <th key={`${header}-${index}`}>{header || `Kolom ${index + 1}`}</th>)}</tr></thead><tbody>{visibleRows.map(row => <tr data-excel-row={row.excelRow} key={row.excelRow}>{headers.map((header, index) => { const key = fieldForHeader(header); const value = formatDisplay(row.values[index], header); const numeric = ['qty','harga_satuan','nilai_dpp','ppn','total','kilometer'].includes(key); const date = key === 'tanggal'; return <td key={`${row.excelRow}-${index}`}><input aria-label={`${header} baris ${row.excelRow}`} type={date ? 'text' : 'text'} inputMode={numeric ? 'decimal' : undefined} value={value} onChange={e => updateCell(row.excelRow, index, e.target.value)} disabled={saving} className={numeric ? 'numeric' : ''}/></td> })}</tr>)}</tbody></table></div>
+        <div className="dpt-preview editable-service-preview"><table><thead><tr>{headers.map((header, index) => <th key={`${header}-${index}`}>{header || `Kolom ${index + 1}`}</th>)}</tr></thead><tbody>{visibleRows.map(row => <tr data-excel-row={row.excelRow} key={row.excelRow}>{headers.map((header, index) => { const key = fieldForHeader(header); const value = displayValueForRow(row, header, key, index); const numeric = ['qty','harga_satuan','nilai_dpp','ppn','total','kilometer'].includes(key); const date = key === 'tanggal'; return <td key={`${row.excelRow}-${index}`}><input aria-label={`${header} baris ${row.excelRow}`} type={date ? 'text' : 'text'} inputMode={numeric ? 'decimal' : undefined} value={value} onChange={e => updateCell(row.excelRow, index, e.target.value)} disabled={saving} className={numeric ? 'numeric' : ''}/></td> })}</tr>)}</tbody></table></div>
         <div className="editable-service-pagination"><button type="button" className="dpt-button" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage <= 1 || saving}>← Sebelumnya</button><strong>Halaman {safePage} / {pageCount}</strong><button type="button" className="dpt-button" onClick={() => setPage(p => Math.min(pageCount, p + 1))} disabled={safePage >= pageCount || saving}>Berikutnya →</button></div>
         <div className="service-import-note"><b>Yang bisa dikerjakan tanpa kembali ke Excel</b><span>Ganti No. Polisi, tanggal, pekerjaan, uraian, Qty, satuan, harga, DPP, PPN, Total, KM, driver, dan kolom lain langsung di tabel.</span><span>Semua {rows.length} baris tetap ada; tabel hanya memakai pagination supaya layar tidak berat.</span><span>Setelah diedit, sistem menghitung ulang baris valid, transaksi, kendaraan, dan item berdasarkan data terbaru.</span></div>
       </>}
