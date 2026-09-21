@@ -54,7 +54,7 @@ export default function MasterKendaraanExcelAlignedPage({ profile }) {
     setLoading(true)
     setError('')
     const [v, d] = await Promise.all([
-      supabase.from('kendaraan').select('id,kode_kendaraan,nomor_polisi,merk,tipe,jenis_kendaraan,tahun,nomor_mesin,nomor_rangka,kepemilikan,pemilik,driver_id,lokasi,unit_kerja,masa_berlaku_pajak,status_pajak,keterangan,catatan_hutang,status,foto_depan_path,foto_belakang_path,foto_kiri_path,foto_kanan_path').order('nomor_polisi'),
+      supabase.from('kendaraan').select('id,kode_kendaraan,nomor_polisi,merk,tipe,jenis_kendaraan,tahun,nomor_mesin,nomor_rangka,kepemilikan,pemilik,driver_id,lokasi,unit_kerja,masa_berlaku_pajak,status_pajak,keterangan,catatan_hutang,status,foto_stnk_path,foto_depan_path,foto_belakang_path,foto_kiri_path,foto_kanan_path').order('nomor_polisi'),
       supabase.from('driver').select('id,nama_lengkap,status').order('nama_lengkap'),
     ])
     if (v.error) setError(`Data kendaraan: ${v.error.message}`); else setVehicles((v.data || []).map(row => ({ ...row, kepemilikan: normalizeOwnership(row.kepemilikan) })))
@@ -99,13 +99,9 @@ export default function MasterKendaraanExcelAlignedPage({ profile }) {
     setPhotoUrls({})
     setError('')
     setModal(true)
-    if (canPhoto) {
-      const entries = PHOTO_SIDES.filter(([, , field]) => vehicle[field]).map(async ([side, , field]) => {
-        const { data } = await supabase.storage.from('kendaraan').createSignedUrl(vehicle[field], 3600)
-        return [side, data?.signedUrl || '']
-      })
-      const resolved = await Promise.all(entries)
-      setPhotoUrls(Object.fromEntries(resolved.filter(([, url]) => url)))
+    if (vehicle.foto_stnk_path) {
+      const { data } = await supabase.storage.from('kendaraan').createSignedUrl(vehicle.foto_stnk_path, 3600)
+      if (data?.signedUrl) setPhotoUrls({ stnk: data.signedUrl })
     }
   }
   const change = event => {
@@ -113,10 +109,10 @@ export default function MasterKendaraanExcelAlignedPage({ profile }) {
     setForm(current => ({ ...current, [name]: value,  }))
   }
 
-  const uploadPhoto = async (vehicleId, side, file) => {
+  const uploadStnkPhoto = async (vehicleId, file) => {
     if (!file) return null
     const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-    const path = `foto-kendaraan/${vehicleId}/${side}-${Date.now()}-${safe}`
+    const path = `foto-stnk/${vehicleId}/stnk-${Date.now()}-${safe}`
     const { error: uploadError } = await supabase.storage.from('kendaraan').upload(path, file, { upsert: true, contentType: file.type || undefined })
     if (uploadError) throw uploadError
     return path
@@ -149,26 +145,16 @@ export default function MasterKendaraanExcelAlignedPage({ profile }) {
       else result = await supabase.from('kendaraan').insert(payload).select().single()
       if (result.error) throw result.error
       const vehicle = result.data
-      if (canPhoto) {
+      if (canPhoto && photoFiles.stnk) {
         const uploadedPaths = []
-        const photoPayload = {}
-        const oldPhotoPaths = []
         try {
-          for (const [side, , field] of PHOTO_SIDES) {
-            const file = photoFiles[side]
-            if (!file) continue
-            const uploadedPath = await uploadPhoto(vehicle.id, side, file)
-            uploadedPaths.push(uploadedPath)
-            photoPayload[field] = uploadedPath
-            if (editing?.[field]) oldPhotoPaths.push(editing[field])
-          }
-          if (Object.keys(photoPayload).length) {
-            const { error: photoUpdateError } = await supabase.from('kendaraan').update(photoPayload).eq('id', vehicle.id)
-            if (photoUpdateError) throw photoUpdateError
-            if (oldPhotoPaths.length) {
-              const { error: cleanupError } = await supabase.storage.from('kendaraan').remove(oldPhotoPaths)
-              if (cleanupError) console.warn('Foto lama kendaraan gagal dibersihkan:', cleanupError.message)
-            }
+          const uploadedPath = await uploadStnkPhoto(vehicle.id, photoFiles.stnk)
+          uploadedPaths.push(uploadedPath)
+          const { error: photoUpdateError } = await supabase.from('kendaraan').update({ foto_stnk_path: uploadedPath }).eq('id', vehicle.id)
+          if (photoUpdateError) throw photoUpdateError
+          if (editing?.foto_stnk_path) {
+            const { error: cleanupError } = await supabase.storage.from('kendaraan').remove([editing.foto_stnk_path])
+            if (cleanupError) console.warn('Foto STNK lama gagal dibersihkan:', cleanupError.message)
           }
         } catch (photoError) {
           if (uploadedPaths.length) await supabase.storage.from('kendaraan').remove(uploadedPaths)
@@ -205,7 +191,10 @@ export default function MasterKendaraanExcelAlignedPage({ profile }) {
     if (!check.ok) { setError(check.reason); return false }
     const { error: deleteError } = await supabase.from('kendaraan').delete().eq('id', vehicle.id)
     if (deleteError) { setError(deleteError.message); return false }
-    const photoPaths = PHOTO_SIDES.map(([, , field]) => vehicle[field]).filter(Boolean)
+    const photoPaths = [
+      vehicle.foto_stnk_path,
+      ...LEGACY_PHOTO_FIELDS.map(field => vehicle[field]),
+    ].filter(Boolean)
     if (photoPaths.length) {
       const { error: photoDeleteError } = await supabase.storage.from('kendaraan').remove(photoPaths)
       if (photoDeleteError) console.warn('Foto kendaraan gagal dibersihkan dari Storage:', photoDeleteError.message)
@@ -239,11 +228,11 @@ export default function MasterKendaraanExcelAlignedPage({ profile }) {
   }
   const openDetail = async vehicle => {
     setDetail({ ...vehicle, driver: driverMap[vehicle.driver_id] })
-    const signed = await Promise.all(PHOTO_SIDES.filter(([, , field]) => vehicle[field]).map(async ([side, , field]) => {
-      const { data } = await supabase.storage.from('kendaraan').createSignedUrl(vehicle[field], 3600)
-      return [side, data?.signedUrl || '']
-    }))
-    setPhotoUrls(Object.fromEntries(signed.filter(([, url]) => url)))
+    setPhotoUrls({})
+    if (vehicle.foto_stnk_path) {
+      const { data } = await supabase.storage.from('kendaraan').createSignedUrl(vehicle.foto_stnk_path, 3600)
+      if (data?.signedUrl) setPhotoUrls({ stnk: data.signedUrl })
+    }
   }
 
   return <div className="master-excel-page">
@@ -286,9 +275,9 @@ export default function MasterKendaraanExcelAlignedPage({ profile }) {
       <label className="full">Keterangan<textarea name="keterangan" value={form.keterangan ?? ''} onChange={change}/></label>
       <label className="full">Catatan Hutang<textarea name="catatan_hutang" value={form.catatan_hutang ?? ''} onChange={change}/></label>
     </div>
-    <div className="mep-photo-section"><div><b>Foto Kendaraan (opsional)</b><span>Hanya Administrator yang mengunggah foto. Maksimal 4 sisi.</span></div><div className="mep-photo-grid">{PHOTO_SIDES.map(([side, label, field]) => <label key={side} className="mep-photo"><span>{label}</span>{photoUrls[side] ? <img src={photoUrls[side]} alt={`Kendaraan ${label}`}/> : <div className="mep-photo-empty">Belum ada foto</div>}{canPhoto && <input type="file" accept="image/*" onChange={e => setPhotoFiles(current => ({ ...current, [side]: e.target.files?.[0] || null }))}/>} {!canPhoto && <small>Upload khusus Admin</small>}{editing?.[field] && <small>Foto tersimpan</small>}</label>)}</div></div>
+    <div className="mep-photo-section"><div><b>Foto STNK (opsional)</b><span>Hanya Administrator yang dapat mengunggah atau mengganti foto STNK kendaraan.</span></div><div className="mep-photo-grid mep-photo-grid-stnk"><label className="mep-photo"><span>{STNK_PHOTO[1]}</span>{photoUrls.stnk ? <img src={photoUrls.stnk} alt="Foto STNK kendaraan"/> : <div className="mep-photo-empty">Belum ada foto STNK</div>}{canPhoto && <input type="file" accept="image/*" onChange={e => setPhotoFiles(current => ({ ...current, stnk: e.target.files?.[0] || null }))}/>} {!canPhoto && <small>Upload khusus Admin</small>}{editing?.foto_stnk_path && <small>Foto STNK tersimpan</small>}</label></div></div>
     <div className="mep-form-actions"><button type="button" className="mep-secondary" onClick={resetModal}>Batal</button><button type="submit" className="mep-primary" disabled={saving}>{saving ? 'Menyimpan...' : 'Simpan Kendaraan'}</button></div></form></section></div>}
 
-    {detail && <div className="mep-overlay"><section className="mep-modal small"><header><div><span className="eyebrow">DETAIL KENDARAAN</span><h3>{detail.nomor_polisi}</h3></div><button type="button" onClick={() => setDetail(null)}>×</button></header><div className="mep-detail"><div><span>Merk / Type</span><b>{detail.merk} {detail.tipe || ''}</b></div><div><span>Jenis</span><b>{detail.jenis_kendaraan || '-'}</b></div><div><span>Kepemilikan</span><b>{OWNERSHIP[normalizeOwnership(detail.kepemilikan)] || '-'}</b></div><div><span>Pemilik</span><b>{detail.pemilik || '-'}</b></div><div><span>Tahun</span><b>{detail.tahun || '-'}</b></div><div><span>No. Mesin</span><b>{detail.nomor_mesin || '-'}</b></div><div><span>No. Rangka</span><b>{detail.nomor_rangka || '-'}</b></div><div><span>Masa Berlaku Pajak</span><b>{formatDate(detail.masa_berlaku_pajak)}</b></div><div><span>Status Pajak</span><b>{detail.status_pajak || '-'}</b></div><div><span>Unit Kerja</span><b>{detail.unit_kerja || '-'}</b></div><div><span>Driver</span><b>{driverMap[detail.driver_id]?.nama_lengkap || '-'}</b></div><div><span>Lokasi Kerja</span><b>{detail.lokasi || '-'}</b></div><div className="full"><span>Keterangan</span><b>{detail.keterangan || '-'}</b></div><div className="full"><span>Catatan Hutang</span><b>{detail.catatan_hutang || '-'}</b></div></div><div className="mep-detail-photos">{PHOTO_SIDES.map(([side, label]) => <div key={side}><span>{label}</span>{photoUrls[side] ? <img src={photoUrls[side]} alt={label}/> : <div className="mep-photo-empty">Belum ada foto</div>}</div>)}</div><div className="mep-form-actions"><button type="button" className="mep-secondary" onClick={() => setDetail(null)}>Tutup</button>{canEdit && <button type="button" className="mep-primary" onClick={() => { const current = detail; setDetail(null); openEdit(current) }}>Edit Kendaraan</button>}</div></section></div>}
+    {detail && <div className="mep-overlay"><section className="mep-modal small"><header><div><span className="eyebrow">DETAIL KENDARAAN</span><h3>{detail.nomor_polisi}</h3></div><button type="button" onClick={() => setDetail(null)}>×</button></header><div className="mep-detail"><div><span>Merk / Type</span><b>{detail.merk} {detail.tipe || ''}</b></div><div><span>Jenis</span><b>{detail.jenis_kendaraan || '-'}</b></div><div><span>Kepemilikan</span><b>{OWNERSHIP[normalizeOwnership(detail.kepemilikan)] || '-'}</b></div><div><span>Pemilik</span><b>{detail.pemilik || '-'}</b></div><div><span>Tahun</span><b>{detail.tahun || '-'}</b></div><div><span>No. Mesin</span><b>{detail.nomor_mesin || '-'}</b></div><div><span>No. Rangka</span><b>{detail.nomor_rangka || '-'}</b></div><div><span>Masa Berlaku Pajak</span><b>{formatDate(detail.masa_berlaku_pajak)}</b></div><div><span>Status Pajak</span><b>{detail.status_pajak || '-'}</b></div><div><span>Unit Kerja</span><b>{detail.unit_kerja || '-'}</b></div><div><span>Driver</span><b>{driverMap[detail.driver_id]?.nama_lengkap || '-'}</b></div><div><span>Lokasi Kerja</span><b>{detail.lokasi || '-'}</b></div><div className="full"><span>Keterangan</span><b>{detail.keterangan || '-'}</b></div><div className="full"><span>Catatan Hutang</span><b>{detail.catatan_hutang || '-'}</b></div></div><div className="mep-detail-photos mep-detail-photos-stnk"><div><span>Foto STNK</span>{photoUrls.stnk ? <img src={photoUrls.stnk} alt="Foto STNK kendaraan"/> : <div className="mep-photo-empty">Belum ada foto STNK</div>}</div></div><div className="mep-form-actions"><button type="button" className="mep-secondary" onClick={() => setDetail(null)}>Tutup</button>{canEdit && <button type="button" className="mep-primary" onClick={() => { const current = detail; setDetail(null); openEdit(current) }}>Edit Kendaraan</button>}</div></section></div>}
   </div>
 }
