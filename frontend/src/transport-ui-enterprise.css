@@ -11,8 +11,8 @@ button,input,select,textarea{min-height:40px}
 button:disabled{transform:none!important;box-shadow:none!important}
 
 /* Clearer page rhythm. */
-.content-container{width:100%;max-width:1480px}
-.x-page,.master-page,.request-page{max-width:1380px;margin:0 auto}
+.content-container{width:100%;max-width:none;margin:0;padding:30px clamp(18px,2.2vw,36px)}
+.x-page,.master-page,.request-page{width:100%;max-width:none;margin:0}
 .x-head,.master-head,.request-header{margin-bottom:2px}
 
 /* Search/filter areas become easier to scan. */
