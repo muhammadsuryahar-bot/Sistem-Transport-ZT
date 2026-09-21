@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { formatDateSafe } from '../utils/dateSafe'
 
 const LABELS = { pengajuan: 'Pengajuan Service', sewa: 'Kendaraan Sewa' }
 const ALIASES = {
@@ -125,7 +126,7 @@ async function importSewa(sheet, profile) {
 }
 
 const IMPORTERS = { pengajuan: importPengajuan, sewa: importSewa }
-function displayCell(value, header) { const raw = clean(value); if (!raw) return '-'; const key = norm(header); if (/^(tanggal|tgl|tanggal_pengajuan|tanggal_mulai|tanggal_selesai|tanggal_jatuh_tempo_bulanan)$/.test(key)) { const d = excelDate(raw); if (d) return new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(`${d}T00:00:00`)) }; return raw }
+function displayCell(value, header) { const raw = clean(value); if (!raw) return '-'; const key = norm(header); if (/^(tanggal|tgl|tanggal_pengajuan|tanggal_mulai|tanggal_selesai|tanggal_jatuh_tempo_bulanan)$/.test(key)) { const d = excelDate(raw); if (d) return formatDateSafe(d, { day: '2-digit', month: '2-digit', year: 'numeric' }) }; return raw }
 
 export default function UnifiedExcelImportModalSafe({ context, profile, onDone, onClose }) {
   const inputRef = useRef(null); const [file, setFile] = useState(null); const [selected, setSelected] = useState(null); const [loading, setLoading] = useState(false); const [saving, setSaving] = useState(false); const [error, setError] = useState(''); const [message, setMessage] = useState(''); const canImport = ['ADMIN', 'TRANSPORT'].includes(profile?.role)
