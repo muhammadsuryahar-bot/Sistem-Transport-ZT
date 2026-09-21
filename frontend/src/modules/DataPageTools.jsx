@@ -7,7 +7,7 @@ import PengajuanExcelImportModal from './PengajuanExcelImportModal.jsx'
 import RentalHistoryImportModalV2 from './RentalHistoryImportModalV2.jsx'
 import './DataPageTools.css'
 
-const CONTEXT_LABEL = { kendaraan: 'Kendaraan', pengajuan: 'Pengajuan Service', service: 'Service & Perbaikan', sewa: 'Kendaraan Sewa', dokumen: 'Dokumen Kendaraan' }
+const CONTEXT_LABEL = { kendaraan: 'Kendaraan', pengajuan: 'Pengajuan Service', service: 'Service & Perbaikan', sewa: 'Administrasi Sewa', dokumen: 'Dokumen Kendaraan' }
 const DATA_TABLE_SELECTOR = {
   kendaraan: '.mep-table',
   pengajuan: '.request-table',
