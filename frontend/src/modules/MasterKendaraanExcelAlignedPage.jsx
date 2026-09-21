@@ -23,7 +23,7 @@ const normalizeOwnership = value => {
 const formatDate = value => formatDateSafe(value)
 const isInteractive = target => Boolean(target?.closest?.('button,input,select,textarea,a'))
 
-export default function MasterKendaraanExcelAlignedPage({ profile }) {
+export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate }) {
   const canEdit = ['ADMIN', 'TRANSPORT'].includes(profile?.role)
   const canPhoto = profile?.role === 'ADMIN'
   const canDelete = profile?.role === 'ADMIN'
@@ -233,7 +233,7 @@ export default function MasterKendaraanExcelAlignedPage({ profile }) {
   }
 
   return <div className="master-excel-page">
-    <div className="mep-head"><div><span className="eyebrow">MASTER DATA KENDARAAN</span><h2>Kendaraan</h2><p>Kolom dan pilihan mengikuti Data Kendaraan Excel. Kepemilikan hanya Aset atau Sewa.</p></div>{canEdit && <button className="mep-primary" type="button" onClick={openNew}>+ Kendaraan</button>}</div>
+    <div className="mep-head"><div><span className="eyebrow">MASTER DATA KENDARAAN</span><h2>Kendaraan</h2><p>Semua kendaraan dicatat di sini, baik Aset maupun Sewa. Kendaraan Sewa selanjutnya dikelola kontrak dan pembayarannya melalui Administrasi Sewa.</p></div>{canEdit && <button className="mep-primary" type="button" onClick={openNew}>+ Kendaraan</button>}</div>
     {success && <div className="mep-alert success">{success}</div>}{error && !modal && <div className="mep-alert error">{error}</div>}
     <div className="mep-cards"><div><span>Total Kendaraan</span><b>{cards.total}</b></div><div><span>Aset</span><b>{cards.aset}</b></div><div><span>Sewa</span><b>{cards.sewa}</b></div><div><span>Pickup</span><b>{cards.pickup}</b></div><div><span>Minibus</span><b>{cards.minibus}</b></div></div>
     <section className="mep-card"><div className="mep-toolbar"><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Cari No. Pol, merk, pemilik, driver, lokasi..."/><select value={ownershipFilter} onChange={e => setOwnershipFilter(e.target.value)}><option value="SEMUA">Semua kepemilikan</option><option value="ASET">Aset</option><option value="SEWA">Sewa</option></select><select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}><option value="SEMUA">Semua jenis</option>{typeOptions.map(item => <option key={item} value={item}>{item}</option>)}</select><button type="button" className="mep-secondary" onClick={loadData} disabled={loading}>↻ Refresh</button></div>
@@ -249,7 +249,7 @@ export default function MasterKendaraanExcelAlignedPage({ profile }) {
         <td><span>{v.lokasi || '-'}</span><small>{v.unit_kerja || '-'}</small></td>
         <td><span>{v.masa_berlaku_pajak ? formatDate(v.masa_berlaku_pajak) : '-'}</span><small>{v.status_pajak || '-'}</small></td>
         <td><span>{v.keterangan || '-'}</span><small>{v.catatan_hutang || ''}</small></td>
-        <td className="mep-actions"><button type="button" onClick={() => openDetail(v)}>Detail</button>{canEdit && <button type="button" onClick={() => openEdit(v)}>Edit</button>}{canDelete && <button type="button" onClick={async () => { if (window.confirm(`Hapus kendaraan ${v.nomor_polisi}?`)) { if (await deleteOne(v)) await loadData() } }}>Hapus</button>}</td>
+        <td className="mep-actions"><button type="button" onClick={() => openDetail(v)}>Detail</button>{canEdit && <button type="button" onClick={() => openEdit(v)}>Edit</button>}{normalizeOwnership(v.kepemilikan) === 'SEWA' && onNavigate && <button type="button" onClick={() => onNavigate('sewa')}>Kelola Sewa</button>}{canDelete && <button type="button" onClick={async () => { if (window.confirm(`Hapus kendaraan ${v.nomor_polisi}?`)) { if (await deleteOne(v)) await loadData() } }}>Hapus</button>}</td>
       </tr> })}</tbody></table>}</div>
     </section>
 
