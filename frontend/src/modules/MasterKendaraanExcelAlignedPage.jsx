@@ -5,12 +5,8 @@ import { formatDateSafe } from '../utils/dateSafe'
 
 const OWNERSHIP = { ASET: 'Aset', SEWA: 'Sewa' }
 const VEHICLE_TYPES = ['Pickup', 'Minibus', 'Dump Truck']
-const PHOTO_SIDES = [
-  ['depan', 'Depan', 'foto_depan_path'],
-  ['belakang', 'Belakang', 'foto_belakang_path'],
-  ['kiri', 'Kiri', 'foto_kiri_path'],
-  ['kanan', 'Kanan', 'foto_kanan_path'],
-]
+const STNK_PHOTO = ['stnk', 'Foto STNK', 'foto_stnk_path']
+const LEGACY_PHOTO_FIELDS = ['foto_depan_path', 'foto_belakang_path', 'foto_kiri_path', 'foto_kanan_path']
 const EMPTY = {
   nomor_polisi: '', merk: '', tipe: '', jenis_kendaraan: 'Pickup', tahun: '', nomor_mesin: '', nomor_rangka: '',
   pemilik: '', kepemilikan: 'ASET', masa_berlaku_pajak: '', status_pajak: '', unit_kerja: '', driver_id: '', lokasi: '',
