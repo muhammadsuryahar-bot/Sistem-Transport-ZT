@@ -12,6 +12,9 @@ SET nilai_dpp = COALESCE(nilai_dpp, COALESCE(biaya_aktual, estimasi_biaya, 0)),
     total = COALESCE(total, COALESCE(biaya_aktual, estimasi_biaya, 0) + COALESCE(ppn, 0));
 
 ALTER TABLE public.service
+  DROP CONSTRAINT IF EXISTS service_finance_nonnegative;
+
+ALTER TABLE public.service
   ADD CONSTRAINT service_finance_nonnegative
   CHECK (nilai_dpp >= 0 AND ppn >= 0 AND total >= 0);
 
