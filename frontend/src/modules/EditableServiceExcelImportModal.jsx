@@ -23,12 +23,12 @@ const ALIASES = {
   uraian: ['uraian', 'deskripsi', 'item', 'pekerjaan_detail'],
   qty: ['qty', 'jumlah'],
   satuan: ['sat', 'satuan', 'unit'],
-  harga_satuan: ['harga_satuan', 'harga_satuan_rp', 'harga'],
-  nilai_dpp: ['nilai_dpp', 'dpp'],
-  ppn: ['ppn', 'ppn_rp'],
-  total: ['total', 'nilai_total', 'jumlah_rp', 'biaya', 'biaya_rp', 'biaya_service'],
-  kilometer: ['km', 'kilometer', 'km_terakhir'],
-  bengkel: ['nama_bengkel', 'bengkel', 'nama_bengkel_service'],
+  harga_satuan: ['harga_satuan', 'harga_satuan_rp', 'harga_satuan_retail', 'harga'],
+  nilai_dpp: ['nilai_dpp', 'nilai_dpp_rp', 'dpp', 'dpp_rp'],
+  ppn: ['ppn', 'ppn_rp', 'nilai_ppn'],
+  total: ['total', 'total_rp', 'nilai_total', 'nilai_total_rp', 'jumlah_rp', 'biaya', 'biaya_rp', 'biaya_service'],
+  kilometer: ['km', 'kilometer', 'km_terakhir', 'kilometer_terakhir'],
+  bengkel: ['nama_bengkel', 'nama_bengkel_workshop', 'nama_bengkel_service', 'bengkel', 'bengkel_service', 'workshop', 'vendor_bengkel'],
   keterangan: ['keterangan', 'catatan'],
 }
 
@@ -102,8 +102,7 @@ function findHeader(sheet) {
 
 function parseRow(row, headers) {
   const get = key => {
-    const aliases = ALIASES[key] || [key]
-    const index = headers.findIndex(header => aliases.includes(norm(header)))
+    const index = headers.findIndex(header => fieldForHeader(header) === key)
     return index >= 0 ? clean(row.values[index]) : ''
   }
   const getSourceNo = () => {
@@ -220,7 +219,7 @@ async function importHistory(rows, profile, sheetName, onProgress = () => {}) {
         const first = group.values[0]
         const dpp = group.values.reduce((sum, row) => sum + row.nilai_dpp, 0)
         const ppn = group.values.reduce((sum, row) => sum + row.ppn, 0)
-        const total = group.values.reduce((sum, row) => sum + row.total, 0)
+        const total = dpp + ppn
         const kilometer = Math.max(...group.values.map(row => row.kilometer || 0))
         const jenisService = typeFor(group.values)
         const label = group.values.find(row => row.jenis_pekerjaan)?.jenis_pekerjaan || 'Service'
@@ -261,7 +260,7 @@ async function importHistory(rows, profile, sheetName, onProgress = () => {}) {
         if (service.error) throw new Error(`Gagal membuat histori service ${first.nomor_polisi} (baris ${first.excelRow}): ${service.error.message}`)
 
         const itemRows = group.values.map(row => {
-          const subtotal = row.nilai_dpp || row.total || (row.qty * row.harga_satuan)
+          const subtotal = row.nilai_dpp || (row.qty * row.harga_satuan) || row.total
           const harga = row.qty ? subtotal / row.qty : subtotal
           return {
             service_id: service.data.id,
