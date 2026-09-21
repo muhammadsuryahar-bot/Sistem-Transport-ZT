@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { formatDateSafe } from '../utils/dateSafe'
 import { clearDeletedExcelRows, filterDeletedExcelRows } from '../utils/excelPreviewControls.js'
 import './DataPageTools.css'
 import { encodeExcelMeta } from '../utils/excelSourceMeta.js'
@@ -56,7 +57,7 @@ async function parseXlsx(file) {
 function findHeader(sheet) { let best = { index: -1, row: [], score: -1 }; sheet.rows.slice(0, 50).forEach((item, idx) => { const score = item.values.filter(Boolean).map(norm).filter(Boolean).length; if (score > best.score) best = { index: idx, row: item.values, score } }); return best }
 function valueOf(row, headers, key) { const aliases = ALIASES[key] || [key]; const i = headers.findIndex((h) => aliases.includes(norm(h))); return i >= 0 ? clean(row.values[i]) : '' }
 function excelDate(value) { const v = clean(value); if (!v) return null; if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v; if (/^\d{1,2}[/-]\d{1,2}[/-]\d{4}$/.test(v)) { const [d, m, y] = v.split(/[/-]/); return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}` }; const serial = Number(v); if (Number.isFinite(serial) && serial > 20000 && serial < 80000) return new Date(Date.UTC(1899, 11, 30) + serial * 86400000).toISOString().slice(0, 10); const d = new Date(v); return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10) }
-function formatDate(v) { return v ? new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(`${v}T00:00:00`)) : '-' }
+function formatDate(v) { return formatDateSafe(v, { day: '2-digit', month: '2-digit', year: 'numeric' }) }
 function chooseSheet(sheets) { return sheets.map((sheet) => { const h = findHeader(sheet); const headers = h.row.map(norm); let score = 0; const name = norm(sheet.name); if (name.includes('stnk_dan_kir')) score += 12; if (name === 'stnk_dan_kir') score += 6; if (headers.includes('no_polisi')) score += 5; if (headers.includes('stnk')) score += 4; if (headers.includes('kir')) score += 3; if (headers.includes('5_tahun')) score += 3; return { sheet, header: h, score } }).sort((a, b) => b.score - a.score)[0] }
 
 async function importDocuments(rows, profile, sheetName) {
