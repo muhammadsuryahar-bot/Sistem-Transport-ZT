@@ -7,7 +7,7 @@ const TYPE_LABELS = { SERVICE: 'Service', GANTI_BAN: 'Ganti Ban', GANTI_AKI: 'Ga
 const STATUS_LABELS = { MENUNGGU_TRANSPORT: 'Menunggu Transport', DITERIMA_TRANSPORT: 'Diterima Transport', DALAM_PROSES: 'Dalam Proses', MENUNGGU_APPROVAL: 'Menunggu Approval', DISETUJUI: 'Disetujui', DITOLAK: 'Ditolak', SELESAI: 'Selesai', DIBATALKAN: 'Dibatalkan' }
 const ACTIVE = ['MENUNGGU_TRANSPORT', 'DITERIMA_TRANSPORT', 'DALAM_PROSES', 'MENUNGGU_APPROVAL', 'DISETUJUI']
 const EMPTY = { kendaraan_id: '', jenis_permintaan: 'SERVICE', kilometer: '', keluhan: '', prioritas: 'NORMAL' }
-const fmtDate = value => value ? new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(new Date(value)) : '-'
+const fmtDate = value => formatDateSafe(value)
 const fmtNum = value => value === null || value === undefined || value === '' ? '-' : new Intl.NumberFormat('id-ID').format(Number(value))
 const isInteractiveTarget = target => Boolean(target?.closest?.('button,input,select,textarea,a'))
 
