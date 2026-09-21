@@ -42,31 +42,95 @@ function rowKey(context, row) { const cells = Array.from(row.children).filter(ce
 function applyMark(row, mark) { Object.values(ROW_MARKS).forEach(item => { if (item.className) row.classList.remove(item.className) }); if (ROW_MARKS[mark]?.className) row.classList.add(ROW_MARKS[mark].className) }
 function createRowMarkToolbar() { const toolbar = document.createElement('div'); toolbar.className = 'dpt-row-mark-toolbar'; toolbar.innerHTML = '<div class="dpt-row-mark-title"><b>Penanda kerja</b><span>Tandai status tiap baris.</span></div><div class="dpt-row-mark-controls"><label>Filter <select class="dpt-row-mark-filter"><option value="ALL">Semua</option><option value="NONE">Belum ditandai</option><option value="TODO">Perlu dikerjakan</option><option value="PROCESS">Sedang dikerjakan</option><option value="DONE">Sudah selesai</option><option value="CHECKED">Sudah dicek</option></select></label><button type="button" class="dpt-row-mark-clear">Hapus semua tanda</button></div>'; return toolbar }
 function ensureTableMarks(context, table, scope) {
-  if (!table || table.dataset.dptRowMarksReady === '1') return
+  if (!table) return
+
   const marks = readRowMarks()
   table.dataset.dptRowMarksReady = '1'
+
   let toolbar = scope.querySelector('.dpt-row-mark-toolbar')
   if (!toolbar) {
     toolbar = createRowMarkToolbar()
     const tableHost = table.closest('.x-table-wrap, .request-table-wrap, .dpt-preview') || table.parentElement
     tableHost?.parentElement?.insertBefore(toolbar, tableHost)
   }
+
   const header = table.querySelector('thead tr')
-  if (header && !header.querySelector('.dpt-row-mark-head')) { const th = document.createElement('th'); th.className = 'dpt-row-mark-head'; th.textContent = 'Tanda'; header.insertBefore(th, header.firstChild) }
+  if (header && !header.querySelector('.dpt-row-mark-head')) {
+    const th = document.createElement('th')
+    th.className = 'dpt-row-mark-head'
+    th.textContent = 'Tanda'
+    header.insertBefore(th, header.firstChild)
+  }
+
   table.querySelectorAll('tbody tr').forEach(row => {
     if (row.querySelector('.dpt-row-mark-cell') || row.querySelector('td[colspan]')) return
-    const key = rowKey(context, row); row.dataset.dptRowMarkKey = key
-    const td = document.createElement('td'); td.className = 'dpt-row-mark-cell'
-    const select = document.createElement('select'); select.className = 'dpt-row-mark-select'
-    Object.entries(ROW_MARKS).forEach(([value, item]) => { const option = document.createElement('option'); option.value = value; option.textContent = item.label; select.appendChild(option) })
-    const current = marks[key] || 'NONE'; select.value = current; applyMark(row, current)
-    select.addEventListener('change', () => { const latest = readRowMarks(); if (select.value === 'NONE') delete latest[key]; else latest[key] = select.value; writeRowMarks(latest); applyMark(row, select.value) })
-    td.appendChild(select); row.insertBefore(td, row.firstChild)
+
+    const key = rowKey(context, row)
+    row.dataset.dptRowMarkKey = key
+
+    const td = document.createElement('td')
+    td.className = 'dpt-row-mark-cell'
+    const select = document.createElement('select')
+    select.className = 'dpt-row-mark-select'
+
+    Object.entries(ROW_MARKS).forEach(([value, item]) => {
+      const option = document.createElement('option')
+      option.value = value
+      option.textContent = item.label
+      select.appendChild(option)
+    })
+
+    const current = marks[key] || 'NONE'
+    select.value = current
+    applyMark(row, current)
+
+    select.addEventListener('change', () => {
+      const latest = readRowMarks()
+      if (select.value === 'NONE') delete latest[key]
+      else latest[key] = select.value
+      writeRowMarks(latest)
+      applyMark(row, select.value)
+    })
+
+    td.appendChild(select)
+    row.insertBefore(td, row.firstChild)
   })
+
   const filter = toolbar.querySelector('.dpt-row-mark-filter')
-  if (filter && !filter.dataset.bound) { filter.dataset.bound = '1'; filter.addEventListener('change', () => { const latest = readRowMarks(); table.querySelectorAll('tbody tr').forEach(row => { const key = row.dataset.dptRowMarkKey; const value = filter.value; row.style.display = value === 'ALL' || (latest[key] || 'NONE') === value ? '' : 'none' }) }) }
+  const applyFilter = () => {
+    const latest = readRowMarks()
+    const value = filter?.value || 'ALL'
+    table.querySelectorAll('tbody tr').forEach(row => {
+      if (row.querySelector('td[colspan]')) return
+      const key = row.dataset.dptRowMarkKey
+      row.style.display = value === 'ALL' || (latest[key] || 'NONE') === value ? '' : 'none'
+    })
+  }
+
+  if (filter && !filter.dataset.bound) {
+    filter.dataset.bound = '1'
+    filter.addEventListener('change', applyFilter)
+  }
+
   const clear = toolbar.querySelector('.dpt-row-mark-clear')
-  if (clear && !clear.dataset.bound) { clear.dataset.bound = '1'; clear.addEventListener('click', () => { const latest = readRowMarks(); table.querySelectorAll('tbody tr').forEach(row => { const key = row.dataset.dptRowMarkKey; if (key) delete latest[key]; const select = row.querySelector('.dpt-row-mark-select'); if (select) select.value = 'NONE'; row.style.display = ''; applyMark(row, 'NONE') }); writeRowMarks(latest); if (filter) filter.value = 'ALL' }) }
+  if (clear && !clear.dataset.bound) {
+    clear.dataset.bound = '1'
+    clear.addEventListener('click', () => {
+      const latest = readRowMarks()
+      table.querySelectorAll('tbody tr').forEach(row => {
+        const key = row.dataset.dptRowMarkKey
+        if (key) delete latest[key]
+        const select = row.querySelector('.dpt-row-mark-select')
+        if (select) select.value = 'NONE'
+        row.style.display = ''
+        applyMark(row, 'NONE')
+      })
+      writeRowMarks(latest)
+      if (filter) filter.value = 'ALL'
+    })
+  }
+
+  applyFilter()
 }
 function ensureRowMarks(context) {
   const previewTables = Array.from(document.querySelectorAll('.dpt-preview table')).map(table => ({ table, scope: table.closest('.dpt-preview') || document.body }))
