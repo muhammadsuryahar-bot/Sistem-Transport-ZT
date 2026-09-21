@@ -69,7 +69,7 @@ export default function ServiceFeaturePage({ profile }) {
       observer?.disconnect()
       window.removeEventListener('resize', refreshServiceExcelScroll)
     }
-  }, [tab, serviceExcelRows.length, serviceExcelFullscreen])
+  }, [tab, items, services, vehicles, drivers, serviceExcelFullscreen])
   useEffect(() => {
     document.body.classList.toggle('transport-service-fullscreen-open', serviceExcelFullscreen)
     return () => document.body.classList.remove('transport-service-fullscreen-open')
