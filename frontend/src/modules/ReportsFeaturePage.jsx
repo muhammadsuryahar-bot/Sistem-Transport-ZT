@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { exportToExcel } from '../utils/exportExcel'
+import { formatDateSafe } from '../utils/dateSafe'
 import './TransportOperationsFixed.css'
 
 const money = v => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(v || 0))
-const date = v => v ? new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(new Date(v)) : '-'
+const date = v => formatDateSafe(v)
 const DAYS = 30 * 86400000
 
 const columns = (keys) => keys.map(([key, label]) => ({ key, label }))
