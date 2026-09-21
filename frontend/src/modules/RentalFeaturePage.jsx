@@ -64,8 +64,8 @@ export default function RentalFeaturePage({ profile }) {
       const owner = ownerMap[contract?.pemilik_sewa_id]
       const { meta } = decodeExcelMeta(payment.catatan)
       if (meta?.source === 'SUMMERY_RENTAL') return { no_excel: Number(meta.source_no) || index + 1, tahun: meta.tahun || '-', supplier: meta.supplier || '-', uraian: meta.uraian || '-', periode_tagihan: meta.periode_tagihan || '-', nilai_invoice: meta.nilai_invoice ?? payment.jumlah_tagihan }
-      const date = payment.bulan_pembayaran || null
-      const monthName = date ? formatMonthSafe(date) : '-'
+      const date = payment.bulan_pembayaran ? new Date(`${payment.bulan_pembayaran}T00:00:00`) : null
+      const monthName = date && !Number.isNaN(date.getTime()) ? new Intl.DateTimeFormat('id-ID', { month: 'long' }).format(date) : '-'
       return { no_excel: index + 1, tahun: date && !Number.isNaN(date.getTime()) ? date.getFullYear() : '-', supplier: owner?.nama_pemilik || owner?.nama_perusahaan || '-', uraian: payment.catatan || '-', periode_tagihan: monthName, nilai_invoice: payment.jumlah_tagihan }
     })
   }, [payments, contracts, owners])
