@@ -123,33 +123,29 @@ function hasFullRupiahFormat(value) {
   return /^-?\d{1,3}(?:[.]\d{3})+(?:[,]\d+)?$/.test(raw)
 }
 
-function isShorthandMoney(value) {
-  const raw = clean(value)
-  if (!raw || raw === '-' || hasFullRupiahFormat(raw)) return false
-  const base = parseMoneyBase(raw)
-  return Number.isFinite(base) && Math.abs(base) > 0 && Math.abs(base) < 10000
-}
-
-function normalizeMoneyField(value, shorthandScale) {
+function normalizeMoneyField(value) {
   const raw = clean(value)
   const base = parseMoneyBase(raw)
   if (!raw || raw === '-') return 0
   if (hasFullRupiahFormat(raw)) return base
-  return shorthandScale && Math.abs(base) < 10000 ? base * 1000 : base
+  return Number.isFinite(base) && Math.abs(base) < 1000 ? base * 1000 : base
 }
 
-function normalizePpn(rawPpn, shorthandScale) {
+function normalizePpn(dpp, rawPpn) {
   const raw = clean(rawPpn)
   if (!raw || raw === '-') return 0
-  return normalizeMoneyField(rawPpn, shorthandScale)
+  const base = parseMoneyBase(raw)
+  const candidates = [base]
+  if (!hasFullRupiahFormat(raw) && Math.abs(base) < 1000) candidates.push(base * 1000)
+  const expected = Number(dpp || 0) * 0.11
+  return candidates.reduce((best, value) => Math.abs(value - expected) < Math.abs(best - expected) ? value : best, candidates[0])
 }
 
 function normalizeServiceMoney({ qty, harga, dpp, ppn, total }) {
-  const shorthandScale = [harga, dpp, ppn, total].some(isShorthandMoney)
-  const normalizedDpp = normalizeMoneyField(dpp, shorthandScale)
-  const normalizedHarga = normalizeMoneyField(harga, shorthandScale)
-  const normalizedTotal = normalizeMoneyField(total, shorthandScale)
-  const normalizedPpn = normalizePpn(ppn, shorthandScale)
+  const normalizedDpp = normalizeMoneyField(dpp)
+  const normalizedHarga = normalizeMoneyField(harga)
+  const normalizedTotal = normalizeMoneyField(total)
+  const normalizedPpn = normalizePpn(normalizedDpp, ppn)
   const q = Number(qty || 0)
   const priceFromDpp = q > 0 ? normalizedDpp / q : normalizedHarga
   const finalHarga = normalizedHarga > 0 && normalizedDpp > 0 && Math.abs((normalizedHarga * q) - normalizedDpp) <= Math.max(1, normalizedDpp * 0.001)
