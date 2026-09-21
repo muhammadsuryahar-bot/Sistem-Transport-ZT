@@ -320,9 +320,12 @@ button {
 .sidebar-overlay { display: none; }
 
 .content-container {
-  padding: 34px;
-  max-width: 1440px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  margin: 0;
+  padding: 30px clamp(18px, 2.2vw, 36px);
+  overflow-x: hidden;
 }
 
 .page-intro { margin-bottom: 24px; }
