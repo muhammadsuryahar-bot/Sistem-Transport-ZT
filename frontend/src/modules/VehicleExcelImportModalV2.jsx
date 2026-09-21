@@ -144,6 +144,8 @@ async function importVehicleRows(rows) {
   const groups = new Map()
   repaired.forEach(row => { const key = upper(row.nomor_polisi); if (!groups.has(key)) groups.set(key, []); groups.get(key).push(row) })
   const merged = [...groups.values()].map(mergeRows)
+  const missingRentalOwners = merged.filter(row => row.kepemilikan === 'SEWA' && !clean(row.pemilik))
+  if (missingRentalOwners.length) throw new Error(`Ada ${missingRentalOwners.length} kendaraan Sewa tanpa identitas pemilik. Isi kolom Pemilik untuk baris: ${missingRentalOwners.map(row => row.excelRow).join(', ')}.`)
   const vehiclesResult = await supabase.from('kendaraan').select('id,kode_kendaraan,nomor_polisi,merk,tipe,jenis_kendaraan,tahun,warna,nomor_rangka,nomor_mesin,kepemilikan,pemilik,driver_id,lokasi,unit_kerja,kilometer_terakhir,status,kondisi,keterangan,masa_berlaku_pajak,status_pajak,catatan_hutang')
   const driversResult = await supabase.from('driver').select('id,nama_lengkap,lokasi,status,keterangan')
   if (vehiclesResult.error) throw new Error(`Tidak bisa membaca master kendaraan: ${vehiclesResult.error.message}`)
