@@ -153,7 +153,13 @@ function normalizeServiceMoney({ qty, harga, dpp, ppn, total }) {
     : (priceFromDpp || normalizedHarga)
   const finalDpp = normalizedDpp || (q > 0 ? finalHarga * q : 0)
   const finalPpn = normalizedPpn
-  const finalTotal = normalizedTotal || (finalDpp + finalPpn)
+  const derivedTotal = finalDpp + finalPpn
+  const rawTotal = clean(total)
+  const totalIsShorthand = Boolean(rawTotal && rawTotal !== '-' && !hasFullRupiahFormat(rawTotal) && Math.abs(parseMoneyBase(rawTotal)) < 10000)
+  const totalMatchesBreakdown = Math.abs(normalizedTotal - derivedTotal) <= Math.max(1, derivedTotal * 0.001)
+  const finalTotal = normalizedTotal > 0 && (totalMatchesBreakdown || !totalIsShorthand)
+    ? normalizedTotal
+    : derivedTotal
   return {
     harga_satuan: finalHarga,
     nilai_dpp: finalDpp,
