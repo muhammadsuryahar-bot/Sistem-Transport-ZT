@@ -42,6 +42,7 @@ export default function ReportsFeaturePage({ profile }) {
     window.addEventListener('transport:data-imported', handleImported)
     return () => window.removeEventListener('transport:data-imported', handleImported)
   }, [profile?.id, profile?.role])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
 
   const now = Date.now()
   const metrics = useMemo(() => {
