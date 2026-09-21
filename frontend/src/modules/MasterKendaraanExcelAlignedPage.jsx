@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import './MasterKendaraanExcelAlignedPage.css'
+import { formatDateSafe } from '../utils/dateSafe'
 
 const OWNERSHIP = { ASET: 'Aset', SEWA: 'Sewa' }
 const VEHICLE_TYPES = ['Pickup', 'Minibus', 'Dump Truck']
@@ -23,7 +24,7 @@ const normalizeOwnership = value => {
   if (v === 'SEWA' || v === 'RENTAL' || v === 'KENDARAAN_SEWA') return 'SEWA'
   return ''
 }
-const formatDate = value => value ? new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(new Date(value)) : '-'
+const formatDate = value => formatDateSafe(value)
 const isInteractive = target => Boolean(target?.closest?.('button,input,select,textarea,a'))
 
 export default function MasterKendaraanExcelAlignedPage({ profile }) {
