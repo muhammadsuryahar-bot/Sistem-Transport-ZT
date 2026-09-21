@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { formatDateSafe } from '../utils/dateSafe'
 import { clearDeletedExcelRows, filterDeletedExcelRows } from '../utils/excelPreviewControls.js'
 import { parseXlsx } from '../utils/xlsxParser.js'
 import './DataPageTools.css'
@@ -130,7 +131,7 @@ function displayCell(value, header) {
   if (!raw) return '-'
   if (/masa_pajak|masa_berlaku_pajak|jatuh_tempo_pajak/.test(norm(header))) {
     const date = excelDate(raw)
-    if (date) return new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(`${date}T00:00:00`))
+    if (date) return formatDateSafe(date, { day: '2-digit', month: '2-digit', year: 'numeric' })
   }
   return /^-?\d+\.0+$/.test(raw) ? raw.replace(/\.0+$/, '') : raw
 }
