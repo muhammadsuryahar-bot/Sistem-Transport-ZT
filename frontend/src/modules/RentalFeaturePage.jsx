@@ -12,7 +12,7 @@ const EMPTY_PAYMENT = { kontrak_sewa_id: '', periode_ke: '', bulan_pembayaran: '
 const EMPTY_REPAIR = { kontrak_sewa_id: '', kendaraan_id: '', tanggal_kejadian: new Date().toISOString().slice(0, 10), kilometer: '', jenis_kerusakan: '', deskripsi_kerusakan: '', penyebab: '', estimasi_biaya: '', biaya_aktual: '', metode_penanganan: '', dibayar_kantor: false, tanggal_dibayar: '', pemilik_diberitahu: false, status: 'DILAPORKAN', dapat_dipotong: false, jumlah_dipotong: '', catatan: '' }
 
 function Alert({ type = 'success', children }) { return <div className={`x-alert ${type}`}>{children}</div> }
-function Header({ title, text, action }) { return <div className="x-head"><div><span className="eyebrow">KENDARAAN SEWA</span><h2>{title}</h2><p>{text}</p></div>{action}</div> }
+function Header({ title, text, action }) { return <div className="x-head"><div><span className="eyebrow">ADMINISTRASI SEWA</span><h2>{title}</h2><p>{text}</p></div>{action}</div> }
 function Empty() { return <div className="x-empty">Belum ada data.</div> }
 
 async function uploadRentalFile(file, prefix) {
@@ -212,7 +212,7 @@ export default function RentalFeaturePage({ profile }) {
     <Header title="Administrasi Kendaraan Sewa" text="Master kendaraan tetap berada di menu Kendaraan. Halaman ini khusus untuk administrasi kendaraan Sewa: pemilik, kontrak 6 bulan, pembayaran, bukti, perbaikan, dan potongan." action={<button className="x-btn secondary" onClick={load}>↻ Refresh</button>} />
     {error && <Alert type="error">{error}</Alert>}
     {success && <Alert>{success}</Alert>}
-    <div className="x-tabs">{[['kendaraan', 'Daftar Kendaraan'], ['kontrak', 'Kontrak'], ['pemilik', 'Pemilik'], ['pembayaran', 'Pembayaran'], ['historis', 'Riwayat Excel'], ...(repairEditable ? [['repair', 'Perbaikan']] : [])].map(([v, l]) => <button key={v} className={tab === v ? 'active' : ''} onClick={() => { clearMessages(); setTab(v) }}>{l}</button>)}</div>
+    <div className="x-tabs">{[['kendaraan', 'Daftar Sewa'], ['kontrak', 'Kontrak'], ['pemilik', 'Pemilik'], ['pembayaran', 'Pembayaran'], ['historis', 'Riwayat Excel'], ...(repairEditable ? [['repair', 'Perbaikan']] : [])].map(([v, l]) => <button key={v} className={tab === v ? 'active' : ''} onClick={() => { clearMessages(); setTab(v) }}>{l}</button>)}</div>
 
     {tab === 'kendaraan' && <section className="x-card">
       <div className="x-card-title"><div><h3>Daftar Kendaraan Sewa</h3><p>Data kendaraan diambil dari Master Kendaraan dengan kepemilikan <b>Sewa</b>. Tambah atau edit kendaraan tetap dilakukan di menu Kendaraan agar tidak ada data kendaraan ganda.</p></div></div>
