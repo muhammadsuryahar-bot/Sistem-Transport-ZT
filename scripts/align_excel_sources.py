@@ -50,7 +50,8 @@ replace_once(p, old_table, new_table, required=True)
 
 # Pengajuan page: prefer the preserved source snapshot for Excel view.
 p = 'frontend/src/modules/PermintaanServicePageFixed.jsx'
-if "import { decodeExcelMeta } from '../utils/excelSourceMeta.js'" not in read(p):\n    replace_once(p, "import './PermintaanServicePage.css'", "import './PermintaanServicePage.css'\nimport { decodeExcelMeta } from '../utils/excelSourceMeta.js'", required=True)
+if "import { decodeExcelMeta } from '../utils/excelSourceMeta.js'" not in read(p):
+    replace_once(p, "import './PermintaanServicePage.css'", "import './PermintaanServicePage.css'\nimport { decodeExcelMeta } from '../utils/excelSourceMeta.js'", required=True)
 replace_once(p, "supabase.from('kendaraan').select('id,kode_kendaraan,nomor_polisi,merk,tipe,kepemilikan,jenis_sewa,pemilik,lokasi,kilometer_terakhir,status')", "supabase.from('kendaraan').select('id,kode_kendaraan,nomor_polisi,merk,tipe,kepemilikan,jenis_sewa,pemilik,lokasi,unit_kerja,kilometer_terakhir,status')", required=True)
 replace_once(p,
 "  const requestExcelRows = useMemo(() => filtered.map((r, index) => { const v = vehicleMap[r.kendaraan_id]; return { no: index + 1, homebase: v?.lokasi || '-', unit_kendaraan: v?.unit_kerja || '-', nomor_polisi: v?.nomor_polisi || '-', merk: v?.merk || '-', type: v?.tipe || '-', tanggal: r.tanggal_pengajuan || '-', biaya: serviceCostMap[r.id], keterangan: r.keluhan || '-' } }), [filtered, vehicleMap, serviceCostMap])",
@@ -65,7 +66,8 @@ replace_once(p, "            keterangan: row.keterangan || null,\n          }", 
 
 # Service page: render exact source metadata first.
 p = 'frontend/src/modules/ServiceFeaturePage.jsx'
-if "import { decodeExcelMeta } from '../utils/excelSourceMeta.js'" not in read(p):\n    replace_once(p, "import './TransportOperationsFixed.css'", "import './TransportOperationsFixed.css'\nimport { decodeExcelMeta } from '../utils/excelSourceMeta.js'", required=True)
+if "import { decodeExcelMeta } from '../utils/excelSourceMeta.js'" not in read(p):
+    replace_once(p, "import './TransportOperationsFixed.css'", "import './TransportOperationsFixed.css'\nimport { decodeExcelMeta } from '../utils/excelSourceMeta.js'", required=True)
 pattern = r"  const serviceExcelRows = useMemo\(\(\) => \{.*?\n  \}, \[items, services, serviceMap, vehicleMap, driverMap\]\)"
 replacement = """  const serviceExcelRows = useMemo(() => {
     const rows = []
@@ -175,7 +177,8 @@ regex_once(p, pattern, replacement, required=True)
 
 # Export alignment: prefer preserved Excel snapshots.
 p = 'frontend/src/AppTransport.jsx'
-if "import { decodeExcelMeta } from './utils/excelSourceMeta.js'" not in read(p):\n    replace_once(p, "import './App.css'", "import './App.css'\nimport { decodeExcelMeta } from './utils/excelSourceMeta.js'", required=True)
+if "import { decodeExcelMeta } from './utils/excelSourceMeta.js'" not in read(p):
+    replace_once(p, "import './App.css'", "import './App.css'\nimport { decodeExcelMeta } from './utils/excelSourceMeta.js'", required=True)
 replace_once(p,
 "const sourceRequestRows = (requests || []).map((x, index) => ({ no: index + 1, homebase: vehicleMap[x.kendaraan_id]?.lokasi || '-', unit_kendaraan: vehicleMap[x.kendaraan_id]?.unit_kerja || '-', nomor_polisi: vehicleMap[x.kendaraan_id]?.nomor_polisi || '-', merk: vehicleMap[x.kendaraan_id]?.merk || '-', type: vehicleMap[x.kendaraan_id]?.tipe || '-', tanggal: x.tanggal_pengajuan || '-', biaya: requestCostMap[x.id], keterangan: x.keluhan || '-' }))",
 "const sourceRequestRows = (requests || []).map((x, index) => { const v = vehicleMap[x.kendaraan_id]; const { meta } = decodeExcelMeta(x.catatan_transport); return { no: Number(meta?.source_no) || index + 1, homebase: meta?.homebase || v?.lokasi || '-', unit_kendaraan: meta?.unit_kendaraan || v?.unit_kerja || '-', nomor_polisi: v?.nomor_polisi || '-', merk: meta?.merk || v?.merk || '-', type: meta?.type || v?.tipe || '-', tanggal: x.tanggal_pengajuan || '-', biaya: meta?.biaya != null ? Number(meta.biaya) : requestCostMap[x.id], keterangan: x.keluhan || '-' } })",
