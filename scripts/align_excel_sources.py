@@ -108,7 +108,8 @@ required=True)
 
 # Documents page: show source owner / source row fields when metadata exists.
 p = 'frontend/src/modules/DocumentsFeaturePage.jsx'
-replace_once(p, "import './TransportOperationsFixed.css'", "import './TransportOperationsFixed.css'\nimport { decodeExcelMeta } from '../utils/excelSourceMeta.js'", required=True)
+if "import { decodeExcelMeta } from '../utils/excelSourceMeta.js'" not in read(p):
+    replace_once(p, "import './TransportOperationsFixed.css'", "import './TransportOperationsFixed.css'\nimport { decodeExcelMeta } from '../utils/excelSourceMeta.js'", required=True)
 old_monitor = " const monitorRows=useMemo(()=>vehicles.map((v,index)=>{const byType={};docs.filter(d=>d.kendaraan_id===v.id).forEach(d=>{byType[d.jenis_dokumen]=d});return{no:index+1,merk:v.merk||'-',tipe:v.tipe||'-',nomor_polisi:v.nomor_polisi||'-',tahun:v.tahun||'-',nomor_rangka:v.nomor_rangka||'-',stnk:byType.STNK?.tanggal_jatuh_tempo||'-',kir:byType.KIR?.tanggal_jatuh_tempo||'-',lima_tahun:byType['5_TAHUNAN']?.tanggal_jatuh_tempo||'-',pemilik:v.pemilik||'-'}}),[vehicles,docs])"
 new_monitor = """ const monitorRows=useMemo(() => {
   const sourceRows=[]
@@ -158,7 +159,8 @@ replace_once(p, "      catatan: `Import SUMMERY RENTAL ${row.tahun} • ${row.pe
 
 # Rental page: decode the exact source snapshot before operational fallback.
 p = 'frontend/src/modules/RentalFeaturePage.jsx'
-replace_once(p, "import './TransportOperationsFixed.css'", "import './TransportOperationsFixed.css'\nimport { decodeExcelMeta } from '../utils/excelSourceMeta.js'", required=True)
+if "import { decodeExcelMeta } from '../utils/excelSourceMeta.js'" not in read(p):
+    replace_once(p, "import './TransportOperationsFixed.css'", "import './TransportOperationsFixed.css'\nimport { decodeExcelMeta } from '../utils/excelSourceMeta.js'", required=True)
 pattern = r"  const historicalRows = useMemo\(\(\) => \{.*?\n  \}, \[payments, contracts, owners\]\)"
 replacement = """  const historicalRows = useMemo(() => {
     const contractMap = Object.fromEntries(contracts.map(c => [c.id, c]))
