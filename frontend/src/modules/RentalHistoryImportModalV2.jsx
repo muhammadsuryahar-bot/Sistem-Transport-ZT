@@ -91,7 +91,7 @@ async function importSummary(rows, profile, sourceFile, sourceSheet) {
   const payloads = rows.map(row => ({
     source_no: row.source_no || null,
     excel_row: Number(row.excelRow),
-    tahun: Number(String(row.tahun).replace(/\\D/g, '')) || null,
+    tahun: Number(String(row.tahun).replace(/\D/g, '')) || null,
     supplier: row.supplier,
     uraian: row.uraian || null,
     periode_tagihan: row.periode || null,
