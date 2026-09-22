@@ -104,9 +104,11 @@ function formatDisplay(value, header) {
 }
 
 function findHeader(sheet) {
+  const required = ['source_no', 'merk', 'tipe', 'jenis', 'tahun', 'nomor_polisi', 'driver', 'bulan', 'tanggal', 'jenis_pekerjaan', 'uraian', 'qty', 'satuan', 'harga_satuan', 'nilai_dpp', 'ppn', 'total', 'kilometer', 'bengkel', 'keterangan']
   let best = { index: -1, row: [], score: -1 }
   sheet.rows.slice(0, 80).forEach((item, idx) => {
-    const score = item.values.filter(Boolean).map(norm).filter(Boolean).length
+    const headers = item.values.map(norm)
+    const score = required.reduce((total, key) => total + (headers.some(header => fieldForHeader(header) === key) ? 1 : 0), 0)
     if (score > best.score) best = { index: idx, row: item.values, score }
   })
   return best
@@ -260,7 +262,7 @@ function chooseServiceSheet(sheets) {
     const header = findHeader(sheet)
     const h = header.row.map(norm)
     const name = norm(sheet.name)
-    let score = 0
+    let score = header.score
     if (name === 'data_service') score += 30
     else if (name.includes('data_service')) score += 18
     if (name.includes('rekapan_permintaan')) score += 12
@@ -454,7 +456,12 @@ export default function EditableServiceExcelImportModal({ profile, onDone, onClo
       const sheets = await parseXlsx(nextFile)
       const chosen = chooseServiceSheet(sheets)
       if (!chosen || chosen.score < 12) throw new Error(`Sheet histori service tidak ditemukan. File terbaca tetapi sheet “Data Service” tidak sesuai.`)
-      const sourceRows = chosen.sheet.rows.slice(chosen.header.index + 1).filter(row => row.values.some(value => clean(value)))
+      const sourceRows = chosen.sheet.rows
+        .slice(chosen.header.index + 1)
+        .filter(row => row.values.some(value => clean(value)))
+        .map(row => parseRow(row, chosen.header.row))
+        .filter(row => row.nomor_polisi || row.tanggal)
+
       const mappedFields = new Set(chosen.header.row.map(fieldForHeader).filter(Boolean))
       const requiredFields = [
         ['nomor_polisi', 'No. Polisi'],
@@ -470,7 +477,7 @@ export default function EditableServiceExcelImportModal({ profile, onDone, onClo
       if (missingFields.length) {
         throw new Error(`Kolom Data Service belum terbaca: ${missingFields.map(([, label]) => label).join(', ')}. Periksa nama header Excel sebelum import.`)
       }
-      const parsed = sourceRows.map(row => parseRow(row, chosen.header.row))
+      const parsed = sourceRows.sort((a, b) => Number(a.source_no || 0) - Number(b.source_no || 0) || a.excelRow - b.excelRow)
       setSheet(chosen.sheet); setHeaders(chosen.header.row); setRows(parsed)
       setMessage(`Sheet “${chosen.sheet.name}” terbaca: ${parsed.length} baris. Kolom No. Polisi, Harga Satuan, DPP, PPN, Total, KM, dan Nama Bengkel berhasil dikenali.`)
     } catch (e) { setError(e.message || 'File Excel tidak dapat dibaca.') } finally { setLoading(false) }
@@ -560,14 +567,14 @@ export default function EditableServiceExcelImportModal({ profile, onDone, onClo
       {message && <div className="dpt-alert success">{message}</div>}
       <div className="dpt-upload"><input ref={inputRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={e => scan(e.target.files?.[0])}/><button type="button" className="dpt-upload-button" onClick={() => inputRef.current?.click()} disabled={loading || saving}>{loading ? 'Membaca Excel…' : file ? 'Ganti File' : 'Pilih File Excel'}</button><div className="dpt-file-meta"><strong title={file?.name}>{file?.name || 'Belum ada file'}</strong><span>{file ? `✓ .xlsx • ${(file.size / 1024 / 1024).toFixed(2)} MB` : 'Maksimal 25 MB'}</span></div></div>
       {rows.length > 0 && <>
-        <div className="service-import-stats"><div><b>{rows.length}</b><span>baris Excel</span></div><div><b>{validRows.length}</b><span>baris valid</span></div><div><b>{transactions.length}</b><span>transaksi service</span></div><div><b>{uniquePlates.length}</b><span>kendaraan</span></div></div>
+        <div className="service-import-stats"><div><b>{rows.length}</b><span>baris data</span></div><div><b>{validRows.length}</b><span>baris valid</span></div><div><b>{transactions.length}</b><span>transaksi service</span></div><div><b>{uniquePlates.length}</b><span>kendaraan</span></div></div>
         {invalidCount > 0 && <div className="service-import-warning">{invalidCount} baris belum valid. Edit No. Polisi/Tanggal langsung di tabel agar ikut terimport.</div>}
         <div className="editable-service-toolbar"><div><strong>Baris {pageStart}-{pageEnd} dari {filteredRows.length}{search ? ` (filter dari ${rows.length})` : ''}</strong><span>Setiap sel di bawah ini bisa diedit. Perubahan dipakai saat tombol Import ditekan.</span></div><div className="editable-service-controls"><input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} placeholder="Cari data…" disabled={saving}/><label>Per halaman <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1) }} disabled={saving}>{PAGE_OPTIONS.map(size => <option key={size} value={size}>{size}</option>)}</select></label></div></div>
         <div className="dpt-preview editable-service-preview"><table><thead><tr>{headers.map((header, index) => <th key={`${header}-${index}`}>{header || `Kolom ${index + 1}`}</th>)}</tr></thead><tbody>{visibleRows.map(row => <tr data-excel-row={row.excelRow} key={row.excelRow}>{headers.map((header, index) => { const key = fieldForHeader(header); const value = displayValueForRow(row, header, key, index); const numeric = ['qty','harga_satuan','nilai_dpp','ppn','total','kilometer'].includes(key); const date = key === 'tanggal'; return <td key={`${row.excelRow}-${index}`}><input aria-label={`${header} baris ${row.excelRow}`} type={date ? 'text' : 'text'} inputMode={numeric ? 'decimal' : undefined} value={value} onChange={e => updateCell(row.excelRow, index, e.target.value)} disabled={saving} className={numeric ? 'numeric' : ''}/></td> })}</tr>)}</tbody></table></div>
         <div className="editable-service-pagination"><button type="button" className="dpt-button" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage <= 1 || saving}>← Sebelumnya</button><strong>Halaman {safePage} / {pageCount}</strong><button type="button" className="dpt-button" onClick={() => setPage(p => Math.min(pageCount, p + 1))} disabled={safePage >= pageCount || saving}>Berikutnya →</button></div>
-        <div className="service-import-note"><b>Yang bisa dikerjakan tanpa kembali ke Excel</b><span>Ganti No. Polisi, tanggal, pekerjaan, uraian, Qty, satuan, harga, DPP, PPN, Total, KM, driver, dan kolom lain langsung di tabel.</span><span>Semua {rows.length} baris tetap ada; tabel hanya memakai pagination supaya layar tidak berat.</span><span>Setelah diedit, sistem menghitung ulang baris valid, transaksi, kendaraan, dan item berdasarkan data terbaru.</span></div>
+        <div className="service-import-note"><b>Yang bisa dikerjakan tanpa kembali ke Excel</b><span>Ganti No. Polisi, tanggal, pekerjaan, uraian, Qty, satuan, harga, DPP, PPN, Total, KM, driver, dan kolom lain langsung di tabel.</span><span>{rows.length} baris data valid ditampilkan; baris TOTAL/rekap di bagian bawah Excel tidak dimasukkan sebagai transaksi.</span><span>Setelah diedit, sistem menghitung ulang baris valid, transaksi, kendaraan, dan item berdasarkan data terbaru.</span></div>
       </>}
-      <div className="dpt-actions"><button type="button" className="dpt-button" onClick={onClose} disabled={saving}>Batal</button><button type="button" className="dpt-button primary" onClick={start} disabled={!rows.length || saving || !canImport}>{saving ? `Mengimport ${progress.completed}/${progress.total}…` : `Import ${rows.length} Baris`}</button></div>
+      <div className="dpt-actions"><button type="button" className="dpt-button" onClick={onClose} disabled={saving}>Batal</button><button type="button" className="dpt-button primary" onClick={start} disabled={!rows.length || saving || !canImport}>{saving ? `Mengimport ${progress.completed}/${progress.total}…` : `Import ${rows.length} Baris Data`}</button></div>
     </section>
   </div>
 }
