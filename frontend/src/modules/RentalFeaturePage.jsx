@@ -59,12 +59,13 @@ export default function RentalFeaturePage({ profile }) {
   const repairMap = useMemo(() => Object.fromEntries(repairs.map(r => [r.id, r])), [repairs])
   const historicalRows = useMemo(() => rentalHistoryExcel.map(row => ({
     no_excel: Number(row.source_no) || row.excel_row,
+    excel_row: row.excel_row,
     tahun: row.tahun || '-',
     supplier: row.supplier || '-',
     uraian: row.uraian || '-',
     periode_tagihan: row.periode_tagihan || '-',
     nilai_invoice: row.nilai_invoice ?? 0,
-  })).sort((a, b) => Number(a.no_excel || 0) - Number(b.no_excel || 0) || String(a.supplier || '').localeCompare(String(b.supplier || ''), 'id')), [rentalHistoryExcel])
+  })).sort((a, b) => Number(a.excel_row || 0) - Number(b.excel_row || 0)), [rentalHistoryExcel])
 
   const load = async () => {
     setLoading(true)
