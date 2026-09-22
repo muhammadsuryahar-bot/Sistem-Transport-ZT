@@ -75,7 +75,7 @@ export default function RentalFeaturePage({ profile }) {
       supabase.from('kontrak_sewa').select('*').order('created_at', { ascending: false }),
       supabase.from('pembayaran_sewa').select('*').order('bulan_pembayaran', { ascending: false }),
       supabase.from('perbaikan_sewa').select('*').order('tanggal_kejadian', { ascending: false }),
-      supabase.from('rental_historis_excel').select('*').order('source_no', { ascending: true }),
+      supabase.from('rental_historis_excel').select('*').order('excel_row', { ascending: true }),
       supabase.from('kendaraan').select('id,nomor_polisi,merk,tipe,kepemilikan,jenis_sewa,pemilik').eq('kepemilikan', 'SEWA').order('nomor_polisi'),
     ])
     const names = ['Pemilik', 'Kontrak', 'Pembayaran', 'Perbaikan', 'Histori Excel', 'Kendaraan']
@@ -283,7 +283,7 @@ export default function RentalFeaturePage({ profile }) {
 
     {tab === 'historis' && <section className="x-card">
       <div className="x-card-title"><div><h3>Riwayat Rental — Format SUMMERY RENTAL</h3><p>Kolom mengikuti Excel: No, Tahun, Supplier, Uraian, Periode Tagihan, Nilai Invoice.</p></div></div>
-      <div className="x-table-wrap"><table className="x-table"><thead><tr><th>No</th><th>Tahun</th><th>Supplier</th><th>Uraian</th><th>Periode Tagihan</th><th>Nilai Invoice</th></tr></thead><tbody>{historicalRows.length ? historicalRows.map(row => <tr key={`${row.no_excel}-${row.tahun}-${row.periode_tagihan}-${row.supplier}`}><td>{row.no_excel}</td><td>{row.tahun}</td><td>{row.supplier}</td><td>{row.uraian}</td><td>{row.periode_tagihan}</td><td>{money(row.nilai_invoice)}</td></tr>) : <tr><td colSpan="6"><Empty /></td></tr>}</tbody></table></div>
+      <div className="x-table-wrap"><table className="x-table"><thead><tr><th>No</th><th>Tahun</th><th>Supplier</th><th>Uraian</th><th>Periode Tagihan</th><th>Nilai Invoice</th></tr></thead><tbody>{historicalRows.length ? historicalRows.map(row => <tr key={row.excel_row}><td>{row.no_excel}</td><td>{row.tahun}</td><td>{row.supplier}</td><td>{row.uraian}</td><td>{row.periode_tagihan}</td><td>{money(row.nilai_invoice)}</td></tr>) : <tr><td colSpan="6"><Empty /></td></tr>}</tbody></table></div>
     </section>}
     {tab === 'repair' && <section className="x-card">
       <div className="x-card-title"><h3>Perbaikan Kendaraan Sewa</h3><p>Catat pembayaran kantor dan bukti perbaikan. Setelah dibayar kantor, biaya dapat ditandai untuk dipotong dari rental.</p></div>
