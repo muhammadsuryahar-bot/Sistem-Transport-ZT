@@ -20,6 +20,7 @@ const LABELS = {
   nomor_rangka: ['no_rangka', 'nomor_rangka'],
   pemilik: ['pemilik', 'nama_pemilik', 'pemilik_pic'],
   status: ['status', 'kepemilikan', 'status_kepemilikan', 'ownership'],
+  jenis_sewa: ['jenis_sewa', 'jenis_sewa_kendaraan', 'tipe_sewa'],
   masa_pajak: ['masa_berlaku_pajak', 'masa_pajak', 'jatuh_tempo_pajak', 'pajak_jatuh_tempo'],
   status_pajak: ['status_pajak'],
   unit_kerja: ['unit_kerja', 'pengunaan_unit', 'penggunaan_unit'],
@@ -31,7 +32,7 @@ const LABELS = {
 const EXPECTED_HEADERS = [
   ['No', 'Urutan sumber'], ['Merk', 'Merk'], ['Type', 'Tipe'], ['Jenis', 'Jenis kendaraan'],
   ['Tahun', 'Tahun'], ['No. Pol', 'Nomor polisi'], ['No. Mesin', 'Nomor mesin'], ['No. Rangka', 'Nomor rangka'],
-  ['Pemilik', 'Pemilik'], ['Status', 'Kepemilikan: Aset/Sewa'], ['Masa Berlaku Pajak', 'Jatuh tempo pajak'],
+  ['Pemilik', 'Pemilik'], ['Status', 'Kepemilikan: Aset/Sewa'], ['Jenis Sewa', 'Opsional: Sewa Perorangan/Sewa Rental'], ['Masa Berlaku Pajak', 'Jatuh tempo pajak'],
   ['Status Pajak', 'Hidup/Mati'], ['Unit Kerja', 'Unit kerja'], ['Driver', 'Driver/PIC'], ['Lokasi Kerja', 'Lokasi'],
   ['Keterangan', 'Keterangan'], ['Catatan Hutang', 'Catatan hutang'],
 ]
@@ -89,6 +90,7 @@ function repairRow(row, headers) {
     nomor_rangka: valueOf(row, headers, 'nomor_rangka'),
     pemilik: valueOf(row, headers, 'pemilik'),
     ownership,
+    jenis_sewa: upper(valueOf(row, headers, 'jenis_sewa')),
     masa_pajak_raw: valueOf(row, headers, 'masa_pajak'),
     status_pajak: statusPajak,
     unit_kerja: valueOf(row, headers, 'unit_kerja'),
@@ -104,10 +106,10 @@ function repairRow(row, headers) {
     out.driver = out.status_pajak
     out.status_pajak = ''
   }
-  if (['ASET', 'MILIK', 'MILIK KANTOR', 'ASET KANTOR'].includes(ownership)) out.kepemilikan = 'ASET'
-  else if (/^(SEWA|RENTAL|KENDARAAN SEWA)$/.test(ownership)) out.kepemilikan = 'SEWA'
-  else if (!ownership) out.kepemilikan = null
-  else out.kepemilikan = null
+  if (['ASET', 'MILIK', 'MILIK KANTOR', 'ASET KANTOR'].includes(ownership)) { out.kepemilikan = 'ASET'; out.jenis_sewa = '' }
+  else if (/^(SEWA|RENTAL|KENDARAAN SEWA)$/.test(ownership)) { out.kepemilikan = 'SEWA'; if (!['SEWA_PERORANGAN', 'SEWA_RENTAL'].includes(out.jenis_sewa)) out.jenis_sewa = '' }
+  else if (!ownership) { out.kepemilikan = null; out.jenis_sewa = '' }
+  else { out.kepemilikan = null; out.jenis_sewa = '' }
   return out
 }
 function completeness(row) {
@@ -123,6 +125,7 @@ function mergeRows(group) {
       base[key] = [...new Set(values)].join(' | ')
     }
     if (!base.kepemilikan && row.kepemilikan) base.kepemilikan = row.kepemilikan
+    if (!clean(base.jenis_sewa) && clean(row.jenis_sewa)) base.jenis_sewa = row.jenis_sewa
   }
   return base
 }
@@ -146,7 +149,7 @@ async function importVehicleRows(rows) {
   const merged = [...groups.values()].map(mergeRows)
   const missingRentalOwners = merged.filter(row => row.kepemilikan === 'SEWA' && !clean(row.pemilik))
   if (missingRentalOwners.length) throw new Error(`Ada ${missingRentalOwners.length} kendaraan Sewa tanpa identitas pemilik. Isi kolom Pemilik untuk baris: ${missingRentalOwners.map(row => row.excelRow).join(', ')}.`)
-  const vehiclesResult = await supabase.from('kendaraan').select('id,kode_kendaraan,nomor_polisi,merk,tipe,jenis_kendaraan,tahun,warna,nomor_rangka,nomor_mesin,kepemilikan,pemilik,driver_id,lokasi,unit_kerja,kilometer_terakhir,status,kondisi,keterangan,masa_berlaku_pajak,status_pajak,catatan_hutang')
+  const vehiclesResult = await supabase.from('kendaraan').select('id,kode_kendaraan,nomor_polisi,merk,tipe,jenis_kendaraan,tahun,warna,nomor_rangka,nomor_mesin,kepemilikan,jenis_sewa,pemilik,driver_id,lokasi,unit_kerja,kilometer_terakhir,status,kondisi,keterangan,masa_berlaku_pajak,status_pajak,catatan_hutang')
   const driversResult = await supabase.from('driver').select('id,nama_lengkap,lokasi,status,keterangan')
   if (vehiclesResult.error) throw new Error(`Tidak bisa membaca master kendaraan: ${vehiclesResult.error.message}`)
   if (driversResult.error) throw new Error(`Tidak bisa membaca master driver: ${driversResult.error.message}`)
@@ -181,6 +184,7 @@ async function importVehicleRows(rows) {
       nomor_rangka: row.nomor_rangka || current?.nomor_rangka || null,
       nomor_mesin: row.nomor_mesin || current?.nomor_mesin || null,
       kepemilikan: row.kepemilikan,
+      jenis_sewa: row.kepemilikan === 'SEWA' ? (row.jenis_sewa || current?.jenis_sewa || null) : null,
       pemilik: owner,
       driver_id: driverId,
       lokasi: row.lokasi || current?.lokasi || null,
