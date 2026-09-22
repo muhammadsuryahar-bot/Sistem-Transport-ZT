@@ -36,6 +36,7 @@ export default function RentalFeaturePage({ profile }) {
   const [owners, setOwners] = useState([])
   const [contracts, setContracts] = useState([])
   const [payments, setPayments] = useState([])
+  const [rentalHistoryExcel, setRentalHistoryExcel] = useState([])
   const [repairs, setRepairs] = useState([])
   const [vehicles, setVehicles] = useState([])
   const [loading, setLoading] = useState(true)
@@ -56,19 +57,14 @@ export default function RentalFeaturePage({ profile }) {
   const repairEditable = ['ADMIN', 'TRANSPORT'].includes(profile?.role)
   const vehicleMap = useMemo(() => Object.fromEntries(vehicles.map(v => [v.id, v])), [vehicles])
   const repairMap = useMemo(() => Object.fromEntries(repairs.map(r => [r.id, r])), [repairs])
-  const historicalRows = useMemo(() => {
-    const contractMap = Object.fromEntries(contracts.map(c => [c.id, c]))
-    const ownerMap = Object.fromEntries(owners.map(o => [o.id, o]))
-    return payments.map((payment, index) => {
-      const contract = contractMap[payment.kontrak_sewa_id]
-      const owner = ownerMap[contract?.pemilik_sewa_id]
-      const { meta } = decodeExcelMeta(payment.catatan)
-      if (meta?.source === 'SUMMERY_RENTAL') return { no_excel: Number(meta.source_no) || index + 1, tahun: meta.tahun || '-', supplier: meta.supplier || '-', uraian: meta.uraian || '-', periode_tagihan: meta.periode_tagihan || '-', nilai_invoice: meta.nilai_invoice ?? payment.jumlah_tagihan }
-      const date = payment.bulan_pembayaran ? new Date(`${payment.bulan_pembayaran}T00:00:00`) : null
-      const monthName = date && !Number.isNaN(date.getTime()) ? new Intl.DateTimeFormat('id-ID', { month: 'long' }).format(date) : '-'
-      return { no_excel: index + 1, tahun: date && !Number.isNaN(date.getTime()) ? date.getFullYear() : '-', supplier: owner?.nama_pemilik || owner?.nama_perusahaan || '-', uraian: payment.catatan || '-', periode_tagihan: monthName, nilai_invoice: payment.jumlah_tagihan }
-    })
-  }, [payments, contracts, owners])
+  const historicalRows = useMemo(() => rentalHistoryExcel.map(row => ({
+    no_excel: Number(row.source_no) || row.excel_row,
+    tahun: row.tahun || '-',
+    supplier: row.supplier || '-',
+    uraian: row.uraian || '-',
+    periode_tagihan: row.periode_tagihan || '-',
+    nilai_invoice: row.nilai_invoice ?? 0,
+  })).sort((a, b) => Number(a.no_excel || 0) - Number(b.no_excel || 0) || String(a.supplier || '').localeCompare(String(b.supplier || ''), 'id')), [rentalHistoryExcel])
 
   const load = async () => {
     setLoading(true)
@@ -78,15 +74,17 @@ export default function RentalFeaturePage({ profile }) {
       supabase.from('kontrak_sewa').select('*').order('created_at', { ascending: false }),
       supabase.from('pembayaran_sewa').select('*').order('bulan_pembayaran', { ascending: false }),
       supabase.from('perbaikan_sewa').select('*').order('tanggal_kejadian', { ascending: false }),
+      supabase.from('rental_historis_excel').select('*').order('source_no', { ascending: true }),
       supabase.from('kendaraan').select('id,nomor_polisi,merk,tipe,kepemilikan,jenis_sewa,pemilik').eq('kepemilikan', 'SEWA').order('nomor_polisi'),
     ])
-    const names = ['Pemilik', 'Kontrak', 'Pembayaran', 'Perbaikan', 'Kendaraan']
+    const names = ['Pemilik', 'Kontrak', 'Pembayaran', 'Perbaikan', 'Histori Excel', 'Kendaraan']
     rs.forEach((r, i) => { if (r.error) setError(e => e || `${names[i]}: ${r.error.message}`) })
     setOwners(rs[0].data || [])
     setContracts(rs[1].data || [])
     setPayments(rs[2].data || [])
     setRepairs(rs[3].data || [])
-    setVehicles(rs[4].data || [])
+    setRentalHistoryExcel(rs[4].data || [])
+    setVehicles(rs[5].data || [])
     setLoading(false)
   }
 
