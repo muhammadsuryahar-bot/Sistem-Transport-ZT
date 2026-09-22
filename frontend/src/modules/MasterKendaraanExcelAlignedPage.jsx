@@ -206,6 +206,7 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
       const { error: photoDeleteError } = await supabase.storage.from('kendaraan').remove(photoPaths)
       if (photoDeleteError) console.warn('Foto kendaraan gagal dibersihkan dari Storage:', photoDeleteError.message)
     }
+    setVehicles(current => current.filter(row => row.id !== vehicle.id))
     return true
   }
 
@@ -230,7 +231,7 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
     if (!canDelete || !selected.length || !window.confirm(`Hapus ${selected.length} kendaraan terpilih?`)) return
     setSaving(true); setError(''); let removed = 0
     for (const vehicle of vehicles.filter(v => selected.includes(v.id))) if (await deleteOne(vehicle)) removed += 1
-    exitSelection(); await loadData(); setSaving(false)
+    exitSelection(); setSaving(false)
     if (removed) setSuccess(`${removed} kendaraan berhasil dihapus.`)
   }
   const openDetail = async vehicle => {
@@ -259,7 +260,7 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
         <td><span>{v.lokasi || '-'}</span><small>{v.unit_kerja || '-'}</small></td>
         <td><span>{v.masa_berlaku_pajak ? formatDate(v.masa_berlaku_pajak) : '-'}</span><small>{v.status_pajak || '-'}</small></td>
         <td><span>{v.keterangan || '-'}</span><small>{v.catatan_hutang || ''}</small></td>
-        <td className="mep-actions"><button type="button" onClick={() => openDetail(v)}>Detail</button>{canEdit && <button type="button" onClick={() => openEdit(v)}>Edit</button>}{normalizeOwnership(v.kepemilikan) === 'SEWA' && onNavigate && <button type="button" onClick={() => onNavigate('sewa')}>Kelola Sewa</button>}{canDelete && <button type="button" onClick={async () => { if (window.confirm(`Hapus kendaraan ${v.nomor_polisi}?`)) { if (await deleteOne(v)) await loadData() } }}>Hapus</button>}</td>
+        <td className="mep-actions"><button type="button" onClick={() => openDetail(v)}>Detail</button>{canEdit && <button type="button" onClick={() => openEdit(v)}>Edit</button>}{normalizeOwnership(v.kepemilikan) === 'SEWA' && onNavigate && <button type="button" onClick={() => onNavigate('sewa')}>Kelola Sewa</button>}{canDelete && <button type="button" onClick={async () => { if (window.confirm(`Hapus kendaraan ${v.nomor_polisi}?`)) { await deleteOne(v) } }}>Hapus</button>}</td>
       </tr> })}</tbody></table>}</div>
     </section>
 
