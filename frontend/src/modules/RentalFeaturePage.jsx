@@ -105,9 +105,9 @@ export default function RentalFeaturePage({ profile }) {
     if (owner.jenis_pemilik === 'PERUSAHAAN_RENTAL' && !owner.nama_perusahaan.trim()) return setError('Nama perusahaan/rental wajib diisi untuk pemilik rental.')
     if (owner.jenis_pemilik === 'PERORANGAN' && !owner.nomor_identitas.trim()) return setError('Nomor identitas pemilik wajib diisi untuk pemilik perorangan.')
     setSaving(true)
-    const { error: e1 } = await supabase.from('pemilik_sewa').insert({ ...owner, nama_pemilik: owner.nama_pemilik.trim(), nama_perusahaan: owner.nama_perusahaan.trim() || null, nomor_identitas: owner.nomor_identitas.trim() || null })
+    const { data: savedOwner, error: e1 } = await supabase.from('pemilik_sewa').insert({ ...owner, nama_pemilik: owner.nama_pemilik.trim(), nama_perusahaan: owner.nama_perusahaan.trim() || null, nomor_identitas: owner.nomor_identitas.trim() || null }).select('*').single()
     if (e1) setError(e1.message)
-    else { setOwner(EMPTY_OWNER); setSuccess('Pemilik sewa tersimpan.'); await load() }
+    else { setOwners(current => [...current, savedOwner].sort((a,b) => String(a.nama_pemilik || '').localeCompare(String(b.nama_pemilik || ''), 'id'))); setOwner(EMPTY_OWNER); setSuccess('Pemilik sewa tersimpan.') }
     setSaving(false)
   }
 
@@ -133,9 +133,9 @@ export default function RentalFeaturePage({ profile }) {
       if (!contractFile) throw new Error('Dokumen kontrak wajib diunggah.')
       contractPath = await uploadRentalFile(contractFile, `kontrak/${contract.kendaraan_id}`)
       const payload = { ...contract, kendaraan_id: Number(contract.kendaraan_id), pemilik_sewa_id: Number(contract.pemilik_sewa_id), periode_bulan: 6, nilai_sewa_bulanan: Number(contract.nilai_sewa_bulanan), tanggal_jatuh_tempo_bulanan: Number(contract.tanggal_jatuh_tempo_bulanan || 0) || null, dokumen_kontrak_path: contractPath }
-      const { error: e1 } = await supabase.from('kontrak_sewa').insert(payload)
+      const { data: savedContract, error: e1 } = await supabase.from('kontrak_sewa').insert(payload).select('*').single()
       if (e1) throw e1
-      setContract(EMPTY_CONTRACT); setContractFile(null); setSuccess('Kontrak 6 bulan dan dokumen kontrak tersimpan.'); await load()
+      setContracts(current => [savedContract, ...current]); setContract(EMPTY_CONTRACT); setContractFile(null); setSuccess('Kontrak 6 bulan dan dokumen kontrak tersimpan.')
     } catch (e2) { if (contractPath) await supabase.storage.from('dokumen-sewa').remove([contractPath]); setError(e2.message) }
     setSaving(false)
   }
@@ -169,7 +169,7 @@ export default function RentalFeaturePage({ profile }) {
         const { error: e2 } = await supabase.from('potongan_pembayaran_sewa').insert({ pembayaran_sewa_id: savedPayment.id, perbaikan_sewa_id: Number(payment.perbaikan_sewa_id), jumlah_potongan: requestedDeduction, catatan: `Potongan biaya perbaikan dari pembayaran periode ${payment.periode_ke}.` })
         if (e2) throw e2
       }
-      setPayment(EMPTY_PAYMENT); setPaymentFile(null); setSuccess(requestedDeduction > 0 ? `Pembayaran tersimpan dengan potongan ${money(requestedDeduction)}. Tagihan bersih ${money(netBill)}.` : 'Pembayaran sewa tersimpan.'); await load()
+      setPayments(current => [savedPayment, ...current]); setPayment(EMPTY_PAYMENT); setPaymentFile(null); setSuccess(requestedDeduction > 0 ? `Pembayaran tersimpan dengan potongan ${money(requestedDeduction)}. Tagihan bersih ${money(netBill)}.` : 'Pembayaran sewa tersimpan.')
     } catch (e3) { if (proofPath) await supabase.storage.from('dokumen-sewa').remove([proofPath]); setError(e3.message) }
     setSaving(false)
   }
@@ -190,9 +190,9 @@ export default function RentalFeaturePage({ profile }) {
       fotoPath = await uploadRentalFile(repairPhoto, `perbaikan/${repair.kendaraan_id}`)
       proofPath = await uploadRentalFile(repairProof, `perbaikan/${repair.kendaraan_id}/bukti`)
       const payload = { ...repair, nomor_perbaikan: `REP-${Date.now()}`, kontrak_sewa_id: Number(repair.kontrak_sewa_id), kendaraan_id: Number(repair.kendaraan_id), kilometer: repair.kilometer === '' ? null : Number(repair.kilometer), estimasi_biaya: Number(repair.estimasi_biaya || 0), biaya_aktual: repair.biaya_aktual === '' ? null : Number(repair.biaya_aktual), jumlah_dipotong: repair.dapat_dipotong ? Number(repair.jumlah_dipotong || 0) : 0, foto_kerusakan_path: fotoPath, bukti_perbaikan_path: proofPath, dicatat_oleh: profile?.id || null }
-      const { error: e1 } = await supabase.from('perbaikan_sewa').insert(payload)
+      const { data: savedRepair, error: e1 } = await supabase.from('perbaikan_sewa').insert(payload).select('*').single()
       if (e1) throw e1
-      setRepair(EMPTY_REPAIR); setRepairPhoto(null); setRepairProof(null); setSuccess('Perbaikan kendaraan sewa, dokumentasi dan status potongannya tersimpan.'); await load()
+      setRepairs(current => [savedRepair, ...current]); setRepair(EMPTY_REPAIR); setRepairPhoto(null); setRepairProof(null); setSuccess('Perbaikan kendaraan sewa, dokumentasi dan status potongannya tersimpan.')
     } catch (e2) { const paths = [fotoPath, proofPath].filter(Boolean); if (paths.length) await supabase.storage.from('dokumen-sewa').remove(paths); setError(e2.message) }
     setSaving(false)
   }
