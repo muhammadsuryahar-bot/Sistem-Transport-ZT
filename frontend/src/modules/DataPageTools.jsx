@@ -162,7 +162,11 @@ export default function DataPageTools({ context, profile, onExport }) {
   if (!CONTEXT_LABEL[context]) return null
   const doExport = async () => { if (!onExport || exporting) return; setExporting(true); try { await onExport() } finally { setExporting(false) } }
   const closeImport = () => setShowImport(false)
-  const finishImport = report => { setShowImport(false); if (hasReport(report)) setImportReport(report) }
+  const finishImport = report => {
+    setShowImport(false)
+    if (hasReport(report)) setImportReport(report)
+    window.dispatchEvent(new CustomEvent('transport:data-imported', { detail: { context, source: 'excel-import' } }))
+  }
   const refreshAfterImport = () => { setImportReport(null); window.dispatchEvent(new CustomEvent('transport:data-imported', { detail: { context, source: 'excel-import' } })) }
   const modal = showImport && (context === 'kendaraan' ? <VehicleExcelImportV2 profile={profile} onClose={closeImport} onDone={finishImport} /> : context === 'pengajuan' ? <PengajuanExcelImportModal profile={profile} onClose={closeImport} onDone={finishImport} /> : context === 'service' ? <EditableServiceExcelImportModal profile={profile} onClose={closeImport} onDone={finishImport} /> : context === 'dokumen' ? <VehicleDocumentsImportModal profile={profile} onClose={closeImport} onDone={finishImport} /> : context === 'sewa' ? <RentalHistoryImportModalV2 profile={profile} onClose={closeImport} onDone={finishImport} /> : <UnifiedExcelImportModalSafe context={context} profile={profile} onClose={closeImport} onDone={finishImport} />)
 
