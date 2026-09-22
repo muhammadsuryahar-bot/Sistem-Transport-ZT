@@ -62,13 +62,13 @@ export default function UsersFeaturePage({ profile }) {
     setError('')
     setSuccess('')
 
-    const { error: updateError } = await supabase.from('profiles').update(patch).eq('id', id)
+    const { data: updatedUser, error: updateError } = await supabase.from('profiles').update(patch).eq('id', id).select('id,nama_lengkap,email,nomor_hp,role,aktif,created_at').single()
 
     if (updateError) {
       setError('Perubahan pengguna gagal disimpan. Periksa hak akses atau koneksi sistem.')
     } else {
+      setUsers(current => current.map(user => user.id === id ? { ...user, ...updatedUser } : user))
       setSuccess('Perubahan pengguna tersimpan.')
-      await load()
     }
 
     setSaving(false)
