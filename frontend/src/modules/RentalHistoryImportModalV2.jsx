@@ -18,16 +18,26 @@ const norm = value => clean(value).toLowerCase().replace(/[^a-z0-9]+/g, '_').rep
 const upper = value => clean(value).toUpperCase()
 
 function findHeader(sheet) {
+  const required = [
+    ['no', 'nomor', 'no_excel'],
+    ['tahun', 'year'],
+    ['supplier', 'pemilik', 'nama_supplier'],
+    ['uraian', 'keterangan', 'deskripsi'],
+    ['periode_tagihan', 'periode', 'bulan'],
+    ['nilai_invoice', 'nilai_invoice_rp', 'invoice', 'nilai'],
+  ]
   let best = { index: -1, row: [], score: -1 }
   sheet.rows.slice(0, 40).forEach((item, idx) => {
-    const score = item.values.filter(Boolean).map(norm).filter(Boolean).length
+    const headers = item.values.map(norm)
+    const score = required.reduce((total, aliases) => total + (headers.some(header => aliases.includes(header)) ? 1 : 0), 0)
     if (score > best.score) best = { index: idx, row: item.values, score }
   })
   return best
 }
 
 function valueOf(row, headers, aliases) {
-  const index = headers.findIndex(header => aliases.includes(norm(header)))
+  const normalizedAliases = aliases.map(norm)
+  const index = headers.findIndex(header => normalizedAliases.includes(norm(header)))
   return index >= 0 ? clean(row.values[index]) : ''
 }
 
@@ -53,22 +63,20 @@ function monthDiff(start, target) {
 
 function parseRows(sheet) {
   const header = findHeader(sheet)
-  if (header.index < 0) throw new Error('Header SUMMERY RENTAL tidak ditemukan.')
-  return {
-    header,
-    rows: sheet.rows.slice(header.index + 1)
-      .filter(row => row.values.some(value => clean(value)))
-      .map(row => ({
-        id: `${row.excelRow}`,
-        excelRow: row.excelRow,
-        source_no: valueOf(row, header.row, ['No', 'Nomor', 'No Excel']),
-        tahun: valueOf(row, header.row, ['Tahun', 'Year']),
-        supplier: valueOf(row, header.row, ['Supplier', 'Pemilik', 'Nama Supplier']),
-        uraian: valueOf(row, header.row, ['Uraian', 'Keterangan', 'Deskripsi']),
-        periode: valueOf(row, header.row, ['Periode Tagihan', 'Periode', 'Bulan']),
-        nilai_invoice: valueOf(row, header.row, ['Nilai Invoice', 'Nilai Invoice (Rp)', 'Invoice', 'Nilai']),
-      }))
-  }
+  if (header.index < 0 || header.score < 5) throw new Error('Header SUMMERY RENTAL tidak ditemukan secara meyakinkan.')
+  const rows = sheet.rows.slice(header.index + 1)
+    .map(row => ({
+      id: `${row.excelRow}`,
+      excelRow: row.excelRow,
+      source_no: valueOf(row, header.row, ['No', 'Nomor', 'No Excel']),
+      tahun: valueOf(row, header.row, ['Tahun', 'Year']),
+      supplier: valueOf(row, header.row, ['Supplier', 'Pemilik', 'Nama Supplier']),
+      uraian: valueOf(row, header.row, ['Uraian', 'Keterangan', 'Deskripsi']),
+      periode: valueOf(row, header.row, ['Periode Tagihan', 'Periode', 'Bulan']),
+      nilai_invoice: valueOf(row, header.row, ['Nilai Invoice', 'Nilai Invoice (Rp)', 'Invoice', 'Nilai']),
+    }))
+    .filter(row => row.tahun && row.supplier && row.uraian && row.periode && row.nilai_invoice)
+  return { header, rows }
 }
 
 async function importSummary(rows, profile) {
@@ -90,6 +98,11 @@ async function importSummary(rows, profile) {
   for (const row of rows) {
     const payMonth = monthDate(row.tahun, row.periode)
     const invoice = numberValue(row.nilai_invoice)
+    const uraian = upper(row.uraian)
+    if (!uraian.includes('RENTAL MOBIL') || uraian.includes('RENTAL MOBIL & GENSET')) {
+      skipped.push(`Baris ${row.excelRow}: Uraian “${row.uraian}” bukan rental mobil yang bisa dipetakan otomatis ke kendaraan.`)
+      continue
+    }
     if (!row.tahun || !row.supplier || !row.periode || !payMonth || invoice == null || invoice <= 0) {
       skipped.push(`Baris ${row.excelRow}: Tahun/Supplier/Periode/Nilai Invoice tidak lengkap atau tidak valid`)
       continue
@@ -185,7 +198,7 @@ export default function RentalHistoryImportModalV2({ profile, onClose, onDone })
       const parsed = parseRows(chosen)
       setRows(parsed.rows)
       setSheetName(chosen.name)
-      setMessage(`Sheet “${chosen.name}” terdeteksi • ${parsed.rows.length} baris sumber. Semua baris dimuat; tabel dibagi per halaman agar tetap ringan.`)
+      setMessage(`Sheet “${chosen.name}” terdeteksi • ${parsed.rows.length} baris transaksi rental terbaca. Baris kosong/trailing dan GRAND TOTAL tidak dimasukkan.`)
     } catch (e) {
       setError(e.message || 'File Excel tidak dapat dibaca.')
     } finally {
@@ -242,7 +255,7 @@ export default function RentalHistoryImportModalV2({ profile, onClose, onDone })
         <div className="dpt-file-meta"><strong title={file?.name}>{file?.name || 'Belum ada file'}</strong><span>{file ? `✓ .xlsx • ${(file.size / 1024 / 1024).toFixed(2)} MB` : 'Maksimal 25 MB'}</span></div>
       </div>
       {rows.length > 0 && <>
-        <div className="dpt-selection"><div><b>Sheet: {sheetName}</b><span>Format pembayaran historis</span></div><span>{rows.length} baris data</span></div>
+        <div className="dpt-selection"><div><b>Sheet: {sheetName}</b><span>Format pembayaran historis</span></div><span>{rows.length} baris transaksi</span></div>
         <div className="dpt-preview">
           <div className="dpt-sheet-title"><div><b>Preview Data Rental</b><span className="dpt-preview-note">Semua baris tersedia. Edit sebelum import bila ada koreksi.</span></div><span>{pageRows.length} dari {rows.length} ditampilkan</span></div>
           <div className="dpt-preview-wrap">
