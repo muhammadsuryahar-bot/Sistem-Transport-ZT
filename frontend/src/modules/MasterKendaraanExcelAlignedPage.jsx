@@ -141,27 +141,37 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
       if (editing) result = await supabase.from('kendaraan').update(payload).eq('id', editing.id).select().single()
       else result = await supabase.from('kendaraan').insert(payload).select().single()
       if (result.error) throw result.error
-      const vehicle = result.data
+      let latestVehicle = {
+        ...result.data,
+        kepemilikan: normalizeOwnership(result.data.kepemilikan),
+      }
       if (canPhoto && photoFiles.stnk) {
         const uploadedPaths = []
         try {
-          const uploadedPath = await uploadStnkPhoto(vehicle.id, photoFiles.stnk)
+          const uploadedPath = await uploadStnkPhoto(latestVehicle.id, photoFiles.stnk)
           uploadedPaths.push(uploadedPath)
-          const { error: photoUpdateError } = await supabase.from('kendaraan').update({ foto_stnk_path: uploadedPath }).eq('id', vehicle.id)
+          const { error: photoUpdateError } = await supabase.from('kendaraan').update({ foto_stnk_path: uploadedPath }).eq('id', latestVehicle.id)
           if (photoUpdateError) throw photoUpdateError
+          latestVehicle = { ...latestVehicle, foto_stnk_path: uploadedPath }
           if (editing?.foto_stnk_path) {
             const { error: cleanupError } = await supabase.storage.from('kendaraan').remove([editing.foto_stnk_path])
             if (cleanupError) console.warn('Foto STNK lama gagal dibersihkan:', cleanupError.message)
           }
         } catch (photoError) {
           if (uploadedPaths.length) await supabase.storage.from('kendaraan').remove(uploadedPaths)
-          if (!editing) await supabase.from('kendaraan').delete().eq('id', vehicle.id)
+          if (!editing) await supabase.from('kendaraan').delete().eq('id', latestVehicle.id)
           throw photoError
         }
       }
+
+      setVehicles(current => {
+        const next = editing
+          ? current.map(item => item.id === latestVehicle.id ? { ...item, ...latestVehicle } : item)
+          : [...current, latestVehicle]
+        return next.sort((a, b) => String(a.nomor_polisi || '').localeCompare(String(b.nomor_polisi || ''), 'id'))
+      })
       setSuccess(editing ? 'Data kendaraan diperbarui.' : 'Kendaraan baru berhasil ditambahkan.')
       resetModal()
-      await loadData()
     } catch (saveError) {
       setError(saveError.message || 'Gagal menyimpan kendaraan.')
     } finally { setSaving(false) }
