@@ -7,7 +7,6 @@ import { encodeExcelMeta } from '../utils/excelSourceMeta.js'
 import './EditableServiceExcelImportModal.css'
 
 const MAX_FILE_SIZE = 25 * 1024 * 1024
-const CONCURRENCY = 4
 const PAGE_OPTIONS = [25, 50, 100]
 
 const ALIASES = {
@@ -276,9 +275,10 @@ function chooseServiceSheet(sheets) {
   return scored[0]
 }
 
-async function importHistory(rows, profile, sheetName, onProgress = () => {}) {
+async function importHistory(rows, sheetName, onProgress = () => {}) {
   const valid = rows.filter(row => row.nomor_polisi && row.tanggal)
   if (!valid.length) throw new Error('Tidak ada baris Service valid. Pastikan No. Polisi dan Tanggal tersedia.')
+
   const groups = groupRows(valid)
   const plates = [...new Set(valid.map(row => row.nomor_polisi))]
   const [{ data: vehicles, error: vehicleError }, { data: existing, error: existingError }] = await Promise.all([
@@ -287,146 +287,126 @@ async function importHistory(rows, profile, sheetName, onProgress = () => {}) {
   ])
   if (vehicleError) throw new Error(`Tidak bisa membaca Master Kendaraan: ${vehicleError.message}`)
   if (existingError) throw new Error(`Tidak bisa membaca histori service: ${existingError.message}`)
+
   const vehicleMap = Object.fromEntries((vehicles || []).map(v => [upper(v.nomor_polisi), v]))
   const existingKeys = new Set((existing || []).map(s => `${s.kendaraan_id}|${s.tanggal_service}|${upper(s.bengkel || '-')}`))
   const unknownPlates = [...new Set(plates.filter(plate => !vehicleMap[plate]))]
+
   const candidates = []
   let skipped = 0
   groups.forEach(group => {
     const first = group.values[0]
     const vehicle = vehicleMap[first.nomor_polisi]
-    if (!vehicle) { skipped += 1; return }
+    if (!vehicle) {
+      skipped += 1
+      return
+    }
     const duplicateKey = `${vehicle.id}|${first.tanggal}|${upper(first.bengkel || '-')}`
     if (existingKeys.has(duplicateKey)) skipped += 1
-    else candidates.push({ group, vehicle, duplicateKey })
+    else candidates.push({ group, vehicle })
   })
 
-  const results = []
-  let cursor = 0
-  let completed = 0
-  let failure = null
-  const worker = async () => {
-    while (!failure) {
-      const index = cursor++
-      if (index >= candidates.length) return
-      try {
-        const { group, vehicle, duplicateKey } = candidates[index]
-        const first = group.values[0]
-        const dpp = group.values.reduce((sum, row) => sum + row.nilai_dpp, 0)
-        const ppn = group.values.reduce((sum, row) => sum + row.ppn, 0)
-        const sourceTotal = group.values.reduce((sum, row) => sum + row.total, 0)
-        const total = sourceTotal > 0 ? sourceTotal : dpp + ppn
-        const kilometer = Math.max(...group.values.map(row => row.kilometer || 0))
-        const jenisService = typeFor(group.values)
-        const label = group.values.find(row => row.jenis_pekerjaan)?.jenis_pekerjaan || 'Service'
-        const complaint = group.values.find(row => row.uraian)?.uraian || `Riwayat ${label}`
-        const historyNote = `Import histori Excel: ${sheetName}`
-
-        const request = await supabase.from('permintaan_service').insert({
-          pemohon_id: profile.id,
-          kendaraan_id: vehicle.id,
-          tanggal_pengajuan: first.tanggal,
-          kilometer_pengajuan: kilometer,
-          jenis_permintaan: jenisService,
-          keluhan: complaint,
-          prioritas: 'NORMAL',
-          status: 'MENUNGGU_TRANSPORT',
-        }).select('id').single()
-        if (request.error) throw new Error(`Gagal membuat histori pengajuan ${first.nomor_polisi} (baris ${first.excelRow}): ${request.error.message}`)
-
-        const serviceNumber = `IMP-SRV-${Date.now()}-${index + 1}`
-        const service = await supabase.from('service').insert({
-          nomor_service: serviceNumber,
-          permintaan_service_id: request.data.id,
-          kendaraan_id: vehicle.id,
-          tanggal_service: first.tanggal,
-          kilometer,
-          bengkel: first.bengkel,
-          jenis_service: jenisService,
-          keluhan: complaint,
-          estimasi_biaya: total,
-          biaya_aktual: total,
-          status: 'DALAM_PENGERJAAN',
-          diproses_oleh: profile.id,
-          nilai_dpp: dpp,
-          ppn,
-          total,
-          catatan: historyNote,
-        }).select('id').single()
-        if (service.error) throw new Error(`Gagal membuat histori service ${first.nomor_polisi} (baris ${first.excelRow}): ${service.error.message}`)
-
-        const itemRows = group.values.map(row => {
-          const subtotal = row.nilai_dpp || (row.qty * row.harga_satuan) || row.total
-          const harga = row.qty ? subtotal / row.qty : subtotal
-          return {
-            service_id: service.data.id,
-            nama_item: row.uraian || row.jenis_pekerjaan || 'Item Excel',
-            kategori: itemCategory(row.jenis_pekerjaan || row.uraian),
-            jumlah: row.qty > 0 ? row.qty : 1,
-            satuan: row.satuan || 'pcs',
-            harga_satuan: harga || 0,
-            subtotal: subtotal || 0,
-            keterangan: encodeExcelMeta({ source: 'DATA_SERVICE', source_no: row.source_no, merk: row.merk, type: row.tipe, jenis: row.jenis, tahun: row.tahun, nomor_polisi: row.nomor_polisi, driver: row.driver, bulan: row.bulan, tanggal: row.tanggal, jenis_pekerjaan: row.jenis_pekerjaan, uraian: row.uraian, qty: row.qty, satuan: row.satuan, harga_satuan: row.harga_satuan, nilai_dpp: row.nilai_dpp, ppn: row.ppn, ppn_source: row.ppn_source, total: row.total, kilometer: row.kilometer, bengkel: row.bengkel, keterangan: row.keterangan || '' }, row.keterangan || ''),
-          }
-        })
-        if (itemRows.length) {
-          const itemResult = await supabase.from('service_item').insert(itemRows)
-          if (itemResult.error) throw new Error(`Gagal menyimpan item service ${first.nomor_polisi} (baris ${first.excelRow}): ${itemResult.error.message}`)
-        }
-        const completedService = await supabase.from('service').update({ status: 'SELESAI', selesai_at: new Date().toISOString() }).eq('id', service.data.id)
-        if (completedService.error) throw new Error(`Gagal menyelesaikan histori service ${first.nomor_polisi}: ${completedService.error.message}`)
-        const completedRequest = await supabase.from('permintaan_service').update({ status: 'SELESAI' }).eq('id', request.data.id)
-        if (completedRequest.error) throw new Error(`Gagal menutup histori pengajuan ${first.nomor_polisi}: ${completedRequest.error.message}`)
-
-        results[index] = { group, duplicateKey, itemCount: itemRows.length, km: kilometer > Number(vehicle.kilometer_terakhir || 0) ? { kendaraan_id: vehicle.id, nomor_polisi: first.nomor_polisi, tanggal: first.tanggal, kilometer, keterangan: historyNote } : null }
-        completed += 1
-        onProgress({ completed, total: candidates.length })
-      } catch (error) {
-        failure = error
-      }
+  if (!candidates.length) {
+    onProgress({ completed: 0, total: 0 })
+    return {
+      sourceRows: rows.length,
+      validRows: valid.length,
+      transactions: groups.length,
+      imported: 0,
+      skipped,
+      unknownPlates,
+      items: 0,
+      kmUpdated: 0,
+      kmHistorySaved: 0,
     }
   }
-  onProgress({ completed: 0, total: candidates.length })
-  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, Math.max(candidates.length, 1)) }, worker))
-  if (failure) throw failure
 
-  const kmUpdates = new Map()
-  const kmHistory = []
-  let itemCount = 0
-  results.filter(Boolean).forEach(result => {
-    itemCount += result.itemCount
-    if (!result.km) return
-    const previous = kmUpdates.get(result.km.kendaraan_id)
-    if (!previous || result.km.kilometer > previous.kilometer) kmUpdates.set(result.km.kendaraan_id, result.km)
-    kmHistory.push({
-      kendaraan_id: result.km.kendaraan_id,
-      tanggal: result.km.tanggal,
-      kilometer: result.km.kilometer,
-      sumber: 'IMPORT_SERVICE',
-      keterangan: result.km.keterangan,
-      dicatat_oleh: profile.id,
+  const payload = candidates.map(({ group, vehicle }) => {
+    const first = group.values[0]
+    const dpp = group.values.reduce((sum, row) => sum + row.nilai_dpp, 0)
+    const ppn = group.values.reduce((sum, row) => sum + row.ppn, 0)
+    const sourceTotal = group.values.reduce((sum, row) => sum + row.total, 0)
+    const total = sourceTotal > 0 ? sourceTotal : dpp + ppn
+    const kilometer = Math.max(...group.values.map(row => row.kilometer || 0))
+    const jenisService = typeFor(group.values)
+    const label = group.values.find(row => row.jenis_pekerjaan)?.jenis_pekerjaan || 'Service'
+    const complaint = group.values.find(row => row.uraian)?.uraian || `Riwayat ${label}`
+
+    const items = group.values.map(row => {
+      const subtotal = row.nilai_dpp || (row.qty * row.harga_satuan) || row.total
+      const harga = row.qty ? subtotal / row.qty : subtotal
+      return {
+        nama_item: row.uraian || row.jenis_pekerjaan || 'Item Excel',
+        kategori: itemCategory(row.jenis_pekerjaan || row.uraian),
+        jumlah: row.qty > 0 ? row.qty : 1,
+        satuan: row.satuan || 'pcs',
+        harga_satuan: harga || 0,
+        subtotal: subtotal || 0,
+        keterangan: encodeExcelMeta({
+          source: 'DATA_SERVICE',
+          source_no: row.source_no,
+          merk: row.merk,
+          type: row.tipe,
+          jenis: row.jenis,
+          tahun: row.tahun,
+          nomor_polisi: row.nomor_polisi,
+          driver: row.driver,
+          bulan: row.bulan,
+          tanggal: row.tanggal,
+          jenis_pekerjaan: row.jenis_pekerjaan,
+          uraian: row.uraian,
+          qty: row.qty,
+          satuan: row.satuan,
+          harga_satuan: row.harga_satuan,
+          nilai_dpp: row.nilai_dpp,
+          ppn: row.ppn,
+          ppn_source: row.ppn_source,
+          total: row.total,
+          kilometer: row.kilometer,
+          bengkel: row.bengkel,
+          keterangan: row.keterangan || '',
+        }, row.keterangan || ''),
+      }
     })
+
+    return {
+      kendaraan_id: vehicle.id,
+      tanggal: first.tanggal,
+      kilometer,
+      bengkel: first.bengkel,
+      jenis_service: jenisService,
+      keluhan: complaint,
+      nilai_dpp: dpp,
+      ppn,
+      total,
+      items,
+    }
   })
 
-  // Histori hasil import diberi sumber khusus agar log historis boleh lebih kecil
-  // dari KM master saat ini. Setelah histori tersimpan, KM master dinaikkan ke nilai
-  // terbesar hasil import.
-  if (kmHistory.length) {
-    const orderedHistory = [...kmHistory].sort((a, b) =>
-      a.kendaraan_id - b.kendaraan_id ||
-      a.tanggal.localeCompare(b.tanggal) ||
-      Number(a.kilometer) - Number(b.kilometer)
-    )
-    const { error } = await supabase.from('riwayat_kilometer').insert(orderedHistory)
-    if (error) throw new Error(`Histori service tersimpan tetapi riwayat KM gagal dicatat: ${error.message}`)
+  onProgress({ completed: 0, total: candidates.length })
+  const { data, error } = await supabase.rpc('import_service_history', {
+    p_payload: payload,
+    p_source_sheet: sheetName,
+  })
+  if (error) throw new Error(`Import histori service dibatalkan sepenuhnya: ${error.message}`)
+
+  const imported = Number(data?.imported || 0)
+  const items = Number(data?.items || 0)
+  const kmUpdated = Number(data?.kmUpdated || 0)
+  const kmHistorySaved = Number(data?.kmHistorySaved || 0)
+  onProgress({ completed: candidates.length, total: candidates.length })
+
+  return {
+    sourceRows: rows.length,
+    validRows: valid.length,
+    transactions: groups.length,
+    imported,
+    skipped,
+    unknownPlates,
+    items,
+    kmUpdated,
+    kmHistorySaved,
   }
-
-  await Promise.all([...kmUpdates.values()].map(async update => {
-    const { error } = await supabase.from('kendaraan').update({ kilometer_terakhir: update.kilometer }).eq('id', update.kendaraan_id)
-    if (error) throw new Error(`Histori service tersimpan tetapi KM ${update.nomor_polisi} gagal diperbarui: ${error.message}`)
-  }))
-
-  return { sourceRows: rows.length, validRows: valid.length, transactions: groups.length, imported: results.filter(Boolean).length, skipped, unknownPlates, items: itemCount, kmUpdated: kmUpdates.size, kmHistorySaved: kmHistory.length }
 }
 
 export default function EditableServiceExcelImportModal({ profile, onDone, onClose }) {
@@ -546,14 +526,17 @@ export default function EditableServiceExcelImportModal({ profile, onDone, onClo
     setSaving(true); setError(''); setProgress({ completed: 0, total: transactions.length }); setMessage(`Memproses import ${transactions.length} transaksi...`)
     try {
       const activeRows = filterDeletedExcelRows('service', rows)
-      const result = await importHistory(activeRows, profile, sheet?.name || 'Data Service', ({ completed, total }) => { setProgress({ completed, total }); setMessage(`Memproses import: ${completed}/${total} transaksi...`) })
-      const report = { context: 'service', ...result, validRows: validRows.length, transactions: result.imported, fileName: file?.name || '', completedAt: new Date().toISOString(), message: `${result.imported} transaksi disimpan • ${result.skipped} dilewati • ${result.items} item tersimpan • ${result.kmUpdated} KM kendaraan diperbarui.` }
+      const activeValidRows = activeRows.filter(row => row.nomor_polisi && row.tanggal)
+      const activeTransactions = groupRows(activeValidRows)
+      setProgress({ completed: 0, total: activeTransactions.length })
+      const result = await importHistory(activeRows, sheet?.name || 'Data Service', ({ completed, total }) => { setProgress({ completed, total }); setMessage(`Memproses import: ${completed}/${total} transaksi...`) })
+      const report = { context: 'service', ...result, validRows: activeValidRows.length, transactions: result.transactions, fileName: file?.name || '', completedAt: new Date().toISOString(), message: `${result.imported} transaksi disimpan • ${result.skipped} dilewati • ${result.items} item tersimpan • ${result.kmUpdated} KM kendaraan diperbarui.` }
       sessionStorage.setItem('transport_import_report', JSON.stringify(report)); setProgress({ completed: transactions.length, total: transactions.length }); setMessage(report.message)
       if (result.unknownPlates.length) setError(`Plat belum ada di Master Kendaraan: ${result.unknownPlates.slice(0, 20).join(', ')}${result.unknownPlates.length > 20 ? ' …' : ''}. Baris tersebut tidak dibuat otomatis.`)
       onDone?.(report)
     } catch (e) {
       setError(e.message || 'Import histori service gagal.')
-      setMessage('Import berhenti. Data yang sudah tersimpan tidak diulang otomatis.')
+      setMessage('Import gagal dan seluruh proses transaksi dibatalkan sebagai satu paket. Tidak ada data setengah masuk dari proses ini.')
     } finally { setSaving(false) }
   }
 
