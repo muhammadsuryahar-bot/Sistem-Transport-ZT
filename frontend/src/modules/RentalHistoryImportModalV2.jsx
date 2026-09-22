@@ -79,84 +79,44 @@ function parseRows(sheet) {
   return { header, rows }
 }
 
-async function importSummary(rows, profile) {
-  const ownersRes = await supabase.from('pemilik_sewa').select('id,nama_pemilik,nama_perusahaan')
-  const contractsRes = await supabase.from('kontrak_sewa').select('id,pemilik_sewa_id,kendaraan_id,tanggal_mulai,tanggal_selesai,periode_bulan,nilai_sewa_bulanan')
-  const existingRes = await supabase.from('pembayaran_sewa').select('id,kontrak_sewa_id,bulan_pembayaran')
-  if (ownersRes.error) throw new Error(`Tidak bisa membaca pemilik rental: ${ownersRes.error.message}`)
-  if (contractsRes.error) throw new Error(`Tidak bisa membaca kontrak rental: ${contractsRes.error.message}`)
-  if (existingRes.error) throw new Error(`Tidak bisa membaca pembayaran rental: ${existingRes.error.message}`)
+async function importSummary(rows, profile, sourceFile, sourceSheet) {
+  const existingRes = await supabase
+    .from('rental_historis_excel')
+    .select('excel_row')
+    .eq('source_sheet', sourceSheet)
 
-  const owners = ownersRes.data || []
-  const contracts = contractsRes.data || []
-  const existing = new Set((existingRes.data || []).map(item => `${item.kontrak_sewa_id}|${item.bulan_pembayaran}`))
-  let imported = 0
-  let duplicate = 0
-  const skipped = []
-  const payloads = []
+  if (existingRes.error) throw new Error(`Tidak bisa membaca histori SUMMERY RENTAL: ${existingRes.error.message}`)
 
-  for (const row of rows) {
-    const payMonth = monthDate(row.tahun, row.periode)
-    const invoice = numberValue(row.nilai_invoice)
-    const uraian = upper(row.uraian)
-    if (!uraian.includes('RENTAL MOBIL') || uraian.includes('RENTAL MOBIL & GENSET')) {
-      skipped.push(`Baris ${row.excelRow}: Uraian “${row.uraian}” bukan rental mobil yang bisa dipetakan otomatis ke kendaraan.`)
-      continue
-    }
-    if (!row.tahun || !row.supplier || !row.periode || !payMonth || invoice == null || invoice <= 0) {
-      skipped.push(`Baris ${row.excelRow}: Tahun/Supplier/Periode/Nilai Invoice tidak lengkap atau tidak valid`)
-      continue
-    }
-    const supplierKey = upper(row.supplier)
-    const matchingOwners = owners.filter(owner => upper(owner.nama_pemilik) === supplierKey || upper(owner.nama_perusahaan || '') === supplierKey)
-    if (matchingOwners.length !== 1) {
-      skipped.push(`Baris ${row.excelRow}: Supplier “${row.supplier}” tidak cocok tepat ke satu pemilik rental`)
-      continue
-    }
-    const ownerId = matchingOwners[0].id
-    const matchingContracts = contracts.filter(contract => Number(contract.pemilik_sewa_id) === Number(ownerId) && contract.tanggal_mulai <= payMonth && contract.tanggal_selesai >= payMonth)
-    if (matchingContracts.length !== 1) {
-      skipped.push(`Baris ${row.excelRow}: Supplier “${row.supplier}” memiliki ${matchingContracts.length} kontrak yang cocok untuk ${payMonth.slice(0, 7)}`)
-      continue
-    }
-    const contract = matchingContracts[0]
-    const periodNo = monthDiff(contract.tanggal_mulai, payMonth) + 1
-    if (periodNo < 1 || periodNo > 6) {
-      skipped.push(`Baris ${row.excelRow}: ${row.supplier} berada di luar periode kontrak 1–6`)
-      continue
-    }
-    const key = `${contract.id}|${payMonth}`
-    if (existing.has(key)) {
-      duplicate += 1
-      continue
-    }
-    existing.add(key)
-    const dueDay = Number(contract.tanggal_jatuh_tempo_bulanan || 1)
-    const monthEnd = new Date(Date.UTC(Number(row.tahun), Number(payMonth.slice(5, 7)), 0)).getUTCDate()
-    const dueDate = `${payMonth.slice(0, 8)}${String(Math.min(Math.max(dueDay, 1), monthEnd)).padStart(2, '0')}`
-    payloads.push({
-      kontrak_sewa_id: contract.id,
-      periode_ke: periodNo,
-      bulan_pembayaran: payMonth,
-      tanggal_jatuh_tempo: dueDate,
-      tanggal_pembayaran: null,
-      jumlah_tagihan: invoice,
-      jumlah_dibayar: 0,
-      status: 'BELUM_DIBAYAR',
-      metode_pembayaran: null,
-      nomor_referensi: null,
-      bukti_pembayaran_path: null,
-      catatan: encodeExcelMeta({ source: 'SUMMERY_RENTAL', source_no: row.source_no, tahun: row.tahun, supplier: row.supplier, uraian: row.uraian, periode_tagihan: row.periode, nilai_invoice: invoice }),
-      diproses_oleh: profile?.id || null,
-    })
+  const existingRows = new Set((existingRes.data || []).map(item => Number(item.excel_row)))
+  const payloads = rows.map(row => ({
+    source_no: row.source_no || null,
+    excel_row: Number(row.excelRow),
+    tahun: Number(String(row.tahun).replace(/\\D/g, '')) || null,
+    supplier: row.supplier,
+    uraian: row.uraian || null,
+    periode_tagihan: row.periode || null,
+    nilai_invoice: numberValue(row.nilai_invoice),
+    source_file: sourceFile || null,
+    source_sheet: sourceSheet,
+    catatan: 'Import Excel: SUMMERY RENTAL',
+  }))
+
+  const result = payloads.length
+    ? await supabase.from('rental_historis_excel').upsert(payloads, { onConflict: 'source_sheet,excel_row', ignoreDuplicates: false })
+    : { error: null }
+
+  if (result.error) throw new Error(`Gagal menyimpan histori SUMMERY RENTAL: ${result.error.message}`)
+
+  const duplicate = payloads.filter(row => existingRows.has(row.excel_row)).length
+  const imported = payloads.length - duplicate
+
+  return {
+    imported,
+    duplicate,
+    skipped: [],
+    totalStored: payloads.length,
+    message: `${imported} data histori rental disimpan, ${duplicate} data diperbarui/duplikat. Data historis disimpan terpisah dari kontrak rental.`,
   }
-
-  if (payloads.length) {
-    const result = await supabase.from('pembayaran_sewa').insert(payloads)
-    if (result.error) throw new Error(`Gagal menyimpan pembayaran rental historis: ${result.error.message}`)
-    imported = payloads.length
-  }
-  return { imported, duplicate, skipped, message: `${imported} pembayaran historis ditambahkan, ${duplicate} sudah ada, ${skipped.length} perlu verifikasi. Sistem tidak mengubah kontrak.` }
 }
 
 export default function RentalHistoryImportModalV2({ profile, onClose, onDone }) {
@@ -213,7 +173,7 @@ export default function RentalHistoryImportModalV2({ profile, onClose, onDone })
     setMessage('Memproses pembayaran rental historis...')
     try {
       const activeRows = filterDeletedExcelRows('sewa', rows)
-      const result = await importSummary(activeRows, profile)
+      const result = await importSummary(activeRows, profile, file?.name || '', sheetName)
       const report = {
         context: 'sewa',
         sourceRows: rows.length,
