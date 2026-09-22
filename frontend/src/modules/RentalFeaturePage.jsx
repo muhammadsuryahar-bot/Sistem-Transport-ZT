@@ -67,7 +67,7 @@ export default function RentalFeaturePage({ profile }) {
       const date = payment.bulan_pembayaran ? new Date(`${payment.bulan_pembayaran}T00:00:00`) : null
       const monthName = date && !Number.isNaN(date.getTime()) ? new Intl.DateTimeFormat('id-ID', { month: 'long' }).format(date) : '-'
       return { no_excel: index + 1, tahun: date && !Number.isNaN(date.getTime()) ? date.getFullYear() : '-', supplier: owner?.nama_pemilik || owner?.nama_perusahaan || '-', uraian: payment.catatan || '-', periode_tagihan: monthName, nilai_invoice: payment.jumlah_tagihan }
-    })
+    }).sort((a, b) => Number(a.no_excel) - Number(b.no_excel) || String(a.tahun).localeCompare(String(b.tahun), 'id'))
   }, [payments, contracts, owners])
 
   const load = async () => {
