@@ -69,7 +69,7 @@ export default function ServiceCompletionPanel({ profile }) {
     const actual = service.biaya_aktual === null || service.biaya_aktual === '' ? estimate : Number(service.biaya_aktual)
     const selesaiAt = new Date().toISOString(); const { error } = await supabase.from('service').update({ status: 'SELESAI', biaya_aktual: actual, selesai_at: selesaiAt }).eq('id', service.id)
     if (error) setMessage(error.message)
-    else { setServices(current => current.map(row => row.id === service.id ? { ...row, status: 'SELESAI', biaya_aktual: actual, selesai_at: selesaiAt } : row)); setMessage('Service berhasil diselesaikan.') }
+    else { const updatedService = { ...service, status: 'SELESAI', biaya_aktual: actual, selesai_at: selesaiAt }; setServices(current => current.map(row => row.id === service.id ? updatedService : row)); window.dispatchEvent(new CustomEvent('transport:service-state-updated', { detail: { kind: 'service', service: updatedService } })); setMessage('Service berhasil diselesaikan.') }
     setSavingId(null)
   }
 
