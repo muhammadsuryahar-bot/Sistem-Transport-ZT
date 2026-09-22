@@ -78,7 +78,7 @@ export default function RentalFeaturePage({ profile }) {
       supabase.from('kontrak_sewa').select('*').order('created_at', { ascending: false }),
       supabase.from('pembayaran_sewa').select('*').order('bulan_pembayaran', { ascending: false }),
       supabase.from('perbaikan_sewa').select('*').order('tanggal_kejadian', { ascending: false }),
-      supabase.from('kendaraan').select('id,nomor_polisi,merk,tipe,kepemilikan,pemilik').eq('kepemilikan', 'SEWA').order('nomor_polisi'),
+      supabase.from('kendaraan').select('id,nomor_polisi,merk,tipe,kepemilikan,jenis_sewa,pemilik').eq('kepemilikan', 'SEWA').order('nomor_polisi'),
     ])
     const names = ['Pemilik', 'Kontrak', 'Pembayaran', 'Perbaikan', 'Kendaraan']
     rs.forEach((r, i) => { if (r.error) setError(e => e || `${names[i]}: ${r.error.message}`) })
@@ -216,7 +216,7 @@ export default function RentalFeaturePage({ profile }) {
 
     {tab === 'kendaraan' && <section className="x-card">
       <div className="x-card-title"><div><h3>Daftar Kendaraan Sewa</h3><p>Data kendaraan diambil dari Master Kendaraan dengan kepemilikan <b>Sewa</b>. Tambah atau edit kendaraan tetap dilakukan di menu Kendaraan agar tidak ada data kendaraan ganda.</p></div></div>
-      <div className="x-table-wrap"><table className="x-table"><thead><tr><th>No. Polisi</th><th>Merk / Type</th><th>Pemilik</th><th>Kontrak</th><th>Periode</th><th>Nilai Sewa</th><th>Status</th></tr></thead><tbody>{vehicles.length ? vehicles.map(v => { const contractRow = contracts.find(c => Number(c.kendaraan_id) === Number(v.id) && c.status === 'AKTIF') || contracts.find(c => Number(c.kendaraan_id) === Number(v.id)); const ownerRow = owners.find(o => Number(o.id) === Number(contractRow?.pemilik_sewa_id)); return <tr key={v.id}><td><b>{v.nomor_polisi}</b></td><td>{v.merk} {v.tipe || ''}</td><td>{ownerRow?.nama_pemilik || v.pemilik || '-' }<small>{ownerRow?.nama_perusahaan || ''}</small></td><td>{contractRow?.nomor_kontrak || '-'}</td><td>{contractRow ? `${dateText(contractRow.tanggal_mulai)} s/d ${dateText(contractRow.tanggal_selesai)}` : '-'}</td><td>{contractRow ? money(contractRow.nilai_sewa_bulanan) : '-'}</td><td>{contractRow?.status || 'BELUM ADA KONTRAK'}</td></tr> }) : <tr><td colSpan="7"><Empty /></td></tr>}</tbody></table></div>
+      <div className="x-table-wrap"><table className="x-table"><thead><tr><th>No. Polisi</th><th>Merk / Type</th><th>Jenis Sewa</th><th>Pemilik</th><th>Kontrak</th><th>Periode</th><th>Nilai Sewa</th><th>Status</th></tr></thead><tbody>{vehicles.length ? vehicles.map(v => { const contractRow = contracts.find(c => Number(c.kendaraan_id) === Number(v.id) && c.status === 'AKTIF') || contracts.find(c => Number(c.kendaraan_id) === Number(v.id)); const ownerRow = owners.find(o => Number(o.id) === Number(contractRow?.pemilik_sewa_id)); return <tr key={v.id}><td><b>{v.nomor_polisi}</b></td><td>{v.merk} {v.tipe || ''}</td><td>{v.jenis_sewa === 'SEWA_PERORANGAN' ? 'Sewa Perorangan' : v.jenis_sewa === 'SEWA_RENTAL' ? 'Sewa Rental' : 'Belum ditentukan'}</td><td>{ownerRow?.nama_pemilik || v.pemilik || '-' }<small>{ownerRow?.nama_perusahaan || ''}</small></td><td>{contractRow?.nomor_kontrak || '-'}</td><td>{contractRow ? `${dateText(contractRow.tanggal_mulai)} s/d ${dateText(contractRow.tanggal_selesai)}` : '-'}</td><td>{contractRow ? money(contractRow.nilai_sewa_bulanan) : '-'}</td><td>{contractRow?.status || 'BELUM ADA KONTRAK'}</td></tr> }) : <tr><td colSpan="7"><Empty /></td></tr>}</tbody></table></div>
     </section>}
 
     {tab === 'pemilik' && <section className="x-card">
