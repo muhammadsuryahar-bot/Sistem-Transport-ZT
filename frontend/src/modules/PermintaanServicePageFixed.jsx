@@ -144,7 +144,7 @@ export default function PermintaanServicePage({ profile }) {
       current.harga.push(Number(item.harga_satuan || 0)); current.jumlah += 1; grouped.set(key, current)
     })
     const q = benchmarkSearch.trim().toLowerCase()
-    return Array.from(grouped.values()).map(row => ({ ...row, min: Math.min(...row.harga), max: Math.max(...row.harga), avg: row.harga.reduce((a, b) => a + b, 0) / row.harga.length, last: row.harga[row.harga.length - 1] })).filter(row => !q || `${row.nama_item} ${row.kategori}`.toLowerCase().includes(q)).sort((a, b) => a.nama_item.localeCompare(b.nama_item, 'id'))
+    return Array.from(grouped.values()).map(row => ({ ...row, min: Math.min(...row.harga), max: Math.max(...row.harga), avg: row.harga.reduce((a, b) => a + b, 0) / row.harga.length, last: row.harga[0] })).filter(row => !q || `${row.nama_item} ${row.kategori}`.toLowerCase().includes(q)).sort((a, b) => a.nama_item.localeCompare(b.nama_item, 'id'))
   }, [items, benchmarkSearch])
 
   const filteredRequests = useMemo(() => {
