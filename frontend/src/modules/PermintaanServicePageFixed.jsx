@@ -15,7 +15,15 @@ const fmtDate = value => {
   return match ? `${match[3]}/${match[2]}/${match[1]}` : raw
 }
 const clean = v => String(v ?? '').trim()
-const itemCategory = v => clean(v).toUpperCase() || 'LAINNYA'
+const normalizeItemName = v => clean(v).replace(/^\\d+[.)-]\\s*/, '').toUpperCase()
+const itemCategory = (category, name = '') => {
+  const raw = (clean(category) + ' ' + clean(name)).toUpperCase()
+  if (/BAN|TYRE|TIRE/.test(raw)) return 'BAN'
+  if (/AKI|BATERAI|BATTERY/.test(raw)) return 'AKI'
+  if (/OLI|PELUMAS|GREASE|FILTER OLI|FILTER MINYAK|FILTER HAWA|FILTER UDARA|BUSI|KANVAS REM|BRAKE PAD|KAMPAS REM|KOPLING|CLUTCH|SHOCK|ABSORBER|BEARING|RACK END|DRAGLINK|SPAREPART|PENGADAAN BARANG/.test(raw)) return 'SPAREPART'
+  if (/JASA|SERVICE|PEKERJAAN|LABOR/.test(raw)) return 'JASA'
+  return clean(category).toUpperCase() || 'LAINNYA'
+}
 
 export default function PermintaanServicePage({ profile }) {
   const [vehicles, setVehicles] = useState([])
