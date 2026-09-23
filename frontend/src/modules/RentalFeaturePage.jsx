@@ -53,6 +53,7 @@ export default function RentalFeaturePage({ profile }) {
   const [openedFiles, setOpenedFiles] = useState({})
   const [paymentSearch, setPaymentSearch] = useState('')
   const [paymentStatus, setPaymentStatus] = useState('SEMUA')
+  const [editingPaymentId, setEditingPaymentId] = useState(null)
   const [paymentDetail, setPaymentDetail] = useState(null)
   const [historySearch, setHistorySearch] = useState('')
   const [historyYear, setHistoryYear] = useState('SEMUA')
@@ -158,40 +159,40 @@ export default function RentalFeaturePage({ profile }) {
       resetContractForm(); setSuccess(editingContractId ? 'Kontrak sewa diperbarui.' : 'Kontrak 6 bulan dan dokumen kontrak tersimpan.')
     } catch (e2) { if (contractPath) await supabase.storage.from('dokumen-sewa').remove([contractPath]); setError(e2.message) } finally { setSaving(false) }
   }
+  const resetPaymentForm = () => { setPayment(EMPTY_PAYMENT); setPaymentFile(null); setEditingPaymentId(null) }
+  const editPayment = async row => {
+    const rel = await supabase.from('potongan_pembayaran_sewa').select('id').eq('pembayaran_sewa_id', row.id).limit(1)
+    if (rel.data?.length) return setError('Pembayaran yang sudah memiliki potongan repair tidak diedit dari form ini. Gunakan detail sebagai arsip agar riwayat potongan tetap konsisten.')
+    setEditingPaymentId(row.id); setPayment({ kontrak_sewa_id: row.kontrak_sewa_id, periode_ke: row.periode_ke ?? '', bulan_pembayaran: row.bulan_pembayaran || '', tanggal_jatuh_tempo: row.tanggal_jatuh_tempo || '', tanggal_pembayaran: row.tanggal_pembayaran || '', jumlah_tagihan: row.jumlah_tagihan ?? '', jumlah_dibayar: row.jumlah_dibayar ?? '', metode_pembayaran: row.metode_pembayaran || '', nomor_referensi: row.nomor_referensi || '', catatan: row.catatan || '', perbaikan_sewa_id: '', jumlah_potongan: '' }); setPaymentFile(null); setTab('pembayaran')
+  }
+  const deletePayment = async row => {
+    if (!editable) return
+    const rel = await supabase.from('potongan_pembayaran_sewa').select('id').eq('pembayaran_sewa_id', row.id).limit(1)
+    if (rel.data?.length) return setError('Pembayaran memiliki potongan repair. Jangan hapus agar histori potongan tetap konsisten.')
+    if (!window.confirm('Hapus pembayaran periode ' + row.periode_ke + '?')) return
+    setSaving(true); try { const result = await supabase.from('pembayaran_sewa').delete().eq('id', row.id); if (result.error) throw result.error; if (row.bukti_pembayaran_path) await supabase.storage.from('dokumen-sewa').remove([row.bukti_pembayaran_path]); setPayments(current => current.filter(x => x.id !== row.id)); setSuccess('Pembayaran dihapus.') } catch(e){ setError(e.message) } finally { setSaving(false) }
+  }
   const savePayment = async e => {
     e.preventDefault(); clearMessages()
     if (!payment.kontrak_sewa_id || !payment.periode_ke || !payment.bulan_pembayaran || !payment.tanggal_jatuh_tempo || !payment.jumlah_tagihan) return setError('Kontrak, periode, bulan, jatuh tempo, dan tagihan wajib diisi.')
     if (Number(payment.periode_ke) < 1 || Number(payment.periode_ke) > 6) return setError('Periode pembayaran hanya 1 sampai 6.')
-    const gross = Number(payment.jumlah_tagihan || 0)
-    const requestedDeduction = Number(payment.jumlah_potongan || 0)
-    const selectedRepair = payment.perbaikan_sewa_id ? repairMap[payment.perbaikan_sewa_id] : null
-    if (requestedDeduction > 0) {
-      if (!selectedRepair) return setError('Pilih perbaikan yang menjadi dasar potongan.')
-      if (!selectedRepair.dapat_dipotong || !selectedRepair.dibayar_kantor) return setError('Hanya perbaikan yang dibayar kantor dan ditandai dapat dipotong yang boleh dipotong dari rental.')
-      if (Number(selectedRepair.jumlah_dipotong || 0) < requestedDeduction) return setError(`Potongan melebihi nilai potongan yang dicatat untuk perbaikan. Maksimal ${money(selectedRepair.jumlah_dipotong)}.`)
-      if (Number(selectedRepair.biaya_aktual || selectedRepair.estimasi_biaya || 0) < requestedDeduction) return setError('Potongan tidak boleh melebihi biaya perbaikan.')
-      if (selectedRepair.kontrak_sewa_id && Number(selectedRepair.kontrak_sewa_id) !== Number(payment.kontrak_sewa_id)) return setError('Perbaikan dan kontrak rental harus berasal dari kontrak yang sama.')
-    }
-    const netBill = Math.max(0, gross - requestedDeduction)
-    const paid = Number(payment.jumlah_dibayar || 0)
-    const status = payment.tanggal_pembayaran && paid >= netBill ? 'SUDAH_DIBAYAR' : (paid > 0 ? 'SEBAGIAN_DIBAYAR' : (payment.tanggal_jatuh_tempo && new Date(payment.tanggal_jatuh_tempo) < new Date() ? 'TERLAMBAT' : 'BELUM_DIBAYAR'))
+    const gross = Number(payment.jumlah_tagihan || 0), requestedDeduction = Number(payment.jumlah_potongan || 0), selectedRepair = payment.perbaikan_sewa_id ? repairMap[payment.perbaikan_sewa_id] : null
+    if (requestedDeduction > 0) { if (!selectedRepair) return setError('Pilih perbaikan yang menjadi dasar potongan.'); if (!selectedRepair.dapat_dipotong || !selectedRepair.dibayar_kantor) return setError('Hanya perbaikan yang dibayar kantor dan ditandai dapat dipotong yang boleh dipotong dari rental.'); if (Number(selectedRepair.jumlah_dipotong || 0) < requestedDeduction) return setError('Potongan melebihi nilai potongan yang dicatat untuk perbaikan.'); if (selectedRepair.kontrak_sewa_id && Number(selectedRepair.kontrak_sewa_id) !== Number(payment.kontrak_sewa_id)) return setError('Perbaikan dan kontrak rental harus berasal dari kontrak yang sama.') }
+    const netBill = Math.max(0, gross - requestedDeduction), paid = Number(payment.jumlah_dibayar || 0), status = payment.tanggal_pembayaran && paid >= netBill ? 'SUDAH_DIBAYAR' : (paid > 0 ? 'SEBAGIAN_DIBAYAR' : (payment.tanggal_jatuh_tempo && new Date(payment.tanggal_jatuh_tempo) < new Date() ? 'TERLAMBAT' : 'BELUM_DIBAYAR'))
     if (paid > netBill) return setError('Jumlah dibayar tidak boleh melebihi tagihan bersih setelah potongan.')
-    setSaving(true)
-    let proofPath = null
+    setSaving(true); let proofPath = null
     try {
-      proofPath = await uploadRentalFile(paymentFile, `pembayaran/${payment.kontrak_sewa_id}`)
+      const previous = editingPaymentId ? payments.find(x => x.id === editingPaymentId) : null
+      proofPath = paymentFile ? await uploadRentalFile(paymentFile, `pembayaran/${payment.kontrak_sewa_id}`) : previous?.bukti_pembayaran_path || null
       const notePrefix = requestedDeduction > 0 ? `Tagihan bruto ${gross}; potongan repair ${requestedDeduction}; tagihan bersih ${netBill}.` : `Tagihan rental ${gross}.`
-      const { data: savedPayment, error: e1 } = await supabase.from('pembayaran_sewa').insert({ kontrak_sewa_id: Number(payment.kontrak_sewa_id), periode_ke: Number(payment.periode_ke), bulan_pembayaran: payment.bulan_pembayaran, tanggal_jatuh_tempo: payment.tanggal_jatuh_tempo || null, tanggal_pembayaran: payment.tanggal_pembayaran || null, jumlah_tagihan: netBill, jumlah_dibayar: paid, status, metode_pembayaran: payment.metode_pembayaran.trim() || null, nomor_referensi: payment.nomor_referensi.trim() || null, bukti_pembayaran_path: proofPath, catatan: [notePrefix, payment.catatan.trim()].filter(Boolean).join(' ') || null, diproses_oleh: profile?.id || null }).select('*').single()
-      if (e1) throw e1
-      if (requestedDeduction > 0 && savedPayment?.id) {
-        const { error: e2 } = await supabase.from('potongan_pembayaran_sewa').insert({ pembayaran_sewa_id: savedPayment.id, perbaikan_sewa_id: Number(payment.perbaikan_sewa_id), jumlah_potongan: requestedDeduction, catatan: `Potongan biaya perbaikan dari pembayaran periode ${payment.periode_ke}.` })
-        if (e2) throw e2
-      }
-      setPayments(current => [savedPayment, ...current]); setPayment(EMPTY_PAYMENT); setPaymentFile(null); setSuccess(requestedDeduction > 0 ? `Pembayaran tersimpan dengan potongan ${money(requestedDeduction)}. Tagihan bersih ${money(netBill)}.` : 'Pembayaran sewa tersimpan.')
-    } catch (e3) { if (proofPath) await supabase.storage.from('dokumen-sewa').remove([proofPath]); setError(e3.message) }
-    setSaving(false)
+      const payload = { kontrak_sewa_id: Number(payment.kontrak_sewa_id), periode_ke: Number(payment.periode_ke), bulan_pembayaran: payment.bulan_pembayaran, tanggal_jatuh_tempo: payment.tanggal_jatuh_tempo || null, tanggal_pembayaran: payment.tanggal_pembayaran || null, jumlah_tagihan: netBill, jumlah_dibayar: paid, status, metode_pembayaran: payment.metode_pembayaran.trim() || null, nomor_referensi: payment.nomor_referensi.trim() || null, bukti_pembayaran_path: proofPath, catatan: [notePrefix, payment.catatan.trim()].filter(Boolean).join(' ') || null, diproses_oleh: profile?.id || null }
+      const result = editingPaymentId ? await supabase.from('pembayaran_sewa').update(payload).eq('id', editingPaymentId).select('*').single() : await supabase.from('pembayaran_sewa').insert(payload).select('*').single()
+      if (result.error) throw result.error
+      if (previous?.bukti_pembayaran_path && paymentFile) await supabase.storage.from('dokumen-sewa').remove([previous.bukti_pembayaran_path])
+      if (!editingPaymentId && requestedDeduction > 0 && result.data?.id) { const { error: e2 } = await supabase.from('potongan_pembayaran_sewa').insert({ pembayaran_sewa_id: result.data.id, perbaikan_sewa_id: Number(payment.perbaikan_sewa_id), jumlah_potongan: requestedDeduction, catatan: `Potongan biaya perbaikan dari pembayaran periode ${payment.periode_ke}.` }); if (e2) throw e2 }
+      setPayments(current => editingPaymentId ? current.map(row => row.id === result.data.id ? result.data : row) : [result.data, ...current]); resetPaymentForm(); setSuccess(editingPaymentId ? 'Pembayaran diperbarui.' : (requestedDeduction > 0 ? `Pembayaran tersimpan dengan potongan ${money(requestedDeduction)}.` : 'Pembayaran sewa tersimpan.'))
+    } catch (e3) { if (proofPath && !editingPaymentId) await supabase.storage.from('dokumen-sewa').remove([proofPath]); setError(e3.message) } finally { setSaving(false) }
   }
-
   const resetRepairForm = () => { setRepair(EMPTY_REPAIR); setRepairPhoto(null); setRepairProof(null); setEditingRepairId(null) }
   const editRepair = row => { setEditingRepairId(row.id); setRepair({ ...EMPTY_REPAIR, ...row, kontrak_sewa_id: String(row.kontrak_sewa_id), kendaraan_id: String(row.kendaraan_id), kilometer: row.kilometer ?? '', estimasi_biaya: row.estimasi_biaya ?? '', biaya_aktual: row.biaya_aktual ?? '', jumlah_dipotong: row.jumlah_dipotong ?? '' }); setRepairPhoto(null); setRepairProof(null); setTab('repair') }
   const deleteRepair = async row => {
