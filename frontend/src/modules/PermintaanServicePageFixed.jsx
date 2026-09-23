@@ -127,7 +127,7 @@ export default function PermintaanServicePage({ profile }) {
       const hay = [v.nomor_polisi, v.merk, v.tipe, v.jenis_kendaraan, v.pemilik, v.unit_kerja].filter(Boolean).join(' ').toLowerCase()
       return (!q || hay.includes(q)) && (brandFilter === 'SEMUA' || v.merk === brandFilter) && (summaryOwnership === 'SEMUA' || v.kepemilikan === summaryOwnership)
     })
-  }, [summaryRows, summarySearch, summaryOwnership])
+  }, [summaryRows, summarySearch, brandFilter, summaryOwnership])
 
   const totalSummaryExpense = useMemo(() => summaryRows.reduce((sum, row) => sum + row.totalPengeluaran, 0), [summaryRows])
   const overPriceCount = useMemo(() => summaryRows.filter(r => r.costFlag === 'MELEWATI_HARGA').length, [summaryRows])

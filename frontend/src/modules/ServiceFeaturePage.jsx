@@ -33,7 +33,6 @@ export default function ServiceFeaturePage({ profile }) {
   const [serviceSearch, setServiceSearch] = useState('')
   const [serviceVehicleFilter, setServiceVehicleFilter] = useState('SEMUA')
   const canProcess = ['ADMIN', 'TRANSPORT'].includes(profile?.role)
-  const canApprove = ['ADMIN', 'ATASAN_TRANSPORT', 'DIREKTUR'].includes(profile?.role)
   const vehicleMap = useMemo(() => Object.fromEntries(vehicles.map(v => [v.id, v])), [vehicles])
   const driverMap = useMemo(() => Object.fromEntries(drivers.map(d => [d.id, d])), [drivers])
   const load = async () => { setLoading(true); setError(''); const rs = await Promise.all([supabase.from('kendaraan').select('id,nomor_polisi,merk,tipe,jenis_kendaraan,tahun,driver_id,kilometer_terakhir,status').order('nomor_polisi'), supabase.from('permintaan_service').select('*').order('created_at', { ascending: false }), supabase.from('service').select('*').order('created_at', { ascending: false }), supabase.from('service_item').select('*').order('created_at', { ascending: false }), supabase.from('service_bukti').select('*').order('created_at', { ascending: false }), supabase.from('service_approval').select('*').order('urutan', { ascending: true }), supabase.from('riwayat_ban').select('*').order('tanggal_penggantian', { ascending: false }), supabase.from('riwayat_aki').select('*').order('tanggal_penggantian', { ascending: false }), supabase.from('riwayat_kilometer').select('*').order('tanggal', { ascending: false }), supabase.from('driver').select('id,nama_lengkap').order('nama_lengkap')]); const names = ['Kendaraan', 'Pengajuan', 'Service', 'Item', 'Bukti', 'Approval', 'Ban', 'Aki', 'KM', 'Driver']; rs.forEach((r, i) => { if (r.error) setError(e => e || `${names[i]}: ${r.error.message}`) }); setVehicles(rs[0].data || []); setRequests(rs[1].data || []); setServices(rs[2].data || []); setItems(rs[3].data || []); setProofs(rs[4].data || []); setApprovals(rs[5].data || []); setBans(rs[6].data || []); setAkis(rs[7].data || []); setKms(rs[8].data || []); setDrivers(rs[9].data || []); setLoading(false) }
@@ -153,7 +152,6 @@ export default function ServiceFeaturePage({ profile }) {
     } catch (e2) { setError(e2.message) } finally { setSaving(false) }
   }
 
-  const approvalRequirement = s => { const approved = approvedCount(s); const estimate = Number(s.estimasi_biaya || 0); const actual = Number(s.biaya_aktual ?? estimate); const amount = approved === 0 ? estimate : actual; return amount > 5000000 ? 'DIREKTUR' : 'ATASAN_TRANSPORT' }
   const approvalList = s => approvals.filter(a => a.service_id === s.id).sort((a, b) => Number(a.urutan || 0) - Number(b.urutan || 0))
   const approvedCount = s => approvalList(s).filter(a => a.status === 'DISETUJUI').length
   const hasInitialApproval = s => approvedCount(s) >= 1

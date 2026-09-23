@@ -6,12 +6,6 @@ import './DataPageTools.css'
 
 const MAX_FILE_SIZE = 25 * 1024 * 1024
 const PAGE_OPTIONS = [25, 50, 100]
-const MONTHS = {
-  januari: 1, january: 1, februari: 2, february: 2, maret: 3, march: 3,
-  april: 4, mei: 5, may: 5, juni: 6, june: 6, juli: 7, july: 7,
-  agustus: 8, august: 8, september: 9, oktober: 10, october: 10,
-  november: 11, desember: 12, december: 12,
-}
 const clean = value => String(value ?? '').replace(/\s+/g, ' ').trim()
 const norm = value => clean(value).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
 
