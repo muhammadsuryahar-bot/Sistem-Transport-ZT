@@ -58,7 +58,7 @@
 .request-vehicle-preview span,.request-detail-grid span { display:block; margin-bottom:4px; color:#78847c; font-size:.71rem; text-transform:uppercase; letter-spacing:.05em; }
 .request-vehicle-preview strong { display:block; color:var(--rq-text); font-size:.82rem; overflow-wrap:anywhere; }
 .request-form-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:22px; padding-top:18px; border-top:1px solid var(--rq-border); }
-.request-detail-modal { width:min(100%,680px); }
+.request-detail-modal { width:min(100%,980px); }
 .request-detail-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; padding:22px 24px 24px; }
 .request-detail-grid > div { padding:13px; border:1px solid var(--rq-border); border-radius:11px; background:#fbfdfb; }
 .request-detail-grid .full { grid-column:1/-1; }
