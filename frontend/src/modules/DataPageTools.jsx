@@ -40,7 +40,7 @@ function writeRowMarks(value) {
 function simpleHash(value) { let hash = 2166136261; for (let i = 0; i < value.length; i += 1) { hash ^= value.charCodeAt(i); hash = Math.imul(hash, 16777619) } return (hash >>> 0).toString(16) }
 function rowKey(context, row) { const cells = Array.from(row.children).filter(cell => !cell.classList.contains('dpt-row-mark-cell')); const values = cells.map(cell => { const control = cell.querySelector('input,select,textarea'); return control ? `${control.tagName}:${control.defaultValue || control.value}` : cell.textContent.trim() }); return `${context}:${simpleHash(values.join('\u241f') || `row-${row.rowIndex}`)}` }
 function applyMark(row, mark) { Object.values(ROW_MARKS).forEach(item => { if (item.className) row.classList.remove(item.className) }); if (ROW_MARKS[mark]?.className) row.classList.add(ROW_MARKS[mark].className) }
-function createRowMarkToolbar() { const toolbar = document.createElement('div'); toolbar.className = 'dpt-row-mark-toolbar'; toolbar.innerHTML = '<div class="dpt-row-mark-title"><b>Penanda kerja</b><span>Tandai status tiap baris.</span></div><div class="dpt-row-mark-controls"><label>Filter <select class="dpt-row-mark-filter"><option value="ALL">Semua</option><option value="NONE">Belum ditandai</option><option value="TODO">Perlu dikerjakan</option><option value="PROCESS">Sedang dikerjakan</option><option value="DONE">Sudah selesai</option><option value="CHECKED">Sudah dicek</option></select></label><button type="button" class="dpt-row-mark-clear">Hapus semua tanda</button></div>'; return toolbar }
+function createRowMarkToolbar() { const toolbar = document.createElement('div'); toolbar.className = 'dpt-row-mark-toolbar'; toolbar.innerHTML = '<div class="dpt-row-mark-title"><b>Penanda</b><span>Status kerja baris utama</span></div><div class="dpt-row-mark-controls"><label>Filter <select class="dpt-row-mark-filter"><option value="ALL">Semua</option><option value="NONE">Belum ditandai</option><option value="TODO">Perlu dikerjakan</option><option value="PROCESS">Sedang dikerjakan</option><option value="DONE">Sudah selesai</option><option value="CHECKED">Sudah dicek</option></select></label><button type="button" class="dpt-row-mark-clear">Reset tanda</button></div>'; return toolbar }
 function ensureTableMarks(context, table, scope) {
   if (!table) return
 
@@ -133,9 +133,30 @@ function ensureTableMarks(context, table, scope) {
   applyFilter()
 }
 function ensureRowMarks(context) {
-  const previewTables = Array.from(document.querySelectorAll('.dpt-preview table')).map(table => ({ table, scope: table.closest('.dpt-preview') || document.body }))
+  const visible = table => {
+    if (!table || table.closest('.dpt-preview')) return true
+    const rect = table.getBoundingClientRect()
+    return rect.width > 0 && rect.height > 0
+  }
+
+  const previewTables = Array.from(document.querySelectorAll('.dpt-preview table'))
+    .filter(visible)
+    .slice(0, 1)
+    .map(table => ({ table, scope: table.closest('.dpt-preview') || document.body }))
+
   const selector = DATA_TABLE_SELECTOR[context]
-  const dataTables = selector ? Array.from(document.querySelectorAll(selector)).filter(table => !table.closest('.dpt-preview') && !table.matches('.m-table') && !table.hasAttribute('data-no-row-marks')).map(table => ({ table, scope: table.closest('.x-card, .request-panel, .master-excel-page') || table.parentElement || document.body })) : []
+  const dataTables = selector
+    ? Array.from(document.querySelectorAll(selector))
+      .filter(table => !table.closest('.dpt-preview') && !table.matches('.m-table') && !table.hasAttribute('data-no-row-marks') && visible(table))
+      .sort((a, b) => {
+        const aTop = a.getBoundingClientRect().top
+        const bTop = b.getBoundingClientRect().top
+        return aTop - bTop
+      })
+      .slice(0, 1)
+      .map(table => ({ table, scope: table.closest('.x-card, .request-panel, .master-excel-page') || table.parentElement || document.body }))
+    : []
+
   ;[...previewTables, ...dataTables].forEach(({ table, scope }) => ensureTableMarks(context, table, scope))
 }
 
