@@ -1,6 +1,8 @@
 name: Temporary Transport Build Check
 on:
   push:
+    branches: [main, temp-build-check]
+  pull_request:
     branches: [main]
 jobs:
   build:
