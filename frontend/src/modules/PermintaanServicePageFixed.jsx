@@ -379,13 +379,13 @@ export default function PermintaanServicePage({ profile }) {
   ]
 
   return <div className="request-page">
-    <div className="request-header"><div><span className="eyebrow">TRANSPORT • DATA SERVICE</span><h2>Data Service</h2><p>Cari kendaraan seperti katalog berdasarkan nomor polisi, merk, dan type. Dari sini admin dapat melihat histori, biaya, KM, pengajuan, serta membuat surat pengantar service.</p></div>{canCreate && <button className="request-primary-button" onClick={openCreate}>+ Buat Pengajuan Service</button>}</div>
+    <div className="request-header"><div><span className="eyebrow">TRANSPORT • DATA SERVICE</span><h2>Data Service</h2><p>Kelola data service langsung dari sistem seperti katalog kendaraan: cari BM/nomor polisi/merk, lihat total biaya, jasa, sparepart, KM/jarak, service terakhir, patokan harga, dan buat surat pengantar.</p></div>{canCreate && <button className="request-primary-button" onClick={openCreate}>+ Buat Pengajuan Service</button>}</div>
     {success && <div className="request-alert success">{success}</div>}{error && !showForm && <div className="request-alert error">{error}</div>}
 
     <section className="request-summary-grid service-kpi-grid">{summaryStats.map(([label, value, note]) => <div key={label}><span>{label}</span><strong>{value}</strong><small>{note}</small></div>)}</section>
 
     <div className="request-toolbar service-view-toolbar">
-      <div className="request-view-toggle"><button className={viewMode === 'ringkasan' ? 'request-light-button active' : 'request-light-button'} onClick={() => setViewMode('ringkasan')}>Ringkasan Kendaraan</button><button className={viewMode === 'pengajuan' ? 'request-light-button active' : 'request-light-button'} onClick={() => setViewMode('pengajuan')}>Pengajuan Service</button><button className={viewMode === 'harga' ? 'request-light-button active' : 'request-light-button'} onClick={() => setViewMode('harga')}>Patokan Harga</button></div>
+      <div className="request-view-toggle"><button className={viewMode === 'ringkasan' ? 'request-light-button active' : 'request-light-button'} onClick={() => setViewMode('ringkasan')}>Ringkasan Kendaraan</button><button className={viewMode === 'pengajuan' ? 'request-light-button active' : 'request-light-button'} onClick={() => setViewMode('pengajuan')}>Pengajuan Service</button><button className={viewMode === 'harga' ? 'request-light-button active' : 'request-light-button'} onClick={() => setViewMode('harga')}>Patokan Harga / Shopping List</button></div>
     </div>
 
     {viewMode === 'ringkasan' && <section className="request-panel">
@@ -396,7 +396,7 @@ export default function PermintaanServicePage({ profile }) {
     {viewMode === 'harga' && <section className="request-panel">
       <div className="request-toolbar">
         <input value={benchmarkSearch} onChange={e => setBenchmarkSearch(e.target.value)} placeholder="Cari oli, ban, kaca, jasa, sparepart..." />
-        {['ADMIN', 'TRANSPORT'].includes(profile?.role) && <button className="request-light-button" onClick={resetBenchmarkForm}>+ Patokan Harga</button>}
+        {['ADMIN', 'TRANSPORT'].includes(profile?.role) && <button className="request-light-button" onClick={resetBenchmarkForm}>+ Patokan Harga / Shopping List</button>}
         <span className="request-toolbar-note">{benchmarkRows.length} item historis • {benchmarks.length} patokan admin</span>
       </div>
       {['ADMIN', 'TRANSPORT'].includes(profile?.role) && (benchmarkForm.nama_item || editingBenchmark) && <form className="request-benchmark-form" onSubmit={saveBenchmark}>
