@@ -337,7 +337,7 @@ async function importHistory(rows, sheetName, onProgress = () => {}) {
       const harga = row.qty ? subtotal / row.qty : subtotal
       return {
         nama_item: row.uraian || row.jenis_pekerjaan || 'Item Excel',
-        kategori: itemCategory(row.jenis_pekerjaan || row.uraian),
+        kategori: itemCategory((row.jenis_pekerjaan || '') + ' ' + (row.uraian || '')),
         jumlah: row.qty > 0 ? row.qty : 1,
         satuan: row.satuan || 'pcs',
         harga_satuan: harga || 0,
