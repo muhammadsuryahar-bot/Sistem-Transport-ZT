@@ -22,6 +22,7 @@ export default function ServiceFeaturePage({ profile }) {
   const [tab, setTab] = useState('excel')
   const [vehicles, setVehicles] = useState([]), [drivers, setDrivers] = useState([]), [requests, setRequests] = useState([]), [services, setServices] = useState([]), [items, setItems] = useState([]), [proofs, setProofs] = useState([]), [approvals, setApprovals] = useState([]), [bans, setBans] = useState([]), [akis, setAkis] = useState([]), [kms, setKms] = useState([])
   const [form, setForm] = useState(emptyService), [itemForm, setItemForm] = useState(emptyItem), [proofForm, setProofForm] = useState(emptyProof), [partForm, setPartForm] = useState(emptyPart), [kmForm, setKmForm] = useState(emptyKm)
+  const [editingItemId, setEditingItemId] = useState(null), [editingProofId, setEditingProofId] = useState(null), [editingPartId, setEditingPartId] = useState(null), [editingKmId, setEditingKmId] = useState(null)
   const [file, setFile] = useState(null), [selected, setSelected] = useState(null), [approvalModal, setApprovalModal] = useState(null), [approvalNote, setApprovalNote] = useState('')
   const [loading, setLoading] = useState(true), [saving, setSaving] = useState(false), [error, setError] = useState(''), [success, setSuccess] = useState('')
   const [serviceExcelFullscreen, setServiceExcelFullscreen] = useState(false)
