@@ -286,10 +286,43 @@ export default function PermintaanServicePage({ profile }) {
     </section>}
 
     {viewMode === 'harga' && <section className="request-panel">
-      <div className="request-toolbar"><input value={benchmarkSearch} onChange={e => setBenchmarkSearch(e.target.value)} placeholder="Cari oli, ban, kaca, jasa, sparepart..." /><span className="request-toolbar-note">{benchmarkRows.length} item patokan</span></div>
-      <div className="request-table-wrap service-summary-table-wrap"><table className="request-table"><thead><tr><th>Item</th><th>Kategori</th><th>Dipakai</th><th>Harga Terendah</th><th>Harga Tertinggi</th><th>Rata-rata</th><th>Harga Terakhir</th><th>Patokan Admin</th></tr></thead><tbody>{benchmarkRows.length ? benchmarkRows.map(row => <tr key={`${row.nama_item}-${row.kategori}`}><td><strong>{row.nama_item}</strong></td><td>{row.kategori}</td><td>{row.jumlah} transaksi</td><td>{money(row.min)}</td><td>{money(row.max)}</td><td>{money(row.avg)}</td><td>{money(row.last)}</td><td><span className={`request-status ${row.max > row.min ? 'status-warning' : 'status-ok'}`}>{row.max > row.min ? 'Ada perbedaan harga' : 'Stabil'}</span></td></tr>) : <tr><td colSpan="8"><div className="request-empty">Belum ada data item service untuk dijadikan patokan.</div></td></tr>}</tbody></table></div>
+      <div className="request-toolbar">
+        <input value={benchmarkSearch} onChange={e => setBenchmarkSearch(e.target.value)} placeholder="Cari oli, ban, kaca, jasa, sparepart..." />
+        {['ADMIN', 'TRANSPORT'].includes(profile?.role) && <button className="request-light-button" onClick={resetBenchmarkForm}>+ Patokan Harga</button>}
+        <span className="request-toolbar-note">{benchmarkRows.length} item historis • {benchmarks.length} patokan admin</span>
+      </div>
+      {['ADMIN', 'TRANSPORT'].includes(profile?.role) && (benchmarkForm.nama_item || editingBenchmark) && <form className="request-benchmark-form" onSubmit={saveBenchmark}>
+        <div className="request-benchmark-grid">
+          <label>Nama Item<input value={benchmarkForm.nama_item} onChange={e => setBenchmarkForm({ ...benchmarkForm, nama_item: e.target.value })} placeholder="Contoh: Oli Mesin" /></label>
+          <label>Kategori<select value={benchmarkForm.kategori} onChange={e => setBenchmarkForm({ ...benchmarkForm, kategori: e.target.value })}><option>SPAREPART</option><option>JASA</option><option>BAN</option><option>AKI</option><option>OLI</option><option>LAINNYA</option></select></label>
+          <label>Satuan<input value={benchmarkForm.satuan} onChange={e => setBenchmarkForm({ ...benchmarkForm, satuan: e.target.value })} placeholder="Pcs / Ltr" /></label>
+          <label>Harga Patokan<input type="number" min="0" value={benchmarkForm.harga_patokan} onChange={e => setBenchmarkForm({ ...benchmarkForm, harga_patokan: e.target.value })} /></label>
+          <label>Berlaku Mulai<input type="date" value={benchmarkForm.berlaku_mulai} onChange={e => setBenchmarkForm({ ...benchmarkForm, berlaku_mulai: e.target.value })} /></label>
+          <label>Keterangan<input value={benchmarkForm.keterangan} onChange={e => setBenchmarkForm({ ...benchmarkForm, keterangan: e.target.value })} placeholder="Sumber/ketentuan harga" /></label>
+        </div>
+        <div className="request-form-actions"><button type="button" className="request-light-button" onClick={resetBenchmarkForm}>Batal</button><button className="request-primary-button" disabled={saving}>{editingBenchmark ? 'Perbarui Patokan' : 'Simpan Patokan'}</button></div>
+      </form>}
+      <div className="request-toolbar-note service-benchmark-note">Harga terendah/tertinggi/median berasal dari histori service. Patokan Admin adalah angka referensi internal yang dapat diperbarui.</div>
+      <div className="request-table-wrap service-summary-table-wrap"><table className="request-table">
+        <thead><tr><th>Item</th><th>Kategori</th><th>Satuan</th><th>Transaksi</th><th>Terendah</th><th>Tertinggi</th><th>Median</th><th>Patokan Admin</th><th>Selisih Rata-rata</th><th>Aksi</th></tr></thead>
+        <tbody>{benchmarkRows.length ? benchmarkRows.map(row => {
+          const ref = row.reference
+          const diff = ref ? Number(row.avg) - Number(ref.harga_patokan) : null
+          return <tr key={row.nama_item + '-' + row.kategori + '-' + row.satuan}>
+            <td><strong>{row.nama_item}</strong></td>
+            <td>{row.kategori}</td>
+            <td>{row.satuan || '-'}</td>
+            <td>{row.jumlah}</td>
+            <td>{money(row.min)}</td>
+            <td>{money(row.max)}</td>
+            <td>{money(row.median)}</td>
+            <td>{ref ? <><b>{money(ref.harga_patokan)}</b><small>{fmtDate(ref.berlaku_mulai)}</small></> : <span className="request-toolbar-note">Belum diatur</span>}</td>
+            <td>{ref ? <span className={'request-status ' + (Math.abs(diff) > Math.max(1, Number(ref.harga_patokan || 0) * 0.1) ? 'status-warning' : 'status-ok')}>{diff > 0 ? '+' : ''}{money(diff)}</span> : '-'}</td>
+            <td className="request-actions">{ref && <button className="request-detail-button" onClick={() => editBenchmark(ref)}>Edit</button>}{ref && <button className="request-detail-button danger" onClick={() => deleteBenchmark(ref)} disabled={saving}>Hapus</button>}</td>
+          </tr>
+        }) : <tr><td colSpan="10"><div className="request-empty">Belum ada data item service untuk dijadikan patokan.</div></td></tr>}</tbody>
+      </table></div>
     </section>}
-
     {viewMode === 'pengajuan' && <section className="request-panel">
       <div className="request-toolbar"><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Cari nomor pengajuan, BM, merk, type, keluhan..." /><select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}><option value="SEMUA">Semua status</option>{Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select><select value={vehicleFilter} onChange={e => setVehicleFilter(e.target.value)}><option value="SEMUA">Semua kendaraan</option>{vehicles.map(v => <option key={v.id} value={v.id}>{v.nomor_polisi} — {v.merk}</option>)}</select><button className="request-light-button" onClick={loadData} disabled={loading || saving}>↻ Refresh</button></div>
       {selectionMode && <div className="request-selection-bar"><div className="request-selection-meta"><span>Mode pilih pengajuan</span><strong>{selectedIds.length} dipilih</strong></div><div className="request-selection-actions"><button className="ghost" onClick={() => setSelectedIds(summary => summary.length ? [] : filteredRequests.map(r => r.id))}>{selectedIds.length ? 'Batalkan semua' : 'Pilih semua'}</button><button className="ghost" onClick={() => { setSelectedIds([]); setSelectionMode(false) }}>Batal</button>{canDelete && <button className="danger" onClick={selectedForDelete} disabled={saving || !selectedIds.length}>Hapus {selectedIds.length} Pengajuan</button>}</div></div>}
