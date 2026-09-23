@@ -128,12 +128,14 @@ function AppTransport() {
           supabase.from('kendaraan').select('id,nomor_polisi,merk,tipe,jenis_kendaraan,tahun,driver_id'),
           supabase.from('permintaan_service').select('id,nomor_pengajuan'),
           supabase.from('driver').select('id,nama_lengkap').order('nama_lengkap'),
+          supabase.from('patokan_harga_service').select('*').eq('aktif', true).order('nama_item'),
         ])
-        const names = ['service','item','approval','bukti','ban','aki','kilometer','kendaraan','pengajuan','driver']
+        const names = ['service','item','approval','bukti','ban','aki','kilometer','kendaraan','pengajuan','driver','patokan_harga']
         rs.forEach((r, i) => { if (r.error) throw new Error(`${names[i]}: ${r.error.message}`) })
         const vehicleMap = Object.fromEntries((rs[7].data || []).map(x => [x.id, x]))
         const requestMap = Object.fromEntries((rs[8].data || []).map(x => [x.id, x]))
         const driverMapExport = Object.fromEntries((rs[9].data || []).map(x => [x.id, x]))
+        const benchmarkRowsExport = rs[10].data || []
         const serviceMapExport = Object.fromEntries((rs[0].data || []).map(x => [x.id, x]))
         const sourceServiceRows = []
         ;(rs[1].data || []).forEach((item, index) => { const s = (rs[0].data || []).find(row => row.id === item.service_id); const v = vehicleMap[s?.kendaraan_id]; const { meta, note } = decodeExcelMeta(item.keterangan); const source = meta?.source === 'DATA_SERVICE' ? meta : null; sourceServiceRows.push({ no: Number(source?.source_no) || index + 1, merk: source?.merk || v?.merk || '-', type: source?.type || v?.tipe || '-', jenis: source?.jenis || v?.jenis_kendaraan || '-', tahun: source?.tahun || v?.tahun || '-', nomor_polisi: source?.nomor_polisi || v?.nomor_polisi || '-', driver: source?.driver || driverMapExport[v?.driver_id]?.nama_lengkap || '-', bulan: source?.bulan || (s?.tanggal_service ? formatMonthSafe(s.tanggal_service) : '-'), tanggal: source?.tanggal || s?.tanggal_service || '-', jenis_pekerjaan: source?.jenis_pekerjaan || s?.jenis_service || '-', uraian: source?.uraian || item.nama_item || '-', qty: source?.qty ?? item.jumlah ?? '-', satuan: source?.satuan || item.satuan || '-', harga_satuan: source?.harga_satuan ?? item.harga_satuan ?? '-', nilai_dpp: source?.nilai_dpp ?? item.subtotal ?? '-', ppn: source?.ppn_source ?? source?.ppn ?? '-', total: source?.total ?? item.subtotal ?? '-', kilometer: source?.kilometer ?? s?.kilometer ?? '-', bengkel: source?.bengkel || s?.bengkel || '-', keterangan: note || source?.keterangan || s?.catatan || '-' }) })
@@ -147,6 +149,7 @@ function AppTransport() {
           { title: 'RIWAYAT BAN', columns: columns([['kendaraan_id','Kendaraan ID'],['tanggal_penggantian','Tanggal'],['kilometer','KM'],['jumlah_ban','Jumlah Ban'],['posisi_ban','Posisi'],['kondisi_sebelum','Kondisi Sebelum'],['merek_ban','Merk Ban'],['ukuran_ban','Ukuran'],['alasan_penggantian','Alasan'],['biaya','Biaya'],['foto_sebelum_path','Foto Sebelum'],['foto_sesudah_path','Foto Sesudah'],['bukti_path','Bukti']]), rows: cleanRows(rs[4].data || []).map(x => ({ ...x, kendaraan_id: vehicleMap[x.kendaraan_id]?.nomor_polisi || x.kendaraan_id })) },
           { title: 'RIWAYAT AKI', columns: columns([['kendaraan_id','Kendaraan ID'],['tanggal_penggantian','Tanggal'],['kilometer','KM'],['merek_aki','Merk Aki'],['tipe_aki','Tipe Aki'],['nomor_aki','Nomor Aki'],['kondisi_sebelum','Kondisi Sebelum'],['alasan_penggantian','Alasan'],['biaya','Biaya'],['foto_sebelum_path','Foto Sebelum'],['foto_sesudah_path','Foto Sesudah'],['bukti_path','Bukti']]), rows: cleanRows(rs[5].data || []).map(x => ({ ...x, kendaraan_id: vehicleMap[x.kendaraan_id]?.nomor_polisi || x.kendaraan_id })) },
           { title: 'RIWAYAT KILOMETER', columns: columns([['kendaraan_id','Kendaraan ID'],['tanggal','Tanggal'],['kilometer','KM'],['sumber','Sumber'],['keterangan','Keterangan'],['dicatat_oleh','Dicatat Oleh']]), rows: cleanRows(rs[6].data || []).map(x => ({ ...x, kendaraan_id: vehicleMap[x.kendaraan_id]?.nomor_polisi || x.kendaraan_id })) },
+          { title: 'PATOKAN HARGA SERVICE', columns: columns([['nama_item','Nama Item'],['kategori','Kategori'],['satuan','Satuan'],['harga_patokan','Harga Patokan'],['berlaku_mulai','Berlaku Mulai'],['aktif','Aktif'],['keterangan','Keterangan']]), rows: cleanRows(benchmarkRowsExport) },
         ])
       } else if (activePage === 'sewa') {
         const rs = await Promise.all([
