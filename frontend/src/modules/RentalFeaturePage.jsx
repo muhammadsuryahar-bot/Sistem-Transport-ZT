@@ -52,6 +52,12 @@ export default function RentalFeaturePage({ profile }) {
   const [repairPhoto, setRepairPhoto] = useState(null)
   const [repairProof, setRepairProof] = useState(null)
   const [openedFiles, setOpenedFiles] = useState({})
+  const [historySearch, setHistorySearch] = useState('')
+  const [historyYear, setHistoryYear] = useState('SEMUA')
+  const [historySupplier, setHistorySupplier] = useState('SEMUA')
+  const [historyForm, setHistoryForm] = useState({ id: null, source_no: '', tahun: new Date().getFullYear(), supplier: '', uraian: '', periode_tagihan: '', nilai_invoice: '' })
+  const [editingHistory, setEditingHistory] = useState(null)
+  const [historyDetail, setHistoryDetail] = useState(null)
 
   const editable = ['ADMIN', 'TRANSPORT', 'AKUNTANSI'].includes(profile?.role)
   const repairEditable = ['ADMIN', 'TRANSPORT'].includes(profile?.role)
@@ -282,9 +288,13 @@ export default function RentalFeaturePage({ profile }) {
     </section>}
 
     {tab === 'historis' && <section className="x-card">
-      <div className="x-card-title"><div><h3>Riwayat Rental — Format SUMMERY RENTAL</h3><p>Kolom mengikuti Excel: No, Tahun, Supplier, Uraian, Periode Tagihan, Nilai Invoice.</p></div></div>
-      <div className="x-table-wrap"><table className="x-table"><thead><tr><th>No</th><th>Tahun</th><th>Supplier</th><th>Uraian</th><th>Periode Tagihan</th><th>Nilai Invoice</th></tr></thead><tbody>{historicalRows.length ? historicalRows.map(row => <tr key={row.excel_row}><td>{row.no_excel}</td><td>{row.tahun}</td><td>{row.supplier}</td><td>{row.uraian}</td><td>{row.periode_tagihan}</td><td>{money(row.nilai_invoice)}</td></tr>) : <tr><td colSpan="6"><Empty /></td></tr>}</tbody></table></div>
+      <div className="x-card-title"><div><h3>Summary Rental — Penagihan</h3><p>Fokus halaman ini adalah memeriksa tagihan rental secara jelas: supplier, uraian, periode, tahun, dan nilai invoice. No. rangka tidak diperlukan.</p></div>{editable&&<button className="x-btn primary" type="button" onClick={resetHistoryForm}>+ Tambah Data</button>}</div>
+      <div className="x-summary-grid rental-summary-grid"><div><span>Baris tampil</span><b>{filteredHistory.length}</b></div><div><span>Total Invoice</span><b>{money(historyTotal)}</b></div><div><span>Tahun aktif</span><b>{historyYear === 'SEMUA' ? 'Semua' : historyYear}</b></div><div><span>Supplier</span><b>{historySupplier === 'SEMUA' ? 'Semua' : historySupplier}</b></div></div>
+      {editable&&<form className="x-grid rental-history-form" onSubmit={saveHistory}><label>Tahun<input type="number" min="2000" max="2100" value={historyForm.tahun} onChange={e=>setHistoryForm({...historyForm,tahun:e.target.value})}/></label><label>Supplier<input value={historyForm.supplier} onChange={e=>setHistoryForm({...historyForm,supplier:e.target.value})} placeholder="Nama perusahaan rental"/></label><label>Uraian<input value={historyForm.uraian} onChange={e=>setHistoryForm({...historyForm,uraian:e.target.value})} placeholder="Uraian tagihan"/></label><label>Periode Tagihan<input value={historyForm.periode_tagihan} onChange={e=>setHistoryForm({...historyForm,periode_tagihan:e.target.value})} placeholder="Januari / 01-2026"/></label><label>Nilai Invoice<input type="number" min="0" value={historyForm.nilai_invoice} onChange={e=>setHistoryForm({...historyForm,nilai_invoice:e.target.value})}/></label><label>No. Sumber (opsional)<input value={historyForm.source_no} onChange={e=>setHistoryForm({...historyForm,source_no:e.target.value})}/></label><div className="full x-actions"><button type="button" className="x-btn secondary" onClick={resetHistoryForm}>Bersihkan</button><button className="x-btn primary" disabled={saving}>{editingHistory?'Perbarui Data':'Simpan Data'}</button></div></form>}
+      <div className="x-toolbar-inline"><input value={historySearch} onChange={e=>setHistorySearch(e.target.value)} placeholder="Cari supplier, uraian, periode, nomor..." /><select value={historyYear} onChange={e=>setHistoryYear(e.target.value)}><option value="SEMUA">Semua tahun</option>{historyYears.map(y=><option key={y} value={y}>{y}</option>)}</select><select value={historySupplier} onChange={e=>setHistorySupplier(e.target.value)}><option value="SEMUA">Semua supplier</option>{historySuppliers.map(x=><option key={x} value={x}>{x}</option>)}</select><button className="x-btn secondary" type="button" onClick={()=>{setHistorySearch('');setHistoryYear('SEMUA');setHistorySupplier('SEMUA')}}>Reset Filter</button></div>
+      <div className="x-table-wrap"><table className="x-table rental-history-table"><thead><tr><th>No</th><th>Tahun</th><th>Supplier</th><th>Uraian</th><th>Periode Tagihan</th><th>Nilai Invoice</th><th>Aksi</th></tr></thead><tbody>{filteredHistory.length ? filteredHistory.map(row=><tr key={row.excel_row}><td><b>{row.no_excel}</b></td><td>{row.tahun}</td><td>{row.supplier}</td><td>{row.uraian}</td><td>{row.periode_tagihan}</td><td><b>{money(row.nilai_invoice)}</b></td><td className="x-action-compact"><button className="x-link" onClick={()=>setHistoryDetail(row)}>Detail</button>{editable&&<><button className="x-link" onClick={()=>editHistory(row)}>Edit</button><button className="x-link danger" onClick={()=>deleteHistory(row)} disabled={saving}>Hapus</button></>}</td></tr>) : <tr><td colSpan="7"><Empty /></td></tr>}</tbody></table></div>
     </section>}
+    {historyDetail && <div className="x-overlay"><section className="x-modal"><div className="x-modal-head"><div><span className="eyebrow">DETAIL TAGIHAN RENTAL</span><h3>{historyDetail.supplier}</h3></div><button onClick={()=>setHistoryDetail(null)}>×</button></div><div className="x-detail"><p><b>No:</b> {historyDetail.no_excel}</p><p><b>Tahun:</b> {historyDetail.tahun}</p><p><b>Supplier:</b> {historyDetail.supplier}</p><p><b>Uraian:</b> {historyDetail.uraian}</p><p><b>Periode:</b> {historyDetail.periode_tagihan}</p><p><b>Nilai Invoice:</b> {money(historyDetail.nilai_invoice)}</p><p><b>Sumber:</b> {historyDetail.source_file || '-'}</p></div><div className="x-actions"><button className="x-btn secondary" onClick={()=>setHistoryDetail(null)}>Tutup</button>{editable&&<button className="x-btn primary" onClick={()=>{setHistoryDetail(null);editHistory(historyDetail)}}>Edit Data</button>}</div></section></div>}
     {tab === 'repair' && <section className="x-card">
       <div className="x-card-title"><h3>Perbaikan Kendaraan Sewa</h3><p>Catat pembayaran kantor dan bukti perbaikan. Setelah dibayar kantor, biaya dapat ditandai untuk dipotong dari rental.</p></div>
       {repairEditable && <form className="x-grid" onSubmit={saveRepair}>
@@ -314,4 +324,38 @@ export default function RentalFeaturePage({ profile }) {
     </section>}
     {loading && <div className="x-card"><Empty /></div>}
   </div>
+
+  const historySuppliers = useMemo(() => Array.from(new Set(rentalHistoryExcel.map(r => String(r.supplier || '').trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'id')), [rentalHistoryExcel])
+  const historyYears = useMemo(() => Array.from(new Set(rentalHistoryExcel.map(r => Number(r.tahun)).filter(Number.isFinite))).sort((a,b)=>b-a), [rentalHistoryExcel])
+  const filteredHistory = useMemo(() => {
+    const q = historySearch.trim().toLowerCase()
+    return historicalRows.filter(row => {
+      const hay = [row.no_excel, row.tahun, row.supplier, row.uraian, row.periode_tagihan].join(' ').toLowerCase()
+      return (!q || hay.includes(q)) && (historyYear === 'SEMUA' || Number(row.tahun) === Number(historyYear)) && (historySupplier === 'SEMUA' || row.supplier === historySupplier)
+    })
+  }, [historicalRows, historySearch, historyYear, historySupplier])
+  const historyTotal = useMemo(() => filteredHistory.reduce((sum,row)=>sum+Number(row.nilai_invoice||0),0), [filteredHistory])
+  const resetHistoryForm = () => { setHistoryForm({ id:null, source_no:'', tahun:new Date().getFullYear(), supplier:'', uraian:'', periode_tagihan:'', nilai_invoice:'' }); setEditingHistory(null) }
+  const editHistory = row => { setEditingHistory(row); setHistoryForm({ id:row.id, source_no:row.no_excel, tahun:row.tahun, supplier:row.supplier === '-' ? '' : row.supplier, uraian:row.uraian === '-' ? '' : row.uraian, periode_tagihan:row.periode_tagihan === '-' ? '' : row.periode_tagihan, nilai_invoice:row.nilai_invoice }); setTab('historis') }
+  const saveHistory = async e => {
+    e.preventDefault(); clearMessages()
+    if(!String(historyForm.tahun).trim() || !historyForm.supplier.trim() || !historyForm.uraian.trim() || !String(historyForm.periode_tagihan).trim() || Number(historyForm.nilai_invoice) < 0) return setError('Tahun, supplier, uraian, periode tagihan, dan nilai invoice wajib diisi.')
+    setSaving(true)
+    try {
+      const maxRow = rentalHistoryExcel.reduce((m,row)=>Math.max(m,Number(row.excel_row)||0),0)
+      const maxNo = rentalHistoryExcel.reduce((m,row)=>Math.max(m,Number(row.source_no)||0),0)
+      const payload = { source_no:String(historyForm.source_no || maxNo + 1), excel_row:editingHistory?.excel_row || maxRow + 1, tahun:Number(historyForm.tahun), supplier:historyForm.supplier.trim(), uraian:historyForm.uraian.trim(), periode_tagihan:historyForm.periode_tagihan.trim(), nilai_invoice:Number(historyForm.nilai_invoice), source_file:'Manual', source_sheet:'SUMMERY RENTAL' }
+      const result = editingHistory
+        ? await supabase.from('rental_historis_excel').update(payload).eq('id',editingHistory.id).select('*').single()
+        : await supabase.from('rental_historis_excel').insert(payload).select('*').single()
+      if(result.error) throw result.error
+      setRentalHistoryExcel(current => { const next=editingHistory?current.map(row=>row.id===result.data.id?result.data:row):[...current,result.data]; return next.sort((a,b)=>Number(a.excel_row||0)-Number(b.excel_row||0)) })
+      resetHistoryForm(); setSuccess(editingHistory?'Data SUMMERY RENTAL diperbarui.':'Data SUMMERY RENTAL ditambahkan.')
+    } catch(e2) { setError(e2.message) } finally { setSaving(false) }
+  }
+  const deleteHistory = async row => {
+    if(!editable) return
+    if(!window.confirm(`Hapus data rental ${row.no_excel || row.id} dari riwayat tagihan?`)) return
+    setSaving(true); try { const result=await supabase.from('rental_historis_excel').delete().eq('id',row.id); if(result.error) throw result.error; setRentalHistoryExcel(current=>current.filter(x=>x.id!==row.id)); setSuccess('Data riwayat rental dihapus.'); if(historyDetail?.id===row.id) setHistoryDetail(null) } catch(e){setError(e.message)} finally{setSaving(false)}
+  }
 }
