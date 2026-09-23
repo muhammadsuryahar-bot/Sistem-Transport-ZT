@@ -16,6 +16,12 @@ const EMPTY = {
 const clean = value => String(value ?? '').trim()
 const normalizeRentalType = value => { const v = clean(value).toUpperCase().replace(/\s+/g, '_'); if (v === 'SEWA_RENTAL' || v === 'PERUSAHAAN_RENTAL' || v === 'SEWA_PERUSAHAAN' || v === 'PERUSAHAAN') return 'SEWA_PERUSAHAAN'; if (v === 'SEWA_PERORANGAN' || v === 'PERORANGAN') return 'SEWA_PERORANGAN'; return '' }
 const rentalTypeLabel = value => value === 'SEWA_PERORANGAN' ? 'Sewa Perorangan' : value === 'SEWA_PERUSAHAAN' ? 'Sewa Perusahaan' : 'Belum ditentukan'
+const inferRentalTypeFromOwner = owner => {
+  const value = clean(owner)
+  if (!value) return ''
+  return /^(PT|CV|UD|YAYASAN|KOPERASI)(\.|\s|$)/i.test(value) ? 'SEWA_PERUSAHAAN' : 'SEWA_PERORANGAN'
+}
+const rentalTypeForVehicle = vehicle => normalizeRentalType(vehicle?.jenis_sewa) || inferRentalTypeFromOwner(vehicle?.pemilik)
 const normalizeOwnership = value => {
   const v = clean(value).toUpperCase().replace(/\s+/g, '_')
   if (v === 'ASET' || v === 'ASET_KANTOR') return 'ASET'
@@ -93,7 +99,7 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
   const openNew = () => { setEditing(null); setForm({ ...EMPTY, kode_kendaraan: `KND-${Date.now()}` }); setPhotoFiles({}); setPhotoUrls({}); setError(''); setModal(true) }
   const openEdit = async vehicle => {
     setEditing(vehicle)
-    setForm({ ...EMPTY, ...vehicle, kepemilikan: normalizeOwnership(vehicle.kepemilikan), jenis_sewa: normalizeRentalType(vehicle.jenis_sewa), harga_perolehan: vehicle.harga_perolehan ?? '', driver_id: vehicle.driver_id ?? '' })
+    setForm({ ...EMPTY, ...vehicle, kepemilikan: normalizeOwnership(vehicle.kepemilikan), jenis_sewa: normalizeRentalType(vehicle.jenis_sewa) || inferRentalTypeFromOwner(vehicle.pemilik), harga_perolehan: vehicle.harga_perolehan ?? '', driver_id: vehicle.driver_id ?? '' })
     setPhotoFiles({})
     setPhotoUrls({})
     setError('')
@@ -261,7 +267,7 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
         <td><b>{v.nomor_polisi}</b><span>{v.merk} {v.tipe || ''}</span><small>{v.tahun || '-'}{v.nomor_mesin ? ` • Mesin ${v.nomor_mesin}` : ''}</small></td>
         <td><span className="mep-pill">{v.jenis_kendaraan || '-'}</span></td>
         <td><b>{OWNERSHIP[normalizeOwnership(v.kepemilikan)] || '-'}</b></td>
-        <td><span>{v.kepemilikan === 'SEWA' ? (rentalTypeLabel(normalizeRentalType(v.jenis_sewa))) : '-'}</span></td>
+        <td><span>{v.kepemilikan === 'SEWA' ? rentalTypeLabel(rentalTypeForVehicle(v)) : '-'}</span></td>
         <td><span>{v.harga_perolehan == null ? '-' : `Rp ${Number(v.harga_perolehan).toLocaleString('id-ID')}`}</span></td>
         <td><span>{v.pemilik || '-'}</span></td>
         <td><span>{driver?.nama_lengkap || '-'}</span></td>
