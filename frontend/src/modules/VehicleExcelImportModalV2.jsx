@@ -32,7 +32,7 @@ const LABELS = {
 const EXPECTED_HEADERS = [
   ['No', 'Urutan sumber'], ['Merk', 'Merk'], ['Type', 'Tipe'], ['Jenis', 'Jenis kendaraan'],
   ['Tahun', 'Tahun'], ['No. Pol', 'Nomor polisi'], ['No. Mesin', 'Nomor mesin'], ['No. Rangka', 'Nomor rangka'],
-  ['Pemilik', 'Pemilik'], ['Status', 'Kepemilikan: Aset/Sewa'], ['Jenis Sewa', 'Opsional: Sewa Perorangan/Sewa Rental'], ['Masa Berlaku Pajak', 'Jatuh tempo pajak'],
+  ['Pemilik', 'Pemilik'], ['Status', 'Kepemilikan: Aset/Sewa'], ['Jenis Sewa', 'Opsional: Sewa Perorangan/Sewa Perusahaan'], ['Masa Berlaku Pajak', 'Jatuh tempo pajak'],
   ['Status Pajak', 'Hidup/Mati'], ['Unit Kerja', 'Unit kerja'], ['Driver', 'Driver/PIC'], ['Lokasi Kerja', 'Lokasi'],
   ['Keterangan', 'Keterangan'], ['Catatan Hutang', 'Catatan hutang'],
 ]
@@ -90,7 +90,7 @@ function repairRow(row, headers) {
     nomor_rangka: valueOf(row, headers, 'nomor_rangka'),
     pemilik: valueOf(row, headers, 'pemilik'),
     ownership,
-    jenis_sewa: upper(valueOf(row, headers, 'jenis_sewa')),
+    jenis_sewa: upper(valueOf(row, headers, 'jenis_sewa')).replace(/^(SEWA_)?RENTAL$/, 'SEWA_PERUSAHAAN'),
     masa_pajak_raw: valueOf(row, headers, 'masa_pajak'),
     status_pajak: statusPajak,
     unit_kerja: valueOf(row, headers, 'unit_kerja'),
@@ -107,7 +107,7 @@ function repairRow(row, headers) {
     out.status_pajak = ''
   }
   if (['ASET', 'MILIK', 'MILIK KANTOR', 'ASET KANTOR'].includes(ownership)) { out.kepemilikan = 'ASET'; out.jenis_sewa = '' }
-  else if (/^(SEWA|RENTAL|KENDARAAN SEWA)$/.test(ownership)) { out.kepemilikan = 'SEWA'; if (!['SEWA_PERORANGAN', 'SEWA_RENTAL'].includes(out.jenis_sewa)) out.jenis_sewa = '' }
+  else if (/^(SEWA|RENTAL|KENDARAAN SEWA)$/.test(ownership)) { out.kepemilikan = 'SEWA'; if (!['SEWA_PERORANGAN', 'SEWA_PERUSAHAAN'].includes(out.jenis_sewa)) out.jenis_sewa = '' }
   else if (!ownership) { out.kepemilikan = null; out.jenis_sewa = '' }
   else { out.kepemilikan = null; out.jenis_sewa = '' }
   return out

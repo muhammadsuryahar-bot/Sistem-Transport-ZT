@@ -26,7 +26,7 @@ const ROLE_ACCESS = {
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
   { id: 'kendaraan', label: 'Kendaraan', icon: 'vehicle' },
-  { id: 'pengajuan', label: 'Pengajuan Service', icon: 'request' },
+  { id: 'pengajuan', label: 'Data Service', icon: 'request' },
   { id: 'service', label: 'Service & Perbaikan', icon: 'service' },
   { id: 'sewa', label: 'Administrasi Sewa', icon: 'rental' },
   { id: 'dokumen', label: 'Dokumen', icon: 'document' },
