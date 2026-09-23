@@ -271,7 +271,40 @@ export default function ServiceFeaturePage({ profile }) {
       setSuccess('Riwayat penggantian dihapus.')
     } catch (err) { setError(err.message) } finally { setSaving(false) }
   }
-  const addKm = async e => { e.preventDefault(); clearMessages(); if (!kmForm.kendaraan_id || kmForm.kilometer === '') return setError('Kendaraan dan KM wajib diisi.'); const km = Number(kmForm.kilometer), current = Number(vehicleMap[kmForm.kendaraan_id]?.kilometer_terakhir || 0); if (!Number.isFinite(km) || km < 0) return setError('KM harus berupa angka 0 atau lebih.'); if (km < current) return setError(`KM baru tidak boleh lebih kecil dari KM terakhir (${current}).`); const { data: savedKm, error: e1 } = await supabase.from('riwayat_kilometer').insert({ kendaraan_id: Number(kmForm.kendaraan_id), tanggal: kmForm.tanggal, kilometer: km, sumber: kmForm.sumber, keterangan: kmForm.keterangan.trim() || null, dicatat_oleh: profile.id }).select('*').single(); if (e1) return setError(e1.message); const { error: e2 } = await supabase.from('kendaraan').update({ kilometer_terakhir: km }).eq('id', kmForm.kendaraan_id); if (e2) setError(e2.message); else { setKms(current => [savedKm, ...current]); setVehicles(current => current.map(row => row.id === Number(kmForm.kendaraan_id) ? { ...row, kilometer_terakhir: km } : row)); setSuccess('Riwayat KM tersimpan.'); } setKmForm({ ...emptyKm, tanggal: new Date().toISOString().slice(0, 10) }) }
+  const saveKm = async e => {
+    e.preventDefault(); clearMessages()
+    if (!kmForm.kendaraan_id || kmForm.kilometer === '') return setError('Kendaraan dan KM wajib diisi.')
+    const km = Number(kmForm.kilometer)
+    const current = Number(vehicleMap[kmForm.kendaraan_id]?.kilometer_terakhir || 0)
+    if (!Number.isFinite(km) || km < 0) return setError('KM harus berupa angka 0 atau lebih.')
+    if (km < current && !editingKmId) return setError('KM baru tidak boleh lebih kecil dari KM terakhir (' + current + ').')
+    setSaving(true)
+    try {
+      const payload = { kendaraan_id: Number(kmForm.kendaraan_id), tanggal: kmForm.tanggal, kilometer: km, sumber: kmForm.sumber, keterangan: kmForm.keterangan.trim() || null, dicatat_oleh: profile.id }
+      const result = editingKmId ? await supabase.from('riwayat_kilometer').update(payload).eq('id', editingKmId).select('*').single() : await supabase.from('riwayat_kilometer').insert(payload).select('*').single()
+      if (result.error) throw result.error
+      if (km >= current) {
+        const vehicleResult = await supabase.from('kendaraan').update({ kilometer_terakhir: km }).eq('id', kmForm.kendaraan_id)
+        if (vehicleResult.error) throw vehicleResult.error
+        setVehicles(currentRows => currentRows.map(row => row.id === Number(kmForm.kendaraan_id) ? { ...row, kilometer_terakhir: km } : row))
+      }
+      setKms(currentRows => editingKmId ? currentRows.map(row => row.id === result.data.id ? result.data : row) : [result.data, ...currentRows])
+      setSuccess(editingKmId ? 'Riwayat KM diperbarui.' : 'Riwayat KM tersimpan.')
+      setEditingKmId(null); setKmForm({ ...emptyKm, tanggal: new Date().toISOString().slice(0, 10) })
+    } catch (err) { setError(err.message) } finally { setSaving(false) }
+  }
+  const editKm = row => { setEditingKmId(row.id); setKmForm({ kendaraan_id: row.kendaraan_id, tanggal: row.tanggal, kilometer: row.kilometer, sumber: row.sumber || 'MANUAL', keterangan: row.keterangan || '' }); setTab('km') }
+  const deleteKm = async row => {
+    if (!canProcess) return
+    if (!window.confirm('Hapus riwayat KM ' + Number(row.kilometer || 0).toLocaleString('id-ID') + ' km?')) return
+    setSaving(true)
+    try {
+      const result = await supabase.from('riwayat_kilometer').delete().eq('id', row.id)
+      if (result.error) throw result.error
+      setKms(currentRows => currentRows.filter(x => x.id !== row.id))
+      setSuccess('Riwayat KM dihapus. KM terakhir kendaraan perlu dicek kembali jika data paling baru ikut terhapus.')
+    } catch (err) { setError(err.message) } finally { setSaving(false) }
+  }
   const openDetail = s => { setSelected(s); setDetailEdit({ biaya_aktual: s.biaya_aktual ?? s.estimasi_biaya ?? '' }) }
   const openServiceEdit = s => { setEditingServiceId(s.id); setForm({ ...emptyService, permintaan_service_id: s.permintaan_service_id ?? '', kendaraan_id: s.kendaraan_id ?? '', tanggal_service: s.tanggal_service || new Date().toISOString().slice(0, 10), kilometer: s.kilometer ?? '', bengkel: s.bengkel || '', jenis_service: s.jenis_service || 'SERVICE', keluhan: s.keluhan || '', estimasi_biaya: s.estimasi_biaya ?? '', biaya_aktual: s.biaya_aktual ?? '', nilai_dpp: s.nilai_dpp ?? '', ppn: s.ppn ?? '', total: s.total ?? '', catatan: s.catatan || '' }); setTab('pekerjaan'); setSelected(null) }
   const deleteService = async s => { if (!canProcess) return; if (!window.confirm(`Hapus service ${s.nomor_service || s.id}? Data ini akan dihapus jika belum memiliki item, bukti, atau approval.`)) return; setSaving(true); try { const [ic,pc,ac] = await Promise.all([supabase.from('service_item').select('id',{count:'exact',head:true}).eq('service_id',s.id),supabase.from('service_bukti').select('id',{count:'exact',head:true}).eq('service_id',s.id),supabase.from('service_approval').select('id',{count:'exact',head:true}).eq('service_id',s.id)]); if(ic.error) throw ic.error; if(pc.error) throw pc.error; if(ac.error) throw ac.error; if((ic.count||0)+(pc.count||0)+(ac.count||0)>0) throw new Error('Service sudah memiliki item, bukti, atau approval. Hapus bagian terkait terlebih dahulu agar histori tidak hilang.'); const result=await supabase.from('service').delete().eq('id',s.id); if(result.error) throw result.error; if(s.permintaan_service_id) await supabase.from('permintaan_service').update({status:'MENUNGGU_TRANSPORT',diproses_oleh:null,diproses_at:null}).eq('id',s.permintaan_service_id); setServices(current=>current.filter(row=>row.id!==s.id)); setSuccess('Data service dihapus.'); } catch(e){setError(e.message)} finally{setSaving(false)} }
