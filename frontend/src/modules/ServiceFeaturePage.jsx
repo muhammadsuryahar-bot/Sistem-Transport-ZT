@@ -227,7 +227,50 @@ export default function ServiceFeaturePage({ profile }) {
       setSuccess('Bukti service dihapus.')
     } catch (err) { setError(err.message) } finally { setSaving(false) }
   }
-  const addPart = async e => { e.preventDefault(); clearMessages(); if (!partForm.kendaraan_id || !partForm.alasan_penggantian.trim()) return setError('Kendaraan dan alasan penggantian wajib diisi.'); if (!file) return setError('Foto kondisi sebelum wajib diunggah.'); if (!Number.isFinite(Number(partForm.kilometer)) || Number(partForm.kilometer) < 0) return setError('KM penggantian harus berupa angka 0 atau lebih.'); if (!Number.isFinite(Number(partForm.biaya || 0)) || Number(partForm.biaya || 0) < 0) return setError('Biaya penggantian tidak valid.'); const payload = { kendaraan_id: Number(partForm.kendaraan_id), tanggal_penggantian: partForm.tanggal_penggantian, kilometer: Number(partForm.kilometer || 0), kondisi_sebelum: partForm.kondisi_sebelum.trim() || null, alasan_penggantian: partForm.alasan_penggantian.trim(), biaya: Number(partForm.biaya || 0), keterangan: partForm.keterangan.trim() || null, dicatat_oleh: profile.id }; let uploadedPath = null; let savedPart = null; try { setSaving(true); if (partForm._type === 'BAN') { payload.jumlah_ban = Number(partForm.jumlah_ban || 1); payload.posisi_ban = partForm.posisi_ban || null; payload.merek_ban = partForm.merek_ban || null; payload.ukuran_ban = partForm.ukuran_ban || null; uploadedPath = await upload('service-bukti', file, `ban/${partForm.kendaraan_id}`); payload.foto_sebelum_path = uploadedPath; const { data, error } = await supabase.from('riwayat_ban').insert(payload).select('*').single(); if (error) throw error; savedPart = data } else { payload.merek_aki = partForm.merek_aki || null; payload.tipe_aki = partForm.tipe_aki || null; payload.nomor_aki = partForm.nomor_aki || null; uploadedPath = await upload('service-bukti', file, `aki/${partForm.kendaraan_id}`); payload.foto_sebelum_path = uploadedPath; const { data, error } = await supabase.from('riwayat_aki').insert(payload).select('*').single(); if (error) throw error; savedPart = data } if (partForm._type === 'BAN') setBans(current => [savedPart, ...current]); else setAkis(current => [savedPart, ...current]); setSuccess(`Riwayat penggantian ${partForm._type === 'BAN' ? 'ban' : 'aki/baterai'} tersimpan.`); setFile(null); setPartForm({ ...emptyPart, _type: partForm._type }) } catch (e) { if (uploadedPath) await supabase.storage.from('service-bukti').remove([uploadedPath]); setError(e.message) } finally { setSaving(false) } }
+  const savePart = async e => {
+    e.preventDefault(); clearMessages()
+    if (!partForm.kendaraan_id || !partForm.alasan_penggantian.trim()) return setError('Kendaraan dan alasan penggantian wajib diisi.')
+    if (!editingPartId && !file) return setError('Foto kondisi sebelum wajib diunggah.')
+    if (!Number.isFinite(Number(partForm.kilometer)) || Number(partForm.kilometer) < 0) return setError('KM penggantian harus berupa angka 0 atau lebih.')
+    if (!Number.isFinite(Number(partForm.biaya || 0)) || Number(partForm.biaya || 0) < 0) return setError('Biaya penggantian tidak valid.')
+    const tableName = partForm._type === 'BAN' ? 'riwayat_ban' : 'riwayat_aki'
+    const previous = editingPartId ? (partForm._type === 'BAN' ? bans.find(x => x.id === editingPartId) : akis.find(x => x.id === editingPartId)) : null
+    const payload = { kendaraan_id: Number(partForm.kendaraan_id), tanggal_penggantian: partForm.tanggal_penggantian, kilometer: Number(partForm.kilometer || 0), kondisi_sebelum: partForm.kondisi_sebelum.trim() || null, alasan_penggantian: partForm.alasan_penggantian.trim(), biaya: Number(partForm.biaya || 0), keterangan: partForm.keterangan.trim() || null, dicatat_oleh: profile.id }
+    if (partForm._type === 'BAN') Object.assign(payload, { jumlah_ban: Number(partForm.jumlah_ban || 1), posisi_ban: partForm.posisi_ban || null, merek_ban: partForm.merek_ban || null, ukuran_ban: partForm.ukuran_ban || null })
+    else Object.assign(payload, { merek_aki: partForm.merek_aki || null, tipe_aki: partForm.tipe_aki || null, nomor_aki: partForm.nomor_aki || null })
+    let uploadedPath = null
+    setSaving(true)
+    try {
+      if (file) { uploadedPath = await upload('service-bukti', file, (partForm._type === 'BAN' ? 'ban/' : 'aki/') + partForm.kendaraan_id); payload.foto_sebelum_path = uploadedPath }
+      else if (previous?.foto_sebelum_path) payload.foto_sebelum_path = previous.foto_sebelum_path
+      const result = editingPartId
+        ? await supabase.from(tableName).update(payload).eq('id', editingPartId).select('*').single()
+        : await supabase.from(tableName).insert(payload).select('*').single()
+      if (result.error) throw result.error
+      if (editingPartId && file && previous?.foto_sebelum_path) await supabase.storage.from('service-bukti').remove([previous.foto_sebelum_path])
+      if (partForm._type === 'BAN') setBans(current => editingPartId ? current.map(row => row.id === result.data.id ? result.data : row) : [result.data, ...current])
+      else setAkis(current => editingPartId ? current.map(row => row.id === result.data.id ? result.data : row) : [result.data, ...current])
+      setSuccess(editingPartId ? 'Riwayat penggantian diperbarui.' : 'Riwayat penggantian tersimpan.')
+      setFile(null); setEditingPartId(null); setPartForm({ ...emptyPart, _type: partForm._type })
+    } catch (err) { if (uploadedPath) await supabase.storage.from('service-bukti').remove([uploadedPath]); setError(err.message) } finally { setSaving(false) }
+  }
+  const editPart = row => {
+    const type = tab === 'ban' ? 'BAN' : 'AKI'
+    setEditingPartId(row.id); setPartForm({ ...emptyPart, ...row, kendaraan_id: row.kendaraan_id, tanggal_penggantian: row.tanggal_penggantian || emptyPart.tanggal_penggantian, kilometer: row.kilometer ?? '', biaya: row.biaya ?? '', alasan_penggantian: row.alasan_penggantian || '', kondisi_sebelum: row.kondisi_sebelum || '', keterangan: row.keterangan || '', _type: type }); setFile(null)
+  }
+  const deletePart = async row => {
+    if (!canProcess) return
+    if (!window.confirm('Hapus riwayat ' + (tab === 'ban' ? 'ban' : 'aki') + '?')) return
+    setSaving(true)
+    try {
+      const tableName = tab === 'ban' ? 'riwayat_ban' : 'riwayat_aki'
+      const result = await supabase.from(tableName).delete().eq('id', row.id)
+      if (result.error) throw result.error
+      if (row.foto_sebelum_path) await supabase.storage.from('service-bukti').remove([row.foto_sebelum_path])
+      if (tab === 'ban') setBans(current => current.filter(x => x.id !== row.id)); else setAkis(current => current.filter(x => x.id !== row.id))
+      setSuccess('Riwayat penggantian dihapus.')
+    } catch (err) { setError(err.message) } finally { setSaving(false) }
+  }
   const addKm = async e => { e.preventDefault(); clearMessages(); if (!kmForm.kendaraan_id || kmForm.kilometer === '') return setError('Kendaraan dan KM wajib diisi.'); const km = Number(kmForm.kilometer), current = Number(vehicleMap[kmForm.kendaraan_id]?.kilometer_terakhir || 0); if (!Number.isFinite(km) || km < 0) return setError('KM harus berupa angka 0 atau lebih.'); if (km < current) return setError(`KM baru tidak boleh lebih kecil dari KM terakhir (${current}).`); const { data: savedKm, error: e1 } = await supabase.from('riwayat_kilometer').insert({ kendaraan_id: Number(kmForm.kendaraan_id), tanggal: kmForm.tanggal, kilometer: km, sumber: kmForm.sumber, keterangan: kmForm.keterangan.trim() || null, dicatat_oleh: profile.id }).select('*').single(); if (e1) return setError(e1.message); const { error: e2 } = await supabase.from('kendaraan').update({ kilometer_terakhir: km }).eq('id', kmForm.kendaraan_id); if (e2) setError(e2.message); else { setKms(current => [savedKm, ...current]); setVehicles(current => current.map(row => row.id === Number(kmForm.kendaraan_id) ? { ...row, kilometer_terakhir: km } : row)); setSuccess('Riwayat KM tersimpan.'); } setKmForm({ ...emptyKm, tanggal: new Date().toISOString().slice(0, 10) }) }
   const openDetail = s => { setSelected(s); setDetailEdit({ biaya_aktual: s.biaya_aktual ?? s.estimasi_biaya ?? '' }) }
   const openServiceEdit = s => { setEditingServiceId(s.id); setForm({ ...emptyService, permintaan_service_id: s.permintaan_service_id ?? '', kendaraan_id: s.kendaraan_id ?? '', tanggal_service: s.tanggal_service || new Date().toISOString().slice(0, 10), kilometer: s.kilometer ?? '', bengkel: s.bengkel || '', jenis_service: s.jenis_service || 'SERVICE', keluhan: s.keluhan || '', estimasi_biaya: s.estimasi_biaya ?? '', biaya_aktual: s.biaya_aktual ?? '', nilai_dpp: s.nilai_dpp ?? '', ppn: s.ppn ?? '', total: s.total ?? '', catatan: s.catatan || '' }); setTab('pekerjaan'); setSelected(null) }
