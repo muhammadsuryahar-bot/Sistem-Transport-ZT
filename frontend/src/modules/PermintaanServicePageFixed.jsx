@@ -15,7 +15,7 @@ const fmtDate = value => {
   return match ? `${match[3]}/${match[2]}/${match[1]}` : raw
 }
 const clean = v => String(v ?? '').trim()
-const normalizeItemName = v => clean(v).replace(/^\\d+[.)-]\\s*/, '').toUpperCase()
+const normalizeItemName = v => clean(v).replace(/^\d+[.)-]\s*/, '').toUpperCase()
 const itemCategory = (category, name = '') => {
   const raw = (clean(category) + ' ' + clean(name)).toUpperCase()
   if (/BAN|TYRE|TIRE/.test(raw)) return 'BAN'
@@ -46,6 +46,9 @@ export default function PermintaanServicePage({ profile }) {
   const [summarySearch, setSummarySearch] = useState('')
   const [summaryOwnership, setSummaryOwnership] = useState('SEMUA')
   const [benchmarkSearch, setBenchmarkSearch] = useState('')
+  const [benchmarks, setBenchmarks] = useState([])
+  const [benchmarkForm, setBenchmarkForm] = useState({ id: null, nama_item: '', kategori: 'SPAREPART', satuan: 'pcs', harga_patokan: '', berlaku_mulai: new Date().toISOString().slice(0, 10), keterangan: '' })
+  const [editingBenchmark, setEditingBenchmark] = useState(null)
   const [selectedIds, setSelectedIds] = useState([])
   const [selectionMode, setSelectionMode] = useState(false)
   const [viewMode, setViewMode] = useState('ringkasan')
@@ -68,11 +71,12 @@ export default function PermintaanServicePage({ profile }) {
       supabase.from('riwayat_kilometer').select('id,kendaraan_id,tanggal,kilometer,sumber').order('tanggal', { ascending: true }),
       supabase.from('riwayat_ban').select('id,kendaraan_id,tanggal_penggantian,kilometer,biaya,merek_ban,ukuran_ban').order('tanggal_penggantian', { ascending: true }),
       supabase.from('riwayat_aki').select('id,kendaraan_id,tanggal_penggantian,kilometer,biaya,merek_aki,tipe_aki').order('tanggal_penggantian', { ascending: true }),
+      supabase.from('patokan_harga_service').select('*').eq('aktif', true).order('nama_item'),
     ])
-    const names = ['Kendaraan', 'Pengajuan', 'Service', 'Item Service', 'Riwayat KM', 'Riwayat Ban', 'Riwayat Aki']
+    const names = ['Kendaraan', 'Pengajuan', 'Service', 'Item Service', 'Riwayat KM', 'Riwayat Ban', 'Riwayat Aki', 'Patokan Harga']
     rs.forEach((r, i) => { if (r.error) setError(prev => prev || `${names[i]}: ${r.error.message}`) })
     setVehicles(rs[0].data || []); setRequests(rs[1].data || []); setServices(rs[2].data || []); setItems(rs[3].data || [])
-    setKilometers(rs[4].data || []); setBans(rs[5].data || []); setAkis(rs[6].data || [])
+    setKilometers(rs[4].data || []); setBans(rs[5].data || []); setAkis(rs[6].data || []); setBenchmarks(rs[7].data || [])
     setSelectedIds([]); setSelectionMode(false); setLoading(false)
   }
 
@@ -95,9 +99,10 @@ export default function PermintaanServicePage({ profile }) {
     const vehicleServices = services.filter(s => Number(s.kendaraan_id) === Number(vehicle.id))
     const serviceIds = new Set(vehicleServices.map(s => s.id))
     const vehicleItems = items.filter(i => serviceIds.has(i.service_id))
-    const jasaItems = vehicleItems.filter(i => ['JASA', 'JASA SERVICE', 'LABOR', 'PEKERJAAN'].includes(itemCategory(i.kategori)))
-    const spareItems = vehicleItems.filter(i => !jasaItems.includes(i))
-    const noItemService = vehicleServices.filter(s => !vehicleItems.some(i => i.service_id === s.id) && ['SERVICE', 'PEMERIKSAAN'].includes(itemCategory(s.jenis_service)))
+    const categorizedItems = vehicleItems.map(i => ({ ...i, computedCategory: itemCategory(i.kategori, i.nama_item) }))
+    const jasaItems = categorizedItems.filter(i => i.computedCategory === 'JASA')
+    const spareItems = categorizedItems.filter(i => ['SPAREPART', 'BAN', 'AKI'].includes(i.computedCategory))
+    const noItemService = vehicleServices.filter(s => !vehicleItems.some(i => i.service_id === s.id) && ['SERVICE', 'PEMERIKSAAN'].includes(itemCategory(s.jenis_service, s.keluhan)))
     const totalJasa = jasaItems.reduce((sum, i) => sum + Number(i.subtotal || 0), 0) + noItemService.reduce((sum, s) => sum + Number(s.total ?? s.biaya_aktual ?? s.estimasi_biaya ?? 0), 0)
     const totalSpare = spareItems.reduce((sum, i) => sum + Number(i.subtotal || 0), 0) + bans.filter(r => Number(r.kendaraan_id) === Number(vehicle.id)).reduce((sum, r) => sum + Number(r.biaya || 0), 0) + akis.filter(r => Number(r.kendaraan_id) === Number(vehicle.id)).reduce((sum, r) => sum + Number(r.biaya || 0), 0)
     const totalService = vehicleServices.reduce((sum, s) => sum + Number(s.total ?? s.biaya_aktual ?? s.estimasi_biaya ?? 0), 0)
@@ -143,16 +148,25 @@ export default function PermintaanServicePage({ profile }) {
   const benchmarkRows = useMemo(() => {
     const grouped = new Map()
     items.forEach(item => {
-      const name = clean(item.nama_item).toUpperCase()
+      const name = normalizeItemName(item.nama_item)
       if (!name) return
-      const key = `${name}|${itemCategory(item.kategori)}`
-      const current = grouped.get(key) || { nama_item: name, kategori: itemCategory(item.kategori), harga: [], jumlah: 0 }
-      current.harga.push(Number(item.harga_satuan || 0)); current.jumlah += 1; grouped.set(key, current)
+      const kategori = itemCategory(item.kategori, item.nama_item)
+      const key = name + '|' + kategori
+      const current = grouped.get(key) || { nama_item: name, kategori, harga: [], satuan: item.satuan || '-', jumlah: 0 }
+      current.harga.push(Number(item.harga_satuan || 0))
+      current.jumlah += 1
+      if (item.satuan && current.satuan === '-') current.satuan = item.satuan
+      grouped.set(key, current)
     })
     const q = benchmarkSearch.trim().toLowerCase()
-    return Array.from(grouped.values()).map(row => ({ ...row, min: Math.min(...row.harga), max: Math.max(...row.harga), avg: row.harga.reduce((a, b) => a + b, 0) / row.harga.length, last: row.harga[0] })).filter(row => !q || `${row.nama_item} ${row.kategori}`.toLowerCase().includes(q)).sort((a, b) => a.nama_item.localeCompare(b.nama_item, 'id'))
-  }, [items, benchmarkSearch])
-
+    return Array.from(grouped.values()).map(row => {
+      const sorted = row.harga.filter(Number.isFinite).sort((a, b) => a - b)
+      const avg = sorted.length ? sorted.reduce((a, b) => a + b, 0) / sorted.length : 0
+      const median = sorted.length % 2 ? sorted[(sorted.length - 1) / 2] : sorted.length ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2 : 0
+      const reference = benchmarks.find(b => normalizeItemName(b.nama_item) === row.nama_item && itemCategory(b.kategori, b.nama_item) === row.kategori && String(b.satuan || '-') === String(row.satuan || '-'))
+      return { ...row, min: sorted[0] || 0, max: sorted[sorted.length - 1] || 0, avg, median, reference }
+    }).filter(row => !q || (row.nama_item + ' ' + row.kategori).toLowerCase().includes(q)).sort((a, b) => a.nama_item.localeCompare(b.nama_item, 'id'))
+  }, [items, benchmarks, benchmarkSearch])
   const filteredRequests = useMemo(() => {
     const q = search.trim().toLowerCase()
     return requests.filter(r => {
