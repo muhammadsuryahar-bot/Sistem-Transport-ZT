@@ -60,6 +60,9 @@ export default function RentalFeaturePage({ profile }) {
   const [historyForm, setHistoryForm] = useState({ id: null, source_no: '', tahun: new Date().getFullYear(), supplier: '', uraian: '', periode_tagihan: '', nilai_invoice: '' })
   const [editingHistory, setEditingHistory] = useState(null)
   const [historyDetail, setHistoryDetail] = useState(null)
+  const [editingOwnerId, setEditingOwnerId] = useState(null), [ownerDetail, setOwnerDetail] = useState(null)
+  const [editingContractId, setEditingContractId] = useState(null), [contractDetail, setContractDetail] = useState(null)
+  const [editingRepairId, setEditingRepairId] = useState(null), [repairDetail, setRepairDetail] = useState(null)
 
   const editable = ['ADMIN', 'TRANSPORT', 'AKUNTANSI'].includes(profile?.role)
   const repairEditable = ['ADMIN', 'TRANSPORT'].includes(profile?.role)
@@ -106,47 +109,55 @@ export default function RentalFeaturePage({ profile }) {
 
   const clearMessages = () => { setError(''); setSuccess('') }
 
+  const resetOwnerForm = () => { setOwner(EMPTY_OWNER); setEditingOwnerId(null) }
+  const editOwner = row => { setEditingOwnerId(row.id); setOwner({ ...EMPTY_OWNER, ...row, nama_pemilik: row.nama_pemilik || '', nama_perusahaan: row.nama_perusahaan || '', nomor_identitas: row.nomor_identitas || '', nomor_hp: row.nomor_hp || '', email: row.email || '', alamat: row.alamat || '', nomor_rekening: row.nomor_rekening || '', nama_bank: row.nama_bank || '', keterangan: row.keterangan || '' }); setTab('pemilik') }
+  const deleteOwner = async row => {
+    if (!editable) return
+    if (contracts.some(c => Number(c.pemilik_sewa_id) === Number(row.id))) return setError('Pemilik masih dipakai pada kontrak. Hapus/ubah kontraknya terlebih dahulu.')
+    if (!window.confirm('Hapus pemilik ' + row.nama_pemilik + '?')) return
+    setSaving(true); try { const result = await supabase.from('pemilik_sewa').delete().eq('id', row.id); if (result.error) throw result.error; setOwners(current => current.filter(x => x.id !== row.id)); setSuccess('Pemilik sewa dihapus.'); } catch (e) { setError(e.message) } finally { setSaving(false) }
+  }
   const saveOwner = async e => {
     e.preventDefault(); clearMessages()
     if (!owner.nama_pemilik.trim()) return setError('Nama pemilik wajib diisi.')
     if (owner.jenis_pemilik === 'PERUSAHAAN_RENTAL' && !owner.nama_perusahaan.trim()) return setError('Nama perusahaan/rental wajib diisi untuk pemilik rental.')
     if (owner.jenis_pemilik === 'PERORANGAN' && !owner.nomor_identitas.trim()) return setError('Nomor identitas pemilik wajib diisi untuk pemilik perorangan.')
     setSaving(true)
-    const { data: savedOwner, error: e1 } = await supabase.from('pemilik_sewa').insert({ ...owner, nama_pemilik: owner.nama_pemilik.trim(), nama_perusahaan: owner.nama_perusahaan.trim() || null, nomor_identitas: owner.nomor_identitas.trim() || null }).select('*').single()
-    if (e1) setError(e1.message)
-    else { setOwners(current => [...current, savedOwner].sort((a,b) => String(a.nama_pemilik || '').localeCompare(String(b.nama_pemilik || ''), 'id'))); setOwner(EMPTY_OWNER); setSuccess('Pemilik sewa tersimpan.') }
-    setSaving(false)
+    const payload = { ...owner, nama_pemilik: owner.nama_pemilik.trim(), nama_perusahaan: owner.nama_perusahaan.trim() || null, nomor_identitas: owner.nomor_identitas.trim() || null }
+    try {
+      const result = editingOwnerId ? await supabase.from('pemilik_sewa').update(payload).eq('id', editingOwnerId).select('*').single() : await supabase.from('pemilik_sewa').insert(payload).select('*').single()
+      if (result.error) throw result.error
+      setOwners(current => editingOwnerId ? current.map(x => x.id === result.data.id ? result.data : x) : [...current, result.data].sort((a,b) => String(a.nama_pemilik || '').localeCompare(String(b.nama_pemilik || ''), 'id')))
+      resetOwnerForm(); setSuccess(editingOwnerId ? 'Pemilik sewa diperbarui.' : 'Pemilik sewa tersimpan.')
+    } catch (e1) { setError(e1.message) } finally { setSaving(false) }
   }
-
+  const resetContractForm = () => { setContract(EMPTY_CONTRACT); setContractFile(null); setEditingContractId(null) }
+  const editContract = row => { setEditingContractId(row.id); setContract({ ...EMPTY_CONTRACT, ...row, kendaraan_id: String(row.kendaraan_id), pemilik_sewa_id: String(row.pemilik_sewa_id), nilai_sewa_bulanan: row.nilai_sewa_bulanan ?? '', tanggal_jatuh_tempo_bulanan: row.tanggal_jatuh_tempo_bulanan ?? '' }); setContractFile(null); setTab('kontrak') }
+  const deleteContract = async row => {
+    if (!editable) return
+    if (payments.some(p => Number(p.kontrak_sewa_id) === Number(row.id)) || repairs.some(p => Number(p.kontrak_sewa_id) === Number(row.id))) return setError('Kontrak sudah memiliki pembayaran/perbaikan. Jangan hapus; ubah statusnya menjadi SELESAI/DIBATALKAN.')
+    if (!window.confirm('Hapus kontrak ' + (row.nomor_kontrak || row.id) + '?')) return
+    setSaving(true); try { const result = await supabase.from('kontrak_sewa').delete().eq('id', row.id); if (result.error) throw result.error; setContracts(current => current.filter(x => x.id !== row.id)); setSuccess('Kontrak sewa dihapus.') } catch(e){ setError(e.message) } finally { setSaving(false) }
+  }
   const saveContract = async e => {
     e.preventDefault(); clearMessages()
     if (!contract.nomor_kontrak.trim() || !contract.kendaraan_id || !contract.pemilik_sewa_id || !contract.tanggal_mulai || !contract.tanggal_selesai) return setError('Nomor kontrak, kendaraan, pemilik, tanggal mulai dan selesai wajib diisi.')
     if (!contract.nilai_sewa_bulanan || Number(contract.nilai_sewa_bulanan) <= 0) return setError('Nilai sewa bulanan wajib lebih dari 0.')
-    const start = new Date(`${contract.tanggal_mulai}T00:00:00`)
-    const startYear = start.getFullYear()
-    const startMonth = start.getMonth()
-    const startDay = start.getDate()
-    const targetMonth = new Date(startYear, startMonth + 6, 1)
-    const targetLastDay = new Date(targetMonth.getFullYear(), targetMonth.getMonth() + 1, 0).getDate()
-    const clampedDay = Math.min(startDay, targetLastDay)
-    const expectedTarget = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), clampedDay)
-    expectedTarget.setDate(expectedTarget.getDate() - 1)
-    const expectedEnd = expectedTarget
-    const actualEnd = new Date(`${contract.tanggal_selesai}T00:00:00`)
+    const start = new Date(`${contract.tanggal_mulai}T00:00:00`); const startYear = start.getFullYear(); const startMonth = start.getMonth(); const startDay = start.getDate(); const targetMonth = new Date(startYear, startMonth + 6, 1); const targetLastDay = new Date(targetMonth.getFullYear(), targetMonth.getMonth() + 1, 0).getDate(); const clampedDay = Math.min(startDay, targetLastDay); const expectedTarget = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), clampedDay); expectedTarget.setDate(expectedTarget.getDate() - 1); const expectedEnd = expectedTarget; const actualEnd = new Date(`${contract.tanggal_selesai}T00:00:00`)
     if (actualEnd.getTime() !== expectedEnd.getTime()) return setError('Kontrak sewa harus tepat 6 bulan. Tanggal selesai otomatis harus 1 hari sebelum tanggal yang sama pada bulan ke-6.')
-    setSaving(true)
-    let contractPath = null
+    setSaving(true); let contractPath = null
     try {
-      if (!contractFile) throw new Error('Dokumen kontrak wajib diunggah.')
-      contractPath = await uploadRentalFile(contractFile, `kontrak/${contract.kendaraan_id}`)
-      const payload = { ...contract, kendaraan_id: Number(contract.kendaraan_id), pemilik_sewa_id: Number(contract.pemilik_sewa_id), periode_bulan: 6, nilai_sewa_bulanan: Number(contract.nilai_sewa_bulanan), tanggal_jatuh_tempo_bulanan: Number(contract.tanggal_jatuh_tempo_bulanan || 0) || null, dokumen_kontrak_path: contractPath }
-      const { data: savedContract, error: e1 } = await supabase.from('kontrak_sewa').insert(payload).select('*').single()
-      if (e1) throw e1
-      setContracts(current => [savedContract, ...current]); setContract(EMPTY_CONTRACT); setContractFile(null); setSuccess('Kontrak 6 bulan dan dokumen kontrak tersimpan.')
-    } catch (e2) { if (contractPath) await supabase.storage.from('dokumen-sewa').remove([contractPath]); setError(e2.message) }
-    setSaving(false)
+      if (!editingContractId && !contractFile) throw new Error('Dokumen kontrak wajib diunggah.')
+      contractPath = contractFile ? await uploadRentalFile(contractFile, `kontrak/${contract.kendaraan_id}`) : null
+      const payload = { ...contract, kendaraan_id: Number(contract.kendaraan_id), pemilik_sewa_id: Number(contract.pemilik_sewa_id), periode_bulan: 6, nilai_sewa_bulanan: Number(contract.nilai_sewa_bulanan), tanggal_jatuh_tempo_bulanan: Number(contract.tanggal_jatuh_tempo_bulanan || 0) || null, dokumen_kontrak_path: contractPath || (editingContractId ? contracts.find(x => x.id === editingContractId)?.dokumen_kontrak_path || null : null) }
+      const result = editingContractId ? await supabase.from('kontrak_sewa').update(payload).eq('id', editingContractId).select('*').single() : await supabase.from('kontrak_sewa').insert(payload).select('*').single()
+      if (result.error) throw result.error
+      const oldPath = editingContractId ? contracts.find(x => x.id === editingContractId)?.dokumen_kontrak_path : null
+      if (oldPath && contractPath) await supabase.storage.from('dokumen-sewa').remove([oldPath])
+      setContracts(current => editingContractId ? current.map(x => x.id === result.data.id ? result.data : x) : [result.data, ...current])
+      resetContractForm(); setSuccess(editingContractId ? 'Kontrak sewa diperbarui.' : 'Kontrak 6 bulan dan dokumen kontrak tersimpan.')
+    } catch (e2) { if (contractPath) await supabase.storage.from('dokumen-sewa').remove([contractPath]); setError(e2.message) } finally { setSaving(false) }
   }
-
   const savePayment = async e => {
     e.preventDefault(); clearMessages()
     if (!payment.kontrak_sewa_id || !payment.periode_ke || !payment.bulan_pembayaran || !payment.tanggal_jatuh_tempo || !payment.jumlah_tagihan) return setError('Kontrak, periode, bulan, jatuh tempo, dan tagihan wajib diisi.')
@@ -181,29 +192,35 @@ export default function RentalFeaturePage({ profile }) {
     setSaving(false)
   }
 
+  const resetRepairForm = () => { setRepair(EMPTY_REPAIR); setRepairPhoto(null); setRepairProof(null); setEditingRepairId(null) }
+  const editRepair = row => { setEditingRepairId(row.id); setRepair({ ...EMPTY_REPAIR, ...row, kontrak_sewa_id: String(row.kontrak_sewa_id), kendaraan_id: String(row.kendaraan_id), kilometer: row.kilometer ?? '', estimasi_biaya: row.estimasi_biaya ?? '', biaya_aktual: row.biaya_aktual ?? '', jumlah_dipotong: row.jumlah_dipotong ?? '' }); setRepairPhoto(null); setRepairProof(null); setTab('repair') }
+  const deleteRepair = async row => {
+    if (!repairEditable) return
+    if (payments.some(p => Number(p.perbaikan_sewa_id) === Number(row.id))) return setError('Perbaikan sudah dipakai sebagai dasar potongan pembayaran. Jangan hapus data ini.')
+    if (!window.confirm('Hapus perbaikan ' + (row.jenis_kerusakan || row.id) + '?')) return
+    setSaving(true); try { const result = await supabase.from('perbaikan_sewa').delete().eq('id', row.id); if (result.error) throw result.error; const paths=[row.foto_kerusakan_path,row.bukti_perbaikan_path].filter(Boolean); if(paths.length) await supabase.storage.from('dokumen-sewa').remove(paths); setRepairs(current=>current.filter(x=>x.id!==row.id)); setSuccess('Data perbaikan dihapus.') } catch(e){setError(e.message)} finally{setSaving(false)}
+  }
   const saveRepair = async e => {
     e.preventDefault(); clearMessages()
     if (!repair.kontrak_sewa_id || !repair.kendaraan_id || !repair.jenis_kerusakan.trim() || !repair.deskripsi_kerusakan.trim()) return setError('Kontrak, kendaraan, jenis kerusakan, dan deskripsi wajib diisi.')
     if (repair.dibayar_kantor && !repair.tanggal_dibayar) return setError('Tanggal pembayaran perbaikan wajib diisi jika dibayar kantor.')
     if (repair.dapat_dipotong && !repair.dibayar_kantor) return setError('Perbaikan baru boleh ditandai dapat dipotong setelah dibayar kantor.')
     if (repair.dapat_dipotong && Number(repair.jumlah_dipotong || 0) <= 0) return setError('Jumlah potongan wajib diisi jika perbaikan dapat dipotong.')
-    const selectedContract = contracts.find(c => Number(c.id) === Number(repair.kontrak_sewa_id))
-    if (!selectedContract) return setError('Kontrak rental tidak ditemukan.')
-    if (Number(selectedContract.kendaraan_id) !== Number(repair.kendaraan_id)) return setError('Kendaraan perbaikan harus sama dengan kendaraan pada kontrak rental.')
-    setSaving(true)
-    let fotoPath = null
-    let proofPath = null
+    const selectedContract = contracts.find(c => Number(c.id) === Number(repair.kontrak_sewa_id)); if (!selectedContract) return setError('Kontrak rental tidak ditemukan.'); if (Number(selectedContract.kendaraan_id) !== Number(repair.kendaraan_id)) return setError('Kendaraan perbaikan harus sama dengan kendaraan pada kontrak rental.')
+    setSaving(true); let fotoPath = null; let proofPath = null
     try {
-      fotoPath = await uploadRentalFile(repairPhoto, `perbaikan/${repair.kendaraan_id}`)
-      proofPath = await uploadRentalFile(repairProof, `perbaikan/${repair.kendaraan_id}/bukti`)
-      const payload = { ...repair, nomor_perbaikan: `REP-${Date.now()}`, kontrak_sewa_id: Number(repair.kontrak_sewa_id), kendaraan_id: Number(repair.kendaraan_id), kilometer: repair.kilometer === '' ? null : Number(repair.kilometer), estimasi_biaya: Number(repair.estimasi_biaya || 0), biaya_aktual: repair.biaya_aktual === '' ? null : Number(repair.biaya_aktual), jumlah_dipotong: repair.dapat_dipotong ? Number(repair.jumlah_dipotong || 0) : 0, foto_kerusakan_path: fotoPath, bukti_perbaikan_path: proofPath, dicatat_oleh: profile?.id || null }
-      const { data: savedRepair, error: e1 } = await supabase.from('perbaikan_sewa').insert(payload).select('*').single()
-      if (e1) throw e1
-      setRepairs(current => [savedRepair, ...current]); setRepair(EMPTY_REPAIR); setRepairPhoto(null); setRepairProof(null); setSuccess('Perbaikan kendaraan sewa, dokumentasi dan status potongannya tersimpan.')
-    } catch (e2) { const paths = [fotoPath, proofPath].filter(Boolean); if (paths.length) await supabase.storage.from('dokumen-sewa').remove(paths); setError(e2.message) }
-    setSaving(false)
+      const previous = editingRepairId ? repairs.find(x => x.id === editingRepairId) : null
+      fotoPath = repairPhoto ? await uploadRentalFile(repairPhoto, `perbaikan/${repair.kendaraan_id}`) : previous?.foto_kerusakan_path || null
+      proofPath = repairProof ? await uploadRentalFile(repairProof, `perbaikan/${repair.kendaraan_id}/bukti`) : previous?.bukti_perbaikan_path || null
+      const payload = { ...repair, nomor_perbaikan: previous?.nomor_perbaikan || `REP-${Date.now()}`, kontrak_sewa_id: Number(repair.kontrak_sewa_id), kendaraan_id: Number(repair.kendaraan_id), kilometer: repair.kilometer === '' ? null : Number(repair.kilometer), estimasi_biaya: Number(repair.estimasi_biaya || 0), biaya_aktual: repair.biaya_aktual === '' ? null : Number(repair.biaya_aktual), jumlah_dipotong: repair.dapat_dipotong ? Number(repair.jumlah_dipotong || 0) : 0, foto_kerusakan_path: fotoPath, bukti_perbaikan_path: proofPath, dicatat_oleh: profile?.id || null }
+      const result = editingRepairId ? await supabase.from('perbaikan_sewa').update(payload).eq('id', editingRepairId).select('*').single() : await supabase.from('perbaikan_sewa').insert(payload).select('*').single()
+      if (result.error) throw result.error
+      const old = previous ? [previous.foto_kerusakan_path, previous.bukti_perbaikan_path].filter(Boolean) : []
+      const newPaths = [fotoPath, proofPath].filter(Boolean); const removed = old.filter(x => !newPaths.includes(x)); if(removed.length) await supabase.storage.from('dokumen-sewa').remove(removed)
+      setRepairs(current => editingRepairId ? current.map(x => x.id === result.data.id ? result.data : x) : [result.data, ...current])
+      resetRepairForm(); setSuccess(editingRepairId ? 'Data perbaikan diperbarui.' : 'Perbaikan kendaraan sewa, dokumentasi dan status potongannya tersimpan.')
+    } catch (e2) { const currentNew=[fotoPath,proofPath].filter(Boolean); const oldKeep=editingRepairId?repairs.find(x=>x.id===editingRepairId):null; const oldPaths=[oldKeep?.foto_kerusakan_path,oldKeep?.bukti_perbaikan_path].filter(Boolean); const orphan=currentNew.filter(x=>!oldPaths.includes(x)); if(orphan.length) await supabase.storage.from('dokumen-sewa').remove(orphan); setError(e2.message) } finally { setSaving(false) }
   }
-
   const openFile = async (key, bucket, path) => {
     if (!path) return
     try {
