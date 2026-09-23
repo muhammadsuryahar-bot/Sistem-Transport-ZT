@@ -13,6 +13,7 @@ const EMPTY_REPAIR = { kontrak_sewa_id: '', kendaraan_id: '', tanggal_kejadian: 
 function Alert({ type = 'success', children }) { return <div className={`x-alert ${type}`}>{children}</div> }
 function Header({ title, text, action }) { return <div className="x-head"><div><span className="eyebrow">ADMINISTRASI SEWA</span><h2>{title}</h2><p>{text}</p></div>{action}</div> }
 function Empty() { return <div className="x-empty">Belum ada data.</div> }
+const rentalTypeLabel = value => value === 'SEWA_PERORANGAN' ? 'Sewa Perorangan' : value === 'SEWA_PERUSAHAAN' ? 'Sewa Perusahaan' : 'Belum ditentukan'
 
 async function uploadRentalFile(file, prefix) {
   if (!file) return null
@@ -51,6 +52,8 @@ export default function RentalFeaturePage({ profile }) {
   const [repairPhoto, setRepairPhoto] = useState(null)
   const [repairProof, setRepairProof] = useState(null)
   const [openedFiles, setOpenedFiles] = useState({})
+  const [rentalSearch, setRentalSearch] = useState('')
+  const [rentalTypeFilter, setRentalTypeFilter] = useState('SEMUA')
   const [paymentSearch, setPaymentSearch] = useState('')
   const [paymentStatus, setPaymentStatus] = useState('SEMUA')
   const [editingPaymentId, setEditingPaymentId] = useState(null)
@@ -69,6 +72,13 @@ export default function RentalFeaturePage({ profile }) {
   const repairEditable = ['ADMIN', 'TRANSPORT'].includes(profile?.role)
   const vehicleMap = useMemo(() => Object.fromEntries(vehicles.map(v => [v.id, v])), [vehicles])
   const repairMap = useMemo(() => Object.fromEntries(repairs.map(r => [r.id, r])), [repairs])
+  const filteredRentalVehicles = useMemo(() => {
+    const q = rentalSearch.trim().toLowerCase()
+    return vehicles.filter(v => {
+      const hay = [v.nomor_polisi, v.merk, v.tipe, v.pemilik, v.lokasi, v.unit_kerja].filter(Boolean).join(' ').toLowerCase()
+      return (!q || hay.includes(q)) && (rentalTypeFilter === 'SEMUA' || v.jenis_sewa === rentalTypeFilter)
+    })
+  }, [vehicles, rentalSearch, rentalTypeFilter])
   const historicalRows = useMemo(() => rentalHistoryExcel.map(row => ({
     no_excel: Number(row.source_no) || row.excel_row,
     excel_row: row.excel_row,
@@ -282,11 +292,12 @@ export default function RentalFeaturePage({ profile }) {
     <Header title="Administrasi Kendaraan Sewa" text="Master kendaraan tetap berada di menu Kendaraan. Halaman ini khusus untuk administrasi kendaraan Sewa: pemilik, kontrak 6 bulan, pembayaran, bukti, perbaikan, dan potongan." action={<button className="x-btn secondary" onClick={load}>↻ Refresh</button>} />
     {error && <Alert type="error">{error}</Alert>}
     {success && <Alert>{success}</Alert>}
-    <div className="x-tabs">{[['kendaraan', 'Daftar Sewa'], ['kontrak', 'Kontrak'], ['pemilik', 'Pemilik'], ['pembayaran', 'Pembayaran'], ['historis', 'Riwayat Excel'], ...(repairEditable ? [['repair', 'Perbaikan']] : [])].map(([v, l]) => <button key={v} className={tab === v ? 'active' : ''} onClick={() => { clearMessages(); setTab(v) }}>{l}</button>)}</div>
+    <div className="x-tabs">{[['kendaraan', 'Daftar Sewa'], ['kontrak', 'Kontrak'], ['pemilik', 'Pemilik'], ['pembayaran', 'Pembayaran'], ['historis', 'Summary Rental'], ...(repairEditable ? [['repair', 'Perbaikan']] : [])].map(([v, l]) => <button key={v} className={tab === v ? 'active' : ''} onClick={() => { clearMessages(); setTab(v) }}>{l}</button>)}</div>
 
     {tab === 'kendaraan' && <section className="x-card">
-      <div className="x-card-title"><div><h3>Daftar Kendaraan Sewa</h3><p>Data kendaraan diambil dari Master Kendaraan dengan kepemilikan <b>Sewa</b>. Tambah atau edit kendaraan tetap dilakukan di menu Kendaraan agar tidak ada data kendaraan ganda.</p></div></div>
-      <div className="x-table-wrap"><table className="x-table"><thead><tr><th>No. Polisi</th><th>Merk / Type</th><th>Jenis Sewa</th><th>Pemilik</th><th>Kontrak</th><th>Periode</th><th>Nilai Sewa</th><th>Status</th></tr></thead><tbody>{vehicles.length ? vehicles.map(v => { const contractRow = contracts.find(c => Number(c.kendaraan_id) === Number(v.id) && c.status === 'AKTIF') || contracts.find(c => Number(c.kendaraan_id) === Number(v.id)); const ownerRow = owners.find(o => Number(o.id) === Number(contractRow?.pemilik_sewa_id)); return <tr key={v.id}><td><b>{v.nomor_polisi}</b></td><td>{v.merk} {v.tipe || ''}</td><td>{v.jenis_sewa === 'SEWA_PERORANGAN' ? 'Sewa Perorangan' : v.jenis_sewa === 'SEWA_PERUSAHAAN' ? 'Sewa Perusahaan' : 'Belum ditentukan'}</td><td>{ownerRow?.nama_pemilik || v.pemilik || '-' }<small>{ownerRow?.nama_perusahaan || ''}</small></td><td>{contractRow?.nomor_kontrak || '-'}</td><td>{contractRow ? `${dateText(contractRow.tanggal_mulai)} s/d ${dateText(contractRow.tanggal_selesai)}` : '-'}</td><td>{contractRow ? money(contractRow.nilai_sewa_bulanan) : '-'}</td><td>{contractRow?.status || 'BELUM ADA KONTRAK'}</td></tr> }) : <tr><td colSpan="7"><Empty /></td></tr>}</tbody></table></div>
+      <div className="x-card-title"><div><h3>Daftar Kendaraan Sewa</h3><p>Data kendaraan diambil dari Master Kendaraan dengan kepemilikan <b>Sewa</b>. Identitas kendaraan tetap dikelola di menu Kendaraan agar tidak ada data kendaraan ganda.</p></div></div>
+      <div className="x-toolbar-inline"><input value={rentalSearch} onChange={e=>setRentalSearch(e.target.value)} placeholder="Cari BM, nomor polisi, merk, pemilik, lokasi..."/><select value={rentalTypeFilter} onChange={e=>setRentalTypeFilter(e.target.value)}><option value="SEMUA">Semua jenis sewa</option><option value="SEWA_PERORANGAN">Sewa Perorangan</option><option value="SEWA_PERUSAHAAN">Sewa Perusahaan</option></select><button className="x-btn secondary" type="button" onClick={()=>{setRentalSearch('');setRentalTypeFilter('SEMUA')}}>Reset</button></div>
+      <div className="x-table-wrap"><table className="x-table"><thead><tr><th>No. Polisi</th><th>Merk / Type</th><th>Jenis Sewa</th><th>Pemilik</th><th>Kontrak</th><th>Periode</th><th>Nilai Sewa</th><th>Status</th><th>Aksi</th></tr></thead><tbody>{filteredRentalVehicles.length ? filteredRentalVehicles.map(v => { const contractRow = contracts.find(c => Number(c.kendaraan_id) === Number(v.id) && c.status === 'AKTIF') || contracts.find(c => Number(c.kendaraan_id) === Number(v.id)); const ownerRow = owners.find(o => Number(o.id) === Number(contractRow?.pemilik_sewa_id)); return <tr key={v.id}><td><b>{v.nomor_polisi}</b></td><td>{v.merk} {v.tipe || ''}</td><td>{rentalTypeLabel(v.jenis_sewa)}</td><td>{ownerRow?.nama_pemilik || v.pemilik || '-' }<small>{ownerRow?.nama_perusahaan || ''}</small></td><td>{contractRow?.nomor_kontrak || '-'}</td><td>{contractRow ? `${dateText(contractRow.tanggal_mulai)} s/d ${dateText(contractRow.tanggal_selesai)}` : '-'}</td><td>{contractRow ? money(contractRow.nilai_sewa_bulanan) : '-'}</td><td>{contractRow?.status || 'BELUM ADA KONTRAK'}</td><td className="x-action-compact">{contractRow ? <button className="x-link" onClick={()=>setContractDetail(contractRow)}>Detail</button> : <button className="x-link" onClick={()=>setTab('kontrak')}>Tambah Kontrak</button>}<button className="x-link" onClick={()=>setTab('kontrak')}>Kelola</button></td></tr> }) : <tr><td colSpan="9"><Empty /></td></tr>}</tbody></table></div>
     </section>}
 
     {tab === 'pemilik' && <section className="x-card">
