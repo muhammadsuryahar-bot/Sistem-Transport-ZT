@@ -51,6 +51,9 @@ export default function RentalFeaturePage({ profile }) {
   const [repairPhoto, setRepairPhoto] = useState(null)
   const [repairProof, setRepairProof] = useState(null)
   const [openedFiles, setOpenedFiles] = useState({})
+  const [paymentSearch, setPaymentSearch] = useState('')
+  const [paymentStatus, setPaymentStatus] = useState('SEMUA')
+  const [paymentDetail, setPaymentDetail] = useState(null)
   const [historySearch, setHistorySearch] = useState('')
   const [historyYear, setHistoryYear] = useState('SEMUA')
   const [historySupplier, setHistorySupplier] = useState('SEMUA')
@@ -212,6 +215,16 @@ export default function RentalFeaturePage({ profile }) {
 
   const getRepairAvailableAmount = r => r.dapat_dipotong && r.dibayar_kantor ? Number(r.jumlah_dipotong || 0) : 0
 
+  const filteredPayments = useMemo(() => {
+    const q = paymentSearch.trim().toLowerCase()
+    return payments.filter(p => {
+      const contractRow = contracts.find(c => c.id === p.kontrak_sewa_id)
+      const vehicle = vehicleMap[contractRow?.kendaraan_id]
+      const ownerRow = owners.find(o => o.id === contractRow?.pemilik_sewa_id)
+      const hay = [p.nomor_referensi, p.status, contractRow?.nomor_kontrak, vehicle?.nomor_polisi, vehicle?.merk, ownerRow?.nama_pemilik, ownerRow?.nama_perusahaan].filter(Boolean).join(' ').toLowerCase()
+      return (!q || hay.includes(q)) && (paymentStatus === 'SEMUA' || p.status === paymentStatus)
+    })
+  }, [payments, contracts, owners, vehicleMap, paymentSearch, paymentStatus])
   const historySuppliers = useMemo(() => Array.from(new Set(rentalHistoryExcel.map(r => String(r.supplier || '').trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'id')), [rentalHistoryExcel])
   const historyYears = useMemo(() => Array.from(new Set(rentalHistoryExcel.map(r => Number(r.tahun)).filter(Number.isFinite))).sort((a,b)=>b-a), [rentalHistoryExcel])
   const filteredHistory = useMemo(() => {
@@ -299,7 +312,7 @@ export default function RentalFeaturePage({ profile }) {
     </section>}
 
     {tab === 'pembayaran' && <section className="x-card">
-      <div className="x-card-title"><h3>Pembayaran Sewa Bulanan</h3><p>Potongan perbaikan hanya dapat digunakan setelah perbaikan dibayar kantor dan ditandai dapat dipotong.</p></div>
+      <div className="x-card-title"><div><h3>Pembayaran Sewa Bulanan</h3><p>Rekap pembayaran rental per kontrak. No. rangka tidak digunakan di administrasi sewa.</p></div></div>
       {editable && <form className="x-grid" onSubmit={savePayment}>
         <label>Kontrak<select value={payment.kontrak_sewa_id} onChange={e => setPayment({ ...payment, kontrak_sewa_id: e.target.value })}><option value="">Pilih</option>{contracts.filter(c => c.status === 'AKTIF').map(c => <option key={c.id} value={c.id}>{c.nomor_kontrak || `#${c.id}`} — {vehicleMap[c.kendaraan_id]?.nomor_polisi || '-'}</option>)}</select></label>
         <label>Periode Ke<input type="number" min="1" max="6" value={payment.periode_ke} onChange={e => setPayment({ ...payment, periode_ke: e.target.value })} /></label>
@@ -317,7 +330,9 @@ export default function RentalFeaturePage({ profile }) {
         <label className="full">Catatan<textarea value={payment.catatan} onChange={e => setPayment({ ...payment, catatan: e.target.value })} /></label>
         <div className="full x-actions"><button className="x-btn primary" disabled={saving}>{saving ? 'Menyimpan…' : 'Simpan Pembayaran'}</button></div>
       </form>}
-      <div className="x-table-wrap"><table className="x-table"><thead><tr><th>No</th><th>Tahun</th><th>Supplier</th><th>Uraian</th><th>Periode Tagihan</th><th>Nilai Invoice</th><th>Aksi</th></tr></thead><tbody>{payments.length ? payments.map((p, index) => { const key = `payment-${p.id}`; const contractRow = contracts.find(c => c.id === p.kontrak_sewa_id); const ownerRow = owners.find(o => o.id === contractRow?.pemilik_sewa_id); const parts = String(p.catatan || '').split(' • '); const uraian = parts.length >= 4 && parts[0].startsWith('Import SUMMERY RENTAL') ? parts.slice(3).join(' • ') : (p.catatan || '-'); const paymentDate = p.bulan_pembayaran || null; const month = paymentDate ? formatMonthSafe(paymentDate) : '-'; const year = paymentDate ? Number(String(paymentDate).slice(0, 4)) || '-' : '-'; const supplier = ownerRow?.nama_perusahaan || ownerRow?.nama_pemilik || '-'; return <tr key={p.id}><td>{index + 1}</td><td>{year}</td><td>{supplier}</td><td>{uraian}</td><td>{month}</td><td>{money(p.jumlah_tagihan)}</td><td>{p.bukti_pembayaran_path ? <button className="x-btn secondary" onClick={() => openFile(key, 'dokumen-sewa', p.bukti_pembayaran_path)}>{openedFiles[key] === 'loading' ? '…' : 'Lihat'}</button> : '-'}</td></tr> }) : <tr><td colSpan="7"><Empty /></td></tr>}</tbody></table></div>
+      <div className="x-toolbar-inline"><input value={paymentSearch} onChange={e => setPaymentSearch(e.target.value)} placeholder="Cari BM, kontrak, pemilik, referensi..." /><select value={paymentStatus} onChange={e => setPaymentStatus(e.target.value)}><option value="SEMUA">Semua status</option><option value="BELUM_DIBAYAR">Belum Dibayar</option><option value="SEBAGIAN_DIBAYAR">Sebagian Dibayar</option><option value="SUDAH_DIBAYAR">Sudah Dibayar</option><option value="TERLAMBAT">Terlambat</option></select><button className="x-btn secondary" type="button" onClick={() => { setPaymentSearch(''); setPaymentStatus('SEMUA') }}>Reset Filter</button></div>
+      <div className="x-table-wrap"><table className="x-table"><thead><tr><th>No Kontrak</th><th>No. Polisi</th><th>Pemilik</th><th>Periode Ke</th><th>Jatuh Tempo</th><th>Tagihan</th><th>Dibayar</th><th>Status</th><th>Bukti</th><th>Aksi</th></tr></thead><tbody>{filteredPayments.length ? filteredPayments.map(p => { const key = 'payment-' + p.id; const contractRow = contracts.find(c => c.id === p.kontrak_sewa_id); const ownerRow = owners.find(o => o.id === contractRow?.pemilik_sewa_id); const plate = vehicleMap[contractRow?.kendaraan_id]?.nomor_polisi || '-'; return <tr key={p.id}><td><b>{contractRow?.nomor_kontrak || '-'}</b><small>{formatMonthSafe(p.bulan_pembayaran)}</small></td><td>{plate}</td><td>{ownerRow?.nama_pemilik || '-'}<small>{ownerRow?.nama_perusahaan || ''}</small></td><td>{p.periode_ke} / 6</td><td>{dateText(p.tanggal_jatuh_tempo)}</td><td>{money(p.jumlah_tagihan)}</td><td>{money(p.jumlah_dibayar)}</td><td><span className="x-pill">{p.status}</span></td><td>{p.bukti_pembayaran_path ? <button className="x-btn secondary" onClick={() => openFile(key, 'dokumen-sewa', p.bukti_pembayaran_path)}>{openedFiles[key] === 'loading' ? '…' : 'Lihat'}</button> : '-'}</td><td className="x-action-compact"><button className="x-link" onClick={() => setPaymentDetail(p)}>Detail</button></td></tr> }) : <tr><td colSpan="10"><Empty /></td></tr>}</tbody></table></div>
+      {paymentDetail && <div className="x-overlay"><section className="x-modal"><div className="x-modal-head"><div><span className="eyebrow">DETAIL PEMBAYARAN RENTAL</span><h3>{contracts.find(c => c.id === paymentDetail.kontrak_sewa_id)?.nomor_kontrak || '-'}</h3></div><button onClick={() => setPaymentDetail(null)}>×</button></div><div className="x-detail"><p><b>No. Polisi:</b> {vehicleMap[contracts.find(c => c.id === paymentDetail.kontrak_sewa_id)?.kendaraan_id]?.nomor_polisi || '-'}</p><p><b>Periode:</b> {paymentDetail.periode_ke} / 6</p><p><b>Bulan:</b> {formatMonthSafe(paymentDetail.bulan_pembayaran)}</p><p><b>Jatuh Tempo:</b> {dateText(paymentDetail.tanggal_jatuh_tempo)}</p><p><b>Tagihan:</b> {money(paymentDetail.jumlah_tagihan)}</p><p><b>Dibayar:</b> {money(paymentDetail.jumlah_dibayar)}</p><p><b>Status:</b> {paymentDetail.status}</p><p><b>Metode:</b> {paymentDetail.metode_pembayaran || '-'}</p><p><b>Referensi:</b> {paymentDetail.nomor_referensi || '-'}</p><p><b>Catatan:</b> {paymentDetail.catatan || '-'}</p></div><div className="x-actions"><button className="x-btn secondary" onClick={() => setPaymentDetail(null)}>Tutup</button></div></section></div>}
       {Object.entries(openedFiles).filter(([k, v]) => k.startsWith('payment-') && v && v !== 'loading').map(([k, v]) => <div key={k} className="x-alert"><a href={v} target="_blank" rel="noreferrer">Buka bukti pembayaran</a></div>)}
     </section>}
 
