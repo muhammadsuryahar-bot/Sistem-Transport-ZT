@@ -167,6 +167,45 @@ export default function PermintaanServicePage({ profile }) {
       return { ...row, min: sorted[0] || 0, max: sorted[sorted.length - 1] || 0, avg, median, reference }
     }).filter(row => !q || (row.nama_item + ' ' + row.kategori).toLowerCase().includes(q)).sort((a, b) => a.nama_item.localeCompare(b.nama_item, 'id'))
   }, [items, benchmarks, benchmarkSearch])
+  const resetBenchmarkForm = () => {
+    setEditingBenchmark(null)
+    setBenchmarkForm({ id: null, nama_item: '', kategori: 'SPAREPART', satuan: 'pcs', harga_patokan: '', berlaku_mulai: new Date().toISOString().slice(0, 10), keterangan: '' })
+  }
+  const saveBenchmark = async event => {
+    event.preventDefault(); clearMessages()
+    const nama = normalizeItemName(benchmarkForm.nama_item)
+    const harga = Number(benchmarkForm.harga_patokan)
+    if (!nama || !Number.isFinite(harga) || harga < 0) return setError('Nama item dan harga patokan wajib diisi dengan benar.')
+    setSaving(true)
+    try {
+      const payload = { nama_item: nama, kategori: benchmarkForm.kategori, satuan: clean(benchmarkForm.satuan) || null, harga_patokan: harga, berlaku_mulai: benchmarkForm.berlaku_mulai || new Date().toISOString().slice(0, 10), aktif: true, keterangan: clean(benchmarkForm.keterangan) || null, updated_at: new Date().toISOString() }
+      const result = editingBenchmark
+        ? await supabase.from('patokan_harga_service').update(payload).eq('id', editingBenchmark.id).select('*').single()
+        : await supabase.from('patokan_harga_service').insert({ ...payload, dibuat_oleh: profile?.id || null }).select('*').single()
+      if (result.error) throw result.error
+      setBenchmarks(current => {
+        const next = editingBenchmark ? current.map(row => row.id === result.data.id ? result.data : row) : [...current, result.data]
+        return next.sort((a, b) => String(a.nama_item || '').localeCompare(String(b.nama_item || ''), 'id'))
+      })
+      resetBenchmarkForm()
+      setSuccess(editingBenchmark ? 'Patokan harga diperbarui.' : 'Patokan harga ditambahkan.')
+    } catch (e) { setError(e.message) } finally { setSaving(false) }
+  }
+  const editBenchmark = row => {
+    setEditingBenchmark(row)
+    setBenchmarkForm({ id: row.id, nama_item: row.nama_item, kategori: row.kategori || 'SPAREPART', satuan: row.satuan || '', harga_patokan: row.harga_patokan, berlaku_mulai: row.berlaku_mulai || '', keterangan: row.keterangan || '' })
+  }
+  const deleteBenchmark = async row => {
+    if (!['ADMIN', 'TRANSPORT'].includes(profile?.role)) return
+    if (!window.confirm('Hapus patokan harga ' + row.nama_item + '?')) return
+    setSaving(true)
+    try {
+      const result = await supabase.from('patokan_harga_service').delete().eq('id', row.id)
+      if (result.error) throw result.error
+      setBenchmarks(current => current.filter(item => item.id !== row.id))
+      setSuccess('Patokan harga dihapus.')
+    } catch (e) { setError(e.message) } finally { setSaving(false) }
+  }
   const filteredRequests = useMemo(() => {
     const q = search.trim().toLowerCase()
     return requests.filter(r => {
