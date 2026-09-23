@@ -3,7 +3,6 @@ import { supabase } from '../lib/supabase'
 import { clearDeletedExcelRows, filterDeletedExcelRows } from '../utils/excelPreviewControls.js'
 import { parseXlsx } from '../utils/xlsxParser.js'
 import './DataPageTools.css'
-import { encodeExcelMeta } from '../utils/excelSourceMeta.js'
 
 const MAX_FILE_SIZE = 25 * 1024 * 1024
 const PAGE_OPTIONS = [25, 50, 100]
@@ -15,7 +14,6 @@ const MONTHS = {
 }
 const clean = value => String(value ?? '').replace(/\s+/g, ' ').trim()
 const norm = value => clean(value).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
-const upper = value => clean(value).toUpperCase()
 
 function findHeader(sheet) {
   const required = [
@@ -47,18 +45,6 @@ function numberValue(value) {
   if (/^-?\d{1,3}(?:\.\d{3})+(?:,\d+)?$/.test(v)) return Number(v.replace(/\./g, '').replace(',', '.'))
   const n = Number(v.replace(/,/g, ''))
   return Number.isFinite(n) ? n : null
-}
-
-function monthDate(year, monthName) {
-  const month = MONTHS[norm(monthName)]
-  const y = Number(String(year).replace(/\D/g, ''))
-  return month && y >= 2000 && y <= 2100 ? `${y}-${String(month).padStart(2, '0')}-01` : null
-}
-
-function monthDiff(start, target) {
-  const a = new Date(`${start}T00:00:00`)
-  const b = new Date(`${target}T00:00:00`)
-  return (b.getUTCFullYear() - a.getUTCFullYear()) * 12 + (b.getUTCMonth() - a.getUTCMonth())
 }
 
 function parseRows(sheet) {

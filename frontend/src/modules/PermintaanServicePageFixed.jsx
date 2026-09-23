@@ -4,7 +4,6 @@ import './PermintaanServicePage.css'
 
 const TYPE_LABELS = { SERVICE: 'Jasa / Perbaikan', GANTI_BAN: 'Ganti Ban', GANTI_AKI: 'Ganti Aki / Baterai', PEMERIKSAAN: 'Pemeriksaan' }
 const STATUS_LABELS = { MENUNGGU_TRANSPORT: 'Menunggu Transport', DITERIMA_TRANSPORT: 'Diterima Transport', DALAM_PROSES: 'Dalam Proses', MENUNGGU_APPROVAL: 'Menunggu Approval', DISETUJUI: 'Disetujui', DITOLAK: 'Ditolak', SELESAI: 'Selesai', DIBATALKAN: 'Dibatalkan' }
-const ACTIVE = ['MENUNGGU_TRANSPORT', 'DITERIMA_TRANSPORT', 'DALAM_PROSES', 'MENUNGGU_APPROVAL', 'DISETUJUI']
 const TERMINAL = ['SELESAI', 'DITOLAK', 'DIBATALKAN']
 const EMPTY = { id: null, kendaraan_id: '', jenis_permintaan: 'SERVICE', kilometer: '', keluhan: '', prioritas: 'NORMAL' }
 const money = v => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(v || 0))
@@ -83,7 +82,6 @@ export default function PermintaanServicePage({ profile }) {
   }, [printRequest])
 
   const vehicleMap = useMemo(() => Object.fromEntries(vehicles.map(v => [v.id, v])), [vehicles])
-  const serviceMap = useMemo(() => Object.fromEntries(services.map(s => [s.id, s])), [services])
 
   const summaryRows = useMemo(() => vehicles.map(vehicle => {
     const vehicleServices = services.filter(s => Number(s.kendaraan_id) === Number(vehicle.id))
@@ -127,7 +125,7 @@ export default function PermintaanServicePage({ profile }) {
     return summaryRows.filter(row => {
       const v = row.vehicle
       const hay = [v.nomor_polisi, v.merk, v.tipe, v.jenis_kendaraan, v.pemilik, v.unit_kerja].filter(Boolean).join(' ').toLowerCase()
-      return (!q || hay.includes(q)) && (summaryOwnership === 'SEMUA' || v.kepemilikan === summaryOwnership)
+      return (!q || hay.includes(q)) && (brandFilter === 'SEMUA' || v.merk === brandFilter) && (summaryOwnership === 'SEMUA' || v.kepemilikan === summaryOwnership)
     })
   }, [summaryRows, summarySearch, summaryOwnership])
 
@@ -222,7 +220,7 @@ export default function PermintaanServicePage({ profile }) {
     </div>
 
     {viewMode === 'ringkasan' && <section className="request-panel">
-      <div className="request-toolbar"><input value={summarySearch} onChange={e => setSummarySearch(e.target.value)} placeholder="Cari BM, nomor polisi, merk, type, pemilik..." /><select value={summaryOwnership} onChange={e => setSummaryOwnership(e.target.value)}><option value="SEMUA">Semua kepemilikan</option><option value="ASET">Aset</option><option value="SEWA">Sewa</option></select><button className="request-light-button" onClick={loadData} disabled={loading}>↻ Refresh</button></div>
+      <div className="request-toolbar"><input value={summarySearch} onChange={e => setSummarySearch(e.target.value)} placeholder="Cari BM, nomor polisi, merk, type, pemilik..." /><select value={brandFilter} onChange={e => setBrandFilter(e.target.value)}><option value="SEMUA">Semua merk</option>{brands.map(brand => <option key={brand} value={brand}>{brand}</option>)}</select><select value={summaryOwnership} onChange={e => setSummaryOwnership(e.target.value)}><option value="SEMUA">Semua kepemilikan</option><option value="ASET">Aset</option><option value="SEWA">Sewa</option></select><button className="request-light-button" onClick={loadData} disabled={loading}>↻ Refresh</button></div>
       <div className="request-table-wrap service-summary-table-wrap"><table className="request-table service-summary-table"><thead><tr><th>No Polisi</th><th>Kendaraan</th><th>Service</th><th>Jasa</th><th>Sparepart</th><th>Total Jasa</th><th>Total Sparepart</th><th>Total Pengeluaran</th><th>Harga Perolehan</th><th>KM/Jarak</th><th>Service Terakhir</th><th>Sparepart Terakhir</th><th>Patokan</th><th>Aksi</th></tr></thead><tbody>{summaryFiltered.length ? summaryFiltered.map(row => <tr key={row.vehicle.id}><td><strong>{row.vehicle.nomor_polisi}</strong></td><td><strong>{row.vehicle.merk}</strong><small>{row.vehicle.tipe || '-'} • {row.vehicle.jenis_kendaraan || '-'}</small></td><td><strong>{row.totalTransaksi} kali</strong></td><td>{row.jasaKali} kali</td><td>{row.spareKali} kali</td><td>{money(row.totalJasa)}</td><td>{money(row.totalSpare)}</td><td><strong>{money(row.totalPengeluaran)}</strong></td><td>{row.vehiclePrice ? money(row.vehiclePrice) : 'Belum diisi'}</td><td>{number(row.kmAkhir)} km<small>Jarak terpantau: {number(row.jarak)} km</small></td><td>{fmtDate(row.lastJasa)}</td><td>{fmtDate(row.lastSpare)}</td><td><span className={`request-status request-cost-flag ${row.costFlag.toLowerCase()}`}>{row.costFlag === 'MELEWATI_HARGA' ? 'Melewati' : row.costFlag === 'MENDEKATI_HARGA' ? '≥ 80%' : row.costFlag === 'DI_BAWAH_HARGA' ? 'Di bawah' : 'Harga belum diisi'}</span>{row.ratio != null && <small>{(row.ratio * 100).toFixed(1)}% dari harga</small>}</td><td><button className="request-detail-button" onClick={() => setDetail({ type: 'vehicle', row })}>Detail</button></td></tr>) : <tr><td colSpan="14"><div className="request-empty">Belum ada kendaraan yang cocok.</div></td></tr>}</tbody></table></div>
     </section>}
 

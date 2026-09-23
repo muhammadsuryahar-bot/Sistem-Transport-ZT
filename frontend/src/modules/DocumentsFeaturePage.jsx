@@ -7,7 +7,6 @@ import { decodeExcelMeta } from '../utils/excelSourceMeta.js'
 const EMPTY={kendaraan_id:'',jenis_dokumen:'STNK',nomor_dokumen:'',tanggal_terbit:'',tanggal_berlaku_mulai:'',tanggal_jatuh_tempo:'',keterangan:''}
 const fmt=v=>formatDateSafe(v)
 const isInteractiveTarget=target=>Boolean(target?.closest?.('button,input,select,textarea,a'))
-const money=v=>new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(Number(v||0))
 const daysLeft=v=>v?Math.ceil((new Date(v+'T00:00:00')-new Date())/86400000):null
 const statusOf=v=>{const d=daysLeft(v);return d===null?'TANPA_TANGGAL':d<0?'EXPIRED':d<=30?'SEGERA':'AMAN'}
 const statusLabel=s=>s==='EXPIRED'?'Sudah lewat':s==='SEGERA'?'Segera jatuh tempo':s==='TANPA_TANGGAL'?'Belum ada tanggal':'Aman'
@@ -41,7 +40,7 @@ export default function DocumentsFeaturePage({profile}){
  const filtered=useMemo(()=>{
   const q=query.trim().toLowerCase()
   return docs.filter(d=>{
-   const v=vehicleMap[d.kendaraan_id], days=daysLeft(d.tanggal_jatuh_tempo), status=statusOf(d.tanggal_jatuh_tempo), date=String(d.tanggal_jatuh_tempo||'')
+   const v=vehicleMap[d.kendaraan_id], status=statusOf(d.tanggal_jatuh_tempo), date=String(d.tanggal_jatuh_tempo||'')
    const hay=[d.jenis_dokumen,d.nomor_dokumen,d.keterangan,v?.nomor_polisi,v?.merk,v?.tipe,v?.pemilik].filter(Boolean).join(' ').toLowerCase()
    return (!q||hay.includes(q))&&(statusFilter==='SEMUA'||status===statusFilter)&&(typeFilter==='SEMUA'||d.jenis_dokumen===typeFilter)&&(yearFilter==='SEMUA'||date.slice(0,4)===yearFilter)&&(monthFilter==='SEMUA'||date.slice(5,7)===monthFilter)
   })
