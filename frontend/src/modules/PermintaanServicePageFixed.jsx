@@ -412,7 +412,7 @@ export default function PermintaanServicePage({ profile }) {
       </form>}
       <div className="request-toolbar-note service-benchmark-note">Harga terendah/tertinggi/median berasal dari histori service. Patokan Admin adalah angka referensi internal yang dapat diperbarui.</div>
       <div className="request-table-wrap service-summary-table-wrap"><table className="request-table">
-        <thead><tr><th>Item</th><th>Kategori</th><th>Satuan</th><th>Transaksi</th><th>Terendah</th><th>Tertinggi</th><th>Median</th><th>Patokan Admin</th><th>Selisih Rata-rata</th><th>Aksi</th></tr></thead>
+        <thead><tr><th>Item</th><th>Kategori</th><th>Satuan</th><th>Transaksi</th><th>Terendah</th><th>Tertinggi</th><th>Median</th><th>Patokan Admin</th><th>Selisih Rata-rata</th><th>Keterangan Admin</th><th>Aksi</th></tr></thead>
         <tbody>{benchmarkRows.length ? benchmarkRows.map(row => {
           const ref = row.reference
           const diff = ref ? Number(row.avg) - Number(ref.harga_patokan) : null
@@ -426,9 +426,10 @@ export default function PermintaanServicePage({ profile }) {
             <td>{money(row.median)}</td>
             <td>{ref ? <><b>{money(ref.harga_patokan)}</b><small>{fmtDate(ref.berlaku_mulai)}</small></> : <span className="request-toolbar-note">Belum diatur</span>}</td>
             <td>{ref ? <span className={'request-status ' + (Math.abs(diff) > Math.max(1, Number(ref.harga_patokan || 0) * 0.1) ? 'status-warning' : 'status-ok')}>{diff > 0 ? '+' : ''}{money(diff)}</span> : '-'}</td>
+            <td>{ref?.keterangan || '-'}</td>
             <td className="request-actions">{ref && <button className="request-detail-button" onClick={() => editBenchmark(ref)}>Edit</button>}{ref && <button className="request-detail-button danger" onClick={() => deleteBenchmark(ref)} disabled={saving}>Hapus</button>}</td>
           </tr>
-        }) : <tr><td colSpan="10"><div className="request-empty">Belum ada data item service untuk dijadikan patokan.</div></td></tr>}</tbody>
+        }) : <tr><td colSpan="11"><div className="request-empty">Belum ada data item service untuk dijadikan patokan.</div></td></tr>}</tbody>
       </table></div>
     </section>}
     {viewMode === 'pengajuan' && <section className="request-panel">
