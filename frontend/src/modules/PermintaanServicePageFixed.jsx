@@ -57,6 +57,7 @@ export default function PermintaanServicePage({ profile }) {
   const [viewMode, setViewMode] = useState('ringkasan')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const clearMessages = () => { setError(''); setSuccess('') }
   const pressRef = useRef(null)
   const ignoreClickRef = useRef(false)
 
