@@ -313,8 +313,9 @@ export default function PermintaanServicePage({ profile }) {
       if (result.error) throw result.error
       setServices(current => current.map(row => row.id === result.data.id ? result.data : row))
       if (serviceEditing.permintaan_service_id && needsApproval) {
-        await supabase.from('permintaan_service').update({ status: 'MENUNGGU_APPROVAL' }).eq('id', serviceEditing.permintaan_service_id)
-        setRequests(current => current.map(row => row.id === serviceEditing.permintaan_service_id ? { ...row, status: 'MENUNGGU_APPROVAL' } : row))
+        const requestResult = await supabase.from('permintaan_service').update({ status: 'MENUNGGU_APPROVAL' }).eq('id', serviceEditing.permintaan_service_id).select('id,status').maybeSingle()
+        if (requestResult.error) throw new Error(`Service tersimpan, tetapi status pengajuan gagal diperbarui: ${requestResult.error.message}`)
+        setRequests(current => current.map(row => row.id === serviceEditing.permintaan_service_id ? { ...row, status: requestResult.data?.status || 'MENUNGGU_APPROVAL' } : row))
       }
       setServiceEditing(null)
       setServiceEditForm({ tanggal_service: '', kilometer: '', bengkel: '', jenis_service: 'SERVICE', keluhan: '', estimasi_biaya: '', biaya_aktual: '', nilai_dpp: '', ppn: '', total: '', catatan: '' })
@@ -339,8 +340,9 @@ export default function PermintaanServicePage({ profile }) {
       ])
       for (const check of checks) if (check.error) throw check.error
       if (checks.some(check => (check.count || 0) > 0)) throw new Error('Service sudah memiliki item, bukti, atau approval. Hapus data terkait tersebut terlebih dahulu agar histori tidak rusak.')
-      const result = await supabase.from('service').delete().eq('id', service.id)
+      const result = await supabase.from('service').delete().eq('id', service.id).select('id').maybeSingle()
       if (result.error) throw result.error
+      if (!result.data) throw new Error('Service tidak berhasil dihapus. Data mungkin sudah berubah atau hak akses tidak mencukupi.')
       if (service.permintaan_service_id) {
         const requestResult = await supabase.from('permintaan_service').update({ status: 'MENUNGGU_TRANSPORT', diproses_oleh: null, diproses_at: null }).eq('id', service.permintaan_service_id)
         if (requestResult.error) throw requestResult.error
