@@ -14,7 +14,9 @@ const EMPTY = {
 }
 
 const clean = value => String(value ?? '').trim()
-const normalizeRentalType = value => { const v = clean(value).toUpperCase().replace(/\s+/g, '_'); if (v === 'SEWA_RENTAL' || v === 'PERUSAHAAN_RENTAL' || v === 'SEWA_PERUSAHAAN' || v === 'PERUSAHAAN') return 'SEWA_PERUSAHAAN'; if (v === 'SEWA_PERORANGAN' || v === 'PERORANGAN') return 'SEWA_PERORANGAN'; return '' }\nconst rentalTypeLabel = value => value === 'SEWA_PERORANGAN' ? 'Sewa Perorangan' : value === 'SEWA_PERUSAHAAN' ? 'Sewa Perusahaan' : 'Belum ditentukan'\nconst normalizeOwnership = value => {
+const normalizeRentalType = value => { const v = clean(value).toUpperCase().replace(/\s+/g, '_'); if (v === 'SEWA_RENTAL' || v === 'PERUSAHAAN_RENTAL' || v === 'SEWA_PERUSAHAAN' || v === 'PERUSAHAAN') return 'SEWA_PERUSAHAAN'; if (v === 'SEWA_PERORANGAN' || v === 'PERORANGAN') return 'SEWA_PERORANGAN'; return '' }
+const rentalTypeLabel = value => value === 'SEWA_PERORANGAN' ? 'Sewa Perorangan' : value === 'SEWA_PERUSAHAAN' ? 'Sewa Perusahaan' : 'Belum ditentukan'
+const normalizeOwnership = value => {
   const v = clean(value).toUpperCase().replace(/\s+/g, '_')
   if (v === 'ASET' || v === 'ASET_KANTOR') return 'ASET'
   if (v === 'SEWA' || v === 'RENTAL' || v === 'KENDARAAN_SEWA') return 'SEWA'
@@ -260,7 +262,8 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
         <td><span className="mep-pill">{v.jenis_kendaraan || '-'}</span></td>
         <td><b>{OWNERSHIP[normalizeOwnership(v.kepemilikan)] || '-'}</b></td>
         <td><span>{v.kepemilikan === 'SEWA' ? (rentalTypeLabel(normalizeRentalType(v.jenis_sewa))) : '-'}</span></td>
-        <td><span>{v.harga_perolehan == null ? '-' : `Rp ${Number(v.harga_perolehan).toLocaleString('id-ID')}`}</span></td>\n        <td><span>{v.pemilik || '-'}</span></td>
+        <td><span>{v.harga_perolehan == null ? '-' : `Rp ${Number(v.harga_perolehan).toLocaleString('id-ID')}`}</span></td>
+        <td><span>{v.pemilik || '-'}</span></td>
         <td><span>{driver?.nama_lengkap || '-'}</span></td>
         <td><span>{v.lokasi || '-'}</span><small>{v.unit_kerja || '-'}</small></td>
         <td><span>{v.masa_berlaku_pajak ? formatDate(v.masa_berlaku_pajak) : '-'}</span><small>{v.status_pajak || '-'}</small></td>
@@ -279,7 +282,8 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
       <label>No. Rangka<input name="nomor_rangka" value={form.nomor_rangka ?? ''} onChange={change}/></label>
       <label>Kepemilikan<select name="kepemilikan" value={normalizeOwnership(form.kepemilikan) || 'ASET'} onChange={change}><option value="ASET">Aset</option><option value="SEWA">Sewa</option></select></label>
       {normalizeOwnership(form.kepemilikan) === 'SEWA' && <label>Jenis Sewa<select name="jenis_sewa" value={form.jenis_sewa || ''} onChange={change} required><option value="">Pilih jenis sewa</option><option value="SEWA_PERORANGAN">Sewa Perorangan</option><option value="SEWA_PERUSAHAAN">Sewa Perusahaan</option></select></label>}
-      <label>Harga Perolehan<input name="harga_perolehan" type="number" min="0" value={form.harga_perolehan ?? ''} onChange={change} placeholder="Contoh: 60000000"/></label>\n      <label>Pemilik<input name="pemilik" value={form.pemilik ?? ''} onChange={change} placeholder={normalizeOwnership(form.kepemilikan) === 'SEWA' ? 'Wajib diisi untuk kendaraan sewa' : 'Opsional untuk aset'} required={normalizeOwnership(form.kepemilikan) === 'SEWA'} list="transport-owner-options" /></label>
+      <label>Harga Perolehan<input name="harga_perolehan" type="number" min="0" value={form.harga_perolehan ?? ''} onChange={change} placeholder="Contoh: 60000000"/></label>
+      <label>Pemilik<input name="pemilik" value={form.pemilik ?? ''} onChange={change} placeholder={normalizeOwnership(form.kepemilikan) === 'SEWA' ? 'Wajib diisi untuk kendaraan sewa' : 'Opsional untuk aset'} required={normalizeOwnership(form.kepemilikan) === 'SEWA'} list="transport-owner-options" /></label>
       <datalist id="transport-owner-options">{ownerOptions.map(owner => <option key={owner} value={owner} />)}</datalist>
       <label>Masa Berlaku Pajak<input name="masa_berlaku_pajak" type="date" value={form.masa_berlaku_pajak ?? ''} onChange={change}/></label>
       <label>Status Pajak<input name="status_pajak" value={form.status_pajak ?? ''} onChange={change}/></label>
