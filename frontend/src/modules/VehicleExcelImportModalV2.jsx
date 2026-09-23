@@ -107,7 +107,7 @@ function repairRow(row, headers) {
     out.status_pajak = ''
   }
   if (['ASET', 'MILIK', 'MILIK KANTOR', 'ASET KANTOR'].includes(ownership)) { out.kepemilikan = 'ASET'; out.jenis_sewa = '' }
-  else if (/^(SEWA|RENTAL|KENDARAAN SEWA)$/.test(ownership)) { out.kepemilikan = 'SEWA'; if (!['SEWA_PERORANGAN', 'SEWA_PERUSAHAAN'].includes(out.jenis_sewa)) out.jenis_sewa = '' }
+  else if (/^(SEWA|RENTAL|KENDARAAN SEWA)$/.test(ownership)) { out.kepemilikan = 'SEWA'; if (!['SEWA_PERORANGAN', 'SEWA_PERUSAHAAN'].includes(out.jenis_sewa)) out.jenis_sewa = /^(PT|CV|UD|YAYASAN|KOPERASI)(\.|\s|$)/i.test(clean(out.pemilik)) ? 'SEWA_PERUSAHAAN' : clean(out.pemilik) ? 'SEWA_PERORANGAN' : '' }
   else if (!ownership) { out.kepemilikan = null; out.jenis_sewa = '' }
   else { out.kepemilikan = null; out.jenis_sewa = '' }
   return out
