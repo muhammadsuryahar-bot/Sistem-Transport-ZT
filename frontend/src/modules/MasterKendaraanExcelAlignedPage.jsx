@@ -14,7 +14,7 @@ const EMPTY = {
 }
 
 const clean = value => String(value ?? '').trim()
-const normalizeRentalType = value => { const v = clean(value).toUpperCase().replace(/\s+/g, '_'); if (v === 'SEWA_RENTAL' || v === 'PERUSAHAAN_RENTAL' || v === 'SEWA_PERUSAHAAN' || v === 'PERUSAHAAN') return 'SEWA_PERUSAHAAN'; if (v === 'SEWA_PERORANGAN' || v === 'PERORANGAN') return 'SEWA_PERORANGAN'; return '' }
+const normalizeRentalType = value => { const v = clean(value).toUpperCase().replace(/\s+/g, '_'); if (v === 'SEWA_PERUSAHAAN' || v === 'PERUSAHAAN') return 'SEWA_PERUSAHAAN'; if (v === 'SEWA_PERORANGAN' || v === 'PERORANGAN') return 'SEWA_PERORANGAN'; return '' }
 const rentalTypeLabel = value => value === 'SEWA_PERORANGAN' ? 'Sewa Perorangan' : value === 'SEWA_PERUSAHAAN' ? 'Sewa Perusahaan' : 'Belum ditentukan'
 const inferRentalTypeFromOwner = owner => {
   const value = clean(owner)
