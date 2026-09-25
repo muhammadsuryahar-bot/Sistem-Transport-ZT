@@ -314,21 +314,29 @@ select { touch-action: manipulation; }
 
 .x-row-actions button,
 .m-row-actions button,
+.x-action-compact button,
+.x-action-compact .x-link,
 .request-actions .request-detail-button,
-.mep-actions button { min-height: 32px !important; height: 32px !important; padding: 0 9px !important; border: 1px solid #d8e3dd !important; border-radius: 8px !important; background: #f5f9f7 !important; color: #285343 !important; font-size: 11px !important; font-weight: 750 !important; line-height: 1 !important; box-shadow: none !important; }
+.mep-actions button { min-height: 32px !important; height: 32px !important; padding: 0 9px !important; border: 1px solid #d8e3dd !important; border-radius: 8px !important; background: #f5f9f7 !important; color: #285343 !important; font-size: 11px !important; font-weight: 750 !important; line-height: 1 !important; box-shadow: none !important; text-decoration: none !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; white-space: nowrap !important; }
 
 .x-row-actions button:hover:not(:disabled),
 .m-row-actions button:hover:not(:disabled),
+.x-action-compact button:hover:not(:disabled),
+.x-action-compact .x-link:hover:not(:disabled),
 .request-actions .request-detail-button:hover:not(:disabled),
 .mep-actions button:hover:not(:disabled) { background: #eaf4ee !important; border-color: #c8dbd1 !important; transform: translateY(-1px); }
 
 .x-row-actions button.danger,
 .m-row-actions button.danger,
+.x-action-compact button.danger,
+.x-action-compact .x-link.danger,
 .request-actions .request-detail-button.danger,
 .mep-actions button.danger { background: #fff4f3 !important; border-color: #efc6c1 !important; color: #a0443c !important; }
 
 .x-row-actions button.danger:hover:not(:disabled),
 .m-row-actions button.danger:hover:not(:disabled),
+.x-action-compact button.danger:hover:not(:disabled),
+.x-action-compact .x-link.danger:hover:not(:disabled),
 .request-actions .request-detail-button.danger:hover:not(:disabled),
 .mep-actions button.danger:hover:not(:disabled) { background: #ffebe9 !important; border-color: #e8afa9 !important; }
 
@@ -350,6 +358,8 @@ select { touch-action: manipulation; }
   .mep-actions { gap: 5px !important; }
   .x-row-actions button,
   .m-row-actions button,
+  .x-action-compact button,
+  .x-action-compact .x-link,
   .request-actions .request-detail-button,
   .mep-actions button { min-height: 34px !important; height: 34px !important; padding: 0 10px !important; }
 }
