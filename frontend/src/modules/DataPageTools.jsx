@@ -23,6 +23,7 @@ const ROW_MARKS = {
   CHECKED: { label: 'Sudah dicek', className: 'dpt-row-mark-checked' },
 }
 const ROW_MARK_STORAGE = 'transport_excel_row_marks_v2'
+const ROW_MARK_VISIBILITY_STORAGE = 'transport_row_mark_visibility_v1'
 const hasReport = value => value && typeof value === 'object' && value.context
 
 function readRowMarks() {
@@ -37,6 +38,23 @@ function readRowMarks() {
 function writeRowMarks(value) {
   try { localStorage.setItem(ROW_MARK_STORAGE, JSON.stringify(value)); return true } catch { return false }
 }
+function readRowMarkVisibility(context) {
+  try {
+    const raw = localStorage.getItem(ROW_MARK_VISIBILITY_STORAGE)
+    const value = raw ? JSON.parse(raw) : {}
+    return value && typeof value === 'object' && value[context] !== false
+  } catch { return true }
+}
+function writeRowMarkVisibility(context, visible) {
+  try {
+    const raw = localStorage.getItem(ROW_MARK_VISIBILITY_STORAGE)
+    const value = raw ? JSON.parse(raw) : {}
+    const next = value && typeof value === 'object' ? value : {}
+    next[context] = visible
+    localStorage.setItem(ROW_MARK_VISIBILITY_STORAGE, JSON.stringify(next))
+    return true
+  } catch { return false }
+}
 function simpleHash(value) { let hash = 2166136261; for (let i = 0; i < value.length; i += 1) { hash ^= value.charCodeAt(i); hash = Math.imul(hash, 16777619) } return (hash >>> 0).toString(16) }
 function rowKey(context, row) { const cells = Array.from(row.children).filter(cell => !cell.classList.contains('dpt-row-mark-cell')); const values = cells.map(cell => { const control = cell.querySelector('input,select,textarea'); return control ? `${control.tagName}:${control.defaultValue || control.value}` : cell.textContent.trim() }); return `${context}:${simpleHash(values.join('\u241f') || `row-${row.rowIndex}`)}` }
 function applyMark(row, mark) { Object.values(ROW_MARKS).forEach(item => { if (item.className) row.classList.remove(item.className) }); if (ROW_MARKS[mark]?.className) row.classList.add(ROW_MARKS[mark].className) }
@@ -45,6 +63,8 @@ function ensureTableMarks(context, table, scope) {
   if (!table) return
 
   const marks = readRowMarks()
+  const showRowMarks = readRowMarkVisibility(context)
+  scope?.classList.toggle('dpt-row-marks-hidden', !showRowMarks)
   table.dataset.dptRowMarksReady = '1'
 
   let toolbar = scope.querySelector('.dpt-row-mark-toolbar')
@@ -164,7 +184,20 @@ export default function DataPageTools({ context, profile, onExport }) {
   const [showImport, setShowImport] = useState(false)
   const [importReport, setImportReport] = useState(null)
   const [exporting, setExporting] = useState(false)
+  const [showRowMarks, setShowRowMarks] = useState(() => readRowMarkVisibility(context))
   const canImport = ['ADMIN', 'TRANSPORT'].includes(profile?.role)
+
+  useEffect(() => {
+    setShowRowMarks(readRowMarkVisibility(context))
+  }, [context])
+
+  useEffect(() => {
+    const onVisibilityChange = event => {
+      if (!event.detail || event.detail.context === context) ensureRowMarks(context)
+    }
+    window.addEventListener('transport:row-mark-visibility', onVisibilityChange)
+    return () => window.removeEventListener('transport:row-mark-visibility', onVisibilityChange)
+  }, [context])
 
   useEffect(() => {
     try { const saved = sessionStorage.getItem('transport_import_report'); if (saved) { const parsed = JSON.parse(saved); if (hasReport(parsed) && parsed.context === context) setImportReport(parsed); sessionStorage.removeItem('transport_import_report') } }
@@ -182,6 +215,12 @@ export default function DataPageTools({ context, profile, onExport }) {
 
   if (!CONTEXT_LABEL[context]) return null
   const doExport = async () => { if (!onExport || exporting) return; setExporting(true); try { await onExport() } finally { setExporting(false) } }
+  const toggleRowMarks = () => {
+    const next = !showRowMarks
+    setShowRowMarks(next)
+    writeRowMarkVisibility(context, next)
+    window.dispatchEvent(new CustomEvent('transport:row-mark-visibility', { detail: { context, visible: next } }))
+  }
   const closeImport = () => setShowImport(false)
   const finishImport = report => {
     setShowImport(false)
@@ -194,6 +233,6 @@ export default function DataPageTools({ context, profile, onExport }) {
   return <>
     {modal}
     {importReport && <div className="dpt-overlay" role="dialog" aria-modal="true"><section className="dpt-modal import-result-modal"><header className="dpt-modal-head"><div><span className="eyebrow">IMPORT SELESAI</span><h3>Rekonsiliasi Data {CONTEXT_LABEL[importReport.context] || 'Excel'}</h3><p>Perbedaan jumlah antara Excel dan data sistem dijelaskan di sini.</p></div><button type="button" className="dpt-icon" onClick={() => setImportReport(null)}>×</button></header><div className="service-import-stats"><div><b>{importReport.sourceRows ?? 0}</b><span>baris sumber</span></div><div><b>{importReport.validRows ?? importReport.sourceRows ?? 0}</b><span>baris valid</span></div><div><b>{importReport.uniqueVehicles ?? importReport.imported ?? 0}</b><span>data unik</span></div><div><b>{importReport.mergedDuplicates ?? importReport.skipped ?? 0}</b><span>duplikat/skip</span></div></div><div className="vehicle-import-explanation"><b>Hasil penyimpanan</b>{importReport.added != null && <span>Data baru: <strong>{importReport.added}</strong></span>}{importReport.updated != null && <span>Data diperbarui: <strong>{importReport.updated}</strong></span>}{importReport.driversCreated != null && <span>Driver dibuat: <strong>{importReport.driversCreated}</strong></span>}</div>{importReport.message && <div className="vehicle-import-note"><b>Detail hasil import</b><span>{importReport.message}</span></div>}<div className="dpt-actions"><button type="button" className="dpt-button" onClick={() => setImportReport(null)}>Tutup</button><button type="button" className="dpt-button primary" onClick={refreshAfterImport}>Refresh Data Sistem</button></div></section></div>}
-    <div className="dpt-toolbar"><div><span className="eyebrow">DATA</span><b>{CONTEXT_LABEL[context]}</b></div><div className="dpt-toolbar-actions">{canImport && <button className="dpt-button secondary" type="button" onClick={() => setShowImport(true)}>⇧ Import Excel</button>}<button className="dpt-button primary" type="button" onClick={doExport} disabled={exporting}>{exporting ? 'Exporting…' : '⇩ Export Excel'}</button></div></div>
+    <div className="dpt-toolbar"><div><span className="eyebrow">DATA</span><b>{CONTEXT_LABEL[context]}</b></div><div className="dpt-toolbar-actions"><button className="dpt-button secondary dpt-mark-toggle" type="button" onClick={toggleRowMarks} title={showRowMarks ? 'Sembunyikan kolom penanda dan toolbar penanda' : 'Tampilkan kolom penanda dan toolbar penanda'}>Penanda: {showRowMarks ? 'Tampil' : 'Sembunyi'}</button>{canImport && <button className="dpt-button secondary" type="button" onClick={() => setShowImport(true)}>⇧ Import Excel</button>}<button className="dpt-button primary" type="button" onClick={doExport} disabled={exporting}>{exporting ? 'Exporting…' : '⇩ Export Excel'}</button></div></div>
   </>
 }
