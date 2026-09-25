@@ -290,3 +290,66 @@ select { touch-action: manipulation; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
 }
+
+/* Cross-module consistency contract: identical typography, table density, and row actions. */
+.x-table td,
+.m-table td,
+.request-table td,
+.mep-table td { font-size: 12px !important; line-height: 1.4 !important; }
+
+.x-table th,
+.m-table th,
+.request-table th,
+.mep-table th { font-size: 9.5px !important; line-height: 1.3 !important; letter-spacing: .065em !important; }
+
+.x-table small,
+.m-table small,
+.request-table small,
+.mep-table small { font-size: 10px !important; line-height: 1.35 !important; color: var(--zt-muted) !important; }
+
+.x-row-actions,
+.m-row-actions,
+.request-actions,
+.mep-actions { display: flex !important; align-items: center !important; justify-content: flex-start !important; gap: 6px !important; flex-wrap: wrap !important; white-space: normal !important; }
+
+.x-row-actions button,
+.m-row-actions button,
+.request-actions .request-detail-button,
+.mep-actions button { min-height: 32px !important; height: 32px !important; padding: 0 9px !important; border: 1px solid #d8e3dd !important; border-radius: 8px !important; background: #f5f9f7 !important; color: #285343 !important; font-size: 11px !important; font-weight: 750 !important; line-height: 1 !important; box-shadow: none !important; }
+
+.x-row-actions button:hover:not(:disabled),
+.m-row-actions button:hover:not(:disabled),
+.request-actions .request-detail-button:hover:not(:disabled),
+.mep-actions button:hover:not(:disabled) { background: #eaf4ee !important; border-color: #c8dbd1 !important; transform: translateY(-1px); }
+
+.x-row-actions button.danger,
+.m-row-actions button.danger,
+.request-actions .request-detail-button.danger,
+.mep-actions button.danger { background: #fff4f3 !important; border-color: #efc6c1 !important; color: #a0443c !important; }
+
+.x-row-actions button.danger:hover:not(:disabled),
+.m-row-actions button.danger:hover:not(:disabled),
+.request-actions .request-detail-button.danger:hover:not(:disabled),
+.mep-actions button.danger:hover:not(:disabled) { background: #ffebe9 !important; border-color: #e8afa9 !important; }
+
+.dpt-row-marks-hidden .dpt-row-mark-toolbar,
+.dpt-row-marks-hidden .dpt-row-mark-head,
+.dpt-row-marks-hidden .dpt-row-mark-cell { display: none !important; }
+
+.dpt-row-marks-hidden .dpt-row-mark-todo td,
+.dpt-row-marks-hidden .dpt-row-mark-process td,
+.dpt-row-marks-hidden .dpt-row-mark-done td,
+.dpt-row-marks-hidden .dpt-row-mark-checked td { background: inherit !important; border-left-color: transparent !important; }
+
+.dpt-mark-toggle { min-width: 128px !important; }
+
+@media (max-width: 760px) {
+  .x-row-actions,
+  .m-row-actions,
+  .request-actions,
+  .mep-actions { gap: 5px !important; }
+  .x-row-actions button,
+  .m-row-actions button,
+  .request-actions .request-detail-button,
+  .mep-actions button { min-height: 34px !important; height: 34px !important; padding: 0 10px !important; }
+}
