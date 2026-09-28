@@ -25,9 +25,9 @@ const ROW_MARKS = {
   CHECKED: { label: 'Sudah dicek', className: 'dpt-row-mark-checked' },
 }
 const ROW_MARK_STORAGE = 'transport_excel_row_marks_v2'
-const ROW_MARK_VISIBILITY_STORAGE = 'transport_row_mark_visibility_v5'
-const COLUMN_VISIBILITY_STORAGE = 'transport_column_visibility_v4'
-const CLEAN_TABLE_VIEW_STORAGE = 'transport_clean_table_view_v9'
+const ROW_MARK_VISIBILITY_STORAGE = 'transport_row_mark_visibility_v6'
+const COLUMN_VISIBILITY_STORAGE = 'transport_column_visibility_v5'
+const CLEAN_TABLE_VIEW_STORAGE = 'transport_clean_table_view_v10'
 const hasReport = value => value && typeof value === 'object' && value.context
 
 function readRowMarks() {
@@ -82,7 +82,7 @@ function readCleanTableView(context) {
   try {
     const raw = localStorage.getItem(CLEAN_TABLE_VIEW_STORAGE)
     const value = raw ? JSON.parse(raw) : {}
-    return value && typeof value === 'object' ? value[context] !== false : true
+    return value && typeof value === 'object' && value[context] !== undefined ? value[context] !== false : true
   } catch { return true }
 }
 function writeCleanTableView(context, enabled) {
@@ -189,6 +189,8 @@ function applyColumnVisibility(context, table, descriptors, visibility, cleanMod
         cell.classList.toggle('dpt-column-utility', column.kind === 'mark' || column.kind === 'action')
         cell.classList.toggle('dpt-action-utility', column.kind === 'action')
         cell.classList.toggle('dpt-mark-utility', column.kind === 'mark')
+        cell.dataset.dptColumnKind = column.kind
+        cell.dataset.dptColumnHidden = hidden ? 'true' : 'false'
       }
     }
   }
@@ -209,6 +211,7 @@ function applyColumnVisibility(context, table, descriptors, visibility, cleanMod
     }
   }
   table.classList.toggle('dpt-clean-data-table', cleanModeActive)
+  table.dataset.dptCleanDataMode = cleanModeActive ? 'true' : 'false'
   const tableWrap = table.closest('.x-table-wrap, .request-table-wrap, .mep-table-wrap')
   tableWrap?.classList.toggle('dpt-clean-data-wrap', cleanModeActive)
   tableWrap?.closest('.x-card, .request-panel, .master-excel-page')?.classList.toggle('dpt-clean-mode', cleanModeActive)
