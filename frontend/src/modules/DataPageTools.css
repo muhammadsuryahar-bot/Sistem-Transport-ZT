@@ -116,3 +116,44 @@
     padding:12px 13px!important;
   }
 }
+
+/* Clean-data state is exposed by DataPageTools itself. Keep the host layout-neutral
+   and use a DOM fallback so utility columns disappear even if mutation timing changes. */
+.dpt-tools-host { display: contents; }
+
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .dpt-row-mark-toolbar,
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .dpt-row-mark-head,
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .dpt-row-mark-cell { display:none!important; }
+
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .mep-table:has(tbody .mep-actions) thead th:last-child,
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .x-table:has(tbody .x-action-compact) thead th:last-child,
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .x-table:has(tbody .x-row-actions) thead th:last-child,
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .request-table:has(tbody .request-actions) thead th:last-child,
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .m-table:has(tbody .m-row-actions) thead th:last-child { display:none!important; }
+
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .mep-table:has(tbody .mep-actions) tbody .mep-actions,
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .x-table:has(tbody .x-action-compact) tbody .x-action-compact,
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .x-table:has(tbody .x-row-actions) tbody .x-row-actions,
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .request-table:has(tbody .request-actions) tbody .request-actions,
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .m-table:has(tbody .m-row-actions) tbody .m-row-actions { display:none!important; }
+
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .dpt-clean-data-table {
+  width:100%!important;
+  min-width:100%!important;
+  table-layout:auto!important;
+}
+
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .x-table:has(tbody .x-action-compact),
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .request-table:has(tbody .request-actions),
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .mep-table:has(tbody .mep-actions),
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .m-table:has(tbody .m-row-actions) {
+  table-layout:auto!important;
+}
+
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .x-table td,
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .request-table td,
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .mep-table td,
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .m-table td {
+  vertical-align:middle!important;
+  white-space:nowrap!important;
+}
