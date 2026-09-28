@@ -418,8 +418,6 @@ export default function DataPageTools({ context, profile, onExport }) {
   }
   const visibleColumnCount = columns.filter(column => column.label && isColumnVisible(column, columnVisibility, showRowMarks)).length
   const hiddenColumnCount = columns.filter(column => column.label && (cleanTableView && (column.kind === 'mark' || column.kind === 'action') ? true : !isColumnVisible(column, columnVisibility, showRowMarks))).length
-  const utilityColumns = columns.filter(column => column.kind === 'mark' || column.kind === 'action')
-  const dataColumns = columns.filter(column => column.kind === 'data')
   const setColumnVisible = (column, visible) => {
     if (!column) return
     if (!visible && visibleColumnCount <= 1) return
