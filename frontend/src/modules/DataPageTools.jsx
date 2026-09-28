@@ -495,6 +495,47 @@ export default function DataPageTools({ context, profile, onExport }) {
   return <div className="dpt-tools-host" data-clean-table-view={cleanTableView ? 'true' : 'false'} data-context={context}>
     {modal}
     {importReport && <div className="dpt-overlay" role="dialog" aria-modal="true"><section className="dpt-modal import-result-modal"><header className="dpt-modal-head"><div><span className="eyebrow">IMPORT SELESAI</span><h3>Rekonsiliasi Data {CONTEXT_LABEL[importReport.context] || 'Excel'}</h3><p>Perbedaan jumlah antara Excel dan data sistem dijelaskan di sini.</p></div><button type="button" className="dpt-icon" onClick={() => setImportReport(null)}>×</button></header><div className="service-import-stats"><div><b>{importReport.sourceRows ?? 0}</b><span>baris sumber</span></div><div><b>{importReport.validRows ?? importReport.sourceRows ?? 0}</b><span>baris valid</span></div><div><b>{importReport.uniqueVehicles ?? importReport.imported ?? 0}</b><span>data unik</span></div><div><b>{importReport.mergedDuplicates ?? importReport.skipped ?? 0}</b><span>duplikat/skip</span></div></div><div className="vehicle-import-explanation"><b>Hasil penyimpanan</b>{importReport.added != null && <span>Data baru: <strong>{importReport.added}</strong></span>}{importReport.updated != null && <span>Data diperbarui: <strong>{importReport.updated}</strong></span>}{importReport.driversCreated != null && <span>Driver dibuat: <strong>{importReport.driversCreated}</strong></span>}</div>{importReport.message && <div className="vehicle-import-note"><b>Detail hasil import</b><span>{importReport.message}</span></div>}<div className="dpt-actions"><button type="button" className="dpt-button" onClick={() => setImportReport(null)}>Tutup</button><button type="button" className="dpt-button primary" onClick={refreshAfterImport}>Refresh Data Sistem</button></div></section></div>}
-    <div className="dpt-toolbar"><div><span className="eyebrow">DATA</span><b>{CONTEXT_LABEL[context]}</b></div><div className="dpt-toolbar-actions"><div className="dpt-column-popover" ref={columnMenuRef}><button className="dpt-button secondary" type="button" onClick={() => setShowColumnMenu(current => !current)} disabled={!columns.length} aria-expanded={showColumnMenu} aria-haspopup="menu">Kolom{hiddenColumnCount ? ` (${hiddenColumnCount})` : ''}</button>{showColumnMenu && <div className="dpt-column-menu" role="menu"><div className="dpt-column-menu-head"><div><b>Tampilan kolom</b><span>Pilih data yang ingin ditampilkan.</span></div><button type="button" className="dpt-column-close" onClick={() => setShowColumnMenu(false)} aria-label="Tutup">×</button></div><div className="dpt-column-quick"><button type="button" onClick={toggleCleanTableView}>{cleanTableView ? '↺ Tampilkan fitur' : '▣ Data Bersih'}</button><button type="button" onClick={showAllColumns}>Tampilkan semua</button></div><div className="dpt-column-list">{columns.map(column => { const forcedHidden = cleanTableView && (column.kind === 'mark' || column.kind === 'action'); const visible = forcedHidden ? false : isColumnVisible(column, columnVisibility, showRowMarks); const disableToggle = forcedHidden || (visible && visibleColumnCount <= 1); return <label className="dpt-column-item" key={column.key}><input type="checkbox" checked={visible} disabled={disableToggle} onChange={event => setColumnVisible(column, event.target.checked)} /><span>{column.label}</span><small>{forcedHidden ? 'Tersembunyi di Data Bersih' : column.kind === 'mark' ? 'Penanda' : column.kind === 'action' ? 'Aksi baris' : 'Data'}</small></label> })}</div><div className="dpt-column-note">{hiddenColumnCount ? `${hiddenColumnCount} kolom disembunyikan.` : 'Semua kolom sedang ditampilkan.'}</div></div>}</div><button className={`dpt-button secondary dpt-clean-toggle${cleanTableView ? ' active' : ''}`} type="button" onClick={toggleCleanTableView} title={cleanTableView ? 'Tampilkan kembali Aksi dan Penanda' : 'Sembunyikan Aksi dan Penanda, tampilkan data lebih besar dan bersih'}>{cleanTableView ? 'Data Bersih: Aktif' : 'Data Bersih'}</button>{canImport && <button className="dpt-button secondary" type="button" onClick={() => setShowImport(true)}>⇧ Import Excel</button>}{canExport && <button className="dpt-button primary" type="button" onClick={doExport} disabled={exporting}>{exporting ? 'Exporting…' : '⇩ Export Excel'}</button>}</div></div>
+    <div className="dpt-toolbar">
+      <div className="dpt-toolbar-title">
+        <span className="eyebrow">AKSI TAMPILAN</span>
+        <b>{CONTEXT_LABEL[context]}</b>
+        <span className="dpt-toolbar-help">Atur tampilan data agar mudah dibaca.</span>
+      </div>
+      <div className="dpt-toolbar-actions">
+        <button className={`dpt-button clean-action${cleanTableView ? ' active' : ''}`} type="button" onClick={toggleCleanTableView} title={cleanTableView ? 'Tampilkan kembali kolom Aksi dan Penanda' : 'Sembunyikan kolom Aksi dan Penanda agar data terlihat lebih bersih dan besar'}>
+          <span className="dpt-button-icon" aria-hidden="true">▤</span>
+          <span>{cleanTableView ? 'Tampilan Bersih: Aktif' : 'Tampilan Bersih'}</span>
+        </button>
+        <div className="dpt-column-popover" ref={columnMenuRef}>
+          <button className="dpt-button secondary" type="button" onClick={() => setShowColumnMenu(current => !current)} disabled={!columns.length} aria-expanded={showColumnMenu} aria-haspopup="menu">
+            <span className="dpt-button-icon" aria-hidden="true">☷</span>
+            <span>Atur Kolom{hiddenColumnCount ? ` (${hiddenColumnCount})` : ''}</span>
+          </button>
+          {showColumnMenu && <div className="dpt-column-menu" role="menu">
+            <div className="dpt-column-menu-head">
+              <div><b>Atur Kolom Data</b><span>Pilih kolom yang ingin ditampilkan.</span></div>
+              <button type="button" className="dpt-column-close" onClick={() => setShowColumnMenu(false)} aria-label="Tutup">×</button>
+            </div>
+            <div className="dpt-column-quick">
+              <button type="button" onClick={toggleCleanTableView}>{cleanTableView ? 'Tampilkan Aksi' : 'Tampilan Bersih'}</button>
+              <button type="button" onClick={showAllColumns}>Tampilkan Semua</button>
+            </div>
+            <div className="dpt-column-list">{columns.map(column => {
+              const forcedHidden = cleanTableView && (column.kind === 'mark' || column.kind === 'action')
+              const visible = forcedHidden ? false : isColumnVisible(column, columnVisibility, showRowMarks)
+              const disableToggle = forcedHidden || (visible && visibleColumnCount <= 1)
+              return <label className="dpt-column-item" key={column.key}>
+                <input type="checkbox" checked={visible} disabled={disableToggle} onChange={event => setColumnVisible(column, event.target.checked)} />
+                <span>{column.label}</span>
+                <small>{forcedHidden ? 'Disembunyikan' : column.kind === 'mark' ? 'Penanda' : column.kind === 'action' ? 'Aksi baris' : 'Data'}</small>
+              </label>
+            })}</div>
+            <div className="dpt-column-note">{hiddenColumnCount ? `${hiddenColumnCount} kolom disembunyikan.` : 'Semua kolom sedang ditampilkan.'}</div>
+          </div>}
+        </div>
+        {canImport && <button className="dpt-button secondary" type="button" onClick={() => setShowImport(true)}><span className="dpt-button-icon" aria-hidden="true">⇧</span><span>Import Excel</span></button>}
+        {canExport && <button className="dpt-button primary" type="button" onClick={doExport} disabled={exporting}><span className="dpt-button-icon" aria-hidden="true">⇩</span><span>{exporting ? 'Sedang Export...' : 'Export Excel'}</span></button>}
+      </div>
+    </div>
   </div>
 }
