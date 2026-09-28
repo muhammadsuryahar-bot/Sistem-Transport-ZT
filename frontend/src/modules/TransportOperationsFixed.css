@@ -47,3 +47,24 @@ body.transport-service-fullscreen-open{overflow:hidden}
 
 .x-head-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}.x-head-actions .x-btn{min-height:40px}
 @media(max-width:600px){.x-head-actions{width:100%;justify-content:stretch}.x-head-actions .x-btn{flex:1}}
+
+/* Monthly report period controls: clear, readable, Excel-oriented. */
+.report-period-card{border-color:#dbe6e0!important;background:#fbfdfc!important}
+.report-period-grid{grid-template-columns:repeat(3,minmax(0,1fr));align-items:end}
+.report-period-grid label{display:grid;gap:6px;color:#33453d;font-size:11px;font-weight:800}
+.report-period-grid input{width:100%;min-height:44px;border:1px solid #d5e0da;border-radius:9px;background:#fff;color:#17211b;padding:0 11px}
+.report-period-summary{min-height:44px;display:grid;align-content:center;padding:8px 11px;border:1px solid #dbe7e0;border-radius:9px;background:#f3f8f5}
+.report-period-summary span{font-size:10px;color:#718078;font-weight:700}
+.report-period-summary b{font-size:13px;color:#17352a}
+.report-period-summary small{font-size:10px;color:#7e8b85}
+@media(max-width:900px){
+  .report-period-grid{grid-template-columns:1fr 1fr}
+  .report-period-summary{grid-column:1/-1}
+}
+@media(max-width:620px){
+  .report-period-grid{grid-template-columns:1fr}
+  .report-period-summary{grid-column:auto}
+  .report-period-card .x-card-title{align-items:flex-start}
+  .report-period-card .x-actions{width:100%;flex-wrap:wrap}
+  .report-period-card .x-actions .x-btn{flex:1 1 150px}
+}
