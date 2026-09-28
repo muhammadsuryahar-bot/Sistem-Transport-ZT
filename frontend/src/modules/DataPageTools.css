@@ -56,10 +56,10 @@
 .content-container.dpt-clean-table-view .m-table th,
 .content-container.dpt-clean-table-view .request-table th,
 .content-container.dpt-clean-table-view .mep-table th {
-  font-size:11.5px!important;
-  line-height:1.35!important;
-  letter-spacing:.045em!important;
-  padding:14px 15px!important;
+  font-size:12.5px!important;
+  line-height:1.4!important;
+  letter-spacing:.04em!important;
+  padding:15px 16px!important;
 }
 
 .content-container.dpt-clean-table-view .x-table td,
@@ -196,9 +196,9 @@
 .content-container.dpt-clean-table-view .x-table tbody td,
 .content-container.dpt-clean-table-view .request-table tbody td,
 .content-container.dpt-clean-table-view .m-table tbody td {
-  font-size:14px!important;
-  line-height:1.55!important;
-  padding:15px 16px!important;
+  font-size:15px!important;
+  line-height:1.58!important;
+  padding:16px 17px!important;
 }
 
 .content-container.dpt-clean-table-view .mep-table tbody td b,
@@ -209,15 +209,15 @@
 .content-container.dpt-clean-table-view .request-table tbody td strong,
 .content-container.dpt-clean-table-view .m-table tbody td b,
 .content-container.dpt-clean-table-view .m-table tbody td strong {
-  font-size:14px!important;
+  font-size:15px!important;
 }
 
 .content-container.dpt-clean-table-view .mep-table tbody td small,
 .content-container.dpt-clean-table-view .x-table tbody td small,
 .content-container.dpt-clean-table-view .request-table tbody td small,
 .content-container.dpt-clean-table-view .m-table tbody td small {
-  font-size:11px!important;
-  line-height:1.45!important;
+  font-size:11.5px!important;
+  line-height:1.48!important;
 }
 
 @media(max-width:760px){
