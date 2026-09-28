@@ -27,7 +27,7 @@ const ROW_MARKS = {
 const ROW_MARK_STORAGE = 'transport_excel_row_marks_v2'
 const ROW_MARK_VISIBILITY_STORAGE = 'transport_row_mark_visibility_v5'
 const COLUMN_VISIBILITY_STORAGE = 'transport_column_visibility_v4'
-const CLEAN_TABLE_VIEW_STORAGE = 'transport_clean_table_view_v8'
+const CLEAN_TABLE_VIEW_STORAGE = 'transport_clean_table_view_v9'
 const hasReport = value => value && typeof value === 'object' && value.context
 
 function readRowMarks() {
@@ -504,7 +504,7 @@ export default function DataPageTools({ context, profile, onExport }) {
       <div className="dpt-toolbar-actions">
         <button className={`dpt-button clean-action${cleanTableView ? ' active' : ''}`} type="button" onClick={toggleCleanTableView} title={cleanTableView ? 'Tampilkan kembali kolom Aksi dan Penanda' : 'Sembunyikan kolom Aksi dan Penanda agar data terlihat lebih bersih dan besar'}>
           <span className="dpt-button-icon" aria-hidden="true">▤</span>
-          <span>{cleanTableView ? 'Tampilan Bersih: Aktif' : 'Tampilan Bersih'}</span>
+          <span>{cleanTableView ? 'Tampilan Excel: Aktif' : 'Tampilan Excel'}</span>
         </button>
         <div className="dpt-column-popover" ref={columnMenuRef}>
           <button className="dpt-button secondary" type="button" onClick={() => setShowColumnMenu(current => !current)} disabled={!columns.length} aria-expanded={showColumnMenu} aria-haspopup="menu">
@@ -517,7 +517,7 @@ export default function DataPageTools({ context, profile, onExport }) {
               <button type="button" className="dpt-column-close" onClick={() => setShowColumnMenu(false)} aria-label="Tutup">×</button>
             </div>
             <div className="dpt-column-quick">
-              <button type="button" onClick={toggleCleanTableView}>{cleanTableView ? 'Tampilkan Aksi' : 'Tampilan Bersih'}</button>
+              <button type="button" onClick={toggleCleanTableView}>{cleanTableView ? 'Tampilkan Aksi' : 'Tampilan Excel'}</button>
               <button type="button" onClick={showAllColumns}>Tampilkan Semua</button>
             </div>
             <div className="dpt-column-list">{columns.map(column => {
