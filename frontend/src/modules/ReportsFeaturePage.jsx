@@ -34,6 +34,13 @@ function addOneMonth(value) {
   const safeDay = Math.min(d, targetLast)
   return `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, '0')}-${String(safeDay).padStart(2, '0')}`
 }
+function oneMonthEnd(value) {
+  const next = addOneMonth(value)
+  const [y, m, d] = next.split('-').map(Number)
+  const end = new Date(y, m - 1, d)
+  end.setDate(end.getDate() - 1)
+  return `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`
+}
 function dateOnly(value) {
   if (!value) return ''
   return String(value).slice(0, 10)
@@ -221,7 +228,7 @@ export default function ReportsFeaturePage({ profile }) {
     {error && <div className="x-alert error">{error}</div>}
 
     <section className="x-card report-period-card">
-      <div className="x-card-title"><div><h3>Periode Rekap</h3><p>Rekap dan Excel hanya mengambil transaksi dalam periode yang dipilih. Data di luar periode tidak ikut masuk sehingga rekap bulanan tidak tercampur.</p></div><div className="x-actions"><button className="x-btn secondary" type="button" onClick={() => { const d = isoToday(); setPeriodStart(monthStart(d)); setPeriodEnd(monthEnd(d)) }}>Bulan Ini</button><button className="x-btn secondary" type="button" onClick={() => { const start = monthStart(isoToday()); setPeriodStart(monthStart(addOneMonth(start))); setPeriodEnd(monthEnd(addOneMonth(start))) }}>Bulan Berikutnya</button><button className="x-btn secondary" type="button" onClick={() => { const start = periodStart || isoToday(); setPeriodEnd(addOneMonth(start)) }}>+ 1 Bulan dari Mulai</button></div></div>
+      <div className="x-card-title"><div><h3>Periode Rekap</h3><p>Rekap dan Excel hanya mengambil transaksi dalam periode yang dipilih. Data di luar periode tidak ikut masuk sehingga rekap bulanan tidak tercampur.</p></div><div className="x-actions"><button className="x-btn secondary" type="button" onClick={() => { const d = isoToday(); setPeriodStart(monthStart(d)); setPeriodEnd(monthEnd(d)) }}>Bulan Ini</button><button className="x-btn secondary" type="button" onClick={() => { const start = monthStart(isoToday()); setPeriodStart(monthStart(addOneMonth(start))); setPeriodEnd(monthEnd(addOneMonth(start))) }}>Bulan Berikutnya</button><button className="x-btn secondary" type="button" onClick={() => { const start = periodStart || isoToday(); setPeriodEnd(oneMonthEnd(start)) }}>1 Bulan dari Mulai</button></div></div>
       <div className="x-grid report-period-grid"><label>Mulai<input type="date" value={periodStart} max={periodEnd || undefined} onChange={e => setPeriodStart(e.target.value)} /></label><label>Sampai<input type="date" value={periodEnd} min={periodStart || undefined} onChange={e => setPeriodEnd(e.target.value)} /></label><div className="report-period-summary"><span>Periode aktif</span><b>{date(periodStart)} — {date(periodEnd)}</b><small>Baris transaksi: {periodData.requests.length + periodData.services.length + periodData.payments.length + periodData.repairs.length + periodData.docs.length + periodData.approvals.length + periodData.deductions.length}</small></div></div>
     </section>
 
