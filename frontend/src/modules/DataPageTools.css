@@ -38,3 +38,75 @@
   .dpt-column-menu{position:fixed;right:10px;top:auto;bottom:10px;width:min(380px,calc(100vw - 20px));max-height:70svh}
   .dpt-column-quick{grid-template-columns:1fr}
 }
+
+/* Global clean data mode: optimized for Excel-like reading across every table module. */
+.content-container.dpt-clean-table-view .dpt-row-mark-toolbar,
+.content-container.dpt-clean-table-view .dpt-row-mark-head,
+.content-container.dpt-clean-table-view .dpt-row-mark-cell,
+.content-container.dpt-clean-table-view .dpt-column-utility,
+.content-container.dpt-clean-table-view .dpt-action-utility { display:none!important; }
+
+.content-container.dpt-clean-table-view .x-table th,
+.content-container.dpt-clean-table-view .m-table th,
+.content-container.dpt-clean-table-view .request-table th,
+.content-container.dpt-clean-table-view .mep-table th {
+  font-size:11px!important;
+  line-height:1.35!important;
+  letter-spacing:.045em!important;
+  padding:14px 15px!important;
+}
+
+.content-container.dpt-clean-table-view .x-table td,
+.content-container.dpt-clean-table-view .m-table td,
+.content-container.dpt-clean-table-view .request-table td,
+.content-container.dpt-clean-table-view .mep-table td {
+  font-size:13px!important;
+  line-height:1.5!important;
+  padding:15px 15px!important;
+}
+
+.content-container.dpt-clean-table-view .x-table small,
+.content-container.dpt-clean-table-view .m-table small,
+.content-container.dpt-clean-table-view .request-table small,
+.content-container.dpt-clean-table-view .mep-table small {
+  font-size:11px!important;
+  line-height:1.4!important;
+}
+
+.content-container.dpt-clean-table-view .x-table-wrap,
+.content-container.dpt-clean-table-view .m-table-wrap,
+.content-container.dpt-clean-table-view .request-table-wrap,
+.content-container.dpt-clean-table-view .mep-table-wrap {
+  border-radius:12px!important;
+}
+
+.content-container.dpt-clean-table-view .dpt-row-mark-todo td,
+.content-container.dpt-clean-table-view .dpt-row-mark-process td,
+.content-container.dpt-clean-table-view .dpt-row-mark-done td,
+.content-container.dpt-clean-table-view .dpt-row-mark-checked td {
+  background:inherit!important;
+  border-left-color:transparent!important;
+}
+
+.dpt-clean-toggle.active {
+  background:#edf7f2!important;
+  border-color:#bfd8ca!important;
+  color:#1d6a4a!important;
+}
+
+@media(max-width:700px){
+  .content-container.dpt-clean-table-view .x-table td,
+  .content-container.dpt-clean-table-view .m-table td,
+  .content-container.dpt-clean-table-view .request-table td,
+  .content-container.dpt-clean-table-view .mep-table td {
+    font-size:12.5px!important;
+    padding:13px 13px!important;
+  }
+  .content-container.dpt-clean-table-view .x-table th,
+  .content-container.dpt-clean-table-view .m-table th,
+  .content-container.dpt-clean-table-view .request-table th,
+  .content-container.dpt-clean-table-view .mep-table th {
+    font-size:10px!important;
+    padding:12px 13px!important;
+  }
+}
