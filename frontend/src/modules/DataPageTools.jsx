@@ -47,7 +47,7 @@ function readRowMarkVisibility(context) {
     const raw = localStorage.getItem(ROW_MARK_VISIBILITY_STORAGE)
     const value = raw ? JSON.parse(raw) : {}
     return value && typeof value === 'object' && value[context] === true
-  } catch { return true }
+  } catch { return false }
 }
 function writeRowMarkVisibility(context, visible) {
   try {
