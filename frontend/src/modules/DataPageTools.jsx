@@ -151,7 +151,9 @@ function applyColumnVisibility(context, table, descriptors, visibility) {
 
   const cleanMode = dataColumns > 0 && visibleDataColumns === dataColumns && utilityColumns > 0 && hiddenUtilityColumns === utilityColumns
   table.classList.toggle('dpt-clean-data-table', cleanMode)
-  table.closest('.x-table-wrap, .request-table-wrap, .mep-table-wrap')?.classList.toggle('dpt-clean-data-wrap', cleanMode)
+  const tableWrap = table.closest('.x-table-wrap, .request-table-wrap, .mep-table-wrap')
+  tableWrap?.classList.toggle('dpt-clean-data-wrap', cleanMode)
+  tableWrap?.closest('.x-card, .request-panel, .master-excel-page')?.classList.toggle('dpt-clean-mode', cleanMode)
 }
 
 function columnSignature(descriptors) {
