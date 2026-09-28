@@ -84,6 +84,12 @@ function columnSlug(value, index) {
     .replace(/^_+|_+$/g, '')
   return clean || `column_${index + 1}`
 }
+function isMainOperationalTable(table) {
+  return Boolean(
+    table &&
+    !table.closest('.dpt-preview, .dpt-overlay, .x-overlay, .m-overlay, .x-modal, .m-modal, .dpt-modal')
+  )
+}
 function getPrimaryDataTable(context) {
   const selector = DATA_TABLE_SELECTOR[context]
   if (!selector) return null
@@ -92,7 +98,7 @@ function getPrimaryDataTable(context) {
     return Boolean(table && (!rect || (rect.width > 0 && rect.height > 0)))
   }
   return Array.from(document.querySelectorAll(selector))
-    .filter(table => !table.closest('.dpt-preview') && !table.matches('.m-table') && !table.hasAttribute('data-no-row-marks') && visible(table))
+    .filter(table => isMainOperationalTable(table) && !table.matches('.m-table') && !table.hasAttribute('data-no-row-marks') && visible(table))
     .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top)[0] || null
 }
 function getColumnDescriptors(context, table) {
@@ -241,7 +247,7 @@ function ensureRowMarks(context) {
   const selector = DATA_TABLE_SELECTOR[context]
   const dataTables = selector
     ? Array.from(document.querySelectorAll(selector))
-      .filter(table => !table.closest('.dpt-preview') && !table.matches('.m-table') && !table.hasAttribute('data-no-row-marks') && visible(table))
+      .filter(table => isMainOperationalTable(table) && !table.matches('.m-table') && !table.hasAttribute('data-no-row-marks') && visible(table))
       .sort((a, b) => {
         const aTop = a.getBoundingClientRect().top
         const bTop = b.getBoundingClientRect().top
