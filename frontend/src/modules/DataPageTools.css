@@ -292,3 +292,90 @@
     font-size:11.5px!important;
   }
 }
+
+/* FINAL CLEAN TABLE CONTRACT:
+   utility columns are physically hidden in clean/Excel mode, while data columns expand
+   and use a larger reading scale. The data attributes are added by DataPageTools.jsx
+   so this remains stable even after React table rerenders. */
+.dpt-clean-data-table th[data-dpt-column-kind="mark"],
+.dpt-clean-data-table td[data-dpt-column-kind="mark"],
+.dpt-clean-data-table th[data-dpt-column-kind="action"],
+.dpt-clean-data-table td[data-dpt-column-kind="action"] {
+  display: none !important;
+}
+.dpt-clean-data-table {
+  width: 100% !important;
+  min-width: 100% !important;
+  max-width: none !important;
+  table-layout: auto !important;
+}
+.dpt-clean-data-table thead th:not([data-dpt-column-kind="mark"]):not([data-dpt-column-kind="action"]) {
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  line-height: 1.35 !important;
+  padding: 14px 16px !important;
+  letter-spacing: .045em !important;
+}
+.dpt-clean-data-table tbody td:not([data-dpt-column-kind="mark"]):not([data-dpt-column-kind="action"]) {
+  font-size: 15px !important;
+  font-weight: 500 !important;
+  line-height: 1.55 !important;
+  padding: 16px !important;
+  vertical-align: middle !important;
+}
+.dpt-clean-data-table tbody td:not([data-dpt-column-kind="mark"]):not([data-dpt-column-kind="action"]) b,
+.dpt-clean-data-table tbody td:not([data-dpt-column-kind="mark"]):not([data-dpt-column-kind="action"]) strong {
+  font-size: 15.5px !important;
+  font-weight: 800 !important;
+}
+.dpt-clean-data-table tbody td:not([data-dpt-column-kind="mark"]):not([data-dpt-column-kind="action"]) small {
+  display: block !important;
+  margin-top: 4px !important;
+  font-size: 12px !important;
+  line-height: 1.45 !important;
+}
+.dpt-clean-data-table thead th[data-dpt-column-hidden="true"],
+.dpt-clean-data-table tbody td[data-dpt-column-hidden="true"] {
+  display: none !important;
+}
+.dpt-clean-mode .dpt-row-mark-toolbar,
+.dpt-clean-mode .dpt-selection-bar,
+.dpt-clean-mode .request-selection-bar,
+.dpt-clean-mode .mep-selection {
+  display: none !important;
+}
+.dpt-clean-mode .mep-hint,
+.dpt-clean-mode .request-selection-hint {
+  display: none !important;
+}
+.dpt-clean-mode .dpt-toolbar-help {
+  display: none !important;
+}
+.dpt-clean-toggle {
+  min-width: 168px !important;
+}
+.dpt-clean-toggle.active {
+  background: #e8f4ed !important;
+  border-color: #bcd5c5 !important;
+  color: #174d3a !important;
+}
+@media(max-width:900px) {
+  .dpt-clean-data-table tbody td:not([data-dpt-column-kind="mark"]):not([data-dpt-column-kind="action"]) {
+    font-size: 14px !important;
+    padding: 14px !important;
+  }
+  .dpt-clean-data-table tbody td:not([data-dpt-column-kind="mark"]):not([data-dpt-column-kind="action"]) b,
+  .dpt-clean-data-table tbody td:not([data-dpt-column-kind="mark"]):not([data-dpt-column-kind="action"]) strong {
+    font-size: 14.5px !important;
+  }
+}
+@media(max-width:600px) {
+  .dpt-clean-data-table thead th:not([data-dpt-column-kind="mark"]):not([data-dpt-column-kind="action"]) {
+    font-size: 10.5px !important;
+    padding: 12px !important;
+  }
+  .dpt-clean-data-table tbody td:not([data-dpt-column-kind="mark"]):not([data-dpt-column-kind="action"]) {
+    font-size: 13px !important;
+    padding: 13px !important;
+  }
+}
