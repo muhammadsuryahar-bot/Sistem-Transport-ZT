@@ -1,1 +1,151 @@
 .dpt-row-mark-title{flex-wrap:wrap}.dpt-row-mark-title::after{content:'🟥 Perlu dikerjakan  🟨 Sedang dikerjakan  🟩 Sudah selesai  🟦 Sudah dicek';display:block;width:100%;margin-top:2px;font-size:10px;font-weight:700;line-height:1.5;color:#52635c}.dpt-row-mark-legend{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:11px;font-weight:700;color:#52635c}.dpt-row-mark-legend span{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}.dpt-row-mark-legend span::before{content:'';width:9px;height:9px;border-radius:3px;display:inline-block}.dpt-row-mark-legend .todo::before{background:#fda4af}.dpt-row-mark-legend .process::before{background:#fcd34d}.dpt-row-mark-legend .done::before{background:#86efac}.dpt-row-mark-legend .checked::before{background:#93c5fd}
+
+/* FINAL CLEAN DATA CONTRACT
+   Loaded last from main.jsx so legacy module styles cannot shrink or restyle the
+   Excel-like operational table differently from other modules. */
+.content-container.dpt-clean-table-view .dpt-clean-data-table,
+.content-container.dpt-clean-table-view .mep-table,
+.content-container.dpt-clean-table-view .x-table,
+.content-container.dpt-clean-table-view .request-table,
+.content-container.dpt-clean-table-view .m-table {
+  width: 100% !important;
+  min-width: 100% !important;
+  table-layout: auto !important;
+  border-collapse: collapse !important;
+}
+
+.content-container.dpt-clean-table-view .dpt-clean-data-table th,
+.content-container.dpt-clean-table-view .mep-table th,
+.content-container.dpt-clean-table-view .x-table th,
+.content-container.dpt-clean-table-view .request-table th,
+.content-container.dpt-clean-table-view .m-table th {
+  font-size: 12px !important;
+  font-weight: 850 !important;
+  line-height: 1.35 !important;
+  letter-spacing: .035em !important;
+  padding: 14px 16px !important;
+  white-space: nowrap !important;
+  vertical-align: middle !important;
+}
+
+.content-container.dpt-clean-table-view .dpt-clean-data-table td,
+.content-container.dpt-clean-table-view .mep-table td,
+.content-container.dpt-clean-table-view .x-table td,
+.content-container.dpt-clean-table-view .request-table td,
+.content-container.dpt-clean-table-view .m-table td {
+  font-size: 15px !important;
+  font-weight: 500 !important;
+  line-height: 1.5 !important;
+  padding: 16px !important;
+  white-space: nowrap !important;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+  vertical-align: middle !important;
+}
+
+.content-container.dpt-clean-table-view .dpt-clean-data-table td b,
+.content-container.dpt-clean-table-view .dpt-clean-data-table td strong,
+.content-container.dpt-clean-table-view .mep-table td b,
+.content-container.dpt-clean-table-view .mep-table td strong,
+.content-container.dpt-clean-table-view .x-table td b,
+.content-container.dpt-clean-table-view .x-table td strong,
+.content-container.dpt-clean-table-view .request-table td b,
+.content-container.dpt-clean-table-view .request-table td strong,
+.content-container.dpt-clean-table-view .m-table td b,
+.content-container.dpt-clean-table-view .m-table td strong {
+  font-size: 16px !important;
+  font-weight: 850 !important;
+  line-height: 1.4 !important;
+}
+
+.content-container.dpt-clean-table-view .dpt-clean-data-table td small,
+.content-container.dpt-clean-table-view .mep-table td small,
+.content-container.dpt-clean-table-view .x-table td small,
+.content-container.dpt-clean-table-view .request-table td small,
+.content-container.dpt-clean-table-view .m-table td small {
+  display: block !important;
+  margin-top: 4px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  line-height: 1.4 !important;
+  white-space: nowrap !important;
+}
+
+.content-container.dpt-clean-table-view .dpt-clean-data-table tbody tr,
+.content-container.dpt-clean-table-view .mep-table tbody tr,
+.content-container.dpt-clean-table-view .x-table tbody tr,
+.content-container.dpt-clean-table-view .request-table tbody tr,
+.content-container.dpt-clean-table-view .m-table tbody tr {
+  min-height: 58px !important;
+}
+
+.content-container.dpt-clean-table-view .dpt-clean-data-table th[data-dpt-column-kind="mark"],
+.content-container.dpt-clean-table-view .dpt-clean-data-table td[data-dpt-column-kind="mark"],
+.content-container.dpt-clean-table-view .dpt-clean-data-table th[data-dpt-column-kind="action"],
+.content-container.dpt-clean-table-view .dpt-clean-data-table td[data-dpt-column-kind="action"],
+.content-container.dpt-clean-table-view .mep-table th[data-dpt-column-kind="mark"],
+.content-container.dpt-clean-table-view .mep-table td[data-dpt-column-kind="mark"],
+.content-container.dpt-clean-table-view .mep-table th[data-dpt-column-kind="action"],
+.content-container.dpt-clean-table-view .mep-table td[data-dpt-column-kind="action"],
+.content-container.dpt-clean-table-view .x-table th[data-dpt-column-kind="mark"],
+.content-container.dpt-clean-table-view .x-table td[data-dpt-column-kind="mark"],
+.content-container.dpt-clean-table-view .x-table th[data-dpt-column-kind="action"],
+.content-container.dpt-clean-table-view .x-table td[data-dpt-column-kind="action"],
+.content-container.dpt-clean-table-view .request-table th[data-dpt-column-kind="mark"],
+.content-container.dpt-clean-table-view .request-table td[data-dpt-column-kind="mark"],
+.content-container.dpt-clean-table-view .request-table th[data-dpt-column-kind="action"],
+.content-container.dpt-clean-table-view .request-table td[data-dpt-column-kind="action"],
+.content-container.dpt-clean-table-view .m-table th[data-dpt-column-kind="mark"],
+.content-container.dpt-clean-table-view .m-table td[data-dpt-column-kind="mark"],
+.content-container.dpt-clean-table-view .m-table th[data-dpt-column-kind="action"],
+.content-container.dpt-clean-table-view .m-table td[data-dpt-column-kind="action"] {
+  display: none !important;
+}
+
+.content-container.dpt-clean-table-view .dpt-row-mark-toolbar,
+.content-container.dpt-clean-table-view .dpt-selection-bar,
+.content-container.dpt-clean-table-view .request-selection-bar,
+.content-container.dpt-clean-table-view .mep-selection {
+  display: none !important;
+}
+
+.content-container.dpt-clean-table-view .x-table-wrap,
+.content-container.dpt-clean-table-view .m-table-wrap,
+.content-container.dpt-clean-table-view .request-table-wrap,
+.content-container.dpt-clean-table-view .mep-table-wrap {
+  overflow-x: auto !important;
+  overflow-y: clip !important;
+  scrollbar-width: thin;
+}
+
+@media (max-width: 760px) {
+  .content-container.dpt-clean-table-view .dpt-clean-data-table td,
+  .content-container.dpt-clean-table-view .mep-table td,
+  .content-container.dpt-clean-table-view .x-table td,
+  .content-container.dpt-clean-table-view .request-table td,
+  .content-container.dpt-clean-table-view .m-table td {
+    font-size: 14px !important;
+    padding: 14px !important;
+  }
+
+  .content-container.dpt-clean-table-view .dpt-clean-data-table td b,
+  .content-container.dpt-clean-table-view .dpt-clean-data-table td strong,
+  .content-container.dpt-clean-table-view .mep-table td b,
+  .content-container.dpt-clean-table-view .mep-table td strong,
+  .content-container.dpt-clean-table-view .x-table td b,
+  .content-container.dpt-clean-table-view .x-table td strong,
+  .content-container.dpt-clean-table-view .request-table td b,
+  .content-container.dpt-clean-table-view .request-table td strong,
+  .content-container.dpt-clean-table-view .m-table td b,
+  .content-container.dpt-clean-table-view .m-table td strong {
+    font-size: 15px !important;
+  }
+
+  .content-container.dpt-clean-table-view .dpt-clean-data-table td small,
+  .content-container.dpt-clean-table-view .mep-table td small,
+  .content-container.dpt-clean-table-view .x-table td small,
+  .content-container.dpt-clean-table-view .request-table td small,
+  .content-container.dpt-clean-table-view .m-table td small {
+    font-size: 12px !important;
+  }
+}
