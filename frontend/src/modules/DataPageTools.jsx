@@ -349,16 +349,6 @@ export default function DataPageTools({ context, profile, onExport }) {
     && dataColumns.every(column => columnVisibility[column.key] !== false)
     && utilityColumns.length > 0
     && utilityColumns.every(column => column.kind === 'mark' ? !showRowMarks || columnVisibility[column.key] === false : columnVisibility[column.key] === false)
-  const toggleRowMarks = () => {
-    const next = !showRowMarks
-    const mark = columns.find(column => column.kind === 'mark')
-    const nextVisibility = mark ? { ...columnVisibility, [mark.key]: next } : columnVisibility
-    setShowRowMarks(next)
-    setColumnVisibility(nextVisibility)
-    writeRowMarkVisibility(context, next)
-    writeColumnVisibility(context, nextVisibility)
-    window.dispatchEvent(new CustomEvent('transport:row-mark-visibility', { detail: { context, visible: next } }))
-  }
   const setColumnVisible = (column, visible) => {
     if (!column) return
     if (!visible && visibleColumnCount <= 1) return
