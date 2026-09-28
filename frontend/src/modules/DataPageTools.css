@@ -44,13 +44,19 @@
 .content-container.dpt-clean-table-view .dpt-row-mark-head,
 .content-container.dpt-clean-table-view .dpt-row-mark-cell,
 .content-container.dpt-clean-table-view .dpt-column-utility,
-.content-container.dpt-clean-table-view .dpt-action-utility { display:none!important; }
+.content-container.dpt-clean-table-view .dpt-action-utility,
+.content-container.dpt-clean-table-view .dpt-mark-utility,
+.content-container.dpt-clean-table-view .x-action-compact,
+.content-container.dpt-clean-table-view .mep-actions,
+.content-container.dpt-clean-table-view .x-row-actions,
+.content-container.dpt-clean-table-view .m-row-actions,
+.content-container.dpt-clean-table-view th:last-child:has(+ *) { display:none!important; }
 
 .content-container.dpt-clean-table-view .x-table th,
 .content-container.dpt-clean-table-view .m-table th,
 .content-container.dpt-clean-table-view .request-table th,
 .content-container.dpt-clean-table-view .mep-table th {
-  font-size:11px!important;
+  font-size:12px!important;
   line-height:1.35!important;
   letter-spacing:.045em!important;
   padding:14px 15px!important;
@@ -60,7 +66,7 @@
 .content-container.dpt-clean-table-view .m-table td,
 .content-container.dpt-clean-table-view .request-table td,
 .content-container.dpt-clean-table-view .mep-table td {
-  font-size:13px!important;
+  font-size:14px!important;
   line-height:1.5!important;
   padding:15px 15px!important;
 }
@@ -69,8 +75,8 @@
 .content-container.dpt-clean-table-view .m-table small,
 .content-container.dpt-clean-table-view .request-table small,
 .content-container.dpt-clean-table-view .mep-table small {
-  font-size:11px!important;
-  line-height:1.4!important;
+  font-size:11.5px!important;
+  line-height:1.45!important;
 }
 
 .content-container.dpt-clean-table-view .x-table-wrap,
