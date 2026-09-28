@@ -25,9 +25,9 @@ const ROW_MARKS = {
   CHECKED: { label: 'Sudah dicek', className: 'dpt-row-mark-checked' },
 }
 const ROW_MARK_STORAGE = 'transport_excel_row_marks_v2'
-const ROW_MARK_VISIBILITY_STORAGE = 'transport_row_mark_visibility_v3'
-const COLUMN_VISIBILITY_STORAGE = 'transport_column_visibility_v2'
-const CLEAN_TABLE_VIEW_STORAGE = 'transport_clean_table_view_v4'
+const ROW_MARK_VISIBILITY_STORAGE = 'transport_row_mark_visibility_v4'
+const COLUMN_VISIBILITY_STORAGE = 'transport_column_visibility_v3'
+const CLEAN_TABLE_VIEW_STORAGE = 'transport_clean_table_view_v5'
 const hasReport = value => value && typeof value === 'object' && value.context
 
 function readRowMarks() {
@@ -82,7 +82,7 @@ function readCleanTableView(context) {
   try {
     const raw = localStorage.getItem(CLEAN_TABLE_VIEW_STORAGE)
     const value = raw ? JSON.parse(raw) : {}
-    return value && typeof value === 'object' && value[context] !== false
+    return value && typeof value === 'object' && value[context] === true
   } catch { return true }
 }
 function writeCleanTableView(context, enabled) {
