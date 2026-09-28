@@ -438,12 +438,13 @@ export default function DataPageTools({ context, profile, onExport }) {
     const next = !cleanTableView
     const nextVisibility = { ...columnVisibility }
     columns.forEach(column => {
-      if (column.kind === 'data') nextVisibility[column.key] = true
       if (!next && (column.kind === 'action' || column.kind === 'mark')) nextVisibility[column.key] = true
+      if (next && column.kind === 'action') nextVisibility[column.key] = false
+      if (next && column.kind === 'mark') nextVisibility[column.key] = false
     })
     setCleanTableView(next)
     setColumnVisibility(nextVisibility)
-    setShowRowMarks(next ? false : true)
+    setShowRowMarks(!next)
     writeCleanTableView(context, next)
     writeColumnVisibility(context, nextVisibility)
     writeRowMarkVisibility(context, !next)
@@ -453,10 +454,14 @@ export default function DataPageTools({ context, profile, onExport }) {
     window.dispatchEvent(new CustomEvent('transport:row-mark-visibility', { detail: { context, visible: !next } }))
     window.dispatchEvent(new CustomEvent('transport:clean-table-view', { detail: { context, enabled: next } }))
   }
-  const visibleColumnCount = columns.filter(column => column.label && isColumnVisible(column, columnVisibility, showRowMarks)).length
+  const visibleColumnCount = columns.filter(column => {
+    const hiddenByClean = cleanTableView && (column.kind === 'mark' || column.kind === 'action')
+    return column.label && !hiddenByClean && isColumnVisible(column, columnVisibility, showRowMarks)
+  }).length
   const hiddenColumnCount = columns.filter(column => column.label && (cleanTableView && (column.kind === 'mark' || column.kind === 'action') ? true : !isColumnVisible(column, columnVisibility, showRowMarks))).length
   const setColumnVisible = (column, visible) => {
     if (!column) return
+    if (cleanTableView && (column.kind === 'action' || column.kind === 'mark')) return
     if (!visible && visibleColumnCount <= 1) return
     const nextVisibility = { ...columnVisibility, [column.key]: visible }
     setColumnVisibility(nextVisibility)
