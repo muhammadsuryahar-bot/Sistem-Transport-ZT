@@ -432,6 +432,13 @@ export default function DataPageTools({ context, profile, onExport }) {
     return () => { clearTimeout(timer); observer.disconnect(); applyCleanRoot(false) }
   }, [context])
 
+  useEffect(() => {
+    const host = document.querySelector('.content-container')
+    if (!host) return undefined
+    host.classList.toggle('dpt-clean-table-view', excelMode)
+    return () => host.classList.remove('dpt-clean-table-view')
+  }, [excelMode])
+
   if (!CONTEXT_LABEL[context]) return null
   const doExport = async () => { if (!onExport || exporting) return; setExporting(true); try { await onExport() } finally { setExporting(false) } }
   const toggleCleanTableView = () => {
