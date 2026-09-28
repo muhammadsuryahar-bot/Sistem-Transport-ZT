@@ -56,7 +56,7 @@
 .content-container.dpt-clean-table-view .m-table th,
 .content-container.dpt-clean-table-view .request-table th,
 .content-container.dpt-clean-table-view .mep-table th {
-  font-size:12px!important;
+  font-size:11.5px!important;
   line-height:1.35!important;
   letter-spacing:.045em!important;
   padding:14px 15px!important;
@@ -66,16 +66,16 @@
 .content-container.dpt-clean-table-view .m-table td,
 .content-container.dpt-clean-table-view .request-table td,
 .content-container.dpt-clean-table-view .mep-table td {
-  font-size:14px!important;
-  line-height:1.5!important;
-  padding:15px 15px!important;
+  font-size:15px!important;
+  line-height:1.52!important;
+  padding:15px 16px!important;
 }
 
 .content-container.dpt-clean-table-view .x-table small,
 .content-container.dpt-clean-table-view .m-table small,
 .content-container.dpt-clean-table-view .request-table small,
 .content-container.dpt-clean-table-view .mep-table small {
-  font-size:11.5px!important;
+  font-size:12px!important;
   line-height:1.45!important;
 }
 
@@ -105,15 +105,15 @@
   .content-container.dpt-clean-table-view .m-table td,
   .content-container.dpt-clean-table-view .request-table td,
   .content-container.dpt-clean-table-view .mep-table td {
-    font-size:12.5px!important;
-    padding:13px 13px!important;
+    font-size:13.5px!important;
+    padding:13px 14px!important;
   }
   .content-container.dpt-clean-table-view .x-table th,
   .content-container.dpt-clean-table-view .m-table th,
   .content-container.dpt-clean-table-view .request-table th,
   .content-container.dpt-clean-table-view .mep-table th {
-    font-size:10px!important;
-    padding:12px 13px!important;
+    font-size:10.5px!important;
+    padding:12px 14px!important;
   }
 }
 
