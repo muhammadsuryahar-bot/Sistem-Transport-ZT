@@ -86,7 +86,7 @@ function columnSlug(value, index) {
 }
 function isColumnVisible(column, visibility, showRowMarks = false) {
   if (!column) return false
-  if (column.kind === 'mark') return showRowMarks && visibility[column.key] === true
+  if (column.kind === 'mark') return showRowMarks && visibility[column.key] !== false
   if (column.kind === 'action') return visibility[column.key] === true
   return visibility[column.key] !== false
 }
