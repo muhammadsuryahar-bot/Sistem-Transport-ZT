@@ -50,7 +50,7 @@
 .content-container.dpt-clean-table-view .mep-actions,
 .content-container.dpt-clean-table-view .x-row-actions,
 .content-container.dpt-clean-table-view .m-row-actions,
-.content-container.dpt-clean-table-view th:last-child:has(+ *) { display:none!important; }
+ 
 
 .content-container.dpt-clean-table-view .x-table th,
 .content-container.dpt-clean-table-view .m-table th,
