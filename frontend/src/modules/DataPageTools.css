@@ -157,3 +157,75 @@
   vertical-align:middle!important;
   white-space:nowrap!important;
 }
+
+/* Hard visual contract for the clean Excel view.
+   This is a CSS fallback in addition to the JS column state, so Aksi/Penanda
+   stay hidden even while React is rerendering the table. */
+.content-container.dpt-clean-table-view .mep-table:has(tbody .mep-actions) thead th:last-child,
+.content-container.dpt-clean-table-view .mep-table:has(tbody .mep-actions) tbody .mep-actions,
+.content-container.dpt-clean-table-view .x-table:has(tbody .x-action-compact) thead th:last-child,
+.content-container.dpt-clean-table-view .x-table:has(tbody .x-action-compact) tbody .x-action-compact,
+.content-container.dpt-clean-table-view .x-table:has(tbody .x-row-actions) thead th:last-child,
+.content-container.dpt-clean-table-view .x-table:has(tbody .x-row-actions) tbody .x-row-actions,
+.content-container.dpt-clean-table-view .request-table:has(tbody .request-actions) thead th:last-child,
+.content-container.dpt-clean-table-view .request-table:has(tbody .request-actions) tbody .request-actions,
+.content-container.dpt-clean-table-view .m-table:has(tbody .m-row-actions) thead th:last-child,
+.content-container.dpt-clean-table-view .m-table:has(tbody .m-row-actions) tbody .m-row-actions {
+  display:none!important;
+}
+
+.content-container.dpt-clean-table-view .dpt-row-mark-toolbar,
+.content-container.dpt-clean-table-view .dpt-row-mark-head,
+.content-container.dpt-clean-table-view .dpt-row-mark-cell {
+  display:none!important;
+}
+
+.content-container.dpt-clean-table-view .dpt-clean-data-table,
+.content-container.dpt-clean-table-view .mep-table:has(tbody .mep-actions),
+.content-container.dpt-clean-table-view .x-table:has(tbody .x-action-compact),
+.content-container.dpt-clean-table-view .x-table:has(tbody .x-row-actions),
+.content-container.dpt-clean-table-view .request-table:has(tbody .request-actions),
+.content-container.dpt-clean-table-view .m-table:has(tbody .m-row-actions) {
+  width:100%!important;
+  max-width:100%!important;
+  min-width:100%!important;
+  table-layout:auto!important;
+}
+
+.content-container.dpt-clean-table-view .mep-table tbody td,
+.content-container.dpt-clean-table-view .x-table tbody td,
+.content-container.dpt-clean-table-view .request-table tbody td,
+.content-container.dpt-clean-table-view .m-table tbody td {
+  font-size:14px!important;
+  line-height:1.55!important;
+  padding:15px 16px!important;
+}
+
+.content-container.dpt-clean-table-view .mep-table tbody td b,
+.content-container.dpt-clean-table-view .mep-table tbody td strong,
+.content-container.dpt-clean-table-view .x-table tbody td b,
+.content-container.dpt-clean-table-view .x-table tbody td strong,
+.content-container.dpt-clean-table-view .request-table tbody td b,
+.content-container.dpt-clean-table-view .request-table tbody td strong,
+.content-container.dpt-clean-table-view .m-table tbody td b,
+.content-container.dpt-clean-table-view .m-table tbody td strong {
+  font-size:14px!important;
+}
+
+.content-container.dpt-clean-table-view .mep-table tbody td small,
+.content-container.dpt-clean-table-view .x-table tbody td small,
+.content-container.dpt-clean-table-view .request-table tbody td small,
+.content-container.dpt-clean-table-view .m-table tbody td small {
+  font-size:11px!important;
+  line-height:1.45!important;
+}
+
+@media(max-width:760px){
+  .content-container.dpt-clean-table-view .mep-table tbody td,
+  .content-container.dpt-clean-table-view .x-table tbody td,
+  .content-container.dpt-clean-table-view .request-table tbody td,
+  .content-container.dpt-clean-table-view .m-table tbody td {
+    font-size:13px!important;
+    padding:13px 14px!important;
+  }
+}
