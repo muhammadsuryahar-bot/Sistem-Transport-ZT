@@ -285,7 +285,9 @@ export default function DataPageTools({ context, profile, onExport }) {
       if (!event.detail || event.detail.context === context) {
         ensureRowMarks(context)
         const table = primaryTableRef.current || getPrimaryDataTable(context)
-        if (table) applyColumnVisibility(context, table, columns, columnVisibility)
+        const nextColumns = getColumnDescriptors(context, table)
+        const nextVisibility = readColumnVisibility(context)
+        if (table) applyColumnVisibility(context, table, nextColumns, nextVisibility)
       }
     }
     window.addEventListener('transport:row-mark-visibility', onVisibilityChange)
