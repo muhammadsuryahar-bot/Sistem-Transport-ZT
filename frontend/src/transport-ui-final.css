@@ -446,3 +446,10 @@ select { touch-action: manipulation; }
   .dpt-clean-data-table td b,
   .dpt-clean-data-table td strong { font-size: 13px !important; }
 }
+
+/* Clean data view: keep operational-selection hints outside the data surface. */
+.dpt-clean-mode .mep-hint,
+.dpt-clean-mode .request-selection-hint { display:none !important; }
+
+/* Clean data tables must use the available width after utility columns are hidden. */
+.dpt-clean-data-table { width:100% !important; min-width:100% !important; max-width:100% !important; table-layout:auto !important; }
