@@ -363,3 +363,50 @@ select { touch-action: manipulation; }
   .request-actions .request-detail-button,
   .mep-actions button { min-height: 34px !important; height: 34px !important; padding: 0 10px !important; }
 }
+
+/* Clean Data mode: hide only working controls and make the actual Excel-like data easier to read. */
+.dpt-clean-data-wrap { background:#fff !important; }
+.dpt-clean-data-table {
+  width:100% !important;
+  min-width:100% !important;
+  table-layout:auto !important;
+}
+.dpt-clean-data-table thead th {
+  font-size:11px !important;
+  line-height:1.35 !important;
+  padding:14px 16px !important;
+  letter-spacing:.07em !important;
+}
+.dpt-clean-data-table tbody td {
+  font-size:13.5px !important;
+  line-height:1.5 !important;
+  padding:15px 16px !important;
+}
+.dpt-clean-data-table tbody td strong,
+.dpt-clean-data-table tbody td b {
+  font-size:14px !important;
+}
+.dpt-clean-data-table tbody td small {
+  display:block;
+  margin-top:3px;
+  font-size:11px !important;
+  line-height:1.4 !important;
+}
+.dpt-clean-toggle.active {
+  background:#eaf4ee !important;
+  border-color:#bfd7c9 !important;
+  color:#1d6a4a !important;
+  box-shadow:inset 0 0 0 1px rgba(29,106,74,.05) !important;
+}
+@media(max-width:900px){
+  .dpt-clean-data-table tbody td { font-size:13px !important; padding:14px 14px !important; }
+  .dpt-clean-data-table tbody td strong,
+  .dpt-clean-data-table tbody td b { font-size:13.5px !important; }
+}
+@media(max-width:600px){
+  .dpt-clean-data-table { min-width:100% !important; }
+  .dpt-clean-data-table thead th { font-size:10px !important; padding:12px 12px !important; }
+  .dpt-clean-data-table tbody td { font-size:12.5px !important; padding:13px 12px !important; }
+  .dpt-clean-data-table tbody td strong,
+  .dpt-clean-data-table tbody td b { font-size:13px !important; }
+}
