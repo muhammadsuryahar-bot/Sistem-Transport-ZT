@@ -27,7 +27,7 @@ const ROW_MARKS = {
 const ROW_MARK_STORAGE = 'transport_excel_row_marks_v2'
 const ROW_MARK_VISIBILITY_STORAGE = 'transport_row_mark_visibility_v4'
 const COLUMN_VISIBILITY_STORAGE = 'transport_column_visibility_v3'
-const CLEAN_TABLE_VIEW_STORAGE = 'transport_clean_table_view_v5'
+const CLEAN_TABLE_VIEW_STORAGE = 'transport_clean_table_view_v6'
 const hasReport = value => value && typeof value === 'object' && value.context
 
 function readRowMarks() {
@@ -110,7 +110,7 @@ function columnSlug(value, index) {
 function isColumnVisible(column, visibility, showRowMarks = false) {
   if (!column) return false
   if (column.kind === 'mark') return showRowMarks && visibility[column.key] !== false
-  if (column.kind === 'action') return visibility[column.key] === true
+  if (column.kind === 'action') return visibility[column.key] !== false
   return visibility[column.key] !== false
 }
 function isMainOperationalTable(table) {
@@ -149,6 +149,20 @@ function getColumnDescriptors(context, table) {
     }
   }).filter(column => column.label)
 }
+function applyDirectColumnDisplay(table, descriptors, visibility, cleanMode, showRowMarks) {
+  if (!table) return
+  const rows = Array.from(table.rows)
+  for (const column of descriptors) {
+    const hidden = !isColumnVisible(column, visibility, showRowMarks) || (cleanMode && (column.kind === 'mark' || column.kind === 'action'))
+    for (const row of rows) {
+      if (row.querySelector?.('td[colspan]')) continue
+      const cell = row.children[column.index]
+      if (!cell) continue
+      cell.style.display = hidden ? 'none' : ''
+      cell.setAttribute('aria-hidden', hidden ? 'true' : 'false')
+    }
+  }
+}
 function applyColumnVisibility(context, table, descriptors, visibility, cleanMode = readCleanTableView(context)) {
   if (!table) return
   const showMarks = readRowMarkVisibility(context)
@@ -179,6 +193,7 @@ function applyColumnVisibility(context, table, descriptors, visibility, cleanMod
     }
   }
 
+  applyDirectColumnDisplay(table, descriptors, visibility, cleanMode, showMarks)
   const cleanModeActive = dataColumns > 0 && visibleDataColumns === dataColumns && utilityColumns > 0 && hiddenUtilityColumns === utilityColumns
   const header = table.querySelector('thead tr')
   if (header) {
@@ -407,6 +422,9 @@ export default function DataPageTools({ context, profile, onExport }) {
       setCleanTableView(clean)
       applyCleanRoot(clean)
       getAllOperationalTables(context).forEach(item => applyColumnVisibility(context, item, getColumnDescriptors(context, item), latestVisibility, clean))
+      if (clean) {
+        window.requestAnimationFrame(() => getAllOperationalTables(context).forEach(item => applyColumnVisibility(context, item, getColumnDescriptors(context, item), latestVisibility, true)))
+      }
     }
     run()
     const observer = new MutationObserver(() => { clearTimeout(timer); timer = setTimeout(run, 40) })
@@ -431,6 +449,7 @@ export default function DataPageTools({ context, profile, onExport }) {
     writeRowMarkVisibility(context, !next)
     applyCleanRoot(next)
     getAllOperationalTables(context).forEach(item => applyColumnVisibility(context, item, getColumnDescriptors(context, item), nextVisibility, next))
+    window.requestAnimationFrame(() => getAllOperationalTables(context).forEach(item => applyColumnVisibility(context, item, getColumnDescriptors(context, item), nextVisibility, next)))
     window.dispatchEvent(new CustomEvent('transport:row-mark-visibility', { detail: { context, visible: !next } }))
     window.dispatchEvent(new CustomEvent('transport:clean-table-view', { detail: { context, enabled: next } }))
   }
