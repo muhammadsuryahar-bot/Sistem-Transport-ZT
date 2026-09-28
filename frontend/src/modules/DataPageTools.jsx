@@ -378,7 +378,8 @@ export default function DataPageTools({ context, profile, onExport }) {
     const nextCleanMode = !excelMode
     const nextVisibility = { ...columnVisibility }
     columns.forEach(column => {
-      if (column.kind === 'data') nextVisibility[column.key] = nextCleanMode
+      // "Data Bersih" only hides working/utility columns. Data columns must remain visible.
+      if (column.kind === 'data') nextVisibility[column.key] = true
       if (column.kind === 'action' || column.kind === 'mark') nextVisibility[column.key] = !nextCleanMode
     })
     setColumnVisibility(nextVisibility)
