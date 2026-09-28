@@ -23,7 +23,7 @@ const ROW_MARKS = {
   CHECKED: { label: 'Sudah dicek', className: 'dpt-row-mark-checked' },
 }
 const ROW_MARK_STORAGE = 'transport_excel_row_marks_v2'
-const ROW_MARK_VISIBILITY_STORAGE = 'transport_row_mark_visibility_v1'
+const ROW_MARK_VISIBILITY_STORAGE = 'transport_row_mark_visibility_v3'
 const COLUMN_VISIBILITY_STORAGE = 'transport_column_visibility_v2'
 const hasReport = value => value && typeof value === 'object' && value.context
 
@@ -43,7 +43,7 @@ function readRowMarkVisibility(context) {
   try {
     const raw = localStorage.getItem(ROW_MARK_VISIBILITY_STORAGE)
     const value = raw ? JSON.parse(raw) : {}
-    return value && typeof value === 'object' && value[context] !== false
+    return value && typeof value === 'object' && value[context] === true
   } catch { return true }
 }
 function writeRowMarkVisibility(context, visible) {
@@ -84,6 +84,12 @@ function columnSlug(value, index) {
     .replace(/^_+|_+$/g, '')
   return clean || `column_${index + 1}`
 }
+function isColumnVisible(column, visibility, showRowMarks = false) {
+  if (!column) return false
+  if (column.kind === 'mark') return showRowMarks && visibility[column.key] === true
+  if (column.kind === 'action') return visibility[column.key] === true
+  return visibility[column.key] !== false
+}
 function isMainOperationalTable(table) {
   return Boolean(
     table &&
@@ -123,14 +129,13 @@ function getColumnDescriptors(context, table) {
 function applyColumnVisibility(context, table, descriptors, visibility) {
   if (!table) return
   const showMarks = readRowMarkVisibility(context)
-  let visibleDataColumns = 0
   let dataColumns = 0
+  let visibleDataColumns = 0
   let utilityColumns = 0
   let hiddenUtilityColumns = 0
 
   for (const column of descriptors) {
-    const hiddenByColumn = visibility[column.key] === false
-    const hidden = column.kind === 'mark' ? hiddenByColumn || !showMarks : hiddenByColumn
+    const hidden = !isColumnVisible(column, visibility, showMarks)
     if (column.kind === 'data') {
       dataColumns += 1
       if (!hidden) visibleDataColumns += 1
@@ -148,6 +153,7 @@ function applyColumnVisibility(context, table, descriptors, visibility) {
   table.classList.toggle('dpt-clean-data-table', cleanMode)
   table.closest('.x-table-wrap, .request-table-wrap, .mep-table-wrap')?.classList.toggle('dpt-clean-data-wrap', cleanMode)
 }
+
 function columnSignature(descriptors) {
   return descriptors.map(column => `${column.key}=${column.label}=${column.index}`).join('|')
 }
@@ -341,8 +347,8 @@ export default function DataPageTools({ context, profile, onExport }) {
 
   if (!CONTEXT_LABEL[context]) return null
   const doExport = async () => { if (!onExport || exporting) return; setExporting(true); try { await onExport() } finally { setExporting(false) } }
-  const visibleColumnCount = columns.filter(column => column.label && (column.kind === 'mark' ? showRowMarks && columnVisibility[column.key] !== false : columnVisibility[column.key] !== false)).length
-  const hiddenColumnCount = columns.filter(column => column.label && (column.kind === 'mark' ? !showRowMarks || columnVisibility[column.key] === false : columnVisibility[column.key] === false)).length
+  const visibleColumnCount = columns.filter(column => column.label && isColumnVisible(column, columnVisibility, showRowMarks)).length
+  const hiddenColumnCount = columns.filter(column => column.label && !isColumnVisible(column, columnVisibility, showRowMarks)).length
   const utilityColumns = columns.filter(column => column.kind === 'mark' || column.kind === 'action')
   const dataColumns = columns.filter(column => column.kind === 'data')
   const excelMode = dataColumns.length > 0
@@ -390,7 +396,7 @@ export default function DataPageTools({ context, profile, onExport }) {
     const table = primaryTableRef.current || getPrimaryDataTable(context)
     if (table) applyColumnVisibility(context, table, columns, nextVisibility)
   }
-    const closeImport = () => setShowImport(false)
+  const closeImport = () => setShowImport(false)
   const finishImport = report => {
     setShowImport(false)
     if (hasReport(report)) setImportReport(report)
@@ -402,6 +408,6 @@ export default function DataPageTools({ context, profile, onExport }) {
   return <>
     {modal}
     {importReport && <div className="dpt-overlay" role="dialog" aria-modal="true"><section className="dpt-modal import-result-modal"><header className="dpt-modal-head"><div><span className="eyebrow">IMPORT SELESAI</span><h3>Rekonsiliasi Data {CONTEXT_LABEL[importReport.context] || 'Excel'}</h3><p>Perbedaan jumlah antara Excel dan data sistem dijelaskan di sini.</p></div><button type="button" className="dpt-icon" onClick={() => setImportReport(null)}>×</button></header><div className="service-import-stats"><div><b>{importReport.sourceRows ?? 0}</b><span>baris sumber</span></div><div><b>{importReport.validRows ?? importReport.sourceRows ?? 0}</b><span>baris valid</span></div><div><b>{importReport.uniqueVehicles ?? importReport.imported ?? 0}</b><span>data unik</span></div><div><b>{importReport.mergedDuplicates ?? importReport.skipped ?? 0}</b><span>duplikat/skip</span></div></div><div className="vehicle-import-explanation"><b>Hasil penyimpanan</b>{importReport.added != null && <span>Data baru: <strong>{importReport.added}</strong></span>}{importReport.updated != null && <span>Data diperbarui: <strong>{importReport.updated}</strong></span>}{importReport.driversCreated != null && <span>Driver dibuat: <strong>{importReport.driversCreated}</strong></span>}</div>{importReport.message && <div className="vehicle-import-note"><b>Detail hasil import</b><span>{importReport.message}</span></div>}<div className="dpt-actions"><button type="button" className="dpt-button" onClick={() => setImportReport(null)}>Tutup</button><button type="button" className="dpt-button primary" onClick={refreshAfterImport}>Refresh Data Sistem</button></div></section></div>}
-    <div className="dpt-toolbar"><div><span className="eyebrow">DATA</span><b>{CONTEXT_LABEL[context]}</b></div><div className="dpt-toolbar-actions"><div className="dpt-column-popover" ref={columnMenuRef}><button className="dpt-button secondary" type="button" onClick={() => setShowColumnMenu(current => !current)} disabled={!columns.length} aria-expanded={showColumnMenu} aria-haspopup="menu">Kolom{hiddenColumnCount ? ` (${hiddenColumnCount})` : ''}</button>{showColumnMenu && <div className="dpt-column-menu" role="menu"><div className="dpt-column-menu-head"><div><b>Tampilan kolom</b><span>Pilih data yang ingin ditampilkan.</span></div><button type="button" className="dpt-column-close" onClick={() => setShowColumnMenu(false)} aria-label="Tutup">×</button></div><div className="dpt-column-quick"><button type="button" onClick={toggleExcelMode}>{excelMode ? '↺ Tampilkan fitur' : '▣ Data Bersih'}</button><button type="button" onClick={showAllColumns}>Tampilkan semua</button></div><div className="dpt-column-list">{columns.map(column => { const visible = column.kind === 'mark' ? showRowMarks && columnVisibility[column.key] !== false : columnVisibility[column.key] !== false; const disableHide = visible && visibleColumnCount <= 1; return <label className="dpt-column-item" key={column.key}><input type="checkbox" checked={visible} disabled={disableHide} onChange={event => setColumnVisible(column, event.target.checked)} /><span>{column.label}</span><small>{column.kind === 'mark' ? 'Penanda' : column.kind === 'action' ? 'Aksi baris' : 'Data'}</small></label> })}</div><div className="dpt-column-note">{hiddenColumnCount ? `${hiddenColumnCount} kolom disembunyikan.` : 'Semua kolom sedang ditampilkan.'}</div></div>}</div><button className={`dpt-button secondary dpt-clean-toggle${excelMode ? ' active' : ''}`} type="button" onClick={toggleExcelMode} title={excelMode ? 'Kembalikan tampilan lengkap beserta fitur kerja' : 'Sembunyikan Penanda dan Aksi, tampilkan seluruh data dengan font lebih besar'}>{excelMode ? 'Data Bersih: Aktif' : 'Data Bersih'}</button>{canImport && <button className="dpt-button secondary" type="button" onClick={() => setShowImport(true)}>⇧ Import Excel</button>}<button className="dpt-button primary" type="button" onClick={doExport} disabled={exporting}>{exporting ? 'Exporting…' : '⇩ Export Excel'}</button></div></div>
+    <div className="dpt-toolbar"><div><span className="eyebrow">DATA</span><b>{CONTEXT_LABEL[context]}</b></div><div className="dpt-toolbar-actions"><div className="dpt-column-popover" ref={columnMenuRef}><button className="dpt-button secondary" type="button" onClick={() => setShowColumnMenu(current => !current)} disabled={!columns.length} aria-expanded={showColumnMenu} aria-haspopup="menu">Kolom{hiddenColumnCount ? ` (${hiddenColumnCount})` : ''}</button>{showColumnMenu && <div className="dpt-column-menu" role="menu"><div className="dpt-column-menu-head"><div><b>Tampilan kolom</b><span>Pilih data yang ingin ditampilkan.</span></div><button type="button" className="dpt-column-close" onClick={() => setShowColumnMenu(false)} aria-label="Tutup">×</button></div><div className="dpt-column-quick"><button type="button" onClick={toggleExcelMode}>{excelMode ? '↺ Tampilkan fitur' : '▣ Data Bersih'}</button><button type="button" onClick={showAllColumns}>Tampilkan semua</button></div><div className="dpt-column-list">{columns.map(column => { const visible = isColumnVisible(column, columnVisibility, showRowMarks); const disableHide = visible && visibleColumnCount <= 1; return <label className="dpt-column-item" key={column.key}><input type="checkbox" checked={visible} disabled={disableHide} onChange={event => setColumnVisible(column, event.target.checked)} /><span>{column.label}</span><small>{column.kind === 'mark' ? 'Penanda' : column.kind === 'action' ? 'Aksi baris' : 'Data'}</small></label> })}</div><div className="dpt-column-note">{hiddenColumnCount ? `${hiddenColumnCount} kolom disembunyikan.` : 'Semua kolom sedang ditampilkan.'}</div></div>}</div><button className={`dpt-button secondary dpt-clean-toggle${excelMode ? ' active' : ''}`} type="button" onClick={toggleExcelMode} title={excelMode ? 'Kembalikan tampilan lengkap beserta fitur kerja' : 'Sembunyikan Penanda dan Aksi, tampilkan seluruh data dengan font lebih besar'}>{excelMode ? 'Data Bersih: Aktif' : 'Data Bersih'}</button>{canImport && <button className="dpt-button secondary" type="button" onClick={() => setShowImport(true)}>⇧ Import Excel</button>}<button className="dpt-button primary" type="button" onClick={doExport} disabled={exporting}>{exporting ? 'Exporting…' : '⇩ Export Excel'}</button></div></div>
   </>
 }
