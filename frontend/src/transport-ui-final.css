@@ -410,3 +410,39 @@ select { touch-action: manipulation; }
   .dpt-clean-data-table tbody td strong,
   .dpt-clean-data-table tbody td b { font-size:13px !important; }
 }
+
+/* Clean data / Excel-style mode:
+   utility columns (Penanda + Aksi) are hidden while operational data becomes larger/readable. */
+.dpt-clean-data-wrap { border-radius: 12px !important; }
+.dpt-clean-data-table th {
+  font-size: 11px !important;
+  line-height: 1.35 !important;
+  padding: 14px 16px !important;
+  letter-spacing: .055em !important;
+}
+.dpt-clean-data-table td {
+  font-size: 14px !important;
+  line-height: 1.55 !important;
+  padding: 15px 16px !important;
+  vertical-align: middle !important;
+}
+.dpt-clean-data-table td b,
+.dpt-clean-data-table td strong { font-size: 14px !important; }
+.dpt-clean-data-table td small {
+  display: block;
+  margin-top: 3px;
+  font-size: 11px !important;
+  line-height: 1.4 !important;
+}
+.dpt-clean-data-wrap .dpt-row-mark-toolbar { display: none !important; }
+.dpt-clean-toggle.active {
+  background: #eaf5ef !important;
+  border-color: #bed6c8 !important;
+  color: #18533c !important;
+}
+@media (max-width: 760px) {
+  .dpt-clean-data-table th { font-size: 10px !important; padding: 12px 13px !important; }
+  .dpt-clean-data-table td { font-size: 13px !important; padding: 13px !important; }
+  .dpt-clean-data-table td b,
+  .dpt-clean-data-table td strong { font-size: 13px !important; }
+}
