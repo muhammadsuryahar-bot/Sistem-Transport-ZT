@@ -142,68 +142,59 @@ function displayCell(value, header) {
 async function importVehicleRows(rows) {
   const repaired = rows.filter(row => row.nomor_polisi && row.merk)
   if (!repaired.length) throw new Error('Tidak ada baris Kendaraan valid. Pastikan No. Pol dan Merk terisi.')
+
   const invalid = repaired.filter(row => !row.kepemilikan)
-  if (invalid.length) throw new Error(`Ada ${invalid.length} baris dengan Status kepemilikan kosong/tidak valid. Gunakan hanya Aset atau Sewa (baris: ${invalid.map(row => row.excelRow).join(', ')}).`)
+  if (invalid.length) {
+    throw new Error(`Ada ${invalid.length} baris dengan Status kepemilikan kosong/tidak valid. Gunakan hanya Aset atau Sewa (baris: ${invalid.map(row => row.excelRow).join(', ')}).`)
+  }
+
   const groups = new Map()
-  repaired.forEach(row => { const key = upper(row.nomor_polisi); if (!groups.has(key)) groups.set(key, []); groups.get(key).push(row) })
+  repaired.forEach(row => {
+    const key = upper(row.nomor_polisi)
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key).push(row)
+  })
+
   const merged = [...groups.values()].map(mergeRows)
   const missingRentalOwners = merged.filter(row => row.kepemilikan === 'SEWA' && !clean(row.pemilik))
-  if (missingRentalOwners.length) throw new Error(`Ada ${missingRentalOwners.length} kendaraan Sewa tanpa identitas pemilik. Isi kolom Pemilik untuk baris: ${missingRentalOwners.map(row => row.excelRow).join(', ')}.`)
-  const vehiclesResult = await supabase.from('kendaraan').select('id,kode_kendaraan,nomor_polisi,merk,tipe,jenis_kendaraan,tahun,warna,nomor_rangka,nomor_mesin,kepemilikan,jenis_sewa,pemilik,driver_id,lokasi,unit_kerja,kilometer_terakhir,status,kondisi,keterangan,masa_berlaku_pajak,status_pajak,catatan_hutang')
-  const driversResult = await supabase.from('driver').select('id,nama_lengkap,lokasi,status,keterangan')
-  if (vehiclesResult.error) throw new Error(`Tidak bisa membaca master kendaraan: ${vehiclesResult.error.message}`)
-  if (driversResult.error) throw new Error(`Tidak bisa membaca master driver: ${driversResult.error.message}`)
-  const existingByPlate = Object.fromEntries((vehiclesResult.data || []).map(item => [upper(item.nomor_polisi), item]))
-  const existingCodes = new Set((vehiclesResult.data || []).map(item => upper(item.kode_kendaraan)).filter(Boolean))
-  const driverByName = Object.fromEntries((driversResult.data || []).map(item => [upper(item.nama_lengkap), item]))
-  let added = 0; let updated = 0; let driversCreated = 0
-  for (const row of merged) {
-    const plate = upper(row.nomor_polisi)
-    const current = existingByPlate[plate]
-    const owner = row.pemilik || current?.pemilik || null
-    const driverSource = clean(row.driver)
-    let driverId = driverByName[upper(driverSource)]?.id || current?.driver_id || null
-    if (driverSource && !PLACEHOLDER_DRIVERS.has(upper(driverSource)) && !driverId) {
-      const created = await supabase.from('driver').insert({ nama_lengkap: driverSource, lokasi: row.lokasi || null, status: 'AKTIF', keterangan: 'Dibuat dari import Excel Kendaraan.' }).select('id,nama_lengkap,lokasi,status,keterangan').single()
-      if (created.error) throw new Error(`Gagal membuat driver ${driverSource} (baris ${row.excelRow}): ${created.error.message}`)
-      driverId = created.data.id
-      driverByName[upper(driverSource)] = created.data
-      driversCreated += 1
-    }
-    let code = upper(current?.kode_kendaraan || `KND-${plate.replace(/[^A-Z0-9]+/g, '')}`)
-    if (!current && existingCodes.has(code)) code = `${code}-${plate.replace(/[^A-Z0-9]+/g, '')}`
-    existingCodes.add(code)
-    const payload = {
-      kode_kendaraan: code,
-      nomor_polisi: plate,
-      merk: row.merk || current?.merk || null,
-      tipe: row.tipe || current?.tipe || null,
-      jenis_kendaraan: row.jenis || current?.jenis_kendaraan || null,
-      tahun: numberValue(row.tahun) ?? current?.tahun ?? null,
-      warna: current?.warna || null,
-      nomor_rangka: row.nomor_rangka || current?.nomor_rangka || null,
-      nomor_mesin: row.nomor_mesin || current?.nomor_mesin || null,
-      kepemilikan: row.kepemilikan,
-      jenis_sewa: row.kepemilikan === 'SEWA' ? (row.jenis_sewa || current?.jenis_sewa || null) : null,
-      pemilik: owner,
-      driver_id: driverId,
-      lokasi: row.lokasi || current?.lokasi || null,
-      unit_kerja: row.unit_kerja || current?.unit_kerja || null,
-      kilometer_terakhir: current?.kilometer_terakhir ?? 0,
-      status: current?.status || 'ACTIVE',
-      kondisi: current?.kondisi || null,
-      keterangan: row.keterangan || current?.keterangan || null,
-      masa_berlaku_pajak: row.masa_pajak || current?.masa_berlaku_pajak || null,
-      status_pajak: row.status_pajak || current?.status_pajak || null,
-      catatan_hutang: row.catatan_hutang || current?.catatan_hutang || null,
-    }
-    const result = current ? await supabase.from('kendaraan').update(payload).eq('id', current.id) : await supabase.from('kendaraan').insert(payload).select('id').single()
-    if (result.error) throw new Error(`Gagal menyimpan kendaraan ${plate} (baris ${row.excelRow}): ${result.error.message}`)
-    if (current) updated += 1
-    else added += 1
-    existingByPlate[plate] = { ...(current || {}), ...payload }
+  if (missingRentalOwners.length) {
+    throw new Error(`Ada ${missingRentalOwners.length} kendaraan Sewa tanpa identitas pemilik. Isi kolom Pemilik untuk baris: ${missingRentalOwners.map(row => row.excelRow).join(', ')}.`)
   }
-  return { added, updated, mergedDuplicates: repaired.length - merged.length, driversCreated, sourceRows: repaired.length, uniqueVehicles: merged.length }
+
+  const payload = merged.map(row => ({
+    kode_kendaraan: null,
+    nomor_polisi: upper(row.nomor_polisi),
+    merk: row.merk || null,
+    tipe: row.tipe || null,
+    jenis: row.jenis || null,
+    tahun: numberValue(row.tahun),
+    nomor_rangka: row.nomor_rangka || null,
+    nomor_mesin: row.nomor_mesin || null,
+    kepemilikan: row.kepemilikan,
+    jenis_sewa: row.kepemilikan === 'SEWA' ? (row.jenis_sewa || null) : null,
+    pemilik: row.pemilik || null,
+    driver: row.driver || null,
+    lokasi: row.lokasi || null,
+    unit_kerja: row.unit_kerja || null,
+    keterangan: row.keterangan || null,
+    masa_pajak: row.masa_pajak || null,
+    status_pajak: row.status_pajak || null,
+    catatan_hutang: row.catatan_hutang || null,
+  }))
+
+  const { data, error } = await supabase.rpc('import_transport_vehicles', { p_rows: payload })
+  if (error) {
+    throw new Error(`Import Kendaraan dibatalkan sepenuhnya: ${error.message}`)
+  }
+
+  return {
+    added: Number(data?.added || 0),
+    updated: Number(data?.updated || 0),
+    mergedDuplicates: repaired.length - merged.length,
+    driversCreated: Number(data?.driversCreated || 0),
+    sourceRows: repaired.length,
+    uniqueVehicles: merged.length,
+  }
 }
 
 export default function VehicleExcelImportModalV2({ profile, onDone, onClose }) {
