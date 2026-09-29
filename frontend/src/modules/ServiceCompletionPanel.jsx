@@ -55,7 +55,7 @@ export default function ServiceCompletionPanel({ profile }) {
 
   const vehicleMap = useMemo(() => Object.fromEntries(vehicles.map((v) => [v.id, v])), [vehicles])
 
-  const approvalState = (service) => {
+  const approvalState = useCallback((service) => {
     const approvals = approvalCounts[service.id] || { total: 0, director: false }
     const estimate = Number(service.estimasi_biaya || 0)
     const actual = Number(service.biaya_aktual ?? estimate)
@@ -65,11 +65,11 @@ export default function ServiceCompletionPanel({ profile }) {
       : (needsSecond ? actual : estimate) > 5000000 ? 'DIREKTUR' : 'ATASAN_TRANSPORT'
     const roleAllowed = profile?.role === 'ADMIN' || profile?.role === requiredRole
     return { ...approvals, estimate, actual, requiredRole, roleAllowed, pending: service.status === 'MENUNGGU_APPROVAL' && Boolean(requiredRole) && roleAllowed }
-  }
+  }, [approvalCounts, profile?.role])
 
   const pendingApprovals = useMemo(
     () => services.filter(service => canApprove && approvalState(service).pending),
-    [services, approvalCounts, canApprove, profile?.role]
+    [services, canApprove, approvalState]
   )
   const completable = useMemo(() => services.filter((s) => {
     const estimate = Number(s.estimasi_biaya || 0)
