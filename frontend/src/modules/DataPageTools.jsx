@@ -328,11 +328,17 @@ function ensureRowSelection(context, table) {
     toolbar.dataset.rowKey = row.dataset.dptRowMarkKey || `${context}:${row.rowIndex}`
 
     const sourceMark = row.querySelector('.dpt-row-mark-select')
-    markWrap.hidden = !sourceMark
     const detailTarget = getRowActionButton(row, ['detail', 'lihat'])
     const editTarget = getRowActionButton(row, ['edit', 'ubah'])
     const deleteTarget = getRowActionButton(row, ['hapus', 'delete'])
+    const hasTools = Boolean(sourceMark || detailTarget || editTarget || deleteTarget)
+    if (!hasTools) {
+      toolbar.classList.remove('is-visible')
+      toolbar.removeAttribute('data-row-key')
+      return
+    }
 
+    markWrap.hidden = !sourceMark
     detailButton.hidden = !detailTarget
     editButton.hidden = !editTarget
     deleteButton.hidden = !deleteTarget
