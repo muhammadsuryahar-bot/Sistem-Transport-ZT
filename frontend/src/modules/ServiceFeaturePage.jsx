@@ -319,7 +319,7 @@ export default function ServiceFeaturePage({ profile }) {
     <div className="x-card-title service-excel-card-title">
       <div>
         <h3>Riwayat Service — Format Data Service Excel</h3>
-        <p>Kolom mengikuti sheet Data Service: No, Merk, Type, Jenis, Tahun, No. Polisi, Driver/PIC, Bulan, Tanggal, Jenis Pekerjan, Uraian, Qty, Sat, Harga Satuan, Nilai DPP, PPn, Total, KM, Nama Bengkel, Keterangan.</p>
+        <p>Kolom mengikuti sheet Data Service: No, Merk, Type, Jenis, Tahun, No. Polisi, Driver/PIC, Bulan, Tanggal, Jenis Pekerjaan, Uraian, Qty, Sat, Harga Satuan, Nilai DPP, PPn, Total, KM, Nama Bengkel, Keterangan.</p>
       </div>
       <button type="button" className="x-btn secondary service-excel-fullscreen-button" onClick={() => setServiceExcelFullscreen(current => !current)} aria-label={serviceExcelFullscreen ? 'Tutup tampilan penuh' : 'Buka tampilan tabel penuh'}>
         {serviceExcelFullscreen ? 'Tutup Tampilan Penuh' : '↗ Tampilan Penuh'}
@@ -332,7 +332,7 @@ export default function ServiceFeaturePage({ profile }) {
       </div>
       <div className="x-table-wrap" ref={serviceExcelWrapRef} onScroll={syncServiceExcelFromTable}>
         <table className="x-table service-excel-table">
-          <thead><tr><th>No</th><th>Merk</th><th>Type</th><th>Jenis</th><th>Tahun</th><th>No. Polisi</th><th>Driver/PIC</th><th>Bulan</th><th>Tanggal</th><th>Jenis Pekerjan</th><th>Uraian</th><th>Qty</th><th>Sat</th><th>Harga Satuan (Rp)</th><th>Nilai DPP</th><th>PPn</th><th className="service-excel-col-total">Total</th><th>KM</th><th>Nama Bengkel</th><th>Keterangan</th></tr></thead>
+          <thead><tr><th>No</th><th>Merk</th><th>Type</th><th>Jenis</th><th>Tahun</th><th>No. Polisi</th><th>Driver/PIC</th><th>Bulan</th><th>Tanggal</th><th>Jenis Pekerjaan</th><th>Uraian</th><th>Qty</th><th>Sat</th><th>Harga Satuan (Rp)</th><th>Nilai DPP</th><th>PPn</th><th className="service-excel-col-total">Total</th><th>KM</th><th>Nama Bengkel</th><th>Keterangan</th></tr></thead>
           <tbody>{serviceExcelRows.length ? serviceExcelRows.map(row => <tr key={`${row.no}-${row.nomor_polisi}-${row.tanggal}-${row.uraian}`}><td>{row.no}</td><td>{row.merk}</td><td>{row.type}</td><td>{row.jenis}</td><td>{row.tahun}</td><td>{row.nomor_polisi}</td><td>{row.driver}</td><td>{row.bulan}</td><td>{row.tanggal}</td><td>{row.jenis_pekerjaan}</td><td>{row.uraian}</td><td>{row.qty}</td><td>{row.satuan}</td><td>{money(row.harga_satuan)}</td><td>{money(row.nilai_dpp)}</td><td>{row.ppn === '-' ? '-' : money(row.ppn)}</td><td className="service-excel-col-total">{money(row.total)}</td><td>{row.kilometer}</td><td>{row.bengkel}</td><td>{row.keterangan}</td></tr>) : <tr><td colSpan="20"><Empty text="Belum ada riwayat service." /></td></tr>}</tbody>
         </table>
       </div>
