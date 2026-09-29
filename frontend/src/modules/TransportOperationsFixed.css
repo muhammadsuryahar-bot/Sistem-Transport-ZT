@@ -68,3 +68,39 @@ body.transport-service-fullscreen-open{overflow:hidden}
   .report-period-card .x-actions{width:100%;flex-wrap:wrap}
   .report-period-card .x-actions .x-btn{flex:1 1 150px}
 }
+
+/* Service Excel table: keep the key Total value visible while scrolling wide data. */
+.service-excel-table{min-width:1540px!important;width:max-content!important;table-layout:fixed!important}
+.service-excel-table th,
+.service-excel-table td{box-sizing:border-box!important;white-space:normal!important;overflow-wrap:anywhere!important;word-break:normal!important}
+.service-excel-table th:nth-child(1),.service-excel-table td:nth-child(1){width:44px!important;min-width:44px!important}
+.service-excel-table th:nth-child(2),.service-excel-table td:nth-child(2){width:92px!important;min-width:92px!important}
+.service-excel-table th:nth-child(3),.service-excel-table td:nth-child(3){width:82px!important;min-width:82px!important}
+.service-excel-table th:nth-child(4),.service-excel-table td:nth-child(4){width:82px!important;min-width:82px!important}
+.service-excel-table th:nth-child(5),.service-excel-table td:nth-child(5){width:55px!important;min-width:55px!important}
+.service-excel-table th:nth-child(6),.service-excel-table td:nth-child(6){width:92px!important;min-width:92px!important}
+.service-excel-table th:nth-child(7),.service-excel-table td:nth-child(7){width:96px!important;min-width:96px!important}
+.service-excel-table th:nth-child(8),.service-excel-table td:nth-child(8){width:76px!important;min-width:76px!important}
+.service-excel-table th:nth-child(9),.service-excel-table td:nth-child(9){width:86px!important;min-width:86px!important}
+.service-excel-table th:nth-child(10),.service-excel-table td:nth-child(10){width:112px!important;min-width:112px!important}
+.service-excel-table th:nth-child(11),.service-excel-table td:nth-child(11){width:130px!important;min-width:130px!important}
+.service-excel-table th:nth-child(12),.service-excel-table td:nth-child(12){width:48px!important;min-width:48px!important}
+.service-excel-table th:nth-child(13),.service-excel-table td:nth-child(13){width:48px!important;min-width:48px!important}
+.service-excel-table th:nth-child(14),.service-excel-table td:nth-child(14){width:102px!important;min-width:102px!important}
+.service-excel-table th:nth-child(15),.service-excel-table td:nth-child(15){width:102px!important;min-width:102px!important}
+.service-excel-table th:nth-child(16),.service-excel-table td:nth-child(16){width:82px!important;min-width:82px!important}
+.service-excel-table th:nth-child(17),.service-excel-table td:nth-child(17),
+.service-excel-table .service-excel-col-total{width:116px!important;min-width:116px!important}
+.service-excel-table th:nth-child(18),.service-excel-table td:nth-child(18){width:82px!important;min-width:82px!important}
+.service-excel-table th:nth-child(19),.service-excel-table td:nth-child(19){width:108px!important;min-width:108px!important}
+.service-excel-table th:nth-child(20),.service-excel-table td:nth-child(20){width:120px!important;min-width:120px!important}
+.service-excel-table .service-excel-col-total{position:sticky!important;right:0!important;z-index:5!important;background:#fff!important;box-shadow:-9px 0 18px rgba(18,35,27,.10)!important;border-left:1px solid #dce6e0!important}
+.service-excel-table thead .service-excel-col-total{background:#f7faf8!important;z-index:7!important}
+.content-container.dpt-clean-table-view .service-excel-table{font-size:14px!important}
+.content-container.dpt-clean-table-view .service-excel-table th{font-size:12px!important;line-height:1.25!important;padding:10px 9px!important}
+.content-container.dpt-clean-table-view .service-excel-table td{font-size:14px!important;line-height:1.4!important;padding:10px 9px!important}
+.content-container.dpt-clean-table-view .service-excel-table td.service-excel-col-total{font-weight:800!important;font-size:14px!important}
+@media(max-width:900px){
+  .service-excel-table{min-width:1460px!important}
+  .content-container.dpt-clean-table-view .service-excel-table td{font-size:13px!important}
+}
