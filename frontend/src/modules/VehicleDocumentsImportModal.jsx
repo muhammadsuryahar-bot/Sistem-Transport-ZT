@@ -84,31 +84,44 @@ function chooseSheet(sheets) {
 }
 
 async function importDocuments(rows, profile, sheetName) {
-  const valid = rows.filter((row) => row.nomor_polisi && (row.stnk || row.kir || row.lima_tahun))
+  const valid = rows.filter(row => row.nomor_polisi && (row.stnk || row.kir || row.lima_tahun))
   if (!valid.length) throw new Error('Tidak ada data dokumen valid. Pastikan ada No. Polisi dan tanggal STNK/KIR/5 Tahun.')
-  const { data: vehicles, error: vehicleError } = await supabase.from('kendaraan').select('id,nomor_polisi,masa_berlaku_pajak')
+
+  const { data: vehicles, error: vehicleError } = await supabase
+    .from('kendaraan')
+    .select('id,nomor_polisi')
   if (vehicleError) throw new Error(`Tidak bisa membaca master kendaraan: ${vehicleError.message}`)
-  const vehicleMap = Object.fromEntries((vehicles || []).map((v) => [upper(v.nomor_polisi), v]))
-  let inserted = 0; let skipped = 0; let unknown = []; let taxUpdated = 0
-  for (const row of valid) {
-    const vehicle = vehicleMap[row.nomor_polisi]
-    if (!vehicle) { unknown.push(row.nomor_polisi); continue }
-    for (const [key, type] of [['stnk', 'STNK'], ['kir', 'KIR'], ['lima_tahun', '5_TAHUNAN']]) {
-      const due = row[key]; if (!due) continue
-      const existing = await supabase.from('dokumen_kendaraan').select('id').eq('kendaraan_id', vehicle.id).eq('jenis_dokumen', type).eq('tanggal_jatuh_tempo', due).limit(1)
-      if (existing.error) throw new Error(`Gagal mengecek ${type} ${row.nomor_polisi}: ${existing.error.message}`)
-      if (existing.data?.length) { skipped += 1; continue }
-      const result = await supabase.from('dokumen_kendaraan').insert({ kendaraan_id: vehicle.id, jenis_dokumen: type, nomor_dokumen: row.nomor_dokumen || null, tanggal_jatuh_tempo: due, keterangan: encodeExcelMeta({ source: 'STNK_DAN_KIR', source_no: row.source_no, nomor_polisi: row.nomor_polisi, merk: row.merk, type: row.tipe, tahun: row.tahun, nomor_rangka: row.nomor_rangka, pemilik: row.pemilik }, `Import Excel: ${sheetName}`) })
-      if (result.error) throw new Error(`Gagal menyimpan ${type} ${row.nomor_polisi}: ${result.error.message}`)
-      inserted += 1
-    }
-    if (row.stnk && (!vehicle.masa_berlaku_pajak || row.stnk > vehicle.masa_berlaku_pajak)) {
-      const update = await supabase.from('kendaraan').update({ masa_berlaku_pajak: row.stnk }).eq('id', vehicle.id)
-      if (update.error) throw new Error(`Dokumen masuk tetapi masa pajak ${row.nomor_polisi} gagal disinkronkan: ${update.error.message}`)
-      vehicle.masa_berlaku_pajak = row.stnk; taxUpdated += 1
-    }
+
+  const vehicleMap = Object.fromEntries((vehicles || []).map(v => [upper(v.nomor_polisi), v]))
+  const unknown = [...new Set(valid.filter(row => !vehicleMap[upper(row.nomor_polisi)]).map(row => upper(row.nomor_polisi)))]
+
+  const payload = valid.map(row => ({
+    source_no: row.source_no || null,
+    nomor_polisi: upper(row.nomor_polisi),
+    merk: row.merk || null,
+    tipe: row.tipe || null,
+    tahun: row.tahun || null,
+    nomor_rangka: row.nomor_rangka || null,
+    pemilik: row.pemilik || null,
+    stnk: row.stnk || null,
+    kir: row.kir || null,
+    lima_tahun: row.lima_tahun || null,
+    nomor_dokumen: row.nomor_dokumen || null,
+  }))
+
+  const { data, error } = await supabase.rpc('import_transport_documents', {
+    p_rows: payload,
+    p_sheet_name: sheetName,
+  })
+  if (error) throw new Error(`Import dokumen dibatalkan sepenuhnya: ${error.message}`)
+
+  return {
+    sourceRows: rows.length,
+    inserted: Number(data?.inserted || 0),
+    skipped: Number(data?.skipped || 0),
+    unknown,
+    taxUpdated: Number(data?.taxUpdated || 0),
   }
-  return { sourceRows: rows.length, inserted, skipped, unknown: [...new Set(unknown)], taxUpdated }
 }
 
 export default function VehicleDocumentsImportModal({ profile, onDone, onClose }) {
