@@ -3,7 +3,6 @@ import { supabase } from '../lib/supabase'
 import { formatDateSafe } from '../utils/dateSafe'
 import { clearDeletedExcelRows, filterDeletedExcelRows } from '../utils/excelPreviewControls.js'
 import './DataPageTools.css'
-import { encodeExcelMeta } from '../utils/excelSourceMeta.js'
 import './VehicleDocumentsImportModal.css'
 
 const ALIASES = {
