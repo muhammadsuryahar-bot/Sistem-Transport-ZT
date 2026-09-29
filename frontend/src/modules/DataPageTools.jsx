@@ -300,6 +300,7 @@ function ensureRowSelection(context, table) {
   const detailButton = toolbar.querySelector('.dpt-selected-detail')
   const editButton = toolbar.querySelector('.dpt-selected-edit')
   const deleteButton = toolbar.querySelector('.dpt-selected-delete')
+  const markWrap = toolbar.querySelector('.dpt-selected-mark-wrap')
   const markSelect = toolbar.querySelector('.dpt-selected-mark')
   const closeButton = toolbar.querySelector('.dpt-selected-close')
 
@@ -323,6 +324,7 @@ function ensureRowSelection(context, table) {
     toolbar.dataset.rowKey = row.dataset.dptRowMarkKey || `${context}:${row.rowIndex}`
 
     const sourceMark = row.querySelector('.dpt-row-mark-select')
+    markWrap.hidden = !sourceMark
     const detailTarget = getRowActionButton(row, ['detail', 'lihat'])
     const editTarget = getRowActionButton(row, ['edit', 'ubah'])
     const deleteTarget = getRowActionButton(row, ['hapus', 'delete'])
