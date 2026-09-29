@@ -227,6 +227,144 @@ function getAllOperationalTables(context) {
     })
 }
 
+
+function getRowActionButton(row, labels) {
+  const wanted = labels.map(value => value.toLowerCase())
+  return Array.from(row.querySelectorAll('button')).find(button => {
+    const text = String(button.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase()
+    return wanted.includes(text)
+  }) || null
+}
+
+function clearRowSelection(table) {
+  table?.querySelectorAll('tbody tr.dpt-row-selected').forEach(row => {
+    row.classList.remove('dpt-row-selected')
+    row.setAttribute('aria-selected', 'false')
+  })
+  const toolbar = table?.parentElement?.querySelector('.dpt-selected-row-actions')
+  if (toolbar) {
+    toolbar.classList.remove('is-visible')
+    toolbar.removeAttribute('data-row-key')
+    toolbar.querySelector('.dpt-selected-row-label')?.replaceChildren()
+  }
+}
+
+function ensureRowSelection(context, table) {
+  if (!table || !isMainOperationalTable(table)) return
+  if (table.closest('.dpt-preview')) return
+
+  const tableHost = table.closest('.x-table-wrap, .request-table-wrap, .mep-table-wrap') || table.parentElement
+  if (!tableHost) return
+  const scope = tableHost.parentElement || tableHost
+
+  let toolbar = scope.querySelector(':scope > .dpt-selected-row-actions')
+  if (!toolbar) {
+    toolbar = document.createElement('div')
+    toolbar.className = 'dpt-selected-row-actions'
+    toolbar.innerHTML = `
+      <div class="dpt-selected-row-main">
+        <span class="dpt-selected-row-badge">BARIS DIPILIH</span>
+        <b class="dpt-selected-row-label"></b>
+      </div>
+      <div class="dpt-selected-row-tools">
+        <button type="button" class="dpt-selected-action dpt-selected-detail">Detail</button>
+        <label class="dpt-selected-mark-wrap">
+          <span>Penanda</span>
+          <select class="dpt-selected-mark">
+            <option value="NONE">Belum ditandai</option>
+            <option value="TODO">Perlu dikerjakan</option>
+            <option value="PROCESS">Sedang dikerjakan</option>
+            <option value="DONE">Sudah selesai</option>
+            <option value="CHECKED">Sudah dicek</option>
+          </select>
+        </label>
+        <button type="button" class="dpt-selected-action dpt-selected-edit">Edit</button>
+        <button type="button" class="dpt-selected-action danger dpt-selected-delete">Hapus</button>
+        <button type="button" class="dpt-selected-close" aria-label="Batalkan pilihan">×</button>
+      </div>
+    `
+    scope.insertBefore(toolbar, tableHost)
+  }
+
+  const toolbarTable = toolbar.dataset.tableId || ''
+  if (!toolbarTable) {
+    const id = `dpt-table-${context}-${Math.random().toString(36).slice(2)}`
+    toolbar.dataset.tableId = id
+    table.dataset.dptSelectionTableId = id
+  } else {
+    table.dataset.dptSelectionTableId = toolbarTable
+  }
+
+  const selectedLabel = toolbar.querySelector('.dpt-selected-row-label')
+  const detailButton = toolbar.querySelector('.dpt-selected-detail')
+  const editButton = toolbar.querySelector('.dpt-selected-edit')
+  const deleteButton = toolbar.querySelector('.dpt-selected-delete')
+  const markSelect = toolbar.querySelector('.dpt-selected-mark')
+  const closeButton = toolbar.querySelector('.dpt-selected-close')
+
+  const applySelection = row => {
+    if (!row || row.querySelector('td[colspan]')) return
+    table.querySelectorAll('tbody tr.dpt-row-selected').forEach(item => {
+      item.classList.remove('dpt-row-selected')
+      item.setAttribute('aria-selected', 'false')
+    })
+    row.classList.add('dpt-row-selected')
+    row.setAttribute('aria-selected', 'true')
+
+    const cells = Array.from(row.children).filter(cell =>
+      !cell.classList.contains('dpt-row-mark-cell') &&
+      cell.dataset.dptColumnKind !== 'action' &&
+      cell.dataset.dptColumnKind !== 'mark'
+    )
+    const primary = cells.slice(0, 3).map(cell => String(cell.textContent || '').replace(/\s+/g, ' ').trim()).filter(Boolean)
+    selectedLabel.textContent = primary.join(' • ') || 'Data dipilih'
+    toolbar.classList.add('is-visible')
+    toolbar.dataset.rowKey = row.dataset.dptRowMarkKey || `${context}:${row.rowIndex}`
+
+    const sourceMark = row.querySelector('.dpt-row-mark-select')
+    const detailTarget = getRowActionButton(row, ['detail', 'lihat'])
+    const editTarget = getRowActionButton(row, ['edit', 'ubah'])
+    const deleteTarget = getRowActionButton(row, ['hapus', 'delete'])
+
+    detailButton.hidden = !detailTarget
+    editButton.hidden = !editTarget
+    deleteButton.hidden = !deleteTarget
+
+    detailButton.onclick = () => detailTarget?.click()
+    editButton.onclick = () => editTarget?.click()
+    deleteButton.onclick = () => deleteTarget?.click()
+
+    markSelect.value = sourceMark?.value || 'NONE'
+    markSelect.onchange = () => {
+      const nextValue = markSelect.value
+      if (!sourceMark) return
+      sourceMark.value = nextValue
+      sourceMark.dispatchEvent(new Event('change', { bubbles: true }))
+      applyMark(row, nextValue)
+    }
+  }
+
+  if (!table.dataset.dptRowSelectionReady) {
+    table.dataset.dptRowSelectionReady = '1'
+    table.addEventListener('click', event => {
+      const row = event.target.closest('tbody tr')
+      if (!row || row.closest('td')?.querySelector('button, input, select, textarea, a')) return
+      if (event.target.closest('button, input, select, textarea, a')) return
+      if (!table.contains(row) || row.querySelector('td[colspan]')) return
+      applySelection(row)
+    })
+  }
+
+  if (!toolbar.dataset.bound) {
+    toolbar.dataset.bound = '1'
+    closeButton.addEventListener('click', () => clearRowSelection(table))
+  }
+
+  const selected = table.querySelector('tbody tr.dpt-row-selected')
+  if (selected) applySelection(selected)
+  if (!selected && !toolbar.dataset.rowKey) toolbar.classList.remove('is-visible')
+}
+
 function columnSignature(descriptors) {
   return descriptors.map(column => `${column.key}=${column.label}=${column.index}`).join('|')
 }
@@ -424,9 +562,15 @@ export default function DataPageTools({ context, profile, onExport }) {
       setColumnVisibility(latestVisibility)
       setCleanTableView(clean)
       applyCleanRoot(clean)
-      getAllOperationalTables(context).forEach(item => applyColumnVisibility(context, item, getColumnDescriptors(context, item), latestVisibility, clean))
+      getAllOperationalTables(context).forEach(item => {
+        applyColumnVisibility(context, item, getColumnDescriptors(context, item), latestVisibility, clean)
+        ensureRowSelection(context, item)
+      })
       if (clean) {
-        window.requestAnimationFrame(() => getAllOperationalTables(context).forEach(item => applyColumnVisibility(context, item, getColumnDescriptors(context, item), latestVisibility, true)))
+        window.requestAnimationFrame(() => getAllOperationalTables(context).forEach(item => {
+          applyColumnVisibility(context, item, getColumnDescriptors(context, item), latestVisibility, true)
+          ensureRowSelection(context, item)
+        }))
       }
     }
     run()
