@@ -363,7 +363,7 @@ function ensureRowSelection(context, table) {
 
   const selected = table.querySelector('tbody tr.dpt-row-selected')
   if (selected) applySelection(selected)
-  if (!selected && !toolbar.dataset.rowKey) toolbar.classList.remove('is-visible')
+  else clearRowSelection(table)
 }
 
 function columnSignature(descriptors) {
