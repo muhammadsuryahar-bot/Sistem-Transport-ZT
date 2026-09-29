@@ -241,7 +241,8 @@ function clearRowSelection(table) {
     row.classList.remove('dpt-row-selected')
     row.setAttribute('aria-selected', 'false')
   })
-  const toolbar = table?.parentElement?.querySelector('.dpt-selected-row-actions')
+  const tableHost = table?.closest('.x-table-wrap, .request-table-wrap, .mep-table-wrap') || table?.parentElement
+  const toolbar = tableHost?.parentElement?.querySelector('.dpt-selected-row-actions')
   if (toolbar) {
     toolbar.classList.remove('is-visible')
     toolbar.removeAttribute('data-row-key')
