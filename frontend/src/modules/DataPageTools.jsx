@@ -242,7 +242,9 @@ function clearRowSelection(table) {
     row.setAttribute('aria-selected', 'false')
   })
   const tableHost = table?.closest('.x-table-wrap, .request-table-wrap, .mep-table-wrap') || table?.parentElement
-  const toolbar = tableHost?.parentElement?.querySelector('.dpt-selected-row-actions')
+  const toolbar = tableHost?.previousElementSibling?.matches?.('.dpt-selected-row-actions')
+    ? tableHost.previousElementSibling
+    : null
   if (toolbar) {
     toolbar.classList.remove('is-visible')
     toolbar.removeAttribute('data-row-key')
@@ -258,7 +260,9 @@ function ensureRowSelection(context, table) {
   if (!tableHost) return
   const scope = tableHost.parentElement || tableHost
 
-  let toolbar = scope.querySelector(':scope > .dpt-selected-row-actions')
+  let toolbar = tableHost.previousElementSibling?.matches?.('.dpt-selected-row-actions')
+    ? tableHost.previousElementSibling
+    : null
   if (!toolbar) {
     toolbar = document.createElement('div')
     toolbar.className = 'dpt-selected-row-actions'
