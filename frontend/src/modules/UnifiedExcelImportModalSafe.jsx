@@ -105,24 +105,103 @@ async function importPengajuan(sheet, profile) {
 }
 
 async function importSewa(sheet, profile) {
-  const rows = validateSource(sheet, 'sewa'); const headers = sheet.headers
-  const vehicles = await supabase.from('kendaraan').select('id,nomor_polisi,kepemilikan').eq('kepemilikan', 'SEWA'); if (vehicles.error) throw new Error(`Tidak bisa membaca Master Kendaraan Sewa: ${vehicles.error.message}`)
-  const vehicleMap = Object.fromEntries((vehicles.data || []).map((v) => [upper(v.nomor_polisi), v])); const candidates = []; const invalid = []; const seenContracts = new Set()
+  const rows = validateSource(sheet, 'sewa')
+  const headers = sheet.headers
+  const vehicles = await supabase
+    .from('kendaraan')
+    .select('id,nomor_polisi,kepemilikan')
+    .eq('kepemilikan', 'SEWA')
+  if (vehicles.error) throw new Error(`Tidak bisa membaca Master Kendaraan Sewa: ${vehicles.error.message}`)
+
+  const vehicleMap = Object.fromEntries((vehicles.data || []).map(v => [upper(v.nomor_polisi), v]))
+  const candidates = []
+  const invalid = []
+  const seenContracts = new Set()
+
   for (const row of rows) {
-    const plate = upper(valueOf(row, headers, 'nomor_polisi')); const nomorKontrak = valueOf(row, headers, 'nomor_kontrak'); const ownerName = valueOf(row, headers, 'pemilik'); const start = excelDate(valueOf(row, headers, 'tanggal_mulai')); const end = excelDate(valueOf(row, headers, 'tanggal_selesai')); const monthly = numberValue(valueOf(row, headers, 'nilai_sewa_bulanan')); const vehicle = vehicleMap[plate]
-    if (!vehicle || !nomorKontrak || !ownerName || !start || !end || !monthly || monthly <= 0) { invalid.push({ plate, reason: !vehicle ? 'Plat belum ada di Master Kendaraan Sewa' : 'Kolom kontrak/pemilik/periode/nilai sewa tidak lengkap' }); continue }
-    if (end !== sixMonthEnd(start)) throw new Error(`Kontrak ${nomorKontrak} tidak tepat 6 bulan. Tanggal selesai yang valid untuk ${start} adalah ${sixMonthEnd(start)}.`)
-    const contractKey = upper(nomorKontrak); if (seenContracts.has(contractKey)) { invalid.push({ plate, reason: 'Nomor kontrak duplikat di file Excel' }); continue }; seenContracts.add(contractKey); candidates.push({ row, plate, nomorKontrak, ownerName, start, end, monthly, vehicle })
+    const plate = upper(valueOf(row, headers, 'nomor_polisi'))
+    const nomorKontrak = valueOf(row, headers, 'nomor_kontrak')
+    const ownerName = valueOf(row, headers, 'pemilik')
+    const start = excelDate(valueOf(row, headers, 'tanggal_mulai'))
+    const end = excelDate(valueOf(row, headers, 'tanggal_selesai'))
+    const monthly = numberValue(valueOf(row, headers, 'nilai_sewa_bulanan'))
+    const vehicle = vehicleMap[plate]
+
+    if (!vehicle || !nomorKontrak || !ownerName || !start || !end || !monthly || monthly <= 0) {
+      invalid.push({ plate, reason: !vehicle ? 'Plat belum ada di Master Kendaraan Sewa' : 'Kolom kontrak/pemilik/periode/nilai sewa tidak lengkap' })
+      continue
+    }
+
+    if (end !== sixMonthEnd(start)) {
+      throw new Error(`Kontrak ${nomorKontrak} tidak tepat 6 bulan. Tanggal selesai yang valid untuk ${start} adalah ${sixMonthEnd(start)}.`)
+    }
+
+    const contractKey = upper(nomorKontrak)
+    if (seenContracts.has(contractKey)) {
+      invalid.push({ plate, reason: 'Nomor kontrak duplikat di file Excel' })
+      continue
+    }
+    seenContracts.add(contractKey)
+
+    const rawOwnerType = upper(valueOf(row, headers, 'jenis_pemilik')).replace(/\s+/g, '_')
+    const ownerType = rawOwnerType === 'SEWA_PERORANGAN' || rawOwnerType === 'PERORANGAN' || rawOwnerType === ''
+      ? 'PERORANGAN'
+      : ['SEWA_RENTAL', 'PERUSAHAAN_RENTAL', 'SEWA_PERUSAHAAN', 'PERUSAHAAN'].includes(rawOwnerType)
+        ? 'PERUSAHAAN_RENTAL'
+        : null
+
+    if (!ownerType) {
+      throw new Error(`Jenis pemilik ${rawOwnerType} pada kontrak ${nomorKontrak} tidak valid.`)
+    }
+    if (ownerType === 'PERUSAHAAN_RENTAL' && !valueOf(row, headers, 'nama_perusahaan')) {
+      throw new Error(`Nama perusahaan wajib diisi untuk pemilik rental pada kontrak ${nomorKontrak}.`)
+    }
+
+    candidates.push({
+      plate,
+      nomorKontrak,
+      ownerName,
+      start,
+      end,
+      monthly,
+      ownerType,
+      company: valueOf(row, headers, 'nama_perusahaan') || null,
+      dueDay: valueOf(row, headers, 'tanggal_jatuh_tempo_bulanan') || null,
+    })
   }
-  if (!candidates.length) throw new Error('Tidak ada kontrak sewa yang valid. Setiap baris wajib memiliki Nomor Kontrak, Plat Sewa, Pemilik, periode 6 bulan, dan Nilai Sewa Bulanan > 0.')
-  let added = 0; let duplicate = 0
-  for (const item of candidates) {
-    const duplicateCheck = await supabase.from('kontrak_sewa').select('id').eq('nomor_kontrak', item.nomorKontrak).maybeSingle(); if (duplicateCheck.error) throw new Error(`Gagal mengecek kontrak ${item.nomorKontrak}: ${duplicateCheck.error.message}`); if (duplicateCheck.data) { duplicate += 1; continue }
-    let owner = await supabase.from('pemilik_sewa').select('id,jenis_pemilik,nama_perusahaan,nomor_identitas').eq('nama_pemilik', item.ownerName).maybeSingle(); if (owner.error) throw new Error(`Gagal membaca pemilik ${item.ownerName}: ${owner.error.message}`)
-    if (!owner.data) { const rawOwnerType = upper(valueOf(item.row, headers, 'jenis_pemilik')).replace(/\s+/g, '_'); const ownerType = rawOwnerType === 'SEWA_PERORANGAN' || rawOwnerType === 'PERORANGAN' ? 'PERORANGAN' : rawOwnerType === 'SEWA_RENTAL' || rawOwnerType === 'PERUSAHAAN_RENTAL' ? 'PERUSAHAAN_RENTAL' : 'PERORANGAN'; if (!['PERORANGAN', 'PERUSAHAAN_RENTAL'].includes(ownerType)) throw new Error(`Jenis pemilik ${rawOwnerType} pada kontrak ${item.nomorKontrak} tidak valid.`); if (ownerType === 'PERUSAHAAN_RENTAL' && !valueOf(item.row, headers, 'nama_perusahaan')) throw new Error(`Nama perusahaan wajib diisi untuk pemilik rental pada kontrak ${item.nomorKontrak}.`); const created = await supabase.from('pemilik_sewa').insert({ jenis_pemilik: ownerType, nama_pemilik: item.ownerName, nama_perusahaan: valueOf(item.row, headers, 'nama_perusahaan') || null, aktif: true }).select('id').single(); if (created.error) throw new Error(`Gagal membuat pemilik ${item.ownerName}: ${created.error.message}`); owner = { data: created.data, error: null } }
-    const result = await supabase.from('kontrak_sewa').insert({ nomor_kontrak: item.nomorKontrak, kendaraan_id: item.vehicle.id, pemilik_sewa_id: owner.data.id, tanggal_mulai: item.start, tanggal_selesai: item.end, periode_bulan: 6, nilai_sewa_bulanan: item.monthly, tanggal_jatuh_tempo_bulanan: excelDate(valueOf(item.row, headers, 'tanggal_jatuh_tempo_bulanan')), status: 'AKTIF', catatan: `Import Excel: ${sheet.name}`, dibuat_oleh: profile.id }); if (result.error) throw new Error(`Gagal menyimpan kontrak ${item.nomorKontrak}: ${result.error.message}`); added += 1
+
+  if (!candidates.length) {
+    throw new Error('Tidak ada kontrak sewa yang valid. Setiap baris wajib memiliki Nomor Kontrak, Plat Sewa, Pemilik, periode 6 bulan, dan Nilai Sewa Bulanan > 0.')
   }
-  const skipped = invalid.length + duplicate; return { imported: added, skipped, unknownPlates: [...new Set(invalid.filter((item) => item.reason === 'Plat belum ada di Master Kendaraan Sewa').map((item) => item.plate).filter(Boolean))], duplicate, message: `${added} kontrak sewa ditambahkan, ${skipped} baris dilewati (${duplicate} kontrak sudah ada/duplikat). Sistem tidak mengubah rekap pembayaran menjadi kontrak.` }
+
+  const { data, error } = await supabase.rpc('import_transport_rental_contracts', {
+    p_rows: candidates.map(item => ({
+      nomor_polisi: item.plate,
+      nomor_kontrak: item.nomorKontrak,
+      pemilik: item.ownerName,
+      tanggal_mulai: item.start,
+      tanggal_selesai: item.end,
+      nilai_sewa_bulanan: item.monthly,
+      jenis_pemilik: item.ownerType,
+      nama_perusahaan: item.company,
+      tanggal_jatuh_tempo_bulanan: item.dueDay,
+    })),
+    p_actor: profile.id,
+  })
+
+  if (error) throw new Error(`Import Kontrak Sewa dibatalkan sepenuhnya: ${error.message}`)
+
+  const duplicate = Number(data?.duplicate || 0)
+  const imported = Number(data?.imported || 0)
+  const skipped = Number(data?.skipped || 0) + invalid.length
+
+  return {
+    imported,
+    skipped,
+    unknownPlates: [...new Set(invalid.filter(item => item.reason === 'Plat belum ada di Master Kendaraan Sewa').map(item => item.plate).filter(Boolean))],
+    duplicate,
+    message: `${imported} kontrak sewa ditambahkan, ${skipped} baris dilewati (${duplicate} kontrak sudah ada/duplikat). Sistem tidak mengubah rekap pembayaran menjadi kontrak.`,
+  }
 }
 
 const IMPORTERS = { pengajuan: importPengajuan, sewa: importSewa }
