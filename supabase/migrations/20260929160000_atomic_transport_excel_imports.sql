@@ -329,7 +329,175 @@ begin
     if nullif(trim(coalesce(r->>'tanggal_jatuh_tempo_bulanan','')), '') is not null then
       if regexp_replace(trim(r->>'tanggal_jatuh_tempo_bulanan'),'[^0-9]','','g')<>'' 
          and (regexp_replace(trim(r->>'tanggal_jatuh_tempo_bulanan'),'[^0-9]','','g'))::integer between 1 and 31
-         and trim(r->>'tanggal_jatuh_tempo_bulanan') !~ '^\\d{4}-\\d{2}-\\d{2}      then
+         and trim(r->>'tanggal_jatuh_tempo_bulanan') !~ '^\\d{4}-\\d{2}-\\d{2}
+        v_due_day:=(regexp_replace(trim(r->>'tanggal_jatuh_tempo_bulanan'),'[^0-9]','','g'))::integer;
+      else
+        v_due_day:=extract(day from (r->>'tanggal_jatuh_tempo_bulanan')::date)::integer;
+      end if;
+    else
+      v_due_day:=null;
+    end if;
+
+    insert into public.kontrak_sewa(
+      nomor_kontrak,kendaraan_id,pemilik_sewa_id,
+      tanggal_mulai,tanggal_selesai,periode_bulan,
+      nilai_sewa_bulanan,tanggal_jatuh_tempo_bulanan,
+      status,catatan,dibuat_oleh)
+    values(
+      v_contract,v_vehicle.id,v_owner.id,
+      v_start,v_end,6,v_monthly,v_due_day,
+      'AKTIF','Import Excel: SUMMERY RENTAL',p_actor);
+    v_added:=v_added+1;
+  end loop;
+
+  return jsonb_build_object(
+    'imported',v_added,
+    'duplicate',v_duplicate,
+    'unknownCount',v_unknown,
+    'skipped',v_duplicate+v_unknown,
+    'sourceRows',jsonb_array_length(p_rows));
+exception when unique_violation then
+  raise exception 'Import Kontrak Sewa dibatalkan sepenuhnya karena ada nomor kontrak yang bertabrakan.';
+end;
+$$;
+
+revoke all on function public.import_transport_vehicles(jsonb) from public;
+revoke all on function public.import_transport_documents(jsonb,text) from public;
+revoke all on function public.import_transport_rental_contracts(jsonb,uuid) from public;
+
+grant execute on function public.import_transport_vehicles(jsonb) to authenticated;
+grant execute on function public.import_transport_documents(jsonb,text) to authenticated;
+grant execute on function public.import_transport_rental_contracts(jsonb,uuid) to authenticated;
+
+notify pgrst,'reload schema';
+
+      then
+        v_due_day:=(regexp_replace(trim(r->>'tanggal_jatuh_tempo_bulanan'),'[^0-9]','','g'))::integer;
+      else
+        v_due_day:=extract(day from (r->>'tanggal_jatuh_tempo_bulanan')::date)::integer;
+      end if;
+    else
+      v_due_day:=null;
+    end if;
+
+    insert into public.kontrak_sewa(
+      nomor_kontrak,kendaraan_id,pemilik_sewa_id,
+      tanggal_mulai,tanggal_selesai,periode_bulan,
+      nilai_sewa_bulanan,tanggal_jatuh_tempo_bulanan,
+      status,catatan,dibuat_oleh)
+    values(
+      v_contract,v_vehicle.id,v_owner.id,
+      v_start,v_end,6,v_monthly,v_due_day,
+      'AKTIF','Import Excel: SUMMERY RENTAL',p_actor);
+    v_added:=v_added+1;
+  end loop;
+
+  return jsonb_build_object(
+    'imported',v_added,
+    'duplicate',v_duplicate,
+    'unknownCount',v_unknown,
+    'skipped',v_duplicate+v_unknown,
+    'sourceRows',jsonb_array_length(p_rows));
+exception when unique_violation then
+  raise exception 'Import Kontrak Sewa dibatalkan sepenuhnya karena ada nomor kontrak yang bertabrakan.';
+end;
+$$;
+
+revoke all on function public.import_transport_vehicles(jsonb) from public;
+revoke all on function public.import_transport_documents(jsonb,text) from public;
+revoke all on function public.import_transport_rental_contracts(jsonb,uuid) from public;
+
+grant execute on function public.import_transport_vehicles(jsonb) to authenticated;
+grant execute on function public.import_transport_documents(jsonb,text) to authenticated;
+grant execute on function public.import_transport_rental_contracts(jsonb,uuid) to authenticated;
+
+notify pgrst,'reload schema';
+
+      then
+        v_due_day:=(regexp_replace(trim(r->>'tanggal_jatuh_tempo_bulanan'),'[^0-9]','','g'))::integer;
+      else
+        v_due_day:=extract(day from (r->>'tanggal_jatuh_tempo_bulanan')::date)::integer;
+      end if;
+    else
+      v_due_day:=null;
+    end if;
+
+    insert into public.kontrak_sewa(
+      nomor_kontrak,kendaraan_id,pemilik_sewa_id,
+      tanggal_mulai,tanggal_selesai,periode_bulan,
+      nilai_sewa_bulanan,tanggal_jatuh_tempo_bulanan,
+      status,catatan,dibuat_oleh)
+    values(
+      v_contract,v_vehicle.id,v_owner.id,
+      v_start,v_end,6,v_monthly,v_due_day,
+      'AKTIF','Import Excel: SUMMERY RENTAL',p_actor);
+    v_added:=v_added+1;
+  end loop;
+
+  return jsonb_build_object(
+    'imported',v_added,
+    'duplicate',v_duplicate,
+    'unknownCount',v_unknown,
+    'skipped',v_duplicate+v_unknown,
+    'sourceRows',jsonb_array_length(p_rows));
+exception when unique_violation then
+  raise exception 'Import Kontrak Sewa dibatalkan sepenuhnya karena ada nomor kontrak yang bertabrakan.';
+end;
+$$;
+
+revoke all on function public.import_transport_vehicles(jsonb) from public;
+revoke all on function public.import_transport_documents(jsonb,text) from public;
+revoke all on function public.import_transport_rental_contracts(jsonb,uuid) from public;
+
+grant execute on function public.import_transport_vehicles(jsonb) to authenticated;
+grant execute on function public.import_transport_documents(jsonb,text) to authenticated;
+grant execute on function public.import_transport_rental_contracts(jsonb,uuid) to authenticated;
+
+notify pgrst,'reload schema';
+
+      then
+        v_due_day:=(regexp_replace(trim(r->>'tanggal_jatuh_tempo_bulanan'),'[^0-9]','','g'))::integer;
+      else
+        v_due_day:=extract(day from (r->>'tanggal_jatuh_tempo_bulanan')::date)::integer;
+      end if;
+    else
+      v_due_day:=null;
+    end if;
+
+    insert into public.kontrak_sewa(
+      nomor_kontrak,kendaraan_id,pemilik_sewa_id,
+      tanggal_mulai,tanggal_selesai,periode_bulan,
+      nilai_sewa_bulanan,tanggal_jatuh_tempo_bulanan,
+      status,catatan,dibuat_oleh)
+    values(
+      v_contract,v_vehicle.id,v_owner.id,
+      v_start,v_end,6,v_monthly,v_due_day,
+      'AKTIF','Import Excel: SUMMERY RENTAL',p_actor);
+    v_added:=v_added+1;
+  end loop;
+
+  return jsonb_build_object(
+    'imported',v_added,
+    'duplicate',v_duplicate,
+    'unknownCount',v_unknown,
+    'skipped',v_duplicate+v_unknown,
+    'sourceRows',jsonb_array_length(p_rows));
+exception when unique_violation then
+  raise exception 'Import Kontrak Sewa dibatalkan sepenuhnya karena ada nomor kontrak yang bertabrakan.';
+end;
+$$;
+
+revoke all on function public.import_transport_vehicles(jsonb) from public;
+revoke all on function public.import_transport_documents(jsonb,text) from public;
+revoke all on function public.import_transport_rental_contracts(jsonb,uuid) from public;
+
+grant execute on function public.import_transport_vehicles(jsonb) to authenticated;
+grant execute on function public.import_transport_documents(jsonb,text) to authenticated;
+grant execute on function public.import_transport_rental_contracts(jsonb,uuid) to authenticated;
+
+notify pgrst,'reload schema';
+
+      then
         v_due_day:=(regexp_replace(trim(r->>'tanggal_jatuh_tempo_bulanan'),'[^0-9]','','g'))::integer;
       else
         v_due_day:=extract(day from (r->>'tanggal_jatuh_tempo_bulanan')::date)::integer;
