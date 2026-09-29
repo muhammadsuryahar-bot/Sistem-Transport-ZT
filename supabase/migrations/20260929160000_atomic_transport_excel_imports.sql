@@ -329,8 +329,8 @@ begin
     if nullif(trim(coalesce(r->>'tanggal_jatuh_tempo_bulanan','')), '') is not null then
       if regexp_replace(trim(r->>'tanggal_jatuh_tempo_bulanan'),'[^0-9]','','g')<>'' 
          and (regexp_replace(trim(r->>'tanggal_jatuh_tempo_bulanan'),'[^0-9]','','g'))::integer between 1 and 31
-         and trim(r->>'tanggal_jatuh_tempo_bulanan') !~ '^\\d{4}-\\d{2}-\\d{2}
-        v_due_day:=(regexp_replace(trim(r->>'tanggal_jatuh_tempo_bulanan'),'[^0-9]','','g'))::integer;
+         and trim(r->>'tanggal_jatuh_tempo_bulanan') !~ '^\\d{4}-\\d{2}-\\d{2}$'
+      then
       else
         v_due_day:=extract(day from (r->>'tanggal_jatuh_tempo_bulanan')::date)::integer;
       end if;
