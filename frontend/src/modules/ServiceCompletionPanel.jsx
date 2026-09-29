@@ -133,23 +133,7 @@ export default function ServiceCompletionPanel({ profile }) {
         .single()
       if (serviceResult.error) throw serviceResult.error
 
-      if (serviceResult.data.permintaan_service_id) {
-        const requestStatus = nextStatus === 'DITOLAK'
-          ? 'DITOLAK'
-          : nextStatus === 'DISETUJUI'
-            ? 'DALAM_PROSES'
-            : 'MENUNGGU_APPROVAL'
-        const requestResult = await supabase
-          .from('permintaan_service')
-          .update({ status: requestStatus })
-          .eq('id', serviceResult.data.permintaan_service_id)
-          .select('id,status')
-          .maybeSingle()
-        if (requestResult.error) throw new Error('Approval tersimpan, tetapi status pengajuan gagal disinkronkan: ' + requestResult.error.message)
-        window.dispatchEvent(new CustomEvent('transport:service-state-updated', { detail: { kind: 'service', service: serviceResult.data, request: requestResult.data } }))
-      } else {
-        window.dispatchEvent(new CustomEvent('transport:service-state-updated', { detail: { kind: 'service', service: serviceResult.data } }))
-      }
+      window.dispatchEvent(new CustomEvent('transport:service-state-updated', { detail: { kind: 'service', service: serviceResult.data } }))
 
       setApprovalCounts(current => ({
         ...current,
@@ -191,6 +175,10 @@ export default function ServiceCompletionPanel({ profile }) {
       <button className="scp-refresh" onClick={load} disabled={loading}>{loading ? 'Memuat…' : '↻ Refresh'}</button>
     </div>
     {message && <div className="scp-message">{message}</div>}
+    {canApprove && <div className="scp-section">
+      <div className="scp-section-head"><div><strong>Approval Service</strong><span>{pendingApprovals.length ? 'Perlu tindakan' : 'Semua approval yang menjadi kewenangan Anda sudah diproses'}</span></div></div>
+      {pendingApprovals.length === 0 ? <div className="scp-empty">Tidak ada service yang menunggu approval Anda.</div> : <div className="scp-list">{pendingApprovals.map(service => { const v = vehicleMap[service.kendaraan_id]; const state = approvalState(service); return <div className="scp-row scp-approval-row" key={service.id}><div><strong>{service.nomor_service || '#' + service.id}</strong><span>{v?.nomor_polisi || '-'} · {v?.merk || ''} {v?.tipe || ''}</span><small>Estimasi {money(state.estimate)} · Aktual {money(state.actual)} · Approval selesai {state.total} kali · Nilai berikutnya {money(state.total === 0 ? state.estimate : state.actual)}</small><em>{state.requiredRole === 'DIREKTUR' ? 'Approval Direktur' : 'Approval Atasan Transport'}</em></div><div className="scp-approval-actions"><button type="button" className="scp-reject" onClick={() => openApproval(service, 'DITOLAK')} disabled={savingId === service.id}>Tolak</button><button type="button" className="scp-approve" onClick={() => openApproval(service, 'DISETUJUI')} disabled={savingId === service.id}>Setujui</button></div></div> })}</div>}
+    </div>}
     {completable.length > 0 && <div className="scp-list">{completable.map((service) => { const v = vehicleMap[service.kendaraan_id]; const actual = Number(service.biaya_aktual ?? service.estimasi_biaya ?? 0); return <div className="scp-row" key={service.id}><div><strong>{service.nomor_service || `#${service.id}`}</strong><span>{v?.nomor_polisi || '-'} · {v?.merk || ''} {v?.tipe || ''}</span><small>Estimasi {money(service.estimasi_biaya)} · Aktual {money(actual)} · Bukti {proofCounts[service.id] || 0}</small></div><button className="scp-finish" onClick={() => finish(service)} disabled={savingId === service.id}>{savingId === service.id ? 'Menyelesaikan…' : 'Selesaikan'}</button></div> })}</div>}
     {approvalModal && <div className="scp-modal-backdrop" role="dialog" aria-modal="true" aria-label="Approval service"><section className="scp-modal"><div className="scp-modal-head"><div><span className="eyebrow">APPROVAL SERVICE</span><h3>{approvalModal.service.nomor_service || '#' + approvalModal.service.id}</h3><p>{vehicleMap[approvalModal.service.kendaraan_id]?.nomor_polisi || '-'} · {vehicleMap[approvalModal.service.kendaraan_id]?.merk || ''} {vehicleMap[approvalModal.service.kendaraan_id]?.tipe || ''}</p></div><button type="button" className="scp-modal-close" onClick={closeApproval} disabled={savingId !== null}>×</button></div><div className="scp-detail-grid"><div><span>Keputusan</span><strong>{approvalModal.decision === 'DISETUJUI' ? 'Setujui' : 'Tolak'}</strong></div><div><span>Peran</span><strong>{approvalState(approvalModal.service).requiredRole === 'DIREKTUR' ? 'Direktur' : 'Atasan Transport'}</strong></div><div><span>Estimasi</span><strong>{money(approvalState(approvalModal.service).estimate)}</strong></div><div><span>Aktual</span><strong>{money(approvalState(approvalModal.service).actual)}</strong></div></div><label className="scp-note-field">Catatan Approval<textarea value={approvalNote} onChange={e => setApprovalNote(e.target.value)} placeholder="Opsional" disabled={savingId !== null} /></label><div className="scp-modal-actions"><button type="button" className="scp-cancel" onClick={closeApproval} disabled={savingId !== null}>Batal</button><button type="button" className={approvalModal.decision === 'DISETUJUI' ? 'scp-approve' : 'scp-reject'} onClick={submitApproval} disabled={savingId !== null}>{savingId !== null ? 'Memproses…' : approvalModal.decision === 'DISETUJUI' ? 'Konfirmasi Setujui' : 'Konfirmasi Tolak'}</button></div></section></div>}
   </section>
