@@ -8,7 +8,6 @@ import './VehicleExcelImportModal.css'
 
 const MAX_FILE_SIZE = 25 * 1024 * 1024
 const PAGE_OPTIONS = [25, 50, 100]
-const PLACEHOLDER_DRIVERS = new Set(['', 'DRIVER', 'STANDBY', '-', 'N/A', 'NA', 'NONE', 'TIDAK ADA', 'TIDAK ADA DRIVER'])
 const LABELS = {
   no: ['no', 'nomor', 'nomor_urut'],
   merk: ['merk', 'brand'],
