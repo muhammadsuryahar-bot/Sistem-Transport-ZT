@@ -463,3 +463,51 @@ select { touch-action: manipulation; }
 
 /* Clean data tables must use the available width after utility columns are hidden. */
 .dpt-clean-data-table { width:100% !important; min-width:100% !important; max-width:100% !important; table-layout:auto !important; }
+
+/* Final override: clean Excel view always prioritizes the dataset itself. */
+.dpt-clean-data-table {
+  width: 100% !important;
+  min-width: 100% !important;
+  max-width: 100% !important;
+  table-layout: auto !important;
+}
+.dpt-clean-data-table thead th:not(.dpt-col-hidden) {
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  line-height: 1.35 !important;
+  padding: 15px 16px !important;
+}
+.dpt-clean-data-table tbody td:not(.dpt-col-hidden) {
+  font-size: 15px !important;
+  font-weight: 500 !important;
+  line-height: 1.55 !important;
+  padding: 16px !important;
+}
+.dpt-clean-data-table tbody td:not(.dpt-col-hidden) b,
+.dpt-clean-data-table tbody td:not(.dpt-col-hidden) strong {
+  font-size: 15.5px !important;
+  font-weight: 800 !important;
+}
+.dpt-clean-data-table tbody td:not(.dpt-col-hidden) small {
+  display: block !important;
+  margin-top: 4px !important;
+  font-size: 12px !important;
+  line-height: 1.45 !important;
+}
+.dpt-clean-data-table th.dpt-col-hidden,
+.dpt-clean-data-table td.dpt-col-hidden,
+.dpt-clean-data-table .dpt-action-utility,
+.dpt-clean-data-table .dpt-mark-utility {
+  display: none !important;
+}
+@media (max-width: 900px) {
+  .dpt-clean-data-table tbody td:not(.dpt-col-hidden) { font-size: 14px !important; padding: 14px !important; }
+  .dpt-clean-data-table tbody td:not(.dpt-col-hidden) b,
+  .dpt-clean-data-table tbody td:not(.dpt-col-hidden) strong { font-size: 14.5px !important; }
+}
+@media (max-width: 600px) {
+  .dpt-clean-data-table thead th:not(.dpt-col-hidden) { font-size: 10.5px !important; padding: 12px !important; }
+  .dpt-clean-data-table tbody td:not(.dpt-col-hidden) { font-size: 13px !important; padding: 13px !important; }
+  .dpt-clean-data-table tbody td:not(.dpt-col-hidden) b,
+  .dpt-clean-data-table tbody td:not(.dpt-col-hidden) strong { font-size: 13.5px !important; }
+}
