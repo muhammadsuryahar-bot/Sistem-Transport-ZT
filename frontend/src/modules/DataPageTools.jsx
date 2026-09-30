@@ -361,8 +361,14 @@ function ensureRowSelection(context, table) {
   }
 
   const selected = table.querySelector('tbody tr.dpt-row-selected:not(.dpt-inline-row-actions)')
-  if (selected) applySelection(selected)
-  else clearRowSelection(table)
+  if (selected) {
+    const inlineActions = selected.nextElementSibling
+    if (!inlineActions?.classList.contains('dpt-inline-row-actions')) {
+      applySelection(selected)
+    }
+  } else {
+    clearRowSelection(table)
+  }
 }
 
 function columnSignature(descriptors) {
