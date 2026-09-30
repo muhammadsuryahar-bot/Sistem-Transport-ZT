@@ -237,111 +237,77 @@ function getRowActionButton(row, labels) {
 }
 
 function clearRowSelection(table) {
-  table?.querySelectorAll('tbody tr.dpt-row-selected').forEach(row => {
+  if (!table) return
+  table.querySelectorAll('tbody tr.dpt-row-selected').forEach(row => {
     row.classList.remove('dpt-row-selected')
     row.setAttribute('aria-selected', 'false')
   })
-  const tableHost = table?.closest('.x-table-wrap, .request-table-wrap, .mep-table-wrap') || table?.parentElement
-  const toolbar = tableHost?.previousElementSibling?.matches?.('.dpt-selected-row-actions')
-    ? tableHost.previousElementSibling
-    : null
-  if (toolbar) {
-    toolbar.classList.remove('is-visible')
-    toolbar.removeAttribute('data-row-key')
-    toolbar.querySelector('.dpt-selected-row-label')?.replaceChildren()
-  }
+  table.querySelectorAll('tbody tr.dpt-inline-row-actions').forEach(row => row.remove())
+  table.parentElement?.querySelectorAll('.dpt-selected-row-actions').forEach(toolbar => toolbar.remove())
 }
 
 function ensureRowSelection(context, table) {
   if (!table || !isMainOperationalTable(table)) return
   if (table.closest('.dpt-preview')) return
 
-  const tableHost = table.closest('.x-table-wrap, .request-table-wrap, .mep-table-wrap') || table.parentElement
-  if (!tableHost) return
-  const scope = tableHost.parentElement || tableHost
+  const buildInlineActions = (row, sourceMark, detailTarget, editTarget, deleteTarget) => {
+    const old = row.nextElementSibling
+    if (old?.classList.contains('dpt-inline-row-actions')) old.remove()
 
-  let toolbar = tableHost.previousElementSibling?.matches?.('.dpt-selected-row-actions')
-    ? tableHost.previousElementSibling
-    : null
-  if (!toolbar) {
-    toolbar = document.createElement('div')
-    toolbar.className = 'dpt-selected-row-actions'
-    toolbar.innerHTML = `
-      <div class="dpt-selected-row-main">
-        <span class="dpt-selected-row-badge">BARIS DIPILIH</span>
-        <b class="dpt-selected-row-label"></b>
-      </div>
-      <div class="dpt-selected-row-tools">
-        <button type="button" class="dpt-selected-action dpt-selected-detail">Detail</button>
-        <label class="dpt-selected-mark-wrap">
-          <span>Penanda</span>
-          <select class="dpt-selected-mark">
-            <option value="NONE">Belum ditandai</option>
-            <option value="TODO">Perlu dikerjakan</option>
-            <option value="PROCESS">Sedang dikerjakan</option>
-            <option value="DONE">Sudah selesai</option>
-            <option value="CHECKED">Sudah dicek</option>
-          </select>
-        </label>
-        <button type="button" class="dpt-selected-action dpt-selected-edit">Edit</button>
-        <button type="button" class="dpt-selected-action danger dpt-selected-delete">Hapus</button>
-        <button type="button" class="dpt-selected-close" aria-label="Batalkan pilihan">×</button>
+    const actionRow = document.createElement('tr')
+    actionRow.className = 'dpt-inline-row-actions'
+    actionRow.setAttribute('aria-label', 'Aksi data terpilih')
+
+    const td = document.createElement('td')
+    td.colSpan = Math.max(1, row.children.length)
+    td.innerHTML = `
+      <div class="dpt-inline-row-panel">
+        <div class="dpt-inline-row-title">
+          <span class="dpt-selected-row-badge">DATA DIPILIH</span>
+          <b class="dpt-inline-row-label"></b>
+        </div>
+        <div class="dpt-inline-row-tools">
+          <button type="button" class="dpt-inline-action dpt-inline-detail">Detail</button>
+          <label class="dpt-inline-mark-wrap">
+            <span>Penanda</span>
+            <select class="dpt-inline-mark">
+              <option value="NONE">Belum ditandai</option>
+              <option value="TODO">Perlu dikerjakan</option>
+              <option value="PROCESS">Sedang dikerjakan</option>
+              <option value="DONE">Sudah selesai</option>
+              <option value="CHECKED">Sudah dicek</option>
+            </select>
+          </label>
+          <button type="button" class="dpt-inline-action dpt-inline-edit">Edit</button>
+          <button type="button" class="dpt-inline-action danger dpt-inline-delete">Hapus</button>
+          <button type="button" class="dpt-inline-close" aria-label="Batalkan pilihan">×</button>
+        </div>
       </div>
     `
-    scope.insertBefore(toolbar, tableHost)
-  }
 
-  const toolbarTable = toolbar.dataset.tableId || ''
-  if (!toolbarTable) {
-    const id = `dpt-table-${context}-${Math.random().toString(36).slice(2)}`
-    toolbar.dataset.tableId = id
-    table.dataset.dptSelectionTableId = id
-  } else {
-    table.dataset.dptSelectionTableId = toolbarTable
-  }
+    const primary = Array.from(row.children)
+      .filter(cell =>
+        !cell.classList.contains('dpt-row-mark-cell') &&
+        cell.dataset.dptColumnKind !== 'action' &&
+        cell.dataset.dptColumnKind !== 'mark'
+      )
+      .slice(0, 3)
+      .map(cell => String(cell.textContent || '').replace(/\s+/g, ' ').trim())
+      .filter(Boolean)
 
-  const selectedLabel = toolbar.querySelector('.dpt-selected-row-label')
-  const detailButton = toolbar.querySelector('.dpt-selected-detail')
-  const editButton = toolbar.querySelector('.dpt-selected-edit')
-  const deleteButton = toolbar.querySelector('.dpt-selected-delete')
-  const markWrap = toolbar.querySelector('.dpt-selected-mark-wrap')
-  const markSelect = toolbar.querySelector('.dpt-selected-mark')
-  const closeButton = toolbar.querySelector('.dpt-selected-close')
+    td.querySelector('.dpt-inline-row-label').textContent = primary.join(' • ') || 'Data dipilih'
 
-  const applySelection = row => {
-    if (!row || row.querySelector('td[colspan]')) return
-    table.querySelectorAll('tbody tr.dpt-row-selected').forEach(item => {
-      item.classList.remove('dpt-row-selected')
-      item.setAttribute('aria-selected', 'false')
-    })
-    row.classList.add('dpt-row-selected')
-    row.setAttribute('aria-selected', 'true')
+    const detailButton = td.querySelector('.dpt-inline-detail')
+    const editButton = td.querySelector('.dpt-inline-edit')
+    const deleteButton = td.querySelector('.dpt-inline-delete')
+    const markWrap = td.querySelector('.dpt-inline-mark-wrap')
+    const markSelect = td.querySelector('.dpt-inline-mark')
+    const closeButton = td.querySelector('.dpt-inline-close')
 
-    const cells = Array.from(row.children).filter(cell =>
-      !cell.classList.contains('dpt-row-mark-cell') &&
-      cell.dataset.dptColumnKind !== 'action' &&
-      cell.dataset.dptColumnKind !== 'mark'
-    )
-    const primary = cells.slice(0, 3).map(cell => String(cell.textContent || '').replace(/\s+/g, ' ').trim()).filter(Boolean)
-    selectedLabel.textContent = primary.join(' • ') || 'Data dipilih'
-    toolbar.classList.add('is-visible')
-    toolbar.dataset.rowKey = row.dataset.dptRowMarkKey || `${context}:${row.rowIndex}`
-
-    const sourceMark = row.querySelector('.dpt-row-mark-select')
-    const detailTarget = getRowActionButton(row, ['detail', 'lihat'])
-    const editTarget = getRowActionButton(row, ['edit', 'ubah'])
-    const deleteTarget = getRowActionButton(row, ['hapus', 'delete'])
-    const hasTools = Boolean(sourceMark || detailTarget || editTarget || deleteTarget)
-    if (!hasTools) {
-      toolbar.classList.remove('is-visible')
-      toolbar.removeAttribute('data-row-key')
-      return
-    }
-
-    markWrap.hidden = !sourceMark
     detailButton.hidden = !detailTarget
     editButton.hidden = !editTarget
     deleteButton.hidden = !deleteTarget
+    markWrap.hidden = !sourceMark
 
     detailButton.onclick = () => detailTarget?.click()
     editButton.onclick = () => editTarget?.click()
@@ -349,31 +315,52 @@ function ensureRowSelection(context, table) {
 
     markSelect.value = sourceMark?.value || 'NONE'
     markSelect.onchange = () => {
-      const nextValue = markSelect.value
       if (!sourceMark) return
-      sourceMark.value = nextValue
+      sourceMark.value = markSelect.value
       sourceMark.dispatchEvent(new Event('change', { bubbles: true }))
-      applyMark(row, nextValue)
+      applyMark(row, markSelect.value)
     }
+
+    closeButton.onclick = () => clearRowSelection(table)
+
+    actionRow.appendChild(td)
+    row.parentElement?.insertBefore(actionRow, row.nextSibling)
+  }
+
+  const applySelection = row => {
+    if (!row || row.querySelector('td[colspan]') || row.classList.contains('dpt-inline-row-actions')) return
+
+    table.querySelectorAll('tbody tr.dpt-row-selected').forEach(item => {
+      item.classList.remove('dpt-row-selected')
+      item.setAttribute('aria-selected', 'false')
+    })
+    table.querySelectorAll('tbody tr.dpt-inline-row-actions').forEach(item => item.remove())
+
+    const sourceMark = row.querySelector('.dpt-row-mark-select')
+    const detailTarget = getRowActionButton(row, ['detail', 'lihat'])
+    const editTarget = getRowActionButton(row, ['edit', 'ubah'])
+    const deleteTarget = getRowActionButton(row, ['hapus', 'delete'])
+    const hasTools = Boolean(sourceMark || detailTarget || editTarget || deleteTarget)
+
+    if (!hasTools) return
+
+    row.classList.add('dpt-row-selected')
+    row.setAttribute('aria-selected', 'true')
+    buildInlineActions(row, sourceMark, detailTarget, editTarget, deleteTarget)
   }
 
   if (!table.dataset.dptRowSelectionReady) {
     table.dataset.dptRowSelectionReady = '1'
     table.addEventListener('click', event => {
       const row = event.target.closest('tbody tr')
-      if (!row || row.closest('td')?.querySelector('button, input, select, textarea, a')) return
+      if (!row || row.classList.contains('dpt-inline-row-actions')) return
       if (event.target.closest('button, input, select, textarea, a')) return
       if (!table.contains(row) || row.querySelector('td[colspan]')) return
       applySelection(row)
     })
   }
 
-  if (!toolbar.dataset.bound) {
-    toolbar.dataset.bound = '1'
-    closeButton.addEventListener('click', () => clearRowSelection(table))
-  }
-
-  const selected = table.querySelector('tbody tr.dpt-row-selected')
+  const selected = table.querySelector('tbody tr.dpt-row-selected:not(.dpt-inline-row-actions)')
   if (selected) applySelection(selected)
   else clearRowSelection(table)
 }
