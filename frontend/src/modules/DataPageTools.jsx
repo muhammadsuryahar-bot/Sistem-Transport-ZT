@@ -685,7 +685,7 @@ export default function DataPageTools({ context, profile, onExport }) {
       <div className="dpt-toolbar-title">
         <span className="eyebrow">AKSI TAMPILAN</span>
         <b>{CONTEXT_LABEL[context]}</b>
-        <span className="dpt-toolbar-help">Atur tampilan data agar mudah dibaca.</span>
+        <span className="dpt-toolbar-help">Klik 1x pada baris untuk menampilkan aksi. Klik 2x untuk masuk mode pilih banyak data jika modul mendukung.</span>
       </div>
       <div className="dpt-toolbar-actions">
         <button className={`dpt-button clean-action${cleanTableView ? ' active' : ''}`} type="button" onClick={toggleCleanTableView} title={cleanTableView ? 'Tampilkan kembali tombol Aksi dan Penanda' : 'Sembunyikan tombol Aksi dan Penanda agar tabel hanya fokus pada data'}>
