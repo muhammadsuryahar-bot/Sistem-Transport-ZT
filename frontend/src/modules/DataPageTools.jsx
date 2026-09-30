@@ -380,6 +380,7 @@ function ensureRowSelection(context, table) {
       if (!row || row.classList.contains('dpt-inline-row-actions')) return
       if (event.target.closest('button, input, select, textarea, a')) return
       clearRowSelection(table)
+      enterGenericBulkMode(table, row)
     })
   }
 
@@ -391,6 +392,157 @@ function ensureRowSelection(context, table) {
     }
   } else {
     clearRowSelection(table)
+  }
+}
+
+function hasNativeBulkSelection(table) {
+  return Boolean(table?.querySelector('thead .mep-check, thead .request-select-cell, thead .x-select-cell'))
+}
+
+function getBulkDeleteButton(row) {
+  return getRowActionButton(row, ['hapus', 'delete'])
+}
+
+function getBulkRows(table) {
+  return Array.from(table.querySelectorAll('tbody tr'))
+    .filter(row => !row.querySelector('td[colspan]') && !row.classList.contains('dpt-inline-row-actions'))
+}
+
+function createGenericBulkToolbar(table) {
+  const toolbar = document.createElement('div')
+  toolbar.className = 'dpt-bulk-selection-toolbar'
+  toolbar.innerHTML = '<div class="dpt-bulk-selection-main"><span class="dpt-selected-row-badge">MODE PILIH</span><strong class="dpt-bulk-selection-count">0 dipilih</strong></div><div class="dpt-bulk-selection-actions"><button type="button" class="dpt-inline-action dpt-bulk-select-all">Pilih semua</button><button type="button" class="dpt-inline-action danger dpt-bulk-delete">Hapus 0</button><button type="button" class="dpt-inline-close dpt-bulk-cancel" aria-label="Batal pilih">×</button></div>'
+  const tableWrap = table.closest('.x-table-wrap, .request-table-wrap, .mep-table-wrap') || table.parentElement
+  tableWrap?.parentElement?.insertBefore(toolbar, tableWrap)
+  return toolbar
+}
+
+function syncGenericBulkUI(table, toolbar) {
+  if (!table || !toolbar) return
+  const rows = getBulkRows(table)
+  const selected = rows.filter(row => row.dataset.dptBulkSelected === 'true')
+  const deletable = selected.filter(row => { const button = getBulkDeleteButton(row); return Boolean(button && !button.disabled) })
+  const allSelected = rows.length > 0 && selected.length === rows.length
+  const count = toolbar.querySelector('.dpt-bulk-selection-count')
+  const selectAll = toolbar.querySelector('.dpt-bulk-select-all')
+  const deleteButton = toolbar.querySelector('.dpt-bulk-delete')
+  if (count) count.textContent = `${selected.length} dipilih`
+  if (selectAll) selectAll.textContent = allSelected ? 'Batalkan semua' : 'Pilih semua'
+  if (deleteButton) { deleteButton.textContent = `Hapus ${deletable.length}`; deleteButton.disabled = deletable.length === 0 }
+  rows.forEach(row => {
+    const checkbox = row.querySelector('.dpt-bulk-select-input')
+    if (checkbox) checkbox.checked = row.dataset.dptBulkSelected === 'true'
+    row.classList.toggle('dpt-bulk-selected-row', row.dataset.dptBulkSelected === 'true')
+  })
+  const headCheckbox = table.querySelector('thead .dpt-bulk-select-head-input')
+  if (headCheckbox) headCheckbox.checked = allSelected
+}
+
+function removeGenericBulkUI(table) {
+  if (!table) return
+  table.querySelectorAll('thead .dpt-bulk-select-head').forEach(cell => cell.remove())
+  table.querySelectorAll('tbody .dpt-bulk-select-cell').forEach(cell => cell.remove())
+  table.querySelectorAll('tbody tr.dpt-bulk-selected-row').forEach(row => { delete row.dataset.dptBulkSelected; row.classList.remove('dpt-bulk-selected-row') })
+  table.parentElement?.parentElement?.querySelectorAll('.dpt-bulk-selection-toolbar').forEach(toolbar => toolbar.remove())
+  delete table.dataset.dptBulkMode
+}
+
+function enterGenericBulkMode(table, firstRow = null) {
+  if (!table || hasNativeBulkSelection(table)) return
+  const rows = getBulkRows(table)
+  if (!rows.length || !rows.some(row => getBulkDeleteButton(row))) return
+  clearRowSelection(table)
+  table.dataset.dptBulkMode = 'true'
+  const header = table.querySelector('thead tr')
+  if (header && !header.querySelector('.dpt-bulk-select-head')) {
+    const th = document.createElement('th')
+    th.className = 'dpt-bulk-select-head'
+    th.innerHTML = '<input class="dpt-bulk-select-head-input" type="checkbox" aria-label="Pilih semua data">'
+    header.insertBefore(th, header.firstChild)
+  }
+  getBulkRows(table).forEach(row => {
+    if (row.querySelector('.dpt-bulk-select-cell')) return
+    const td = document.createElement('td')
+    td.className = 'dpt-bulk-select-cell'
+    td.innerHTML = '<input class="dpt-bulk-select-input" type="checkbox" aria-label="Pilih baris">'
+    row.insertBefore(td, row.firstChild)
+    const checkbox = td.querySelector('input')
+    checkbox.addEventListener('click', event => event.stopPropagation())
+    checkbox.addEventListener('change', () => { row.dataset.dptBulkSelected = checkbox.checked ? 'true' : 'false'; syncGenericBulkUI(table, toolbar) })
+  })
+  const toolbar = table.parentElement?.parentElement?.querySelector('.dpt-bulk-selection-toolbar') || createGenericBulkToolbar(table)
+  if (firstRow) firstRow.dataset.dptBulkSelected = 'true'
+  syncGenericBulkUI(table, toolbar)
+  const selectAll = toolbar.querySelector('.dpt-bulk-select-all')
+  if (selectAll && !selectAll.dataset.bound) {
+    selectAll.dataset.bound = '1'
+    selectAll.addEventListener('click', () => {
+      const rowsNow = getBulkRows(table)
+      const all = rowsNow.length > 0 && rowsNow.every(row => row.dataset.dptBulkSelected === 'true')
+      rowsNow.forEach(row => { row.dataset.dptBulkSelected = all ? 'false' : 'true' })
+      syncGenericBulkUI(table, toolbar)
+    })
+  }
+  const cancel = toolbar.querySelector('.dpt-bulk-cancel')
+  if (cancel && !cancel.dataset.bound) { cancel.dataset.bound = '1'; cancel.addEventListener('click', () => removeGenericBulkUI(table)) }
+  const deleteButton = toolbar.querySelector('.dpt-bulk-delete')
+  if (deleteButton && !deleteButton.dataset.bound) {
+    deleteButton.dataset.bound = '1'
+    deleteButton.addEventListener('click', async () => {
+      const selectedRows = getBulkRows(table).filter(row => row.dataset.dptBulkSelected === 'true')
+      const deletableRows = selectedRows.filter(row => { const button = getBulkDeleteButton(row); return Boolean(button && !button.disabled) })
+      if (!deletableRows.length) return
+      if (!window.confirm(`Hapus ${deletableRows.length} data terpilih?`)) return
+      const originalConfirm = window.confirm
+      const previousBulkFlag = window.__transportBulkDeleteActive
+      window.__transportBulkDeleteActive = true
+      window.confirm = () => true
+      try {
+        for (const row of deletableRows) {
+          if (!row.isConnected) continue
+          const button = getBulkDeleteButton(row)
+          if (!button || button.disabled) continue
+          button.click()
+          await new Promise(resolve => {
+            const started = performance.now()
+            const check = () => { if (!row.isConnected || !table.contains(row) || performance.now() - started >= 4500) return resolve(); window.setTimeout(check, 60) }
+            check()
+          })
+        }
+      } finally {
+        window.confirm = originalConfirm
+        window.__transportBulkDeleteActive = previousBulkFlag
+        removeGenericBulkUI(table)
+      }
+    })
+  }
+  const headCheckbox = header?.querySelector('.dpt-bulk-select-head-input')
+  if (headCheckbox && !headCheckbox.dataset.bound) {
+    headCheckbox.dataset.bound = '1'
+    headCheckbox.addEventListener('click', event => event.stopPropagation())
+    headCheckbox.addEventListener('change', () => {
+      const all = getBulkRows(table).every(row => row.dataset.dptBulkSelected === 'true')
+      getBulkRows(table).forEach(row => { row.dataset.dptBulkSelected = all ? 'false' : 'true' })
+      syncGenericBulkUI(table, toolbar)
+    })
+  }
+  if (!table.dataset.dptBulkDoubleClickReady) {
+    table.dataset.dptBulkDoubleClickReady = '1'
+    table.addEventListener('dblclick', event => {
+      const row = event.target.closest('tbody tr')
+      if (!row || row.classList.contains('dpt-inline-row-actions')) return
+      if (event.target.closest('button, input, select, textarea, a')) return
+      event.preventDefault()
+      enterGenericBulkMode(table, row)
+    })
+    table.addEventListener('click', event => {
+      if (!table.dataset.dptBulkMode) return
+      const row = event.target.closest('tbody tr')
+      if (!row || row.classList.contains('dpt-inline-row-actions')) return
+      if (event.target.closest('button, input, select, textarea, a')) return
+      row.dataset.dptBulkSelected = row.dataset.dptBulkSelected === 'true' ? 'false' : 'true'
+      syncGenericBulkUI(table, toolbar)
+    })
   }
 }
 
@@ -594,6 +746,7 @@ export default function DataPageTools({ context, profile, onExport }) {
       getAllOperationalTables(context).forEach(item => {
         applyColumnVisibility(context, item, getColumnDescriptors(context, item), latestVisibility, clean)
         ensureRowSelection(context, item)
+        if (!hasNativeBulkSelection(item) && item.dataset.dptBulkMode === 'true') enterGenericBulkMode(item, null)
       })
       if (clean) {
         window.requestAnimationFrame(() => getAllOperationalTables(context).forEach(item => {
