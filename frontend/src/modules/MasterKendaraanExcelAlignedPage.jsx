@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import './MasterKendaraanExcelAlignedPage.css'
 import { formatDateSafe } from '../utils/dateSafe'
@@ -52,7 +52,6 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
   const [photoUrls, setPhotoUrls] = useState({})
   const [selected, setSelected] = useState([])
   const [selectionMode, setSelectionMode] = useState(false)
-  const pressRef = useRef(null)
 
   const loadData = async () => {
     setLoading(true)
@@ -222,19 +221,11 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
     return true
   }
 
-  const beginLongPress = (event, id) => {
-    if (event.button !== undefined && event.button !== 0) return
-    if (isInteractive(event.target) || selectionMode) return
-    const startX = event.clientX; const startY = event.clientY
-    if (pressRef.current?.timer) clearTimeout(pressRef.current.timer)
-    pressRef.current = { timer: window.setTimeout(() => { setSelectionMode(true); setSelected(current => current.includes(id) ? current : [...current, id]); pressRef.current = null }, 480), startX, startY }
+  const enterSelectionMode = id => {
+    if (!canDelete || selectionMode) return
+    setSelectionMode(true)
+    setSelected(current => current.includes(id) ? current : [...current, id])
   }
-  const moveLongPress = event => {
-    const state = pressRef.current
-    if (!state) return
-    if (Math.hypot(event.clientX - state.startX, event.clientY - state.startY) > 10) { clearTimeout(state.timer); pressRef.current = null }
-  }
-  const stopLongPress = () => { if (pressRef.current?.timer) clearTimeout(pressRef.current.timer); pressRef.current = null }
   const toggleSelected = id => setSelected(current => current.includes(id) ? current.filter(x => x !== id) : [...current, id])
   const allSelected = filtered.length > 0 && filtered.every(v => selected.includes(v.id))
   const toggleAll = () => setSelected(current => allSelected ? current.filter(id => !filtered.some(v => v.id === id)) : Array.from(new Set([...current, ...filtered.map(v => v.id)])))
@@ -261,8 +252,8 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
     <div className="mep-cards"><div><span>Total Kendaraan</span><b>{cards.total}</b></div><div><span>Aset</span><b>{cards.aset}</b></div><div><span>Sewa</span><b>{cards.sewa}</b></div><div><span>Pickup</span><b>{cards.pickup}</b></div><div><span>Minibus</span><b>{cards.minibus}</b></div></div>
     <section className="mep-card"><div className="mep-toolbar"><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Cari No. Pol, merk, pemilik, driver, lokasi..."/><select value={ownershipFilter} onChange={e => setOwnershipFilter(e.target.value)}><option value="SEMUA">Semua kepemilikan</option><option value="ASET">Aset</option><option value="SEWA">Sewa</option></select><select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}><option value="SEMUA">Semua jenis</option>{typeOptions.map(item => <option key={item} value={item}>{item}</option>)}</select><button type="button" className="mep-secondary" onClick={loadData} disabled={loading}>↻ Refresh</button></div>
       {selectionMode && <div className="mep-selection"><span><b>{selected.length}</b> kendaraan dipilih</span><div><button type="button" onClick={toggleAll}>{allSelected ? 'Batal pilih semua' : 'Pilih semua'}</button><button type="button" onClick={exitSelection}>Batal</button>{canDelete && <button type="button" className="danger" onClick={bulkDelete} disabled={saving}>Hapus yang dipilih</button>}</div></div>}
-      {!selectionMode && filtered.length > 0 && <p className="mep-hint">Tekan dan tahan baris sekitar 0,5 detik untuk masuk mode pilih.</p>}
-      <div className="mep-table-wrap">{loading ? <div className="mep-empty">Memuat data...</div> : filtered.length === 0 ? <div className="mep-empty"><b>Belum ada data kendaraan.</b><span>Import Excel atau tambah kendaraan secara manual.</span></div> : <table className="mep-table"><thead><tr>{selectionMode && <th className="mep-check"><input type="checkbox" aria-label="Pilih semua" checked={allSelected} onChange={toggleAll}/></th>}<th>No. Pol / Merk / Type</th><th>Jenis</th><th>Kepemilikan</th><th>Jenis Sewa</th><th>Harga Perolehan</th><th>Pemilik</th><th>Driver</th><th>Lokasi Kerja</th><th>Pajak</th><th>Keterangan</th><th>Aksi</th></tr></thead><tbody>{filtered.map(v => { const driver = driverMap[v.driver_id]; const picked = selected.includes(v.id); return <tr key={v.id} className={picked ? 'picked' : ''} onPointerDown={e => beginLongPress(e, v.id)} onPointerMove={moveLongPress} onPointerUp={stopLongPress} onPointerCancel={stopLongPress} onClick={e => { if (isInteractive(e.target)) return; if (selectionMode) toggleSelected(v.id) }}>
+      {!selectionMode && filtered.length > 0 && <p className="mep-hint">Klik dua kali pada baris untuk masuk mode pilih dan menghapus beberapa data sekaligus.</p>}
+      <div className="mep-table-wrap">{loading ? <div className="mep-empty">Memuat data...</div> : filtered.length === 0 ? <div className="mep-empty"><b>Belum ada data kendaraan.</b><span>Import Excel atau tambah kendaraan secara manual.</span></div> : <table className="mep-table"><thead><tr>{selectionMode && <th className="mep-check"><input type="checkbox" aria-label="Pilih semua" checked={allSelected} onChange={toggleAll}/></th>}<th>No. Pol / Merk / Type</th><th>Jenis</th><th>Kepemilikan</th><th>Jenis Sewa</th><th>Harga Perolehan</th><th>Pemilik</th><th>Driver</th><th>Lokasi Kerja</th><th>Pajak</th><th>Keterangan</th><th>Aksi</th></tr></thead><tbody>{filtered.map(v => { const driver = driverMap[v.driver_id]; const picked = selected.includes(v.id); return <tr key={v.id} className={picked ? 'picked' : ''} onDoubleClick={e => { if (isInteractive(e.target)) return; e.preventDefault(); enterSelectionMode(v.id) }} onClick={e => { if (isInteractive(e.target)) return; if (selectionMode) toggleSelected(v.id) }}>
         {selectionMode && <td className="mep-check"><input type="checkbox" checked={picked} onChange={() => toggleSelected(v.id)} aria-label={`Pilih ${v.nomor_polisi}`}/></td>}
         <td><b>{v.nomor_polisi}</b><span>{v.merk} {v.tipe || ''}</span><small>{v.tahun || '-'}{v.nomor_mesin ? ` • Mesin ${v.nomor_mesin}` : ''}</small></td>
         <td><span className="mep-pill">{v.jenis_kendaraan || '-'}</span></td>
