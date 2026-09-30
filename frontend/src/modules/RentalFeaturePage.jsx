@@ -190,7 +190,7 @@ export default function RentalFeaturePage({ profile }) {
     if (requestedDeduction > 0) { if (!selectedRepair) return setError('Pilih perbaikan yang menjadi dasar potongan.'); if (!selectedRepair.dapat_dipotong || !selectedRepair.dibayar_kantor) return setError('Hanya perbaikan yang dibayar kantor dan ditandai dapat dipotong yang boleh dipotong dari rental.'); if (Number(selectedRepair.jumlah_dipotong || 0) < requestedDeduction) return setError('Potongan melebihi nilai potongan yang dicatat untuk perbaikan.'); if (selectedRepair.kontrak_sewa_id && Number(selectedRepair.kontrak_sewa_id) !== Number(payment.kontrak_sewa_id)) return setError('Perbaikan dan kontrak rental harus berasal dari kontrak yang sama.') }
     const netBill = Math.max(0, gross - requestedDeduction), paid = Number(payment.jumlah_dibayar || 0), status = payment.tanggal_pembayaran && paid >= netBill ? 'SUDAH_DIBAYAR' : (paid > 0 ? 'SEBAGIAN_DIBAYAR' : (payment.tanggal_jatuh_tempo && new Date(payment.tanggal_jatuh_tempo) < new Date() ? 'TERLAMBAT' : 'BELUM_DIBAYAR'))
     if (paid > netBill) return setError('Jumlah dibayar tidak boleh melebihi tagihan bersih setelah potongan.')
-    setSaving(true); let proofPath = null
+    setSaving(true); let proofPath = null; let createdPaymentId = null
     try {
       const previous = editingPaymentId ? payments.find(x => x.id === editingPaymentId) : null
       proofPath = paymentFile ? await uploadRentalFile(paymentFile, `pembayaran/${payment.kontrak_sewa_id}`) : previous?.bukti_pembayaran_path || null
@@ -198,10 +198,21 @@ export default function RentalFeaturePage({ profile }) {
       const payload = { kontrak_sewa_id: Number(payment.kontrak_sewa_id), periode_ke: Number(payment.periode_ke), bulan_pembayaran: payment.bulan_pembayaran, tanggal_jatuh_tempo: payment.tanggal_jatuh_tempo || null, tanggal_pembayaran: payment.tanggal_pembayaran || null, jumlah_tagihan: netBill, jumlah_dibayar: paid, status, metode_pembayaran: payment.metode_pembayaran.trim() || null, nomor_referensi: payment.nomor_referensi.trim() || null, bukti_pembayaran_path: proofPath, catatan: [notePrefix, payment.catatan.trim()].filter(Boolean).join(' ') || null, diproses_oleh: profile?.id || null }
       const result = editingPaymentId ? await supabase.from('pembayaran_sewa').update(payload).eq('id', editingPaymentId).select('*').single() : await supabase.from('pembayaran_sewa').insert(payload).select('*').single()
       if (result.error) throw result.error
+      if (!editingPaymentId) createdPaymentId = result.data?.id || null
       if (previous?.bukti_pembayaran_path && paymentFile) await supabase.storage.from('dokumen-sewa').remove([previous.bukti_pembayaran_path])
-      if (!editingPaymentId && requestedDeduction > 0 && result.data?.id) { const { error: e2 } = await supabase.from('potongan_pembayaran_sewa').insert({ pembayaran_sewa_id: result.data.id, perbaikan_sewa_id: Number(payment.perbaikan_sewa_id), jumlah_potongan: requestedDeduction, catatan: `Potongan biaya perbaikan dari pembayaran periode ${payment.periode_ke}.` }); if (e2) throw e2 }
+      if (!editingPaymentId && requestedDeduction > 0 && result.data?.id) {
+        const { error: e2 } = await supabase.from('potongan_pembayaran_sewa').insert({ pembayaran_sewa_id: result.data.id, perbaikan_sewa_id: Number(payment.perbaikan_sewa_id), jumlah_potongan: requestedDeduction, catatan: `Potongan biaya perbaikan dari pembayaran periode ${payment.periode_ke}.` })
+        if (e2) throw e2
+      }
       setPayments(current => editingPaymentId ? current.map(row => row.id === result.data.id ? result.data : row) : [result.data, ...current]); resetPaymentForm(); setSuccess(editingPaymentId ? 'Pembayaran diperbarui.' : (requestedDeduction > 0 ? `Pembayaran tersimpan dengan potongan ${money(requestedDeduction)}.` : 'Pembayaran sewa tersimpan.'))
-    } catch (e3) { if (proofPath && !editingPaymentId) await supabase.storage.from('dokumen-sewa').remove([proofPath]); setError(e3.message) } finally { setSaving(false) }
+    } catch (e3) {
+      if (createdPaymentId) {
+        const rollback = await supabase.from('pembayaran_sewa').delete().eq('id', createdPaymentId)
+        if (rollback.error) console.warn('Rollback pembayaran rental gagal:', rollback.error.message)
+      }
+      if (proofPath && !editingPaymentId) await supabase.storage.from('dokumen-sewa').remove([proofPath])
+      setError(e3.message)
+    } finally { setSaving(false) }
   }
   const resetRepairForm = () => { setRepair(EMPTY_REPAIR); setRepairPhoto(null); setRepairProof(null); setEditingRepairId(null) }
   const editRepair = row => { setEditingRepairId(row.id); setRepair({ ...EMPTY_REPAIR, ...row, kontrak_sewa_id: String(row.kontrak_sewa_id), kendaraan_id: String(row.kendaraan_id), kilometer: row.kilometer ?? '', estimasi_biaya: row.estimasi_biaya ?? '', biaya_aktual: row.biaya_aktual ?? '', jumlah_dipotong: row.jumlah_dipotong ?? '' }); setRepairPhoto(null); setRepairProof(null); setTab('repair') }
