@@ -39,7 +39,7 @@ export default function RentalFeaturePage({ profile }) {
   const [rentalHistoryExcel, setRentalHistoryExcel] = useState([])
   const [repairs, setRepairs] = useState([])
   const [vehicles, setVehicles] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(true), [tabLoading, setTabLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -89,26 +89,56 @@ export default function RentalFeaturePage({ profile }) {
     nilai_invoice: row.nilai_invoice ?? 0,
   })).sort((a, b) => Number(a.excel_row || 0) - Number(b.excel_row || 0)), [rentalHistoryExcel])
 
+  const tabLoadRef = useRef ? null : null
+  const rentalTabLoadedRef = { pembayaran: false, repair: false, historis: false }
+
+  const loadRentalTabData = async (targetTab, force = false) => {
+    if (!['pembayaran', 'repair', 'historis'].includes(targetTab)) return
+    if (!force && rentalTabLoadedRef[targetTab]) return
+    setTabLoading(true)
+    try {
+      if (targetTab === 'pembayaran' || targetTab === 'repair') {
+        const [paymentResult, repairResult] = await Promise.all([
+          supabase.from('pembayaran_sewa').select('*').order('bulan_pembayaran', { ascending: false }),
+          supabase.from('perbaikan_sewa').select('*').order('tanggal_kejadian', { ascending: false }),
+        ])
+        if (paymentResult.error) throw paymentResult.error
+        if (repairResult.error) throw repairResult.error
+        setPayments(paymentResult.data || [])
+        setRepairs(repairResult.data || [])
+        rentalTabLoadedRef.pembayaran = true
+        rentalTabLoadedRef.repair = true
+      } else if (targetTab === 'historis') {
+        const { data, error: e } = await supabase.from('rental_historis_excel').select('*').order('excel_row', { ascending: true })
+        if (e) throw e
+        setRentalHistoryExcel(data || [])
+        rentalTabLoadedRef.historis = true
+      }
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setTabLoading(false)
+    }
+  }
+
   const load = async () => {
     setLoading(true)
     setError('')
+    rentalTabLoadedRef.pembayaran = false
+    rentalTabLoadedRef.repair = false
+    rentalTabLoadedRef.historis = false
     const rs = await Promise.all([
       supabase.from('pemilik_sewa').select('*').order('nama_pemilik'),
       supabase.from('kontrak_sewa').select('*').order('created_at', { ascending: false }),
-      supabase.from('pembayaran_sewa').select('*').order('bulan_pembayaran', { ascending: false }),
-      supabase.from('perbaikan_sewa').select('*').order('tanggal_kejadian', { ascending: false }),
-      supabase.from('rental_historis_excel').select('*').order('excel_row', { ascending: true }),
-      supabase.from('kendaraan').select('id,nomor_polisi,merk,tipe,kepemilikan,jenis_sewa,pemilik').eq('kepemilikan', 'SEWA').order('nomor_polisi'),
+      supabase.from('kendaraan').select('id,nomor_polisi,merk,tipe,kepemilikan,jenis_sewa,pemilik,lokasi,unit_kerja').eq('kepemilikan', 'SEWA').order('nomor_polisi'),
     ])
-    const names = ['Pemilik', 'Kontrak', 'Pembayaran', 'Perbaikan', 'Histori Excel', 'Kendaraan']
+    const names = ['Pemilik', 'Kontrak', 'Kendaraan']
     rs.forEach((r, i) => { if (r.error) setError(e => e || `${names[i]}: ${r.error.message}`) })
     setOwners(rs[0].data || [])
     setContracts(rs[1].data || [])
-    setPayments(rs[2].data || [])
-    setRepairs(rs[3].data || [])
-    setRentalHistoryExcel(rs[4].data || [])
-    setVehicles(rs[5].data || [])
+    setVehicles(rs[2].data || [])
     setLoading(false)
+    await loadRentalTabData(tab, true)
   }
 
   useEffect(() => {
@@ -146,6 +176,7 @@ export default function RentalFeaturePage({ profile }) {
   const editContract = row => { setEditingContractId(row.id); setContract({ ...EMPTY_CONTRACT, ...row, kendaraan_id: String(row.kendaraan_id), pemilik_sewa_id: String(row.pemilik_sewa_id), nilai_sewa_bulanan: row.nilai_sewa_bulanan ?? '', tanggal_jatuh_tempo_bulanan: row.tanggal_jatuh_tempo_bulanan ?? '' }); setContractFile(null); setTab('kontrak') }
   const deleteContract = async row => {
     if (!editable) return
+    await loadRentalTabData('pembayaran')
     if (payments.some(p => Number(p.kontrak_sewa_id) === Number(row.id)) || repairs.some(p => Number(p.kontrak_sewa_id) === Number(row.id))) return setError('Kontrak sudah memiliki pembayaran/perbaikan. Jangan hapus; ubah statusnya menjadi SELESAI/DIBATALKAN.')
     if (!window.confirm('Hapus kontrak ' + (row.nomor_kontrak || row.id) + '?')) return
     setSaving(true); try { const result = await supabase.from('kontrak_sewa').delete().eq('id', row.id); if (result.error) throw result.error; setContracts(current => current.filter(x => x.id !== row.id)); setSuccess('Kontrak sewa dihapus.') } catch(e){ setError(e.message) } finally { setSaving(false) }
@@ -218,6 +249,7 @@ export default function RentalFeaturePage({ profile }) {
   const editRepair = row => { setEditingRepairId(row.id); setRepair({ ...EMPTY_REPAIR, ...row, kontrak_sewa_id: String(row.kontrak_sewa_id), kendaraan_id: String(row.kendaraan_id), kilometer: row.kilometer ?? '', estimasi_biaya: row.estimasi_biaya ?? '', biaya_aktual: row.biaya_aktual ?? '', jumlah_dipotong: row.jumlah_dipotong ?? '' }); setRepairPhoto(null); setRepairProof(null); setTab('repair') }
   const deleteRepair = async row => {
     if (!repairEditable) return
+    await loadRentalTabData('pembayaran')
     if (payments.some(p => Number(p.perbaikan_sewa_id) === Number(row.id))) return setError('Perbaikan sudah dipakai sebagai dasar potongan pembayaran. Jangan hapus data ini.')
     if (!window.confirm('Hapus perbaikan ' + (row.jenis_kerusakan || row.id) + '?')) return
     setSaving(true); try { const result = await supabase.from('perbaikan_sewa').delete().eq('id', row.id); if (result.error) throw result.error; const paths=[row.foto_kerusakan_path,row.bukti_perbaikan_path].filter(Boolean); if(paths.length) await supabase.storage.from('dokumen-sewa').remove(paths); setRepairs(current=>current.filter(x=>x.id!==row.id)); setSuccess('Data perbaikan dihapus.') } catch(e){setError(e.message)} finally{setSaving(false)}
@@ -303,7 +335,7 @@ export default function RentalFeaturePage({ profile }) {
     <Header title="Administrasi Kendaraan Sewa" text="Master kendaraan tetap berada di menu Kendaraan. Halaman ini khusus untuk administrasi kendaraan Sewa: pemilik, kontrak 6 bulan, pembayaran, bukti, perbaikan, dan potongan." action={<button className="x-btn secondary" onClick={load}>↻ Refresh</button>} />
     {error && <Alert type="error">{error}</Alert>}
     {success && <Alert>{success}</Alert>}
-    <div className="x-tabs">{[['kendaraan', 'Daftar Sewa'], ['kontrak', 'Kontrak'], ['pemilik', 'Pemilik'], ['pembayaran', 'Pembayaran'], ['historis', 'Summary Rental'], ...(repairEditable ? [['repair', 'Perbaikan']] : [])].map(([v, l]) => <button key={v} className={tab === v ? 'active' : ''} onClick={() => { clearMessages(); setTab(v) }}>{l}</button>)}</div>
+    <div className="x-tabs">{[['kendaraan', 'Daftar Sewa'], ['kontrak', 'Kontrak'], ['pemilik', 'Pemilik'], ['pembayaran', 'Pembayaran'], ['historis', 'Summary Rental'], ...(repairEditable ? [['repair', 'Perbaikan']] : [])].map(([v, l]) => <button key={v} className={tab === v ? 'active' : ''} onClick={() => { clearMessages(); setTab(v); if (['pembayaran', 'repair', 'historis'].includes(v)) loadRentalTabData(v) }}>{l}</button>)}</div>
 
     {tab === 'kendaraan' && <section className="x-card">
       <div className="x-card-title"><div><h3>Daftar Kendaraan Sewa</h3><p>Data kendaraan diambil dari Master Kendaraan dengan kepemilikan <b>Sewa</b>. Identitas kendaraan tetap dikelola di menu Kendaraan agar tidak ada data kendaraan ganda.</p></div></div>
