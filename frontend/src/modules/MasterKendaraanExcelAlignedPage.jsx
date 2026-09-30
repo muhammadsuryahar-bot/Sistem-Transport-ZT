@@ -222,7 +222,11 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
   }
 
   const enterSelectionMode = id => {
-    if (!canDelete || selectionMode) return
+    if (!canDelete) return
+    if (selectionMode) {
+      exitSelection()
+      return
+    }
     setSelectionMode(true)
     setSelected(current => current.includes(id) ? current : [...current, id])
   }
