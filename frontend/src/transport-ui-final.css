@@ -703,3 +703,165 @@ select { touch-action: manipulation; }
   .dpt-clean-data-table tbody td:not(.dpt-col-hidden) b,
   .dpt-clean-data-table tbody td:not(.dpt-col-hidden) strong { font-size: 13.5px !important; }
 }
+
+
+/* Cross-module visual consistency: keep legacy Kendaraan/Pengajuan layouts on the same
+   typography, spacing, border, button and table language used by the x-* modules. */
+.master-excel-page,
+.request-page,
+.dashboard-v2 {
+  color: var(--zt-ink);
+  font-family: var(--zt-font);
+}
+
+.master-excel-page { gap: 20px; }
+.mep-head h2,
+.request-header h2,
+.dashboard-v2-intro h2 {
+  color: var(--zt-ink);
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -.025em;
+  line-height: 1.15;
+}
+
+.mep-head p,
+.request-header p,
+.dashboard-v2-intro p {
+  color: var(--zt-muted);
+  line-height: 1.6;
+}
+
+.mep-card,
+.request-panel,
+.dashboard-v2-panel,
+.dashboard-stat-card,
+.mep-cards > div {
+  border-color: var(--zt-border);
+  border-radius: 15px;
+  box-shadow: 0 5px 18px rgba(18,35,27,.03);
+}
+
+.mep-primary,
+.request-primary-button {
+  background: var(--zt-green);
+  border-color: var(--zt-green);
+  color: #fff;
+}
+
+.mep-secondary,
+.request-light-button {
+  background: #fff;
+  border: 1px solid #dce3df;
+  color: #2f463a;
+}
+
+.mep-primary,
+.mep-secondary,
+.request-primary-button,
+.request-light-button,
+.request-detail-button {
+  min-height: 40px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: none;
+}
+
+.mep-toolbar input,
+.mep-toolbar select,
+.mep-form input,
+.mep-form select,
+.mep-form textarea,
+.request-toolbar input,
+.request-toolbar select,
+.request-field input,
+.request-field select,
+.request-field textarea {
+  border-color: #dce3df;
+  border-radius: 9px;
+  color: var(--zt-ink);
+}
+
+.mep-toolbar input:focus,
+.mep-toolbar select:focus,
+.mep-form input:focus,
+.mep-form select:focus,
+.mep-form textarea:focus,
+.request-toolbar input:focus,
+.request-toolbar select:focus,
+.request-field input:focus,
+.request-field select:focus,
+.request-field textarea:focus {
+  border-color: var(--zt-green-2);
+  box-shadow: 0 0 0 3px rgba(29,106,74,.10);
+  outline: none;
+}
+
+.mep-table,
+.request-table {
+  font-family: var(--zt-font);
+}
+
+.mep-table th,
+.request-table th {
+  background: #f8faf8;
+  color: #7a8580;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.35;
+  letter-spacing: .045em;
+  text-transform: uppercase;
+}
+
+.mep-table td,
+.request-table td {
+  color: #354139;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.mep-table th,
+.mep-table td {
+  border-color: #edf0ee;
+  padding: 12px;
+}
+
+.request-table th,
+.request-table td {
+  border-color: #edf0ee;
+}
+
+.mep-table tbody tr:hover {
+  background: #fbfdfb;
+}
+
+.request-table tbody tr:hover {
+  background: #fbfdfb;
+}
+
+.mep-cards b,
+.dashboard-stat-card strong {
+  color: var(--zt-ink);
+}
+
+.dashboard-v2-stats {
+  gap: 14px;
+}
+
+.dashboard-v2-panel {
+  padding: 18px;
+}
+
+@media (max-width: 850px) {
+  .mep-head,
+  .request-header,
+  .dashboard-v2-intro {
+    gap: 14px;
+  }
+  .mep-head h2,
+  .request-header h2,
+  .dashboard-v2-intro h2 {
+    font-size: 24px;
+  }
+}
