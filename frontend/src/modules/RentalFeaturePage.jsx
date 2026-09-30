@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import './TransportOperationsFixed.css'
 import { formatDateSafe, formatMonthSafe } from '../utils/dateSafe'
@@ -39,7 +39,7 @@ export default function RentalFeaturePage({ profile }) {
   const [rentalHistoryExcel, setRentalHistoryExcel] = useState([])
   const [repairs, setRepairs] = useState([])
   const [vehicles, setVehicles] = useState([])
-  const [loading, setLoading] = useState(true), [tabLoading, setTabLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -89,13 +89,11 @@ export default function RentalFeaturePage({ profile }) {
     nilai_invoice: row.nilai_invoice ?? 0,
   })).sort((a, b) => Number(a.excel_row || 0) - Number(b.excel_row || 0)), [rentalHistoryExcel])
 
-  const tabLoadRef = useRef ? null : null
-  const rentalTabLoadedRef = { pembayaran: false, repair: false, historis: false }
+  const rentalTabLoadedRef = useRef({ pembayaran: false, repair: false, historis: false })
 
   const loadRentalTabData = async (targetTab, force = false) => {
     if (!['pembayaran', 'repair', 'historis'].includes(targetTab)) return
-    if (!force && rentalTabLoadedRef[targetTab]) return
-    setTabLoading(true)
+    if (!force && rentalTabLoadedRef.current[targetTab]) return
     try {
       if (targetTab === 'pembayaran' || targetTab === 'repair') {
         const [paymentResult, repairResult] = await Promise.all([
@@ -106,27 +104,27 @@ export default function RentalFeaturePage({ profile }) {
         if (repairResult.error) throw repairResult.error
         setPayments(paymentResult.data || [])
         setRepairs(repairResult.data || [])
-        rentalTabLoadedRef.pembayaran = true
-        rentalTabLoadedRef.repair = true
+        rentalTabLoadedRef.current.pembayaran = true
+        rentalTabLoadedRef.current.repair = true
       } else if (targetTab === 'historis') {
         const { data, error: e } = await supabase.from('rental_historis_excel').select('*').order('excel_row', { ascending: true })
         if (e) throw e
         setRentalHistoryExcel(data || [])
-        rentalTabLoadedRef.historis = true
+        rentalTabLoadedRef.current.historis = true
       }
     } catch (e) {
       setError(e.message)
     } finally {
-      setTabLoading(false)
+      // Tab data is cached in-memory until the module refreshes.
     }
   }
 
   const load = async () => {
     setLoading(true)
     setError('')
-    rentalTabLoadedRef.pembayaran = false
-    rentalTabLoadedRef.repair = false
-    rentalTabLoadedRef.historis = false
+    rentalTabLoadedRef.current.pembayaran = false
+    rentalTabLoadedRef.current.repair = false
+    rentalTabLoadedRef.current.historis = false
     const rs = await Promise.all([
       supabase.from('pemilik_sewa').select('*').order('nama_pemilik'),
       supabase.from('kontrak_sewa').select('*').order('created_at', { ascending: false }),
