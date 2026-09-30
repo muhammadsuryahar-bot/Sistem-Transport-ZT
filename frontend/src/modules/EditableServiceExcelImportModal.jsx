@@ -142,6 +142,16 @@ function normalizePpn(dpp, rawPpn) {
   return candidates.reduce((best, value) => Math.abs(value - expected) < Math.abs(best - expected) ? value : best, candidates[0])
 }
 
+function financialBreakdownMatches(row) {
+  const dpp = Number(row?.nilai_dpp || 0)
+  const ppn = Number(row?.ppn || 0)
+  const total = Number(row?.total || 0)
+  if (dpp < 0 || ppn < 0 || total < 0) return false
+  if (total === 0 && dpp === 0 && ppn === 0) return true
+  const expected = dpp + ppn
+  return Math.abs(total - expected) <= Math.max(1, expected * 0.001)
+}
+
 function normalizeServiceMoney({ qty, harga, dpp, ppn, total }) {
   const normalizedDpp = normalizeMoneyField(dpp)
   const normalizedHarga = normalizeMoneyField(harga)
@@ -473,6 +483,7 @@ export default function EditableServiceExcelImportModal({ profile, onDone, onClo
   const transactions = useMemo(() => groupRows(validRows), [validRows])
   const uniquePlates = useMemo(() => [...new Set(validRows.map(row => row.nomor_polisi))], [validRows])
   const invalidCount = rows.length - validRows.length
+  const financialMismatchRows = useMemo(() => validRows.filter(row => !financialBreakdownMatches(row)), [validRows])
   const pageCount = Math.max(1, Math.ceil(filteredRows.length / pageSize))
   const safePage = Math.min(page, pageCount)
   const visibleRows = filteredRows.slice((safePage - 1) * pageSize, safePage * pageSize)
@@ -527,6 +538,11 @@ export default function EditableServiceExcelImportModal({ profile, onDone, onClo
     try {
       const activeRows = filterDeletedExcelRows('service', rows)
       const activeValidRows = activeRows.filter(row => row.nomor_polisi && row.tanggal)
+      const invalidFinancialRows = activeValidRows.filter(row => !financialBreakdownMatches(row))
+      if (invalidFinancialRows.length) {
+        const rowLabels = invalidFinancialRows.slice(0, 12).map(row => row.source_no || row.excelRow).join(', ')
+        throw new Error(`Ada ${invalidFinancialRows.length} baris dengan nilai keuangan tidak konsisten: Total harus sama dengan Nilai DPP + PPN. Baris Excel: ${rowLabels}${invalidFinancialRows.length > 12 ? ' …' : ''}. Perbaiki DPP, PPN, atau Total di tabel sebelum import.`)
+      }
       const activeTransactions = groupRows(activeValidRows)
       setProgress({ completed: 0, total: activeTransactions.length })
       const result = await importHistory(activeRows, sheet?.name || 'Data Service', ({ completed, total }) => { setProgress({ completed, total }); setMessage(`Memproses import: ${completed}/${total} transaksi...`) })
@@ -552,12 +568,13 @@ export default function EditableServiceExcelImportModal({ profile, onDone, onClo
       {rows.length > 0 && <>
         <div className="service-import-stats"><div><b>{rows.length}</b><span>baris data</span></div><div><b>{validRows.length}</b><span>baris valid</span></div><div><b>{transactions.length}</b><span>transaksi service</span></div><div><b>{uniquePlates.length}</b><span>kendaraan</span></div></div>
         {invalidCount > 0 && <div className="service-import-warning">{invalidCount} baris belum valid. Edit No. Polisi/Tanggal langsung di tabel agar ikut terimport.</div>}
+        {financialMismatchRows.length > 0 && <div className="service-import-warning">{financialMismatchRows.length} baris memiliki DPP + PPN yang tidak sama dengan Total. Perbaiki nilai keuangan di tabel sebelum import agar data biaya tidak masuk dalam keadaan salah.</div>}
         <div className="editable-service-toolbar"><div><strong>Baris {pageStart}-{pageEnd} dari {filteredRows.length}{search ? ` (filter dari ${rows.length})` : ''}</strong><span>Setiap sel di bawah ini bisa diedit. Perubahan dipakai saat tombol Import ditekan.</span></div><div className="editable-service-controls"><input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} placeholder="Cari data…" disabled={saving}/><label>Per halaman <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1) }} disabled={saving}>{PAGE_OPTIONS.map(size => <option key={size} value={size}>{size}</option>)}</select></label></div></div>
         <div className="dpt-preview editable-service-preview"><table><thead><tr>{headers.map((header, index) => <th key={`${header}-${index}`}>{header || `Kolom ${index + 1}`}</th>)}</tr></thead><tbody>{visibleRows.map(row => <tr data-excel-row={row.excelRow} key={row.excelRow}>{headers.map((header, index) => { const key = fieldForHeader(header); const value = displayValueForRow(row, header, key, index); const numeric = ['qty','harga_satuan','nilai_dpp','ppn','total','kilometer'].includes(key); const date = key === 'tanggal'; return <td key={`${row.excelRow}-${index}`}><input aria-label={`${header} baris ${row.excelRow}`} type={date ? 'text' : 'text'} inputMode={numeric ? 'decimal' : undefined} value={value} onChange={e => updateCell(row.excelRow, index, e.target.value)} disabled={saving} className={numeric ? 'numeric' : ''}/></td> })}</tr>)}</tbody></table></div>
         <div className="editable-service-pagination"><button type="button" className="dpt-button" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage <= 1 || saving}>← Sebelumnya</button><strong>Halaman {safePage} / {pageCount}</strong><button type="button" className="dpt-button" onClick={() => setPage(p => Math.min(pageCount, p + 1))} disabled={safePage >= pageCount || saving}>Berikutnya →</button></div>
         <div className="service-import-note"><b>Yang bisa dikerjakan tanpa kembali ke Excel</b><span>Ganti No. Polisi, tanggal, pekerjaan, uraian, Qty, satuan, harga, DPP, PPN, Total, KM, driver, dan kolom lain langsung di tabel.</span><span>{rows.length} baris data valid ditampilkan; baris TOTAL/rekap di bagian bawah Excel tidak dimasukkan sebagai transaksi.</span><span>Setelah diedit, sistem menghitung ulang baris valid, transaksi, kendaraan, dan item berdasarkan data terbaru.</span></div>
       </>}
-      <div className="dpt-actions"><button type="button" className="dpt-button" onClick={onClose} disabled={saving}>Batal</button><button type="button" className="dpt-button primary" onClick={start} disabled={!rows.length || saving || !canImport}>{saving ? `Mengimport ${progress.completed}/${progress.total}…` : `Import ${rows.length} Baris Data`}</button></div>
+      <div className="dpt-actions"><button type="button" className="dpt-button" onClick={onClose} disabled={saving}>Batal</button><button type="button" className="dpt-button primary" onClick={start} disabled={!rows.length || saving || !canImport || financialMismatchRows.length > 0}>{saving ? `Mengimport ${progress.completed}/${progress.total}…` : `Import ${rows.length} Baris Data`}</button></div>
     </section>
   </div>
 }
