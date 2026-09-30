@@ -24,7 +24,7 @@ export default function ServiceFeaturePage({ profile }) {
   const [form, setForm] = useState(emptyService), [itemForm, setItemForm] = useState(emptyItem), [proofForm, setProofForm] = useState(emptyProof), [partForm, setPartForm] = useState(emptyPart), [kmForm, setKmForm] = useState(emptyKm)
   const [editingItemId, setEditingItemId] = useState(null), [editingProofId, setEditingProofId] = useState(null), [editingPartId, setEditingPartId] = useState(null), [editingKmId, setEditingKmId] = useState(null)
   const [file, setFile] = useState(null), [selected, setSelected] = useState(null), [selectedItem, setSelectedItem] = useState(null), [selectedPart, setSelectedPart] = useState(null), [selectedKm, setSelectedKm] = useState(null), [approvalModal, setApprovalModal] = useState(null), [approvalNote, setApprovalNote] = useState('')
-  const [loading, setLoading] = useState(true), [saving, setSaving] = useState(false), [error, setError] = useState(''), [success, setSuccess] = useState('')
+  const [loading, setLoading] = useState(true), [tabLoading, setTabLoading] = useState(false), [saving, setSaving] = useState(false), [error, setError] = useState(''), [success, setSuccess] = useState('')
   const [serviceExcelFullscreen, setServiceExcelFullscreen] = useState(false)
   const [serviceExcelScrollWidth, setServiceExcelScrollWidth] = useState(0)
   const serviceExcelWrapRef = useRef(null)
@@ -36,7 +36,81 @@ export default function ServiceFeaturePage({ profile }) {
   const canProcess = ['ADMIN', 'TRANSPORT'].includes(profile?.role)
   const vehicleMap = useMemo(() => Object.fromEntries(vehicles.map(v => [v.id, v])), [vehicles])
   const driverMap = useMemo(() => Object.fromEntries(drivers.map(d => [d.id, d])), [drivers])
-  const load = async () => { setLoading(true); setError(''); const rs = await Promise.all([supabase.from('kendaraan').select('id,nomor_polisi,merk,tipe,jenis_kendaraan,tahun,driver_id,kilometer_terakhir,status').order('nomor_polisi'), supabase.from('permintaan_service').select('*').order('created_at', { ascending: false }), supabase.from('service').select('*').order('created_at', { ascending: false }), supabase.from('service_item').select('*').order('created_at', { ascending: false }), supabase.from('service_bukti').select('*').order('created_at', { ascending: false }), supabase.from('service_approval').select('*').order('urutan', { ascending: true }), supabase.from('riwayat_ban').select('*').order('tanggal_penggantian', { ascending: false }), supabase.from('riwayat_aki').select('*').order('tanggal_penggantian', { ascending: false }), supabase.from('riwayat_kilometer').select('*').order('tanggal', { ascending: false }), supabase.from('driver').select('id,nama_lengkap').order('nama_lengkap')]); const names = ['Kendaraan', 'Pengajuan', 'Service', 'Item', 'Bukti', 'Approval', 'Ban', 'Aki', 'KM', 'Driver']; rs.forEach((r, i) => { if (r.error) setError(e => e || `${names[i]}: ${r.error.message}`) }); setVehicles(rs[0].data || []); setRequests(rs[1].data || []); setServices(rs[2].data || []); setItems(rs[3].data || []); setProofs(rs[4].data || []); setApprovals(rs[5].data || []); setBans(rs[6].data || []); setAkis(rs[7].data || []); setKms(rs[8].data || []); setDrivers(rs[9].data || []); setLoading(false) }
+  const tabLoadRef = useRef({ bukti: false, ban: false, aki: false, km: false })
+  const relatedLoadRef = useRef(new Set())
+
+  const loadTabData = async (targetTab, force = false) => {
+    const target = ['bukti', 'ban', 'aki', 'km'].includes(targetTab) ? targetTab : null
+    if (!target) return
+    if (!force && tabLoadRef.current[target]) return
+    setTabLoading(true)
+    try {
+      if (target === 'bukti') {
+        const { data, error: e } = await supabase.from('service_bukti').select('*').order('created_at', { ascending: false })
+        if (e) throw e
+        setProofs(data || [])
+      } else if (target === 'ban') {
+        const { data, error: e } = await supabase.from('riwayat_ban').select('*').order('tanggal_penggantian', { ascending: false })
+        if (e) throw e
+        setBans(data || [])
+      } else if (target === 'aki') {
+        const { data, error: e } = await supabase.from('riwayat_aki').select('*').order('tanggal_penggantian', { ascending: false })
+        if (e) throw e
+        setAkis(data || [])
+      } else if (target === 'km') {
+        const { data, error: e } = await supabase.from('riwayat_kilometer').select('*').order('tanggal', { ascending: false })
+        if (e) throw e
+        setKms(data || [])
+      }
+      tabLoadRef.current[target] = true
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setTabLoading(false)
+    }
+  }
+
+  const ensureServiceDetailData = async serviceId => {
+    const key = String(serviceId)
+    if (relatedLoadRef.current.has(key)) return
+    try {
+      const [proofResult, approvalResult] = await Promise.all([
+        supabase.from('service_bukti').select('*').eq('service_id', serviceId).order('created_at', { ascending: false }),
+        supabase.from('service_approval').select('*').eq('service_id', serviceId).order('urutan', { ascending: true }),
+      ])
+      if (proofResult.error) throw proofResult.error
+      if (approvalResult.error) throw approvalResult.error
+      setProofs(current => [...current.filter(row => row.service_id !== serviceId), ...(proofResult.data || [])])
+      setApprovals(current => [...current.filter(row => row.service_id !== serviceId), ...(approvalResult.data || [])])
+      relatedLoadRef.current.add(key)
+    } catch (e) {
+      setError(e.message)
+    }
+  }
+
+  const load = async () => {
+    setLoading(true)
+    setError('')
+    tabLoadRef.current = { bukti: false, ban: false, aki: false, km: false }
+    relatedLoadRef.current = new Set()
+    const rs = await Promise.all([
+      supabase.from('kendaraan').select('id,nomor_polisi,merk,tipe,jenis_kendaraan,tahun,driver_id,kilometer_terakhir,status').order('nomor_polisi'),
+      supabase.from('permintaan_service').select('*').order('created_at', { ascending: false }),
+      supabase.from('service').select('*').order('created_at', { ascending: false }),
+      supabase.from('service_item').select('*').order('created_at', { ascending: false }),
+      supabase.from('driver').select('id,nama_lengkap').order('nama_lengkap'),
+    ])
+    const names = ['Kendaraan', 'Pengajuan', 'Service', 'Item', 'Driver']
+    rs.forEach((r, i) => { if (r.error) setError(e => e || `${names[i]}: ${r.error.message}`) })
+    setVehicles(rs[0].data || [])
+    setRequests(rs[1].data || [])
+    setServices(rs[2].data || [])
+    setItems(rs[3].data || [])
+    setDrivers(rs[4].data || [])
+    setLoading(false)
+    await loadTabData(tab, true)
+  }
+
   useEffect(() => {
     load()
     const handleImported = (event) => {
@@ -61,6 +135,11 @@ export default function ServiceFeaturePage({ profile }) {
       window.removeEventListener('transport:service-state-updated', handleServiceStateUpdated)
     }
   }, [])
+
+  useEffect(() => {
+    if (['bukti', 'ban', 'aki', 'km'].includes(tab)) loadTabData(tab)
+  }, [tab])
+
   const clearMessages = () => { setError(''); setSuccess('') }
   const emitServiceStateUpdate = detail => window.dispatchEvent(new CustomEvent('transport:service-state-updated', { detail }))
   const pending = requests.filter(r => ['MENUNGGU_TRANSPORT', 'DITERIMA_TRANSPORT', 'DALAM_PROSES'].includes(r.status))
@@ -309,13 +388,13 @@ export default function ServiceFeaturePage({ profile }) {
       setSuccess('Riwayat KM dihapus. KM terakhir kendaraan perlu dicek kembali jika data paling baru ikut terhapus.')
     } catch (err) { setError(err.message) } finally { setSaving(false) }
   }
-  const openDetail = s => { setSelected(s); setDetailEdit({ biaya_aktual: s.biaya_aktual ?? s.estimasi_biaya ?? '' }) }
+  const openDetail = async s => { setSelected(s); setDetailEdit({ biaya_aktual: s.biaya_aktual ?? s.estimasi_biaya ?? '' }); await ensureServiceDetailData(s.id) }
   const openServiceEdit = s => { setEditingServiceId(s.id); setForm({ ...emptyService, permintaan_service_id: s.permintaan_service_id ?? '', kendaraan_id: s.kendaraan_id ?? '', tanggal_service: s.tanggal_service || new Date().toISOString().slice(0, 10), kilometer: s.kilometer ?? '', bengkel: s.bengkel || '', jenis_service: s.jenis_service || 'SERVICE', keluhan: s.keluhan || '', estimasi_biaya: s.estimasi_biaya ?? '', biaya_aktual: s.biaya_aktual ?? '', nilai_dpp: s.nilai_dpp ?? '', ppn: s.ppn ?? '', total: s.total ?? '', catatan: s.catatan || '' }); setTab('pekerjaan'); setSelected(null) }
   const deleteService = async s => { if (!canProcess) return; if (!window.confirm(`Hapus service ${s.nomor_service || s.id}? Data ini akan dihapus jika belum memiliki item, bukti, atau approval.`)) return; setSaving(true); try { const [ic,pc,ac] = await Promise.all([supabase.from('service_item').select('id',{count:'exact',head:true}).eq('service_id',s.id),supabase.from('service_bukti').select('id',{count:'exact',head:true}).eq('service_id',s.id),supabase.from('service_approval').select('id',{count:'exact',head:true}).eq('service_id',s.id)]); if(ic.error) throw ic.error; if(pc.error) throw pc.error; if(ac.error) throw ac.error; if((ic.count||0)+(pc.count||0)+(ac.count||0)>0) throw new Error('Service sudah memiliki item, bukti, atau approval. Hapus bagian terkait terlebih dahulu agar histori tidak hilang.'); const result=await supabase.from('service').delete().eq('id',s.id).select('id').maybeSingle(); if(result.error) throw result.error; if(!result.data) throw new Error('Data service tidak berhasil dihapus.'); if(s.permintaan_service_id) await supabase.from('permintaan_service').update({status:'MENUNGGU_TRANSPORT',diproses_oleh:null,diproses_at:null}).eq('id',s.permintaan_service_id); setServices(current=>current.filter(row=>row.id!==s.id)); setSuccess('Data service dihapus.'); } catch(e){setError(e.message)} finally{setSaving(false)} }
   const tabs = canProcess
     ? [['pekerjaan', 'Data Service'], ['excel', 'Riwayat Service'], ['item', 'Item Service'], ['bukti', 'Bukti'], ['ban', 'Riwayat Ban'], ['aki', 'Riwayat Aki'], ['km', 'Riwayat KM']]
     : [['pekerjaan', 'Data Service'], ['excel', 'Riwayat Excel']]
-  return <div className="x-page"><Header eyebrow="SERVICE & MAINTENANCE" title="Service & Perbaikan" text="Kelola data service langsung dari sistem: pekerjaan, biaya, item, bukti, ban, aki, kilometer, dan approval." action={<div className="x-head-actions">{canProcess && <button className="x-btn primary" onClick={() => { setTab('pekerjaan'); setEditingServiceId(null); setForm({ ...emptyService, tanggal_service: new Date().toISOString().slice(0, 10) }) }}>+ Tambah Service</button>}<button className="x-btn secondary" onClick={load}>↻ Refresh</button></div>} />{error && <Alert type="error">{error}</Alert>}{success && <Alert>{success}</Alert>}<div className="x-tabs">{tabs.map(([v, l]) => <button key={v} className={tab === v ? 'active' : ''} onClick={() => { clearMessages(); setTab(v) }}>{l}</button>)}</div>{tab === 'excel' && <section className={`x-card service-excel-card ${serviceExcelFullscreen ? 'service-excel-card-fullscreen' : ''}`}>
+  return <div className="x-page"><Header eyebrow="SERVICE & MAINTENANCE" title="Service & Perbaikan" text="Kelola data service langsung dari sistem: pekerjaan, biaya, item, bukti, ban, aki, kilometer, dan approval." action={<div className="x-head-actions">{canProcess && <button className="x-btn primary" onClick={() => { setTab('pekerjaan'); setEditingServiceId(null); setForm({ ...emptyService, tanggal_service: new Date().toISOString().slice(0, 10) }) }}>+ Tambah Service</button>}<button className="x-btn secondary" onClick={load}>↻ Refresh</button></div>} />{error && <Alert type="error">{error}</Alert>}{success && <Alert>{success}</Alert>}<div className="x-tabs">{tabs.map(([v, l]) => <button key={v} className={tab === v ? 'active' : ''} onClick={() => { clearMessages(); setTab(v); if (['bukti', 'ban', 'aki', 'km'].includes(v)) loadTabData(v) }}>{l}</button>)}</div>{tab === 'excel' && <section className={`x-card service-excel-card ${serviceExcelFullscreen ? 'service-excel-card-fullscreen' : ''}`}>
     <div className="x-card-title service-excel-card-title">
       <div>
         <h3>Riwayat Service — Format Data Service Excel</h3>
