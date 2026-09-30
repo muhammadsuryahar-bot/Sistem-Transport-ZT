@@ -313,6 +313,23 @@ function ensureRowSelection(context, table) {
     editButton.onclick = () => editTarget?.click()
     deleteButton.onclick = () => deleteTarget?.click()
 
+    const actionCell = row.querySelector('.mep-actions, .request-actions, .x-action-compact, .x-row-actions')
+    const fixedLabels = new Set(['detail', 'lihat', 'edit', 'ubah', 'hapus', 'delete'])
+    if (actionCell) {
+      Array.from(actionCell.querySelectorAll('button')).forEach(sourceButton => {
+        const label = String(sourceButton.textContent || '').replace(/\\s+/g, ' ').trim()
+        const normalized = label.toLowerCase()
+        if (!label || fixedLabels.has(normalized)) return
+        const extra = document.createElement('button')
+        extra.type = 'button'
+        extra.className = 'dpt-inline-action'
+        extra.textContent = label
+        extra.disabled = sourceButton.disabled
+        extra.onclick = () => sourceButton.click()
+        td.querySelector('.dpt-inline-row-tools')?.insertBefore(extra, closeButton)
+      })
+    }
+
     markSelect.value = sourceMark?.value || 'NONE'
     markSelect.onchange = () => {
       if (!sourceMark) return
@@ -357,6 +374,12 @@ function ensureRowSelection(context, table) {
       if (event.target.closest('button, input, select, textarea, a')) return
       if (!table.contains(row) || row.querySelector('td[colspan]')) return
       applySelection(row)
+    })
+    table.addEventListener('dblclick', event => {
+      const row = event.target.closest('tbody tr')
+      if (!row || row.classList.contains('dpt-inline-row-actions')) return
+      if (event.target.closest('button, input, select, textarea, a')) return
+      clearRowSelection(table)
     })
   }
 
