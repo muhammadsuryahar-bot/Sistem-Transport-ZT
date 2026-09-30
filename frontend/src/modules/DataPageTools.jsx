@@ -380,6 +380,11 @@ function ensureRowSelection(context, table) {
       const row = event.target.closest('tbody tr')
       if (!row || row.classList.contains('dpt-inline-row-actions')) return
       if (event.target.closest('button, input, select, textarea, a')) return
+      if (table.dataset.dptBulkMode === 'true') {
+        removeGenericBulkUI(table)
+        clearRowSelection(table)
+        return
+      }
       clearRowSelection(table)
       enterGenericBulkMode(table, row, context)
     })
