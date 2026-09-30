@@ -24,7 +24,7 @@ export default function ServiceFeaturePage({ profile }) {
   const [form, setForm] = useState(emptyService), [itemForm, setItemForm] = useState(emptyItem), [proofForm, setProofForm] = useState(emptyProof), [partForm, setPartForm] = useState(emptyPart), [kmForm, setKmForm] = useState(emptyKm)
   const [editingItemId, setEditingItemId] = useState(null), [editingProofId, setEditingProofId] = useState(null), [editingPartId, setEditingPartId] = useState(null), [editingKmId, setEditingKmId] = useState(null)
   const [file, setFile] = useState(null), [selected, setSelected] = useState(null), [selectedItem, setSelectedItem] = useState(null), [selectedPart, setSelectedPart] = useState(null), [selectedKm, setSelectedKm] = useState(null), [approvalModal, setApprovalModal] = useState(null), [approvalNote, setApprovalNote] = useState('')
-  const [loading, setLoading] = useState(true), [tabLoading, setTabLoading] = useState(false), [saving, setSaving] = useState(false), [error, setError] = useState(''), [success, setSuccess] = useState('')
+  const [loading, setLoading] = useState(true), [saving, setSaving] = useState(false), [error, setError] = useState(''), [success, setSuccess] = useState('')
   const [serviceExcelFullscreen, setServiceExcelFullscreen] = useState(false)
   const [serviceExcelScrollWidth, setServiceExcelScrollWidth] = useState(0)
   const serviceExcelWrapRef = useRef(null)
@@ -43,7 +43,6 @@ export default function ServiceFeaturePage({ profile }) {
     const target = ['bukti', 'ban', 'aki', 'km'].includes(targetTab) ? targetTab : null
     if (!target) return
     if (!force && tabLoadRef.current[target]) return
-    setTabLoading(true)
     try {
       if (target === 'bukti') {
         const { data, error: e } = await supabase.from('service_bukti').select('*').order('created_at', { ascending: false })
@@ -65,8 +64,6 @@ export default function ServiceFeaturePage({ profile }) {
       tabLoadRef.current[target] = true
     } catch (e) {
       setError(e.message)
-    } finally {
-      setTabLoading(false)
     }
   }
 
