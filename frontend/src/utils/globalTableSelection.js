@@ -1,7 +1,7 @@
 const TOOLBAR_CLASS = 'gts-toolbar'
 const CHECKBOX_CLASS = 'gts-row-checkbox'
 const HEAD_CHECKBOX_CLASS = 'gts-head-checkbox'
-const SKIP_TABLE_SELECTOR = '.dpt-preview table, .m-table, .mep-table, .request-table, [data-no-bulk-select="true"]'
+const SKIP_TABLE_SELECTOR = '.dpt-preview table, .x-table, .m-table, .mep-table, .request-table, [data-no-bulk-select="true"]'
 
 function normalizeText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim().toLowerCase()
@@ -165,44 +165,15 @@ function updateTableState(table) {
 function bindRowInteractions(table, row) {
   if (row.dataset.gtsBound === '1') return
   row.dataset.gtsBound = '1'
-  let timer = null
-  let startX = 0
-  let startY = 0
-  let triggered = false
-
-  const clear = () => {
-    if (timer) window.clearTimeout(timer)
-    timer = null
-  }
-
-  row.addEventListener('pointerdown', event => {
-    if (event.pointerType === 'mouse' && event.button !== 0) return
+  row.addEventListener('dblclick', event => {
     if (event.target?.closest?.('button, input, select, textarea, a')) return
-    startX = event.clientX
-    startY = event.clientY
-    triggered = false
-    clear()
-    timer = window.setTimeout(() => {
-      triggered = true
-      setSelectionMode(table, true)
-      const checkbox = row.querySelector(`.${CHECKBOX_CLASS}`)
-      if (checkbox) checkbox.checked = true
-      updateTableState(table)
-    }, 520)
+    setSelectionMode(table, true)
+    const checkbox = row.querySelector(`.${CHECKBOX_CLASS}`)
+    if (checkbox) checkbox.checked = true
+    updateTableState(table)
   })
-
-  row.addEventListener('pointermove', event => {
-    if (!timer) return
-    if (Math.hypot(event.clientX - startX, event.clientY - startY) > 10) clear()
-  })
-
-  row.addEventListener('pointerup', clear)
-  row.addEventListener('pointercancel', clear)
   row.addEventListener('click', event => {
-    if (!table.dataset.gtsSelectionMode || triggered) {
-      triggered = false
-      return
-    }
+    if (!table.dataset.gtsSelectionMode) return
     if (event.target?.closest?.('button, input, select, textarea, a')) return
     const checkbox = row.querySelector(`.${CHECKBOX_CLASS}`)
     if (checkbox) {
