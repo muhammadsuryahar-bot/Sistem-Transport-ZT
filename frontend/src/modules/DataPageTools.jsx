@@ -580,8 +580,13 @@ export default function DataPageTools({ context, profile, onExport }) {
       }
     }
     run()
-    const observer = new MutationObserver(() => { clearTimeout(timer); timer = setTimeout(run, 40) })
-    observer.observe(document.body, { childList: true, subtree: true })
+    const observerTarget = document.querySelector('.content-container') || document.body
+    const observer = new MutationObserver(mutations => {
+      if (!mutations.some(mutation => mutation.addedNodes.length || mutation.removedNodes.length)) return
+      clearTimeout(timer)
+      timer = setTimeout(run, 90)
+    })
+    observer.observe(observerTarget, { childList: true, subtree: true })
     return () => { clearTimeout(timer); observer.disconnect(); applyCleanRoot(false) }
   }, [context])
 
