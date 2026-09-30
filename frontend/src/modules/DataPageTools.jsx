@@ -317,7 +317,7 @@ function ensureRowSelection(context, table) {
     const fixedLabels = new Set(['detail', 'lihat', 'edit', 'ubah', 'hapus', 'delete'])
     if (actionCell) {
       Array.from(actionCell.querySelectorAll('button')).forEach(sourceButton => {
-        const label = String(sourceButton.textContent || '').replace(/\\s+/g, ' ').trim()
+        const label = String(sourceButton.textContent || '').replace(/\s+/g, ' ').trim()
         const normalized = label.toLowerCase()
         if (!label || fixedLabels.has(normalized)) return
         const extra = document.createElement('button')
