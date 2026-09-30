@@ -371,6 +371,7 @@ function ensureRowSelection(context, table) {
     table.addEventListener('click', event => {
       const row = event.target.closest('tbody tr')
       if (!row || row.classList.contains('dpt-inline-row-actions')) return
+      if (table.dataset.dptBulkMode === 'true') return
       if (event.target.closest('button, input, select, textarea, a')) return
       if (!table.contains(row) || row.querySelector('td[colspan]')) return
       applySelection(row)
@@ -380,7 +381,7 @@ function ensureRowSelection(context, table) {
       if (!row || row.classList.contains('dpt-inline-row-actions')) return
       if (event.target.closest('button, input, select, textarea, a')) return
       clearRowSelection(table)
-      enterGenericBulkMode(table, row)
+      enterGenericBulkMode(table, row, context)
     })
   }
 
@@ -395,7 +396,8 @@ function ensureRowSelection(context, table) {
   }
 }
 
-function hasNativeBulkSelection(table) {
+function hasNativeBulkSelection(table, context = '') {
+  if (['kendaraan', 'pengajuan', 'dokumen'].includes(context)) return true
   return Boolean(table?.querySelector('thead .mep-check, thead .request-select-cell, thead .x-select-cell'))
 }
 
@@ -447,8 +449,8 @@ function removeGenericBulkUI(table) {
   delete table.dataset.dptBulkMode
 }
 
-function enterGenericBulkMode(table, firstRow = null) {
-  if (!table || hasNativeBulkSelection(table)) return
+function enterGenericBulkMode(table, firstRow = null, context = '') {
+  if (!table || hasNativeBulkSelection(table, context)) return
   const rows = getBulkRows(table)
   if (!rows.length || !rows.some(row => getBulkDeleteButton(row))) return
   clearRowSelection(table)
@@ -533,7 +535,7 @@ function enterGenericBulkMode(table, firstRow = null) {
       if (!row || row.classList.contains('dpt-inline-row-actions')) return
       if (event.target.closest('button, input, select, textarea, a')) return
       event.preventDefault()
-      enterGenericBulkMode(table, row)
+      enterGenericBulkMode(table, row, context)
     })
     table.addEventListener('click', event => {
       if (!table.dataset.dptBulkMode) return
