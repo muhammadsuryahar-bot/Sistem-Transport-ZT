@@ -701,3 +701,77 @@
     flex: 1 1 auto;
   }
 }
+
+
+/* Generic multi-row selection used by modules that do not have a page-specific
+   checkbox implementation. Double-click a row to enter this mode. */
+.dpt-bulk-selection-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border: 1px solid #d7dee7;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, .06);
+}
+.dpt-bulk-selection-main {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.dpt-bulk-selection-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.dpt-bulk-selection-actions .dpt-inline-action:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+.dpt-bulk-select-head,
+.dpt-bulk-select-cell {
+  width: 42px !important;
+  min-width: 42px !important;
+  text-align: center !important;
+  vertical-align: middle !important;
+}
+.dpt-bulk-select-head-input,
+.dpt-bulk-select-input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #2e6f53;
+  cursor: pointer;
+}
+.dpt-bulk-selected-row > td {
+  background: #f5f9ff !important;
+}
+.dpt-bulk-selected-row > td:first-child {
+  box-shadow: inset 3px 0 0 #7c9cc7;
+}
+.dpt-bulk-selection-toolbar + .x-table-wrap .dpt-bulk-selected-row > td,
+.dpt-bulk-selection-toolbar + .request-table-wrap .dpt-bulk-selected-row > td {
+  transition: background .12s ease;
+}
+@media (max-width: 760px) {
+  .dpt-bulk-selection-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .dpt-bulk-selection-main,
+  .dpt-bulk-selection-actions {
+    width: 100%;
+  }
+  .dpt-bulk-selection-actions {
+    justify-content: stretch;
+  }
+  .dpt-bulk-selection-actions .dpt-inline-action {
+    flex: 1 1 auto;
+  }
+}
