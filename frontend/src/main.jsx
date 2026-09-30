@@ -2,7 +2,6 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './utils/xlsxXmlCompat.js'
 import { initExcelTableUiFixes } from './utils/excelTableUiFixes.js'
-import { initGlobalTableSelection } from './utils/globalTableSelection.js'
 import { initExcelPreviewSelection } from './utils/excelPreviewSelection.js'
 import './index.css'
 import App from './AppTransport.jsx'
@@ -16,7 +15,6 @@ import './global-table-selection.css'
 import './data-row-mark-legend.css'
 
 initExcelTableUiFixes()
-initGlobalTableSelection()
 initExcelPreviewSelection()
 
 createRoot(document.getElementById('root')).render(
