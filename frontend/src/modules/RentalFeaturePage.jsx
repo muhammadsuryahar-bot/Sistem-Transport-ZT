@@ -174,7 +174,8 @@ export default function RentalFeaturePage({ profile }) {
   const editContract = row => { setEditingContractId(row.id); setContract({ ...EMPTY_CONTRACT, ...row, kendaraan_id: String(row.kendaraan_id), pemilik_sewa_id: String(row.pemilik_sewa_id), nilai_sewa_bulanan: row.nilai_sewa_bulanan ?? '', tanggal_jatuh_tempo_bulanan: row.tanggal_jatuh_tempo_bulanan ?? '' }); setContractFile(null); setTab('kontrak') }
   const deleteContract = async row => {
     if (!editable) return
-    await loadRentalTabData('pembayaran')
+    const dataReady = await loadRentalTabData('pembayaran')
+    if (dataReady === false) return
     if (payments.some(p => Number(p.kontrak_sewa_id) === Number(row.id)) || repairs.some(p => Number(p.kontrak_sewa_id) === Number(row.id))) return setError('Kontrak sudah memiliki pembayaran/perbaikan. Jangan hapus; ubah statusnya menjadi SELESAI/DIBATALKAN.')
     if (!window.confirm('Hapus kontrak ' + (row.nomor_kontrak || row.id) + '?')) return
     setSaving(true); try { const result = await supabase.from('kontrak_sewa').delete().eq('id', row.id); if (result.error) throw result.error; setContracts(current => current.filter(x => x.id !== row.id)); setSuccess('Kontrak sewa dihapus.') } catch(e){ setError(e.message) } finally { setSaving(false) }
@@ -247,7 +248,8 @@ export default function RentalFeaturePage({ profile }) {
   const editRepair = row => { setEditingRepairId(row.id); setRepair({ ...EMPTY_REPAIR, ...row, kontrak_sewa_id: String(row.kontrak_sewa_id), kendaraan_id: String(row.kendaraan_id), kilometer: row.kilometer ?? '', estimasi_biaya: row.estimasi_biaya ?? '', biaya_aktual: row.biaya_aktual ?? '', jumlah_dipotong: row.jumlah_dipotong ?? '' }); setRepairPhoto(null); setRepairProof(null); setTab('repair') }
   const deleteRepair = async row => {
     if (!repairEditable) return
-    await loadRentalTabData('pembayaran')
+    const dataReady = await loadRentalTabData('pembayaran')
+    if (dataReady === false) return
     if (payments.some(p => Number(p.perbaikan_sewa_id) === Number(row.id))) return setError('Perbaikan sudah dipakai sebagai dasar potongan pembayaran. Jangan hapus data ini.')
     if (!window.confirm('Hapus perbaikan ' + (row.jenis_kerusakan || row.id) + '?')) return
     setSaving(true); try { const result = await supabase.from('perbaikan_sewa').delete().eq('id', row.id); if (result.error) throw result.error; const paths=[row.foto_kerusakan_path,row.bukti_perbaikan_path].filter(Boolean); if(paths.length) await supabase.storage.from('dokumen-sewa').remove(paths); setRepairs(current=>current.filter(x=>x.id!==row.id)); setSuccess('Data perbaikan dihapus.') } catch(e){setError(e.message)} finally{setSaving(false)}
