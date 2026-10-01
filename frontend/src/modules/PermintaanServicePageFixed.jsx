@@ -489,7 +489,7 @@ export default function PermintaanServicePage({ profile }) {
               {ref && <button className="request-detail-button danger" onClick={() => deleteBenchmark(ref)} disabled={saving}>Hapus</button>}
             </td>
           </tr>
-        }) : <tr><td colSpan="11"><div className="request-empty">Belum ada data item service untuk dijadikan patokan.</div></td></tr>}</tbody>
+        }) : <tr><td colSpan="13"><div className="request-empty">Belum ada data item service untuk dijadikan patokan.</div></td></tr>}</tbody>
       </table></div>
     </section>}
     {viewMode === 'pengajuan' && <section className="request-panel">
