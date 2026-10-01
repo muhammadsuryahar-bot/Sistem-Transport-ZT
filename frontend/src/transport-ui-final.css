@@ -865,3 +865,45 @@ select { touch-action: manipulation; }
     font-size: 24px;
   }
 }
+
+
+/* FINAL DATA TYPOGRAPHY NORMALIZATION
+   Table headers/actions/statuses keep their emphasis; actual row data uses one consistent weight. */
+.x-table tbody td,
+.m-table tbody td,
+.mep-table tbody td,
+.request-table tbody td,
+.vehicle-table tbody td,
+.dpt-clean-data-table tbody td {
+  font-weight: 500 !important;
+}
+.x-table tbody td strong,
+.x-table tbody td b,
+.m-table tbody td strong,
+.m-table tbody td b,
+.mep-table tbody td strong,
+.mep-table tbody td b,
+.request-table tbody td strong,
+.request-table tbody td b,
+.vehicle-table tbody td strong,
+.vehicle-table tbody td b,
+.dpt-clean-data-table tbody td strong,
+.dpt-clean-data-table tbody td b {
+  font-weight: 500 !important;
+}
+/* These are controls/semantic badges, not table data, so they retain their visual emphasis. */
+.x-table tbody td .x-pill,
+.m-table tbody td .x-pill,
+.request-table tbody td .request-status,
+.request-table tbody td .request-priority,
+.vehicle-table tbody td .vehicle-status,
+.x-table tbody td .x-link,
+.x-table tbody td .x-btn,
+.m-table tbody td .x-link,
+.m-table tbody td .x-btn,
+.mep-table tbody td button,
+.request-table tbody td button,
+.vehicle-table tbody td button,
+.dpt-clean-data-table tbody td .x-pill {
+  font-weight: 700 !important;
+}
