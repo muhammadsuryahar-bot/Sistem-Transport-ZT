@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from './lib/supabase'
 import LoginPage from './modules/LoginPage.jsx'
 import { exportToExcel } from './utils/exportExcel'
@@ -42,6 +42,7 @@ function AppTransport() {
   const [submitting, setSubmitting] = useState(false), [errorMessage, setErrorMessage] = useState('')
   const [authLoading, setAuthLoading] = useState(true)
   const [, setExportingPage] = useState(false)
+  const profileRequestRef = useRef(0)
   const allowedPages = useMemo(() => ROLE_ACCESS[profile?.role] || ['dashboard'], [profile?.role])
   const visibleNavItems = useMemo(() => NAV_ITEMS.filter((item) => allowedPages.includes(item.id)), [allowedPages])
   const navigateToPage = (page) => {
@@ -50,7 +51,28 @@ function AppTransport() {
     localStorage.setItem('transport_active_page', page)
   }
 
-  const loadProfile = async (userId) => { const { data, error } = await supabase.from('profiles').select('id,nama_lengkap,email,nomor_hp,role,aktif').eq('id', userId).single(); if (error || !data) { console.error('Profile error:', error); setProfile(null); setErrorMessage('Profil pengguna tidak dapat dimuat.'); return } if (!data.aktif) { await supabase.auth.signOut(); setSession(null); setProfile(null); setErrorMessage('Akun ini sedang dinonaktifkan. Hubungi administrator.'); return } setProfile(data); setErrorMessage('') }
+  const loadProfile = async (userId) => {
+    const requestId = ++profileRequestRef.current
+    const { data, error } = await supabase.from('profiles').select('id,nama_lengkap,email,nomor_hp,role,aktif').eq('id', userId).single()
+    if (requestId !== profileRequestRef.current) return
+    if (error || !data) {
+      console.error('Profile error:', error)
+      setProfile(null)
+      setErrorMessage('Profil pengguna tidak dapat dimuat.')
+      return
+    }
+    if (!data.aktif) {
+      await supabase.auth.signOut()
+      if (requestId !== profileRequestRef.current) return
+      profileRequestRef.current += 1
+      setSession(null)
+      setProfile(null)
+      setErrorMessage('Akun ini sedang dinonaktifkan. Hubungi administrator.')
+      return
+    }
+    setProfile(data)
+    setErrorMessage('')
+  }
   useEffect(() => {
     let mounted = true
     const initialize = async () => {
@@ -64,15 +86,20 @@ function AppTransport() {
     initialize()
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (!mounted) return
+      profileRequestRef.current += 1
       setSession(nextSession)
+      setProfile(null)
+      setAuthLoading(Boolean(nextSession?.user))
       if (nextSession?.user) {
-        window.setTimeout(() => {
-          if (mounted) loadProfile(nextSession.user.id)
+        const userId = nextSession.user.id
+        window.setTimeout(async () => {
+          if (!mounted) return
+          await loadProfile(userId)
+          if (mounted) setAuthLoading(false)
         }, 0)
       } else {
-        setProfile(null)
+        setAuthLoading(false)
       }
-      if (mounted) setAuthLoading(false)
     })
     return () => { mounted = false; subscription.unsubscribe() }
   }, [])
