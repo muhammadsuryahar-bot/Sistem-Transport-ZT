@@ -825,3 +825,14 @@
 .dpt-clean-data-table tbody td .x-pill {
   font-weight: 500 !important;
 }
+
+
+/* FINAL PREVIEW DATA CONTRACT */
+.dpt-preview table tbody td,
+.dpt-preview table tbody td b,
+.dpt-preview table tbody td strong,
+.dpt-preview table tbody td span,
+.dpt-preview table tbody td small { font-weight:500 !important; }
+.dpt-preview table tbody td button,
+.dpt-preview table tbody td input,
+.dpt-preview table tbody td select { font-weight:500 !important; }
