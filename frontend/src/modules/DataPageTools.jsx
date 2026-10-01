@@ -339,7 +339,7 @@ function ensureRowSelection(context, table) {
       if (!deleteTarget?.disabled) deleteTarget.click()
     }
 
-    const actionCell = row.querySelector('.mep-actions, .request-actions, .x-action-compact, .x-row-actions')
+    const actionCell = row.querySelector('[data-dpt-column-kind="action"], .mep-actions, .request-actions, .x-action-compact, .x-row-actions')
     const isFixedAction = sourceButton => Boolean(
       getRowActionButton({ querySelectorAll: () => [sourceButton] }, ['detail', 'lihat']) ||
       getRowActionButton({ querySelectorAll: () => [sourceButton] }, ['edit', 'ubah']) ||
@@ -393,7 +393,9 @@ function ensureRowSelection(context, table) {
     const detailTarget = getRowActionButton(row, ['detail', 'lihat'])
     const editTarget = getRowActionButton(row, ['edit', 'ubah'])
     const deleteTarget = getRowActionButton(row, ['hapus', 'delete'])
-    const hasTools = Boolean(sourceMark || detailTarget || editTarget || deleteTarget)
+    const actionCell = row.querySelector('[data-dpt-column-kind="action"], .mep-actions, .request-actions, .x-action-compact, .x-row-actions')
+    const sourceActionButtons = actionCell ? Array.from(actionCell.querySelectorAll('button, [role="button"]')) : []
+    const hasTools = Boolean(sourceMark || detailTarget || editTarget || deleteTarget || sourceActionButtons.length)
 
     if (!hasTools) return
 
@@ -415,6 +417,8 @@ function ensureRowSelection(context, table) {
     table.addEventListener('dblclick', event => {
       const row = event.target.closest('tbody tr')
       if (!row || row.classList.contains('dpt-inline-row-actions')) return
+      // Native selection pages own their double-click behavior.
+      if (hasNativeBulkSelection(table, context)) return
       if (event.target.closest('button, input, select, textarea, a')) return
       if (table.dataset.dptBulkMode === 'true') {
         removeGenericBulkUI(table)
