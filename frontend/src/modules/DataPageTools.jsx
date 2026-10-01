@@ -337,18 +337,28 @@ function ensureRowSelection(context, table) {
     }
 
     const actionCell = row.querySelector('.mep-actions, .request-actions, .x-action-compact, .x-row-actions')
-    const fixedLabels = new Set(['detail', 'lihat', 'edit', 'ubah', 'hapus', 'delete'])
+    const isFixedAction = sourceButton => Boolean(
+      getRowActionButton({ querySelectorAll: () => [sourceButton] }, ['detail', 'lihat']) ||
+      getRowActionButton({ querySelectorAll: () => [sourceButton] }, ['edit', 'ubah']) ||
+      getRowActionButton({ querySelectorAll: () => [sourceButton] }, ['hapus', 'delete'])
+    )
     if (actionCell) {
-      Array.from(actionCell.querySelectorAll('button')).forEach(sourceButton => {
-        const label = String(sourceButton.textContent || '').replace(/\s+/g, ' ').trim()
-        const normalized = label.toLowerCase()
-        if (!label || fixedLabels.has(normalized)) return
+      Array.from(actionCell.querySelectorAll('button, [role="button"]')).forEach(sourceButton => {
+        const label = String(
+          sourceButton.textContent ||
+          sourceButton.getAttribute('aria-label') ||
+          sourceButton.getAttribute('title') ||
+          ''
+        ).replace(/\s+/g, ' ').trim()
+        if (!label || isFixedAction(sourceButton)) return
         const extra = document.createElement('button')
         extra.type = 'button'
         extra.className = 'dpt-inline-action'
         extra.textContent = label
         extra.disabled = sourceButton.disabled
-        extra.onclick = () => sourceButton.click()
+        extra.onclick = () => {
+          if (!sourceButton.disabled) sourceButton.click()
+        }
         td.querySelector('.dpt-inline-row-tools')?.insertBefore(extra, closeButton)
       })
     }
