@@ -30,7 +30,7 @@
 .request-main-cell { display:flex; flex-direction:column; gap:3px; max-width:240px; }
 .request-main-cell strong { color:var(--rq-text); }
 .request-main-cell span { color:var(--rq-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.request-status,.request-priority { display:inline-flex; align-items:center; min-height:28px; padding:0 9px; border-radius:999px; font-size:.73rem; font-weight:800; white-space:nowrap; }
+.request-status,.request-priority { display:inline-flex; align-items:center; min-height:28px; padding:0 9px; border-radius:999px; font-size:.73rem; font-weight:500; white-space:nowrap; }
 .request-status { background:#eef2ef; color:#4f5b54; }
 .status-menunggu_transport,.status-menunggu_approval { background:#fff5dd; color:#845d00; }
 .status-diterima_transport,.status-dalam_proses { background:#eaf2ff; color:#26558e; }
