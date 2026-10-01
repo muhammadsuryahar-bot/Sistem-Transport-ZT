@@ -214,3 +214,18 @@
   font-size:11px!important;
   line-height:1.45!important;
 }
+
+
+/* FINAL TABLE DATA CONTRACT */
+.m-table tbody td,
+.m-table tbody td b,
+.m-table tbody td strong,
+.m-table tbody td span,
+.m-table tbody td small,
+.mep-table tbody td,
+.mep-table tbody td b,
+.mep-table tbody td strong,
+.mep-table tbody td span,
+.mep-table tbody td small { font-weight:500 !important; }
+.m-table tbody td button,
+.mep-table tbody td button { font-weight:700 !important; }
