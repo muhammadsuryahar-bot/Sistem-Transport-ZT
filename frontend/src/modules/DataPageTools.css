@@ -326,7 +326,7 @@
 .dpt-clean-data-table tbody td:not([data-dpt-column-kind="mark"]):not([data-dpt-column-kind="action"]) b,
 .dpt-clean-data-table tbody td:not([data-dpt-column-kind="mark"]):not([data-dpt-column-kind="action"]) strong {
   font-size: 15.5px !important;
-  font-weight: 800 !important;
+  font-weight: 500 !important;
 }
 .dpt-clean-data-table tbody td:not([data-dpt-column-kind="mark"]):not([data-dpt-column-kind="action"]) small {
   display: block !important;
@@ -402,7 +402,7 @@
 .dpt-clean-data-table tbody td:not([data-dpt-column-kind="mark"]):not([data-dpt-column-kind="action"]) b,
 .dpt-clean-data-table tbody td:not([data-dpt-column-kind="mark"]):not([data-dpt-column-kind="action"]) strong {
   font-size: 15.5px !important;
-  font-weight: 800 !important;
+  font-weight: 500 !important;
 }
 .dpt-clean-data-table tbody td:not([data-dpt-column-kind="mark"]):not([data-dpt-column-kind="action"]) small {
   display: block !important;
