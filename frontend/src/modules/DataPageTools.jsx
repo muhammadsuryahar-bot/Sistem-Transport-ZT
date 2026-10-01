@@ -183,6 +183,9 @@ function applyColumnVisibility(context, table, descriptors, visibility, cleanMod
       if (hidden) hiddenUtilityColumns += 1
     }
     for (const row of table.rows) {
+      // Utility rows injected by DataPageTools (selected-row action panel)
+      // are not data columns and must never be hidden by column visibility.
+      if (row.querySelector?.('td[colspan]') || row.classList.contains('dpt-inline-row-actions')) continue
       const cell = row.children[column.index]
       if (cell) {
         cell.classList.toggle('dpt-col-hidden', hidden)
