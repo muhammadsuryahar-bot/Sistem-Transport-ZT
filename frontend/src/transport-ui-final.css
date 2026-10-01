@@ -907,3 +907,15 @@ select { touch-action: manipulation; }
 .dpt-clean-data-table tbody td .x-pill {
   font-weight: 700 !important;
 }
+
+/* Stronger clean-view override: data stays regular/medium even when markup uses b/strong. */
+.dpt-clean-data-table tbody td:not(.dpt-col-hidden) b,
+.dpt-clean-data-table tbody td:not(.dpt-col-hidden) strong {
+  font-size: inherit !important;
+  font-weight: 500 !important;
+}
+.dpt-clean-data-table tbody td:not(.dpt-col-hidden) .x-pill,
+.dpt-clean-data-table tbody td:not(.dpt-col-hidden) .request-status,
+.dpt-clean-data-table tbody td:not(.dpt-col-hidden) .request-priority {
+  font-weight: 700 !important;
+}
