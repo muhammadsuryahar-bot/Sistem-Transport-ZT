@@ -775,3 +775,44 @@
     flex: 1 1 auto;
   }
 }
+
+/* FINAL OVERRIDE: clean/Excel table data must have one consistent text weight.
+   Headers remain bold; semantic badges and controls keep their own emphasis. */
+.content-container.dpt-clean-table-view .x-table tbody td,
+.content-container.dpt-clean-table-view .m-table tbody td,
+.content-container.dpt-clean-table-view .request-table tbody td,
+.content-container.dpt-clean-table-view .mep-table tbody td,
+.dpt-clean-data-table tbody td {
+  font-weight: 500 !important;
+}
+
+.content-container.dpt-clean-table-view .x-table tbody td b,
+.content-container.dpt-clean-table-view .x-table tbody td strong,
+.content-container.dpt-clean-table-view .x-table tbody td span,
+.content-container.dpt-clean-table-view .m-table tbody td b,
+.content-container.dpt-clean-table-view .m-table tbody td strong,
+.content-container.dpt-clean-table-view .m-table tbody td span,
+.content-container.dpt-clean-table-view .request-table tbody td b,
+.content-container.dpt-clean-table-view .request-table tbody td strong,
+.content-container.dpt-clean-table-view .request-table tbody td span,
+.content-container.dpt-clean-table-view .mep-table tbody td b,
+.content-container.dpt-clean-table-view .mep-table tbody td strong,
+.content-container.dpt-clean-table-view .mep-table tbody td span,
+.dpt-clean-data-table tbody td b,
+.dpt-clean-data-table tbody td strong,
+.dpt-clean-data-table tbody td span {
+  font-weight: 500 !important;
+}
+
+/* Only semantic badges and action controls retain emphasis. */
+.content-container.dpt-clean-table-view .x-table tbody td .x-pill,
+.content-container.dpt-clean-table-view .request-table tbody td .request-status,
+.content-container.dpt-clean-table-view .request-table tbody td .request-priority,
+.content-container.dpt-clean-table-view .x-table tbody td button,
+.content-container.dpt-clean-table-view .m-table tbody td button,
+.content-container.dpt-clean-table-view .mep-table tbody td button,
+.content-container.dpt-clean-table-view .request-table tbody td button,
+.dpt-clean-data-table tbody td .x-pill,
+.dpt-clean-data-table tbody td button {
+  font-weight: 700 !important;
+}
