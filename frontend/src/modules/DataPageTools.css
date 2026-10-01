@@ -836,3 +836,37 @@
 .dpt-preview table tbody td button,
 .dpt-preview table tbody td input,
 .dpt-preview table tbody td select { font-weight:500 !important; }
+
+
+/* Data-row action panel: match the green operational language used by Kendaraan. */
+.dpt-inline-row-panel {
+  background:#f1f8f4 !important;
+  border-bottom:1px solid #cfe1d6 !important;
+}
+.dpt-inline-row-label { color:#234438 !important; }
+.dpt-selected-row-badge {
+  background:#e2f1e8 !important;
+  border-color:#c1d9ca !important;
+  color:#1d6a4a !important;
+}
+.dpt-inline-action {
+  border-color:#cbdcd2 !important;
+  background:#fff !important;
+  color:#285343 !important;
+}
+.dpt-inline-action:hover:not(:disabled) {
+  background:#eaf4ee !important;
+  border-color:#b9d2c1 !important;
+}
+.dpt-inline-action.danger {
+  color:#a0443c !important;
+  border-color:#e9cbc7 !important;
+  background:#fff8f7 !important;
+}
+.dpt-inline-action.danger:hover:not(:disabled) {
+  background:#ffefed !important;
+}
+.dpt-inline-mark-wrap {
+  border-color:#cbdcd2 !important;
+  color:#426053 !important;
+}
