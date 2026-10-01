@@ -229,11 +229,25 @@ function getAllOperationalTables(context) {
 
 
 function getRowActionButton(row, labels) {
-  const wanted = labels.map(value => value.toLowerCase())
-  return Array.from(row.querySelectorAll('button')).find(button => {
-    const text = String(button.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase()
-    return wanted.includes(text)
-  }) || null
+  const wanted = labels.map(value => String(value || '').trim().toLowerCase()).filter(Boolean)
+  const normalize = value => String(value || '').replace(/\s+/g, ' ').trim().toLowerCase()
+  const matches = button => {
+    const candidates = [
+      normalize(button.textContent),
+      normalize(button.getAttribute('aria-label')),
+      normalize(button.getAttribute('title')),
+      normalize(button.dataset?.action),
+      normalize(button.dataset?.testid),
+    ].filter(Boolean)
+    return wanted.some(target => candidates.some(value => (
+      value === target ||
+      value.startsWith(`${target} `) ||
+      value.endsWith(` ${target}`) ||
+      value.includes(` ${target} `) ||
+      value.includes(`${target} `)
+    )))
+  }
+  return Array.from(row.querySelectorAll('button, [role="button"]')).find(matches) || null
 }
 
 function clearRowSelection(table) {
@@ -308,10 +322,19 @@ function ensureRowSelection(context, table) {
     editButton.hidden = !editTarget
     deleteButton.hidden = !deleteTarget
     markWrap.hidden = !sourceMark
+    detailButton.disabled = Boolean(detailTarget?.disabled)
+    editButton.disabled = Boolean(editTarget?.disabled)
+    deleteButton.disabled = Boolean(deleteTarget?.disabled)
 
-    detailButton.onclick = () => detailTarget?.click()
-    editButton.onclick = () => editTarget?.click()
-    deleteButton.onclick = () => deleteTarget?.click()
+    detailButton.onclick = () => {
+      if (!detailTarget?.disabled) detailTarget.click()
+    }
+    editButton.onclick = () => {
+      if (!editTarget?.disabled) editTarget.click()
+    }
+    deleteButton.onclick = () => {
+      if (!deleteTarget?.disabled) deleteTarget.click()
+    }
 
     const actionCell = row.querySelector('.mep-actions, .request-actions, .x-action-compact, .x-row-actions')
     const fixedLabels = new Set(['detail', 'lihat', 'edit', 'ubah', 'hapus', 'delete'])
