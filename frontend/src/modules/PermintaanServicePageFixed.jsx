@@ -464,7 +464,7 @@ export default function PermintaanServicePage({ profile }) {
         <div className="request-form-actions"><button type="button" className="request-light-button" onClick={resetBenchmarkForm}>Batal</button><button className="request-primary-button" disabled={saving}>{editingBenchmark ? 'Perbarui Patokan' : 'Simpan Patokan'}</button></div>
       </form>}
       <div className="request-toolbar-note service-benchmark-note">Harga terendah/tertinggi/median berasal dari histori service. Patokan Admin adalah angka referensi internal yang dapat diperbarui.</div>
-      <div className="request-table-wrap service-summary-table-wrap"><table className="request-table">
+      <div className="request-table-wrap service-price-table-wrap"><table className="request-table">
         <thead><tr><th>Item</th><th>Kategori</th><th>Satuan</th><th>Transaksi</th><th>Qty</th><th>Nilai Histori</th><th>Terendah</th><th>Tertinggi</th><th>Median</th><th>Patokan Admin</th><th>Selisih Rata-rata</th><th>Keterangan Admin</th><th>Aksi</th></tr></thead>
         <tbody>{benchmarkRows.length ? benchmarkRows.map(row => {
           const ref = row.reference
