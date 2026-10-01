@@ -789,7 +789,7 @@ export default function DataPageTools({ context, profile, onExport }) {
       getAllOperationalTables(context).forEach(item => {
         applyColumnVisibility(context, item, getColumnDescriptors(context, item), latestVisibility, clean)
         ensureRowSelection(context, item)
-        if (!hasNativeBulkSelection(item) && item.dataset.dptBulkMode === 'true') enterGenericBulkMode(item, null)
+        if (!hasNativeBulkSelection(item, context) && item.dataset.dptBulkMode === 'true') enterGenericBulkMode(item, null)
       })
       if (clean) {
         window.requestAnimationFrame(() => getAllOperationalTables(context).forEach(item => {
