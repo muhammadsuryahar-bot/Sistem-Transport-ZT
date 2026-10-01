@@ -104,3 +104,14 @@ body.transport-service-fullscreen-open{overflow:hidden}
   .service-excel-table{min-width:1460px!important}
   .content-container.dpt-clean-table-view .service-excel-table td{font-size:13px!important}
 }
+
+
+/* FINAL TABLE DATA CONTRACT */
+.x-table tbody td,
+.x-table tbody td b,
+.x-table tbody td strong,
+.x-table tbody td span,
+.x-table tbody td small { font-weight:500 !important; }
+.x-table tbody td button,
+.x-table tbody td .x-link,
+.x-table tbody td .x-btn { font-weight:700 !important; }
