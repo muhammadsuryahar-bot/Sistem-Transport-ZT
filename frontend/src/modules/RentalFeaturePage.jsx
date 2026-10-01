@@ -146,6 +146,10 @@ export default function RentalFeaturePage({ profile }) {
     return () => window.removeEventListener('transport:data-imported', handleImported)
   }, [])
 
+  useEffect(() => {
+    if (['pembayaran', 'repair', 'historis'].includes(tab)) loadRentalTabData(tab)
+  }, [tab])
+
   const clearMessages = () => { setError(''); setSuccess('') }
 
   const resetOwnerForm = () => { setOwner(EMPTY_OWNER); setEditingOwnerId(null) }
