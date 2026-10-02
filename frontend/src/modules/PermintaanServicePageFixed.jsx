@@ -153,18 +153,20 @@ export default function PermintaanServicePage({ profile }) {
 
   const benchmarkRows = useMemo(() => {
     const grouped = new Map()
-    const keyFor = (name, kategori) => normalizeItemName(name) + '|' + itemCategory(kategori, name)
+    const sourceCategory = (category, name) => clean(category).toUpperCase() || itemCategory('', name)
+    const keyFor = (name, kategori, satuan) => normalizeItemName(name) + '|' + String(kategori || 'LAINNYA') + '|' + String(satuan || '-')
 
     items.forEach(item => {
       const name = normalizeItemName(item.nama_item)
       if (!name) return
-      const kategori = itemCategory(item.kategori, item.nama_item)
-      const key = keyFor(name, kategori)
+      const kategori = sourceCategory(item.kategori, item.nama_item)
+      const satuan = clean(item.satuan) || '-'
+      const key = keyFor(name, kategori, satuan)
       const current = grouped.get(key) || {
         nama_item: name,
         kategori,
         harga: [],
-        satuan: item.satuan || '-',
+        satuan,
         jumlah: 0,
         total_qty: 0,
         total_nilai: 0,
@@ -183,14 +185,15 @@ export default function PermintaanServicePage({ profile }) {
     benchmarks.forEach(ref => {
       const name = normalizeItemName(ref.nama_item)
       if (!name) return
-      const kategori = itemCategory(ref.kategori, ref.nama_item)
-      const key = keyFor(name, kategori)
+      const kategori = sourceCategory(ref.kategori, ref.nama_item)
+      const satuan = clean(ref.satuan) || '-'
+      const key = keyFor(name, kategori, satuan)
       if (grouped.has(key)) return
       grouped.set(key, {
         nama_item: name,
         kategori,
         harga: [],
-        satuan: ref.satuan || '-',
+        satuan,
         jumlah: 0,
         total_qty: 0,
         total_nilai: 0,
@@ -202,7 +205,7 @@ export default function PermintaanServicePage({ profile }) {
       const sorted = row.harga.filter(Number.isFinite).sort((a, b) => a - b)
       const avg = sorted.length ? sorted.reduce((a, b) => a + b, 0) / sorted.length : 0
       const median = sorted.length % 2 ? sorted[(sorted.length - 1) / 2] : sorted.length ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2 : 0
-      const reference = benchmarks.find(b => normalizeItemName(b.nama_item) === row.nama_item && itemCategory(b.kategori, b.nama_item) === row.kategori && String(b.satuan || '-') === String(row.satuan || '-'))
+      const reference = benchmarks.find(b => normalizeItemName(b.nama_item) === row.nama_item && sourceCategory(b.kategori, b.nama_item) === row.kategori && String(b.satuan || '-') === String(row.satuan || '-'))
       return { ...row, min: sorted[0] || 0, max: sorted[sorted.length - 1] || 0, avg, median, reference }
     }).filter(row => !q || (row.nama_item + ' ' + row.kategori).toLowerCase().includes(q)).sort((a, b) => a.nama_item.localeCompare(b.nama_item, 'id'))
   }, [items, benchmarks, benchmarkSearch])
