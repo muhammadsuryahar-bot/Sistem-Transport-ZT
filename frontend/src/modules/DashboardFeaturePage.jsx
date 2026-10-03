@@ -193,21 +193,27 @@ export default function DashboardFeaturePage({ profile, onNavigate }) {
 
   const actionItems = useMemo(() => {
     if (role === 'OPERASIONAL') return [
-      ['Pengajuan belum selesai', metrics.pendingRequests, 'pengajuan', 'Pantau status pengajuan service Anda.'],
+      ['Pengajuan belum selesai', metrics.pendingRequests, 'pengajuan', 'Pantau status pengajuan service Anda.', 'warning'],
     ]
     if (role === 'AKUNTANSI') return [
-      ['Pembayaran belum lunas / terlambat', metrics.unpaidRentals, 'sewa', 'Periksa tagihan kendaraan sewa.'],
-      ['Kontrak sewa berakhir ≤ 30 hari', metrics.expiringContracts, 'sewa', 'Siapkan tindak lanjut kontrak berikutnya.'],
+      ['Pembayaran belum lunas / terlambat', metrics.unpaidRentals, 'sewa', 'Periksa tagihan kendaraan sewa.', 'danger'],
+      ['Kontrak sewa berakhir ≤ 30 hari', metrics.expiringContracts, 'sewa', 'Siapkan tindak lanjut kontrak berikutnya.', 'warning'],
     ]
-    const items = [
-      ['Pengajuan menunggu Transport', metrics.transportQueue, 'pengajuan', 'Terima atau proses pengajuan yang masuk.'],
-      ['Service menunggu approval', metrics.approvalQueue, 'service', 'Periksa service yang membutuhkan persetujuan.'],
-      ['Service sedang dikerjakan', metrics.runningServices, 'service', 'Pantau pekerjaan yang masih berjalan.'],
-      ['Dokumen jatuh tempo ≤ 30 hari', metrics.expiringDocuments, 'dokumen', 'Periksa dan perbarui dokumen kendaraan.'],
+    if (role === 'DIREKTUR') return [
+      ['Service menunggu approval', metrics.approvalQueue, 'service', 'Tinjau service yang membutuhkan persetujuan.', 'danger'],
     ]
-    if (role === 'DIREKTUR') return items.slice(1, 2)
-    if (role === 'ATASAN_TRANSPORT') return items.slice(0, 3)
-    return items
+    if (role === 'ATASAN_TRANSPORT') return [
+      ['Service menunggu approval', metrics.approvalQueue, 'service', 'Tinjau service yang membutuhkan persetujuan.', 'danger'],
+      ['Pengajuan menunggu Transport', metrics.transportQueue, 'pengajuan', 'Periksa pengajuan yang baru masuk.', 'warning'],
+      ['Service sedang dikerjakan', metrics.runningServices, 'service', 'Pantau pekerjaan yang masih berjalan.', 'monitor'],
+    ]
+    return [
+      ['Pengajuan menunggu Transport', metrics.transportQueue, 'pengajuan', 'Periksa dan proses pengajuan yang baru masuk.', 'danger'],
+      ['Service menunggu approval', metrics.approvalQueue, 'service', 'Periksa service yang membutuhkan persetujuan.', 'danger'],
+      ['Pembayaran belum lunas / terlambat', metrics.unpaidRentals, 'sewa', 'Periksa tagihan kendaraan sewa.', 'danger'],
+      ['Dokumen jatuh tempo ≤ 30 hari', metrics.expiringDocuments, 'dokumen', 'Periksa dan perbarui dokumen kendaraan.', 'warning'],
+      ['Service sedang dikerjakan', metrics.runningServices, 'service', 'Pantau pekerjaan yang masih berjalan.', 'monitor'],
+    ]
   }, [metrics, role])
 
   const flow = role === 'OPERASIONAL'
@@ -275,15 +281,18 @@ export default function DashboardFeaturePage({ profile, onNavigate }) {
           <div className="dashboard-panel-heading">
             <div>
               <span className="eyebrow">PERLU TINDAKAN</span>
-              <h3>Yang harus diperiksa</h3>
+              <h3>Butuh Perhatian</h3>
             </div>
+            <span className="dashboard-attention-meta">{loading ? 'Memeriksa data…' : actionItems.filter(([, count]) => Number(count || 0) > 0).length + ' hal perlu dilihat'}</span>
           </div>
           <div className="action-list-v2">
-            {actionItems.length === 0 ? (
-              <div className="dashboard-empty-state">Tidak ada pekerjaan yang perlu ditindak saat ini.</div>
-            ) : actionItems.map(([label, count, page, description]) => (
-              <button className="action-row-v2" key={label} onClick={() => onNavigate(page)}>
-                <span className="action-count-v2">{loading ? '...' : count}</span>
+            {loading ? (
+              <div className="dashboard-empty-state">Memeriksa pekerjaan yang perlu diperhatikan…</div>
+            ) : actionItems.filter(([, count]) => Number(count || 0) > 0).length === 0 ? (
+              <div className="dashboard-empty-state dashboard-empty-state-success"><span>✓</span><div><strong>Tidak ada pekerjaan mendesak</strong><small>Semua indikator utama dalam kondisi normal saat ini.</small></div></div>
+            ) : actionItems.filter(([, count]) => Number(count || 0) > 0).map(([label, count, page, description, tone]) => (
+              <button className={`action-row-v2 tone-${tone}`} key={label} onClick={() => onNavigate(page)}>
+                <span className="action-count-v2">{count}</span>
                 <span className="action-copy-v2"><strong>{label}</strong><small>{description}</small></span>
                 <span className="quick-arrow" aria-hidden="true">›</span>
               </button>
