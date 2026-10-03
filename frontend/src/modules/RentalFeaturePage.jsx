@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import './TransportOperationsFixed.css'
+import PageBreadcrumb from './PageBreadcrumb.jsx'
 import { formatDateSafe, formatMonthSafe } from '../utils/dateSafe'
 
 const money = (v) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(v || 0))
@@ -11,7 +12,7 @@ const EMPTY_PAYMENT = { kontrak_sewa_id: '', periode_ke: '', bulan_pembayaran: '
 const EMPTY_REPAIR = { kontrak_sewa_id: '', kendaraan_id: '', tanggal_kejadian: new Date().toISOString().slice(0, 10), kilometer: '', jenis_kerusakan: '', deskripsi_kerusakan: '', penyebab: '', estimasi_biaya: '', biaya_aktual: '', metode_penanganan: '', dibayar_kantor: false, tanggal_dibayar: '', pemilik_diberitahu: false, status: 'DILAPORKAN', dapat_dipotong: false, jumlah_dipotong: '', catatan: '' }
 
 function Alert({ type = 'success', children }) { return <div className={`x-alert ${type}`}>{children}</div> }
-function Header({ title, text, action }) { return <div className="x-head"><div><span className="eyebrow">ADMINISTRASI SEWA</span><h2>{title}</h2><p>{text}</p></div>{action}</div> }
+function Header({ title, text, action, breadcrumb }) { return <><PageBreadcrumb items={['Transport', 'Administrasi Sewa', breadcrumb]} /><div className="x-head"><div><span className="eyebrow">ADMINISTRASI SEWA</span><h2>{title}</h2><p>{text}</p></div>{action}</div></> }
 function Empty() { return <div className="x-empty">Belum ada data.</div> }
 const rentalTypeLabel = value => value === 'SEWA_PERORANGAN' ? 'Sewa Perorangan' : value === 'SEWA_PERUSAHAAN' ? 'Sewa Perusahaan' : 'Belum ditentukan'
 
@@ -335,11 +336,13 @@ export default function RentalFeaturePage({ profile }) {
   }
 
 
+  const rentalTabs = [['kendaraan', 'Daftar Sewa'], ['kontrak', 'Kontrak'], ['pemilik', 'Pemilik'], ['pembayaran', 'Pembayaran'], ['historis', 'Summary Rental'], ...(repairEditable ? [['repair', 'Perbaikan']] : [])]
+
   return <div className="x-page">
-    <Header title="Administrasi Kendaraan Sewa" text="Master kendaraan tetap berada di menu Kendaraan. Halaman ini khusus untuk administrasi kendaraan Sewa: pemilik, kontrak 6 bulan, pembayaran, bukti, perbaikan, dan potongan." action={<button className="x-btn secondary" onClick={load}>↻ Refresh</button>} />
+    <Header breadcrumb={rentalTabs.find(([v]) => v === tab)?.[1]} title="Administrasi Kendaraan Sewa" text="Master kendaraan tetap berada di menu Kendaraan. Halaman ini khusus untuk administrasi kendaraan Sewa: pemilik, kontrak 6 bulan, pembayaran, bukti, perbaikan, dan potongan." action={<button className="x-btn secondary" onClick={load}>↻ Refresh</button>} />
     {error && <Alert type="error">{error}</Alert>}
     {success && <Alert>{success}</Alert>}
-    <div className="x-tabs">{[['kendaraan', 'Daftar Sewa'], ['kontrak', 'Kontrak'], ['pemilik', 'Pemilik'], ['pembayaran', 'Pembayaran'], ['historis', 'Summary Rental'], ...(repairEditable ? [['repair', 'Perbaikan']] : [])].map(([v, l]) => <button key={v} className={tab === v ? 'active' : ''} onClick={() => { clearMessages(); setTab(v) }}>{l}</button>)}</div>
+    <div className="x-tabs">{rentalTabs.map(([v, l]) => <button key={v} className={tab === v ? 'active' : ''} onClick={() => { clearMessages(); setTab(v) }}>{l}</button>)}</div>
 
     {tab === 'kendaraan' && <section className="x-card">
       <div className="x-card-title"><div><h3>Daftar Kendaraan Sewa</h3><p>Data kendaraan diambil dari Master Kendaraan dengan kepemilikan <b>Sewa</b>. Identitas kendaraan tetap dikelola di menu Kendaraan agar tidak ada data kendaraan ganda.</p></div></div>
