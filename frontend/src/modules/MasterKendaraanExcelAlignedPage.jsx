@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import './MasterKendaraanExcelAlignedPage.css'
+import PageBreadcrumb from './PageBreadcrumb.jsx'
 import { formatDateSafe } from '../utils/dateSafe'
 
 const OWNERSHIP = { ASET: 'Aset', SEWA: 'Sewa' }
@@ -251,6 +252,7 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
   }
 
   return <div className="master-excel-page">
+    <PageBreadcrumb items={['Transport', 'Kendaraan']} />
     <div className="mep-head"><div><span className="eyebrow">MASTER DATA KENDARAAN</span><h2>Kendaraan</h2><p>Semua kendaraan dicatat di sini, baik Aset maupun Sewa. Kendaraan Sewa selanjutnya dikelola kontrak dan pembayarannya melalui Administrasi Sewa.</p></div>{canEdit && <button className="mep-primary" type="button" onClick={openNew}>+ Kendaraan</button>}</div>
     {success && <div className="mep-alert success">{success}</div>}{error && !modal && <div className="mep-alert error">{error}</div>}
     <div className="mep-cards"><div><span>Total Kendaraan</span><b>{cards.total}</b></div><div><span>Aset</span><b>{cards.aset}</b></div><div><span>Sewa</span><b>{cards.sewa}</b></div><div><span>Pickup</span><b>{cards.pickup}</b></div><div><span>Minibus</span><b>{cards.minibus}</b></div></div>
