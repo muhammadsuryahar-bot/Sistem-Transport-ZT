@@ -438,8 +438,12 @@ export default function PermintaanServicePage({ profile }) {
 
     <section className="request-summary-grid service-kpi-grid">{summaryStats.map(([label, value, note]) => <div key={label}><span>{label}</span><strong>{value}</strong><small>{note}</small></div>)}</section>
 
-    <div className="request-toolbar service-view-toolbar">
-      <div className="request-view-toggle"><button className={viewMode === 'ringkasan' ? 'request-light-button active' : 'request-light-button'} onClick={() => setViewMode('ringkasan')}>Ringkasan Kendaraan</button><button className={viewMode === 'pengajuan' ? 'request-light-button active' : 'request-light-button'} onClick={() => setViewMode('pengajuan')}>Pengajuan Service</button><button className={viewMode === 'harga' ? 'request-light-button active' : 'request-light-button'} onClick={() => setViewMode('harga')}>Patokan Harga / Shopping List</button></div>
+    <div className="service-view-toolbar">
+      <div className="request-view-toggle x-tabs" role="tablist" aria-label="Bagian Data Service">
+        <button type="button" role="tab" aria-selected={viewMode === 'ringkasan'} className={viewMode === 'ringkasan' ? 'active' : ''} onClick={() => setViewMode('ringkasan')}>Ringkasan Kendaraan</button>
+        <button type="button" role="tab" aria-selected={viewMode === 'pengajuan'} className={viewMode === 'pengajuan' ? 'active' : ''} onClick={() => setViewMode('pengajuan')}>Pengajuan Service</button>
+        <button type="button" role="tab" aria-selected={viewMode === 'harga'} className={viewMode === 'harga' ? 'active' : ''} onClick={() => setViewMode('harga')}>Patokan Harga / Shopping List</button>
+      </div>
     </div>
 
     {viewMode === 'ringkasan' && <section className="request-panel">
