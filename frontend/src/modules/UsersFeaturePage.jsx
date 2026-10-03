@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import './TransportOperationsFixed.css'
 import PageBreadcrumb from './PageBreadcrumb.jsx'
+import AuditTrailPanel from './AuditTrailPanel.jsx'
 
 const ROLES = ['ADMIN', 'TRANSPORT', 'OPERASIONAL', 'ATASAN_TRANSPORT', 'DIREKTUR', 'AKUNTANSI']
 const LABEL = {
@@ -22,6 +23,7 @@ export default function UsersFeaturePage({ profile }) {
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('ALL')
   const [statusFilter, setStatusFilter] = useState('ALL')
+  const [view, setView] = useState('users')
 
   const canEdit = profile?.role === 'ADMIN'
 
@@ -90,12 +92,12 @@ export default function UsersFeaturePage({ profile }) {
 
   return (
     <div className="x-page users-page">
-      <PageBreadcrumb items={['Transport', 'Pengguna']} />
+      <PageBreadcrumb items={['Transport', 'Pengguna', view === 'audit' && canEdit ? 'Riwayat Perubahan' : null]} />
       <div className="x-head users-head">
         <div>
           <span className="eyebrow">ADMINISTRASI</span>
-          <h2>Pengguna</h2>
-          <p>Kelola akun yang digunakan untuk masuk ke Sistem Transport PT Zaman Teknindo.</p>
+          <h2>{view === 'audit' && canEdit ? 'Riwayat Perubahan' : 'Pengguna'}</h2>
+          <p>{view === 'audit' && canEdit ? 'Pantau siapa yang mengubah data penting, kapan perubahan dilakukan, dan field apa yang berubah.' : 'Kelola akun yang digunakan untuk masuk ke Sistem Transport PT Zaman Teknindo.'}</p>
         </div>
         <button className="x-btn secondary" onClick={load} disabled={loading || saving}>↻ Refresh</button>
       </div>
@@ -103,7 +105,12 @@ export default function UsersFeaturePage({ profile }) {
       {error && <div className="x-alert error">{error}</div>}
       {success && <div className="x-alert">{success}</div>}
 
-      {loading ? (
+      <div className="x-tabs users-tabs">
+        <button type="button" className={view === 'users' ? 'active' : ''} onClick={() => setView('users')}>Pengguna</button>
+        {canEdit && <button type="button" className={view === 'audit' ? 'active' : ''} onClick={() => setView('audit')}>Riwayat Perubahan</button>}
+      </div>
+
+      {view === 'audit' && canEdit ? <AuditTrailPanel users={users} /> : loading ? (
         <section className="x-card users-loading-card">
           <div className="x-empty">Memuat data akun...</div>
         </section>
