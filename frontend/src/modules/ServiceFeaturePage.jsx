@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import './TransportOperationsFixed.css'
+import PageBreadcrumb from './PageBreadcrumb.jsx'
 import { formatDateSafe } from '../utils/dateSafe'
 import { decodeExcelMeta } from '../utils/excelSourceMeta.js'
 
@@ -14,7 +15,7 @@ const emptyProof = { service_id: '', jenis_bukti: 'BON_INVOICE', keterangan: '' 
 const emptyPart = { kendaraan_id: '', tanggal_penggantian: new Date().toISOString().slice(0, 10), kilometer: '', kondisi_sebelum: '', alasan_penggantian: '', biaya: '', keterangan: '', _type: 'BAN' }
 const emptyKm = { kendaraan_id: '', tanggal: new Date().toISOString().slice(0, 10), kilometer: '', sumber: 'SERVICE', keterangan: '' }
 function Alert({ type = 'success', children }) { return <div className={`x-alert ${type}`}>{children}</div> }
-function Header({ eyebrow, title, text, action }) { return <div className="x-head"><div><span className="eyebrow">{eyebrow}</span><h2>{title}</h2><p>{text}</p></div>{action}</div> }
+function Header({ eyebrow, title, text, action, breadcrumb }) { return <><PageBreadcrumb items={['Transport', 'Service & Perbaikan', breadcrumb]} /><div className="x-head"><div><span className="eyebrow">{eyebrow}</span><h2>{title}</h2><p>{text}</p></div>{action}</div></> }
 function Empty({ text = 'Belum ada data.' }) { return <div className="x-empty">{text}</div> }
 async function upload(bucket, file, prefix) { if (!file) return null; const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_'); const path = `${prefix}/${Date.now()}-${crypto.randomUUID()}-${safe}`; const { error } = await supabase.storage.from(bucket).upload(path, file, { upsert: false, contentType: file.type || undefined }); if (error) throw error; return path }
 async function signed(bucket, path) { if (!path) return null; const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 3600); if (error) throw error; return data?.signedUrl || null }
@@ -391,7 +392,7 @@ export default function ServiceFeaturePage({ profile }) {
   const tabs = canProcess
     ? [['pekerjaan', 'Data Service'], ['excel', 'Riwayat Service'], ['item', 'Item Service'], ['bukti', 'Bukti'], ['ban', 'Riwayat Ban'], ['aki', 'Riwayat Aki'], ['km', 'Riwayat KM']]
     : [['pekerjaan', 'Data Service'], ['excel', 'Riwayat Excel']]
-  return <div className="x-page"><Header eyebrow="SERVICE & MAINTENANCE" title="Service & Perbaikan" text="Kelola data service langsung dari sistem: pekerjaan, biaya, item, bukti, ban, aki, kilometer, dan approval." action={<div className="x-head-actions">{canProcess && <button className="x-btn primary" onClick={() => { setTab('pekerjaan'); setEditingServiceId(null); setForm({ ...emptyService, tanggal_service: new Date().toISOString().slice(0, 10) }) }}>+ Tambah Service</button>}<button className="x-btn secondary" onClick={load}>↻ Refresh</button></div>} />{error && <Alert type="error">{error}</Alert>}{success && <Alert>{success}</Alert>}<div className="x-tabs">{tabs.map(([v, l]) => <button key={v} className={tab === v ? 'active' : ''} onClick={() => { clearMessages(); setTab(v) }}>{l}</button>)}</div>{tab === 'excel' && <section className={`x-card service-excel-card ${serviceExcelFullscreen ? 'service-excel-card-fullscreen' : ''}`}>
+  return <div className="x-page"><Header breadcrumb={tabs.find(([v]) => v === tab)?.[1]} eyebrow="SERVICE & MAINTENANCE" title="Service & Perbaikan" text="Kelola data service langsung dari sistem: pekerjaan, biaya, item, bukti, ban, aki, kilometer, dan approval." action={<div className="x-head-actions">{canProcess && <button className="x-btn primary" onClick={() => { setTab('pekerjaan'); setEditingServiceId(null); setForm({ ...emptyService, tanggal_service: new Date().toISOString().slice(0, 10) }) }}>+ Tambah Service</button>}<button className="x-btn secondary" onClick={load}>↻ Refresh</button></div>} />{error && <Alert type="error">{error}</Alert>}{success && <Alert>{success}</Alert>}<div className="x-tabs">{tabs.map(([v, l]) => <button key={v} className={tab === v ? 'active' : ''} onClick={() => { clearMessages(); setTab(v) }}>{l}</button>)}</div>{tab === 'excel' && <section className={`x-card service-excel-card ${serviceExcelFullscreen ? 'service-excel-card-fullscreen' : ''}`}>
     <div className="x-card-title service-excel-card-title">
       <div>
         <h3>Riwayat Service — Format Data Service Excel</h3>
