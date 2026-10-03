@@ -131,3 +131,35 @@ body.transport-service-fullscreen-open{overflow:hidden}
 .x-table tbody td button,
 .x-table tbody td .x-link,
 .x-table tbody td .x-btn { font-weight:700 !important; }
+
+/* Audit Trail */
+.users-tabs{margin-bottom:14px}
+.audit-summary-grid{margin:0 0 14px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.audit-summary-grid .users-summary-item{border-radius:12px}
+.users-audit-card .x-card-title{align-items:flex-start}
+.users-audit-filters{margin-bottom:14px}
+.users-audit-table{min-width:1040px}
+.users-audit-table td{vertical-align:middle}
+.users-audit-table td small{display:block;margin-top:3px}
+.users-audit-pill{display:inline-flex!important;align-items:center;justify-content:center;padding:5px 8px;border-radius:999px;font-size:10px!important;font-weight:800!important}
+.users-audit-insert{background:#e2f1e8;color:#1d6a4a}
+.users-audit-update{background:#fff0c7;color:#8a5a00}
+.users-audit-delete{background:#fde3df;color:#a13c35}
+.users-audit-field-list{display:block;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.users-audit-modal{width:min(100%,900px)}
+.users-audit-meta-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.users-audit-meta-grid>div{padding:10px 12px;border:1px solid #e2e9e4;border-radius:10px;background:#f9fbfa}
+.users-audit-meta-grid span,.users-audit-meta-grid strong{display:block}
+.users-audit-meta-grid span{font-size:10px;color:#78857e;margin-bottom:4px}
+.users-audit-meta-grid strong{font-size:12px;color:#24362c}
+.users-audit-change-table{max-height:48vh;overflow:auto;border:1px solid #e2e8e4;border-radius:11px}
+.users-audit-change-table .x-table{min-width:620px}
+@media(max-width:850px){
+  .audit-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .users-audit-meta-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:600px){
+  .audit-summary-grid{grid-template-columns:1fr 1fr}
+  .users-audit-meta-grid{grid-template-columns:1fr}
+  .users-audit-field-list{max-width:180px}
+}
