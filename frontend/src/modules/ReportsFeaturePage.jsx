@@ -225,6 +225,7 @@ export default function ReportsFeaturePage({ profile }) {
   if (loading) return <div className="x-page"><div className="x-card"><div className="x-empty">Memuat laporan...</div></div></div>
 
   return <div className="x-page">
+    <PageBreadcrumb items={['Transport', 'Laporan']} />
     <div className="x-head"><div><span className="eyebrow">LAPORAN & REKAP</span><h2>Laporan Transport</h2><p>Rekap armada dan transaksi per periode. Pilih tanggal awal dan akhir agar setiap rekap bulanan berdiri sendiri.</p></div><div className="x-actions"><button className="x-btn secondary" onClick={load}>↻ Refresh</button><button className="x-btn primary" onClick={exportAll} disabled={exporting}>{exporting ? 'Menyiapkan Excel…' : 'Export Semua Data ke Excel'}</button></div></div>
     {error && <div className="x-alert error">{error}</div>}
 
