@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import './TransportOperationsFixed.css'
+import PageBreadcrumb from './PageBreadcrumb.jsx'
 import { formatDateSafe } from '../utils/dateSafe'
 import { decodeExcelMeta } from '../utils/excelSourceMeta.js'
 
@@ -88,6 +89,7 @@ export default function DocumentsFeaturePage({profile}){
  const toggleAll=()=>setSelectedDocIds(current=>allSelected?current.filter(id=>!filtered.some(d=>d.id===id)):Array.from(new Set([...current,...filtered.map(d=>d.id)])))
 
  return <div className="x-page">
+  <PageBreadcrumb items={['Transport', 'Dokumen Kendaraan', viewMode === 'excel' ? 'Format STNK DAN KIR' : 'Data Dokumen']} />
   <div className="x-head"><div><span className="eyebrow">DOKUMEN ARMADA</span><h2>Dokumen Kendaraan</h2><p>Monitoring STNK, KIR, 5 tahunan, masa berlaku pajak, pengingat jatuh tempo, serta arsip dokumen. Dokumen STNK/KIR/5 tahunan dibatasi hanya untuk kendaraan ASET.</p></div><button className="x-btn secondary" onClick={load} disabled={loading}>↻ Refresh</button></div>
   {error&&<Alert type="error">{error}</Alert>}{success&&<Alert>{success}</Alert>}
   {(reminders.length>0||taxReminders.length>0)&&<div className="x-alert warning"><b>Pengingat jatuh tempo:</b> {summary.expired} dokumen sudah lewat, {summary.soon} dokumen jatuh tempo ≤30 hari. {summary.taxExpired+summary.taxSoon>0&&<>Pajak kendaraan: {summary.taxExpired} sudah lewat, {summary.taxSoon} mendekati jatuh tempo. </>}{[...reminders.slice(0,3),...taxReminders.slice(0,3)].map((x,i)=>x.kind==='pajak'?<span key={'tax-'+x.vehicle.id}> • Pajak {x.vehicle?.nomor_polisi||'-'} ({x.days<0?`lewat ${Math.abs(x.days)} hari`:`${x.days} hari lagi`})</span>:<span key={x.doc.id+'-'+i}> • {x.vehicle?.nomor_polisi||'-'} {x.doc.jenis_dokumen} ({x.days<0?`lewat ${Math.abs(x.days)} hari`:`${x.days} hari lagi`})</span>)}</div>}
