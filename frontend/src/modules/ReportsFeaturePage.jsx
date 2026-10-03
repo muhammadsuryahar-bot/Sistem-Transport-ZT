@@ -82,15 +82,15 @@ export default function ReportsFeaturePage({ profile }) {
   const load = async () => {
     setLoading(true); setError('')
     const rs = await Promise.all([
-      supabase.from('kendaraan').select('*'),
-      supabase.from('service').select('*').order('created_at', { ascending: false }),
-      supabase.from('permintaan_service').select('*').order('created_at', { ascending: false }),
-      canReadRental ? supabase.from('kontrak_sewa').select('*').order('created_at', { ascending: false }) : Promise.resolve({ data: [], error: null }),
-      canReadRental ? supabase.from('pembayaran_sewa').select('*').order('bulan_pembayaran', { ascending: false }) : Promise.resolve({ data: [], error: null }),
-      supabase.from('dokumen_kendaraan').select('*'),
-      supabase.from('service_approval').select('*').order('waktu_approval', { ascending: false }),
-      canReadRental ? supabase.from('perbaikan_sewa').select('*').order('tanggal_kejadian', { ascending: false }) : Promise.resolve({ data: [], error: null }),
-      canReadRental ? supabase.from('potongan_pembayaran_sewa').select('*').order('created_at', { ascending: false }) : Promise.resolve({ data: [], error: null }),
+      supabase.from('kendaraan').select('id,kode_kendaraan,nomor_polisi,merk,tipe,jenis_kendaraan,tahun,warna,nomor_rangka,nomor_mesin,kepemilikan,jenis_sewa,pemilik,lokasi,kilometer_terakhir,status,kondisi,keterangan'),
+      supabase.from('service').select('id,nomor_service,tanggal_service,created_at,kendaraan_id,permintaan_service_id,kilometer,bengkel,jenis_service,keluhan,estimasi_biaya,biaya_aktual,status,catatan').order('created_at', { ascending: false }),
+      supabase.from('permintaan_service').select('id,nomor_pengajuan,tanggal_pengajuan,created_at,kendaraan_id,kilometer_pengajuan,jenis_permintaan,keluhan,prioritas,status,catatan_transport,diproses_at').order('created_at', { ascending: false }),
+      canReadRental ? supabase.from('kontrak_sewa').select('id,nomor_kontrak,kendaraan_id,pemilik_sewa_id,tanggal_mulai,tanggal_selesai,periode_bulan,nilai_sewa_bulanan,tanggal_jatuh_tempo_bulanan,status,catatan,created_at').order('created_at', { ascending: false }) : Promise.resolve({ data: [], error: null }),
+      canReadRental ? supabase.from('pembayaran_sewa').select('id,kontrak_sewa_id,periode_ke,bulan_pembayaran,tanggal_pembayaran,tanggal_jatuh_tempo,jumlah_tagihan,jumlah_dibayar,status,metode_pembayaran,nomor_referensi,catatan,created_at').order('bulan_pembayaran', { ascending: false }) : Promise.resolve({ data: [], error: null }),
+      supabase.from('dokumen_kendaraan').select('id,kendaraan_id,jenis_dokumen,nomor_dokumen,tanggal_terbit,tanggal_berlaku_mulai,tanggal_jatuh_tempo,keterangan,created_at'),
+      supabase.from('service_approval').select('id,service_id,urutan,jenis_approval,pemberi_approval,status,waktu_approval,catatan,created_at').order('waktu_approval', { ascending: false }),
+      canReadRental ? supabase.from('perbaikan_sewa').select('id,kendaraan_id,kontrak_sewa_id,tanggal_kejadian,kilometer,jenis_kerusakan,deskripsi_kerusakan,penyebab,estimasi_biaya,biaya_aktual,metode_penanganan,dibayar_kantor,tanggal_dibayar,pemilik_diberitahu,status,dapat_dipotong,jumlah_dipotong,catatan,created_at').order('tanggal_kejadian', { ascending: false }) : Promise.resolve({ data: [], error: null }),
+      canReadRental ? supabase.from('potongan_pembayaran_sewa').select('id,pembayaran_sewa_id,perbaikan_sewa_id,jumlah_potongan,catatan,created_at').order('created_at', { ascending: false }) : Promise.resolve({ data: [], error: null }),
     ])
     const names = ['kendaraan', 'service', 'pengajuan', 'kontrak', 'pembayaran', 'dokumen', 'approval', 'perbaikan', 'potongan']
     rs.forEach((r, i) => { if (r.error) setError(e => e || `Gagal memuat ${names[i]}: ${r.error.message}`) })
@@ -151,7 +151,7 @@ export default function ReportsFeaturePage({ profile }) {
       const ownerMap = {}
 
       const ownerResult = canReadRental
-        ? await supabase.from('pemilik_sewa').select('*').order('nama_pemilik')
+        ? await supabase.from('pemilik_sewa').select('id,nama_pemilik').order('nama_pemilik')
         : { data: [], error: null }
       if (ownerResult.error) throw ownerResult.error
       ;(ownerResult.data || []).forEach(o => { ownerMap[o.id] = o })
