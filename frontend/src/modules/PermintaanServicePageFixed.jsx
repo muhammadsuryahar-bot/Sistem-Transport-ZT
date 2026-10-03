@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import './PermintaanServicePage.css'
+import PageBreadcrumb from './PageBreadcrumb.jsx'
 
 const TYPE_LABELS = { SERVICE: 'Jasa / Perbaikan', GANTI_BAN: 'Ganti Ban', GANTI_AKI: 'Ganti Aki / Baterai', PEMERIKSAAN: 'Pemeriksaan' }
 const STATUS_LABELS = { MENUNGGU_TRANSPORT: 'Menunggu Transport', DITERIMA_TRANSPORT: 'Diterima Transport', DALAM_PROSES: 'Dalam Proses', MENUNGGU_APPROVAL: 'Menunggu Approval', DISETUJUI: 'Disetujui', DITOLAK: 'Ditolak', SELESAI: 'Selesai', DIBATALKAN: 'Dibatalkan' }
@@ -432,7 +433,10 @@ export default function PermintaanServicePage({ profile }) {
     ['Melewati harga perolehan', overPriceCount, 'Flag data untuk review']
   ]
 
+  const activeViewLabel = viewMode === 'ringkasan' ? 'Ringkasan Kendaraan' : viewMode === 'pengajuan' ? 'Pengajuan Service' : 'Patokan Harga / Shopping List'
+
   return <div className="request-page">
+    <PageBreadcrumb items={['Transport', 'Data Service', activeViewLabel]} />
     <div className="request-header"><div><span className="eyebrow">TRANSPORT • DATA SERVICE</span><h2>Data Service</h2><p>Kelola data service langsung dari sistem seperti katalog kendaraan: cari BM/nomor polisi/merk, lihat total biaya, jasa, sparepart, KM/jarak, service terakhir, patokan harga, dan buat surat pengantar.</p></div>{canCreate && <button className="request-primary-button" onClick={openCreate}>+ Buat Pengajuan Service</button>}</div>
     {success && <div className="request-alert success">{success}</div>}{error && !showForm && <div className="request-alert error">{error}</div>}
 
