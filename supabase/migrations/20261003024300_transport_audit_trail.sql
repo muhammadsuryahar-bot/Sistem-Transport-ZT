@@ -70,25 +70,25 @@ begin
   rid := coalesce(new_json ->> 'id', old_json ->> 'id');
 
   if tg_op = 'INSERT' then
-    select coalesce(array_agg(key order by key), array[]::text[])
+    select coalesce(array_agg(k.key order by k.key), array[]::text[])
       into fields
-      from jsonb_object_keys(new_json) as key;
+      from jsonb_object_keys(new_json) as k(key);
   elsif tg_op = 'DELETE' then
-    select coalesce(array_agg(key order by key), array[]::text[])
+    select coalesce(array_agg(k.key order by k.key), array[]::text[])
       into fields
-      from jsonb_object_keys(old_json) as key;
+      from jsonb_object_keys(old_json) as k(key);
   else
     select coalesce(array_agg(key order by key), array[]::text[])
       into fields
       from (
         select key
         from (
-          select key from jsonb_object_keys(old_json)
+          select jsonb_object_keys(old_json) as key
           union
-          select key from jsonb_object_keys(new_json)
+          select jsonb_object_keys(new_json) as key
         ) keys
         where (old_json -> key) is distinct from (new_json -> key)
-      ) changed;
+      ) k;
   end if;
 
   if tg_op <> 'UPDATE' or cardinality(fields) > 0 then
