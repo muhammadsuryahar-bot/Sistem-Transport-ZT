@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import './DashboardFeaturePage.css'
+import PageBreadcrumb from './PageBreadcrumb.jsx'
 
 const QUICK_ACTIONS = {
   ADMIN: [
@@ -224,6 +225,7 @@ export default function DashboardFeaturePage({ profile, onNavigate }) {
 
   return (
     <div className="dashboard-v2">
+      <PageBreadcrumb items={['Transport', 'Dashboard']} />
       <section className="dashboard-v2-intro">
         <div>
           <span className="eyebrow">{dateLabel}</span>
