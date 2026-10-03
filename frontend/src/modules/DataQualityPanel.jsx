@@ -17,7 +17,7 @@ export default function DataQualityPanel() {
         supabase.from('kendaraan').select('id,nomor_polisi,kepemilikan,jenis_sewa,pemilik'),
         supabase.from('dokumen_kendaraan').select('id,kendaraan_id'),
         supabase.from('permintaan_service').select('id,kendaraan_id'),
-        supabase.from('service').select('id,kendaraan_id,permintaan_service_id,nilai_dpp,ppn,total'),
+        supabase.from('service').select('id,kendaraan_id,permintaan_service_id,nilai_dpp,ppn,total,biaya_aktual,estimasi_biaya'),
         supabase.from('service_item').select('id,service_id,nama_item,kategori,satuan'),
         supabase.from('rental_historis_excel').select('id,source_sheet,excel_row'),
       ])
