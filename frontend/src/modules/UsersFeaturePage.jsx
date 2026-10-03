@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import './TransportOperationsFixed.css'
 import PageBreadcrumb from './PageBreadcrumb.jsx'
 import AuditTrailPanel from './AuditTrailPanel.jsx'
+import DataQualityPanel from './DataQualityPanel.jsx'
 
 const ROLES = ['ADMIN', 'TRANSPORT', 'OPERASIONAL', 'ATASAN_TRANSPORT', 'DIREKTUR', 'AKUNTANSI']
 const LABEL = {
@@ -92,14 +93,14 @@ export default function UsersFeaturePage({ profile }) {
 
   return (
     <div className="x-page users-page">
-      <PageBreadcrumb items={['Transport', 'Pengguna', view === 'audit' && canEdit ? 'Riwayat Perubahan' : null]} />
+      <PageBreadcrumb items={['Transport', 'Pengguna', view === 'audit' && canEdit ? 'Riwayat Perubahan' : view === 'quality' && canEdit ? 'Kualitas Data' : null]} />
       <div className="x-head users-head">
         <div>
           <span className="eyebrow">ADMINISTRASI</span>
-          <h2>{view === 'audit' && canEdit ? 'Riwayat Perubahan' : 'Pengguna'}</h2>
-          <p>{view === 'audit' && canEdit ? 'Pantau siapa yang mengubah data penting, kapan perubahan dilakukan, dan field apa yang berubah.' : 'Kelola akun yang digunakan untuk masuk ke Sistem Transport PT Zaman Teknindo.'}</p>
+          <h2>{view === 'audit' && canEdit ? 'Riwayat Perubahan' : view === 'quality' && canEdit ? 'Kualitas Data' : 'Pengguna'}</h2>
+          <p>{view === 'audit' && canEdit ? 'Pantau siapa yang mengubah data penting, kapan perubahan dilakukan, dan field apa yang berubah.' : view === 'quality' && canEdit ? 'Periksa integritas data secara read-only sebelum melakukan perubahan atau testing.' : 'Kelola akun yang digunakan untuk masuk ke Sistem Transport PT Zaman Teknindo.'}</p>
         </div>
-        <button className="x-btn secondary" onClick={load} disabled={loading || saving}>↻ Refresh</button>
+        {view === 'users' && <button className="x-btn secondary" onClick={load} disabled={loading || saving}>↻ Refresh</button>}
       </div>
 
       {error && <div className="x-alert error">{error}</div>}
@@ -108,9 +109,10 @@ export default function UsersFeaturePage({ profile }) {
       <div className="x-tabs users-tabs">
         <button type="button" className={view === 'users' ? 'active' : ''} onClick={() => setView('users')}>Pengguna</button>
         {canEdit && <button type="button" className={view === 'audit' ? 'active' : ''} onClick={() => setView('audit')}>Riwayat Perubahan</button>}
+        {canEdit && <button type="button" className={view === 'quality' ? 'active' : ''} onClick={() => setView('quality')}>Kualitas Data</button>}
       </div>
 
-      {view === 'audit' && canEdit ? <AuditTrailPanel users={users} /> : loading ? (
+      {view === 'audit' && canEdit ? <AuditTrailPanel users={users} /> : view === 'quality' && canEdit ? <DataQualityPanel /> : loading ? (
         <section className="x-card users-loading-card">
           <div className="x-empty">Memuat data akun...</div>
         </section>
