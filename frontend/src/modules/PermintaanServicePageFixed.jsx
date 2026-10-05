@@ -158,7 +158,7 @@ export default function PermintaanServicePage({ profile }) {
       const costOk = summaryCostFilter === 'SEMUA' || row.costFlag === summaryCostFilter
       const kmOk = (kmMin === null || row.kmAkhir >= kmMin) && (kmMax === null || row.kmAkhir <= kmMax)
       const jarakOk = (jarakMin === null || row.jarak >= jarakMin) && (jarakMax === null || row.jarak <= jarakMax)
-      return modeOk && (!q || hay.includes(q)) && (brandFilter === 'SEMUA' || v.merk === brandFilter) && (summaryOwnership === 'SEMUA' || v.kepemilikan === summaryOwnership) && kmOk && jarakOk
+      return modeOk && costOk && (!q || hay.includes(q)) && (brandFilter === 'SEMUA' || v.merk === brandFilter) && (summaryOwnership === 'SEMUA' || v.kepemilikan === summaryOwnership) && kmOk && jarakOk
     })
   }, [summaryRows, summarySearch, brandFilter, summaryOwnership, summaryDataMode, summaryCostFilter, summaryKmMin, summaryKmMax, summaryJarakMin, summaryJarakMax])
 
