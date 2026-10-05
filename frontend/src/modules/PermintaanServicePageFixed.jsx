@@ -163,7 +163,7 @@ export default function PermintaanServicePage({ profile }) {
   const totalSummaryExpense = useMemo(() => summaryRows.reduce((sum, row) => sum + row.totalPengeluaran, 0), [summaryRows])
   const overPriceCount = useMemo(() => summaryRows.filter(r => r.costFlag === 'MELEWATI_HARGA').length, [summaryRows])
 
-  const benchmarkBengkelOptions = useMemo(() => Array.from(new Set(services.map(s => clean(s.bengkel)).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'id')), [services])
+  const benchmarkBengkelOptions = useMemo(() => Array.from(new Set(services.map(s => clean(s.bengkel) || '(Bengkel belum diisi)'))).sort((a, b) => a.localeCompare(b, 'id')), [services])
 
   const benchmarkRows = useMemo(() => {
     const grouped = new Map()
