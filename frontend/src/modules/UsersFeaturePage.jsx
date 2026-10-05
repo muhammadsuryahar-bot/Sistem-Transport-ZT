@@ -158,11 +158,11 @@ export default function UsersFeaturePage({ profile }) {
         </section>
       ) : (
         <>
-          <section className="x-card users-summary-card">
-            <div className="users-summary-item"><span>Total akun</span><strong>{users.length}</strong></div>
-            <div className="users-summary-item"><span>Akun aktif</span><strong>{users.filter((user) => user.aktif).length}</strong></div>
-            <div className="users-summary-item"><span>Akun nonaktif</span><strong>{users.filter((user) => !user.aktif).length}</strong></div>
-          </section>
+                     <section className="x-card users-summary-card">
+             <button type="button" className="users-summary-item users-summary-clickable" onClick={() => { setStatusFilter('ALL'); setRoleFilter('ALL'); setView('users'); requestAnimationFrame(() => document.querySelector('.users-table')?.scrollIntoView({ behavior: 'smooth', block: 'start' })) }}><span>Total akun</span><strong>{users.length}</strong><i aria-hidden="true">›</i></button>
+             <button type="button" className="users-summary-item users-summary-clickable" onClick={() => { setStatusFilter('ACTIVE'); setView('users'); requestAnimationFrame(() => document.querySelector('.users-table')?.scrollIntoView({ behavior: 'smooth', block: 'start' })) }}><span>Akun aktif</span><strong>{users.filter((user) => user.aktif).length}</strong><i aria-hidden="true">›</i></button>
+             <button type="button" className="users-summary-item users-summary-clickable" onClick={() => { setStatusFilter('INACTIVE'); setView('users'); requestAnimationFrame(() => document.querySelector('.users-table')?.scrollIntoView({ behavior: 'smooth', block: 'start' })) }}><span>Akun nonaktif</span><strong>{users.filter((user) => !user.aktif).length}</strong><i aria-hidden="true">›</i></button>
+           </section>
 
           <section className="x-card users-filter-card">
             <div className="users-filter-grid">
