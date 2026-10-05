@@ -1037,3 +1037,130 @@ select { touch-action: manipulation; }
 .dpt-clean-data-table tbody td:not(.dpt-col-hidden) .request-priority {
   font-weight: 700 !important;
 }
+
+
+/* FINAL NUMBER 1: cross-module base UI consistency. */
+/* Data tables: same readable base size and neutral weight on every module. */
+.x-table td,
+.m-table td,
+.request-table td,
+.mep-table td {
+  font-size:13px !important;
+  line-height:1.5 !important;
+  font-weight:500 !important;
+}
+.x-table td b,
+.x-table td strong,
+.m-table td b,
+.m-table td strong,
+.request-table td b,
+.request-table td strong,
+.mep-table td b,
+.mep-table td strong {
+  font-size:inherit !important;
+  line-height:inherit !important;
+  font-weight:500 !important;
+}
+.x-table td small,
+.m-table td small,
+.request-table td small,
+.mep-table td small {
+  font-size:11px !important;
+  line-height:1.4 !important;
+  font-weight:500 !important;
+}
+/* Table controls keep their own emphasis. */
+.x-table td button,
+.m-table td button,
+.request-table td button,
+.mep-table td button,
+.x-table td .x-link,
+.m-table td .x-link {
+  font-weight:750 !important;
+}
+/* Legacy Kendaraan form now matches the shared form rhythm. */
+.mep-card,
+.request-panel {
+  padding:20px !important;
+}
+.mep-form {
+  gap:13px !important;
+}
+.mep-form label {
+  color:#33413a !important;
+  font-size:11px !important;
+  font-weight:750 !important;
+}
+.mep-form input,
+.mep-form select {
+  min-height:41px !important;
+  padding:0 11px !important;
+}
+.mep-form textarea {
+  min-height:88px !important;
+  padding:10px 11px !important;
+}
+/* KPI/master cards use the same visual density as other page summaries. */
+.mep-cards {
+  gap:14px !important;
+}
+.mep-cards > div {
+  padding:17px !important;
+}
+.mep-cards span {
+  font-size:11px !important;
+  color:var(--zt-muted) !important;
+}
+.mep-cards b {
+  margin-top:5px !important;
+  font-size:28px !important;
+  line-height:1.05 !important;
+  font-weight:800 !important;
+  color:var(--zt-text) !important;
+}
+/* Clean/Excel mode stays intentionally larger, but data weight remains neutral. */
+.dpt-clean-data-table tbody td:not(.dpt-col-hidden) {
+  font-size:15px !important;
+  font-weight:500 !important;
+  line-height:1.55 !important;
+}
+.dpt-clean-data-table tbody td:not(.dpt-col-hidden) b,
+.dpt-clean-data-table tbody td:not(.dpt-col-hidden) strong {
+  font-size:15px !important;
+  font-weight:500 !important;
+}
+@media(max-width:760px){
+  .mep-card,
+  .request-panel {
+    padding:15px !important;
+  }
+  .mep-cards {
+    gap:10px !important;
+  }
+  .mep-form {
+    gap:11px !important;
+  }
+  .x-table td,
+  .m-table td,
+  .request-table td,
+  .mep-table td {
+    font-size:12.5px !important;
+  }
+  .x-table td b,
+  .x-table td strong,
+  .m-table td b,
+  .m-table td strong,
+  .request-table td b,
+  .request-table td strong,
+  .mep-table td b,
+  .mep-table td strong {
+    font-size:inherit !important;
+  }
+}
+@media(max-width:430px){
+  .mep-card,
+  .request-panel {
+    padding:13px !important;
+  }
+}
+
