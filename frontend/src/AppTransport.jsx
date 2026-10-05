@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { supabase } from './lib/supabase'
 import LoginPage from './modules/LoginPage.jsx'
 import { exportToExcel } from './utils/exportExcel'
@@ -39,6 +39,7 @@ const cleanRows = rows => rows.map(row => ({ ...row }))
 
 function AppTransport() {
   const [session, setSession] = useState(null), [profile, setProfile] = useState(null), [activePage, setActivePage] = useState('dashboard'), [sidebarOpen, setSidebarOpen] = useState(false)
+  const [navigationPending, startNavigationTransition] = useTransition()
   const [submitting, setSubmitting] = useState(false), [errorMessage, setErrorMessage] = useState('')
   const [authLoading, setAuthLoading] = useState(true)
   const [, setExportingPage] = useState(false)
@@ -47,7 +48,7 @@ function AppTransport() {
   const visibleNavItems = useMemo(() => NAV_ITEMS.filter((item) => allowedPages.includes(item.id)), [allowedPages])
   const navigateToPage = (page) => {
     if (!page || !allowedPages.includes(page)) return
-    setActivePage(page)
+    startNavigationTransition(() => setActivePage(page))
     localStorage.setItem('transport_active_page', page)
   }
 
@@ -235,7 +236,7 @@ function AppTransport() {
   if (!profile) return <div className="app-loading-screen"><div className="app-loading-card"><strong>PT ZAMAN TEKNINDO</strong><span>Memuat profil pengguna…</span></div></div>
 
   const pageContent = { dashboard: <DashboardFeaturePage profile={profile} onNavigate={navigateToPage}/>, kendaraan: <KendaraanPage profile={profile} onNavigate={navigateToPage}/>, pengajuan: <PermintaanServicePage profile={profile}/>, service: <ServicePage profile={profile}/>, sewa: <RentalPage profile={profile}/>, dokumen: <DocumentsPage profile={profile}/>, laporan: <ReportsPage profile={profile} onNavigate={navigateToPage} />, pengguna: <UsersPage profile={profile} /> }
-  return <div className="dashboard-layout">{sidebarOpen && <button className="sidebar-overlay" onClick={() => setSidebarOpen(false)} aria-label="Tutup menu"/>}<aside className={`sidebar ${sidebarOpen ? 'sidebar-open' : ''}`}><div className="sidebar-brand"><div className="sidebar-brand-mark"><img src={LOGO_MARK_URL} alt=""/></div><div className="sidebar-brand-copy"><strong>PT ZAMAN TEKNINDO</strong><span>Sistem Transport</span></div></div><div className="nav-section-label">MENU UTAMA</div><nav className="sidebar-nav" aria-label="Navigasi utama">{visibleNavItems.map((item) => <button key={item.id} className={`nav-item ${activePage === item.id ? 'active' : ''}`} onClick={() => { navigateToPage(item.id); setSidebarOpen(false) }}><span className="nav-icon" data-icon={item.icon} aria-hidden="true"/><span>{item.label}</span></button>)}</nav><div className="sidebar-bottom"><div className="user-mini"><div className="avatar">{(profile?.nama_lengkap || profile?.email || 'U').charAt(0).toUpperCase()}</div><div className="user-mini-text"><strong>{profile?.nama_lengkap || 'Pengguna'}</strong><span>{ROLE_LABELS[profile?.role] || profile?.role}</span></div></div><button className="logout-button" onClick={handleLogout} disabled={submitting}>Keluar</button></div></aside><main className="main-content"><header className="topbar"><button className="menu-button" onClick={() => setSidebarOpen(true)} aria-label="Buka menu">☰</button><div><span className="topbar-label">SISTEM TRANSPORT</span><h1>{NAV_ITEMS.find((item) => item.id === activePage)?.label || 'Dashboard'}</h1></div><div className="topbar-user"><div className="avatar">{(profile?.nama_lengkap || profile?.email || 'U').charAt(0).toUpperCase()}</div><div><strong>{profile?.nama_lengkap || profile?.email}</strong><span>{ROLE_LABELS[profile?.role] || profile?.role}</span></div></div></header><div className="content-container"><DataPageTools context={activePage} profile={profile} onExport={exportCurrentPage}/>{pageContent[activePage] || pageContent.dashboard}</div></main></div>
+  return <div className="dashboard-layout">{sidebarOpen && <button className="sidebar-overlay" onClick={() => setSidebarOpen(false)} aria-label="Tutup menu"/>}<aside className={`sidebar ${sidebarOpen ? 'sidebar-open' : ''}`}><div className="sidebar-brand"><div className="sidebar-brand-mark"><img src={LOGO_MARK_URL} alt=""/></div><div className="sidebar-brand-copy"><strong>PT ZAMAN TEKNINDO</strong><span>Sistem Transport</span></div></div><div className="nav-section-label">MENU UTAMA</div><nav className="sidebar-nav" aria-label="Navigasi utama">{visibleNavItems.map((item) => <button key={item.id} className={`nav-item ${activePage === item.id ? 'active' : ''}`} onClick={() => { navigateToPage(item.id); setSidebarOpen(false) }}><span className="nav-icon" data-icon={item.icon} aria-hidden="true"/><span>{item.label}</span></button>)}</nav><div className="sidebar-bottom"><div className="user-mini"><div className="avatar">{(profile?.nama_lengkap || profile?.email || 'U').charAt(0).toUpperCase()}</div><div className="user-mini-text"><strong>{profile?.nama_lengkap || 'Pengguna'}</strong><span>{ROLE_LABELS[profile?.role] || profile?.role}</span></div></div><button className="logout-button" onClick={handleLogout} disabled={submitting}>Keluar</button></div></aside><main className="main-content"><header className="topbar"><button className="menu-button" onClick={() => setSidebarOpen(true)} aria-label="Buka menu">☰</button><div><span className="topbar-label">SISTEM TRANSPORT</span><h1>{NAV_ITEMS.find((item) => item.id === activePage)?.label || 'Dashboard'}</h1></div><div className="topbar-user"><div className="avatar">{(profile?.nama_lengkap || profile?.email || 'U').charAt(0).toUpperCase()}</div><div><strong>{profile?.nama_lengkap || profile?.email}</strong><span>{ROLE_LABELS[profile?.role] || profile?.role}</span></div></div></header><div className={`content-container ${navigationPending ? "page-navigation-pending" : ""}`}><DataPageTools context={activePage} profile={profile} onExport={exportCurrentPage}/>{navigationPending && <div className="page-navigation-indicator" role="status" aria-live="polite">Memuat menu…</div>}{pageContent[activePage] || pageContent.dashboard}</div></main></div>
 }
 
 export default AppTransport
