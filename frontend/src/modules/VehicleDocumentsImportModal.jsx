@@ -135,9 +135,9 @@ export default function VehicleDocumentsImportModal({ profile, onDone, onClose }
       const sheets = await parseXlsx(nextFile); const chosen = chooseSheet(sheets); if (!chosen || chosen.score < 10) throw new Error('Sheet STNK tidak ditemukan secara meyakinkan.')
       const data = chosen.sheet.rows
         .slice(chosen.header.index + 1)
-        .map((r, index) => ({
+        .map((r) => ({
           excelRow: r.excelRow,
-          source_no: String(index + 1),
+          source_no: null,
           nomor_polisi: upper(valueOf(r, chosen.header.row, 'nomor_polisi')),
           merk: valueOf(r, chosen.header.row, 'merk'),
           tipe: valueOf(r, chosen.header.row, 'tipe'),
@@ -149,7 +149,7 @@ export default function VehicleDocumentsImportModal({ profile, onDone, onClose }
           lima_tahun: excelDate(valueOf(r, chosen.header.row, 'lima_tahun')),
           nomor_dokumen: valueOf(r, chosen.header.row, 'nomor_dokumen'),
         }))
-        .filter((r) => r.nomor_polisi && (r.stnk || r.lima_tahun))
+        .filter((r) => r.nomor_polisi && (r.stnk || r.lima_tahun)).map((r, index) => ({ ...r, source_no: String(index + 1) }))
       const valid = data.filter((r) => r.nomor_polisi && (r.stnk || r.lima_tahun)); const missing = data.length - valid.length; const docCount = valid.reduce((n, r) => n + [r.stnk, r.lima_tahun].filter(Boolean).length, 0)
       setWorkbook({ sheet: chosen.sheet, header: chosen.header, data, valid, missing, docCount }); setMessage(`Sheet “${chosen.sheet.name}” terdeteksi: ${data.length} baris sumber • ${valid.length} kendaraan memiliki dokumen • ${docCount} dokumen terdeteksi.`)
     } catch (e) { setError(e.message || 'File Excel tidak dapat dibaca.') } finally { setLoading(false) }
