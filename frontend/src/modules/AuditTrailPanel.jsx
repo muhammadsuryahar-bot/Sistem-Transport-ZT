@@ -39,6 +39,8 @@ export default function AuditTrailPanel({ users = [] }) {
   const [actionFilter, setActionFilter] = useState('ALL')
   const [tableFilter, setTableFilter] = useState('ALL')
   const [selected, setSelected] = useState(null)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [detailError, setDetailError] = useState('')
 
   const actorMap = useMemo(() => Object.fromEntries(users.map(user => [user.id, user])), [users])
   const tableOptions = useMemo(() => [...new Set(logs.map(log => log.table_name).filter(Boolean))], [logs])
@@ -49,7 +51,7 @@ export default function AuditTrailPanel({ users = [] }) {
     try {
       const { data, error: fetchError } = await supabase
         .from('audit_log')
-        .select('id,occurred_at,actor_id,actor_role,action,table_name,record_id,changed_fields,old_data,new_data')
+        .select('id,occurred_at,actor_id,actor_role,action,table_name,record_id,changed_fields')
         .order('occurred_at', { ascending: false })
         .limit(500)
       if (fetchError) throw fetchError
@@ -63,6 +65,26 @@ export default function AuditTrailPanel({ users = [] }) {
   }
 
   useEffect(() => { load() }, [])
+  const openDetail = async log => {
+    setSelected({ ...log, old_data: null, new_data: null })
+    setDetailLoading(true)
+    setDetailError('')
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('audit_log')
+        .select('id,old_data,new_data')
+        .eq('id', log.id)
+        .maybeSingle()
+      if (fetchError) throw fetchError
+      if (!data) throw new Error('Detail audit tidak ditemukan.')
+      setSelected(current => current?.id === log.id ? { ...current, old_data: data.old_data, new_data: data.new_data } : current)
+    } catch (e) {
+      setDetailError(e.message || 'Detail audit tidak dapat dimuat.')
+    } finally {
+      setDetailLoading(false)
+    }
+  }
+
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase()
@@ -128,7 +150,7 @@ export default function AuditTrailPanel({ users = [] }) {
                 <td>{TABLE_LABELS[log.table_name] || log.table_name}</td>
                 <td>{log.record_id || '-'}</td>
                 <td><span className="users-audit-field-list">{(log.changed_fields || []).slice(0, 4).join(', ') || '-'}</span>{(log.changed_fields || []).length > 4 && <small>+{log.changed_fields.length - 4} field lain</small>}</td>
-                <td><button type="button" className="x-link" onClick={() => setSelected(log)}>Lihat</button></td>
+                <td><button type="button" className="x-link" onClick={() => openDetail(log)}>Lihat</button></td>
               </tr>
             })}
           </tbody></table></div>
@@ -138,8 +160,10 @@ export default function AuditTrailPanel({ users = [] }) {
       {selected && <div className="x-overlay"><section className="x-modal users-audit-modal">
         <div className="x-modal-head"><div><span className="eyebrow">AUDIT TRAIL</span><h3>{ACTION_LABELS[selected.action] || selected.action} • {TABLE_LABELS[selected.table_name] || selected.table_name}</h3><p>{new Intl.DateTimeFormat('id-ID', { dateStyle: 'full', timeStyle: 'medium' }).format(new Date(selected.occurred_at))}</p></div><button type="button" onClick={() => setSelected(null)}>×</button></div>
         <div className="users-audit-meta-grid"><div><span>Pelaku</span><strong>{actorMap[selected.actor_id]?.nama_lengkap || actorMap[selected.actor_id]?.email || 'Pengguna sistem'}</strong></div><div><span>Role</span><strong>{ROLE_LABELS[selected.actor_role] || selected.actor_role || '-'}</strong></div><div><span>Data ID</span><strong>{selected.record_id || '-'}</strong></div><div><span>Field berubah</span><strong>{selected.changed_fields?.length || 0}</strong></div></div>
+        {detailError && <div className="x-alert error">{detailError}</div>}
         <div className="users-audit-change-table"><table className="x-table"><thead><tr><th>Field</th><th>Sebelum</th><th>Sesudah</th></tr></thead><tbody>
-          {(selected.changed_fields || []).map(field => <tr key={field}><td><b>{field}</b></td><td>{valueText(selected.old_data?.[field])}</td><td>{valueText(selected.new_data?.[field])}</td></tr>)}
+          {detailLoading ? <tr><td colSpan="3"><div className="x-empty">Memuat detail perubahan...</div></td></tr> :
+            (selected.changed_fields || []).map(field => <tr key={field}><td><b>{field}</b></td><td>{valueText(selected.old_data?.[field])}</td><td>{valueText(selected.new_data?.[field])}</td></tr>)}
         </tbody></table></div>
         <div className="x-actions"><button type="button" className="x-btn secondary" onClick={() => setSelected(null)}>Tutup</button></div>
       </section></div>}
