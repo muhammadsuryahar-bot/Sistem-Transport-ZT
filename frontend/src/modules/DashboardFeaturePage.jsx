@@ -67,10 +67,18 @@ async function readCount(query) {
   return { count: count || 0, error }
 }
 
+function localDateKey(date) {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
 function addDays(date, days) {
   const next = new Date(date)
+  next.setHours(12, 0, 0, 0)
   next.setDate(next.getDate() + days)
-  return next.toISOString().slice(0, 10)
+  return localDateKey(next)
 }
 
 export default function DashboardFeaturePage({ profile, onNavigate }) {
@@ -81,7 +89,7 @@ export default function DashboardFeaturePage({ profile, onNavigate }) {
 
   const role = profile?.role || 'OPERASIONAL'
   const today = useMemo(() => new Date(), [])
-  const todayKey = today.toISOString().slice(0, 10)
+  const todayKey = useMemo(() => localDateKey(today), [today])
   const maxDate = useMemo(() => addDays(today, 30), [today])
   const dateLabel = useMemo(() => new Intl.DateTimeFormat('id-ID', { dateStyle: 'full' }).format(today), [today])
   const quickActions = QUICK_ACTIONS[role] || QUICK_ACTIONS.OPERASIONAL
