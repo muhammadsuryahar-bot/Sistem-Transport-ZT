@@ -192,3 +192,40 @@ body.transport-service-fullscreen-open{overflow:hidden}
 .data-quality-details>span{display:block;padding-top:10px}
 .data-quality-details ul{margin:6px 0 0;padding-left:16px}
 .data-quality-details li{margin:3px 0}
+
+
+/* Long table text: keep operational tables compact; full value remains available in Detail. */
+.table-long-text{
+  width:min(34ch, 100%);
+  max-width:360px;
+  display:-webkit-box;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:2;
+  overflow:hidden;
+  white-space:normal;
+  overflow-wrap:anywhere;
+  line-height:1.45;
+  color:inherit;
+}
+.x-table .table-long-text{
+  width:320px;
+  max-width:320px;
+}
+.service-excel-table .table-long-text{
+  width:300px;
+  max-width:300px;
+}
+@media(max-width:900px){
+  .x-table .table-long-text,
+  .service-excel-table .table-long-text{
+    width:240px;
+    max-width:240px;
+  }
+}
+@media(max-width:600px){
+  .x-table .table-long-text,
+  .service-excel-table .table-long-text{
+    width:210px;
+    max-width:210px;
+  }
+}
