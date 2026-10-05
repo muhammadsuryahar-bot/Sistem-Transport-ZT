@@ -72,17 +72,9 @@ Dokumen perancangan juga menyebut workbook operasional seperti **Data Kendaraan 
 
 Target frontend: Vercel.
 
-**Status:** belum final.
+**Status aktual:** source Transport sudah mendapatkan deployment Vercel yang berstatus `SUCCESS` pada commit terbaru yang diverifikasi dari GitHub status. Connector Vercel yang tersedia di ChatGPT tidak dapat membaca detail project/deployment tersebut (mengembalikan 403/404), sehingga konfigurasi project/env tidak diklaim terverifikasi dari connector.
 
-Project Vercel yang terdeteksi saat audit masih terhubung ke:
-
-`muhammadsuryahar-bot/ZamanTeknindo`
-
-bukan:
-
-`muhammadsuryahar-bot/Sistem-Transport-ZT`.
-
-Karena itu production belum boleh dianggap sama dengan source Transport terbaru.
+Production tetap harus diverifikasi dengan membuka URL production dan melakukan UAT browser sebelum release final.
 
 ---
 
@@ -717,10 +709,9 @@ Rollback:
 
 ## P0 — sebelum production
 
-- sambungkan Vercel ke `Sistem-Transport-ZT`;
-- cek environment production;
-- deploy source terbaru;
-- UAT end-to-end;
+- pastikan deployment Vercel mengambil source `Sistem-Transport-ZT` terbaru;
+- verifikasi environment production;
+- UAT end-to-end di browser;
 - aktifkan leaked password protection.
 
 ## P1
@@ -733,7 +724,6 @@ Catatan: Patokan Admin aktif saat snapshot = **0**.
 
 ## P2
 
-- audit log;
 - versioning perubahan master;
 - global search;
 - E2E browser automation;
