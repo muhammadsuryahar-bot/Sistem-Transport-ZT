@@ -14,6 +14,7 @@
 .request-alert.error { color:var(--rq-danger); background:var(--rq-danger-bg); border:1px solid #f0c5c5; }
 .request-summary-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-bottom:18px; }
 .request-summary-grid > div { padding:18px; border:1px solid var(--rq-border); border-radius:14px; background:#fff; }
+.request-summary-card{position:relative;width:100%;min-width:0;padding:18px;border:1px solid var(--rq-border);border-radius:14px;background:#fff;text-align:left;font:inherit;cursor:pointer;transition:transform .14s ease,box-shadow .14s ease,border-color .14s ease}.request-summary-card:hover{transform:translateY(-2px);border-color:#b8d8c7;box-shadow:0 8px 22px rgba(29,106,74,.08)}.request-summary-card:focus-visible{outline:3px solid rgba(29,106,74,.15);outline-offset:2px}.request-summary-card i{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-style:normal;font-size:21px;color:#779184}.request-summary-card:hover i{transform:translate(3px,-50%);color:#1d6a4a}.request-summary-card.warning{border-color:#ead8af;background:#fffdf5}.request-summary-card.warning:hover{border-color:#ddc98b;background:#fff9e8}.request-summary-card.warning i{color:#9b7308}
 .request-summary-grid span { display:block; color:var(--rq-muted); font-size:.78rem; }
 .request-summary-grid strong { display:block; margin:5px 0 2px; color:var(--rq-text); font-size:1.55rem; }
 .request-summary-grid small { color:#87928b; }
