@@ -46,7 +46,12 @@ export default function PermintaanServicePage({ profile }) {
   const [brandFilter, setBrandFilter] = useState('SEMUA')
   const [summarySearch, setSummarySearch] = useState('')
   const [summaryOwnership, setSummaryOwnership] = useState('SEMUA')
+  const [summaryKmMin, setSummaryKmMin] = useState('')
+  const [summaryKmMax, setSummaryKmMax] = useState('')
+  const [summaryJarakMin, setSummaryJarakMin] = useState('')
+  const [summaryJarakMax, setSummaryJarakMax] = useState('')
   const [benchmarkSearch, setBenchmarkSearch] = useState('')
+  const [benchmarkBengkelFilter, setBenchmarkBengkelFilter] = useState('SEMUA')
   const [benchmarks, setBenchmarks] = useState([])
   const [benchmarkForm, setBenchmarkForm] = useState({ id: null, nama_item: '', kategori: 'SPAREPART', satuan: 'pcs', harga_patokan: '', berlaku_mulai: new Date().toISOString().slice(0, 10), keterangan: '' })
   const [editingBenchmark, setEditingBenchmark] = useState(null)
@@ -131,7 +136,7 @@ export default function PermintaanServicePage({ profile }) {
     const lastJasa = [...vehicleServices.filter(s => jasaServiceIds.has(s.id)), ...requests.filter(r => Number(r.kendaraan_id) === Number(vehicle.id) && r.jenis_permintaan === 'SERVICE')].sort((a, b) => String(b.tanggal_service || b.tanggal_pengajuan || '').localeCompare(String(a.tanggal_service || a.tanggal_pengajuan || '')))[0]
     const lastSpareDate = [...vehicleServices.filter(s => spareServiceIds.has(s.id)), ...bans.filter(r => Number(r.kendaraan_id) === Number(vehicle.id)).map(r => ({ tanggal_service: r.tanggal_penggantian })), ...akis.filter(r => Number(r.kendaraan_id) === Number(vehicle.id)).map(r => ({ tanggal_service: r.tanggal_penggantian }))].sort((a, b) => String(b.tanggal_service || '').localeCompare(String(a.tanggal_service || '')))[0]?.tanggal_service
     return {
-      vehicle, totalTransaksi: vehicleServices.length, jasaKali: jasaServiceIds.size, spareKali: spareServiceIds.size + bans.filter(r => Number(r.kendaraan_id) === Number(vehicle.id)).length + akis.filter(r => Number(r.kendaraan_id) === Number(vehicle.id)).length,
+      vehicle, totalTransaksi: vehicleServices.length, jasaKali: jasaServiceIds.size, spareKali: new Set([...spareServiceIds, ...vehicleServices.filter(s => ['GANTI_BAN', 'GANTI_AKI'].includes(String(s.jenis_service || '').toUpperCase())).map(s => s.id)]).size + bans.filter(r => Number(r.kendaraan_id) === Number(vehicle.id)).length + akis.filter(r => Number(r.kendaraan_id) === Number(vehicle.id)).length,
       totalJasa, totalSpare, totalService, totalRepair, totalPengeluaran, vehiclePrice, ratio, jarak, kmAwal, kmAkhir, serviceHistory,
       lastJasa: lastJasa?.tanggal_service || lastJasa?.tanggal_pengajuan || null, lastSpare: lastSpareDate,
       costFlag: vehiclePrice > 0 && totalPengeluaran > vehiclePrice ? 'MELEWATI_HARGA' : vehiclePrice > 0 && totalPengeluaran >= vehiclePrice * 0.8 ? 'MENDEKATI_HARGA' : vehiclePrice > 0 ? 'DI_BAWAH_HARGA' : 'HARGA_BELUM_DIISI',
@@ -141,19 +146,28 @@ export default function PermintaanServicePage({ profile }) {
   const brands = useMemo(() => Array.from(new Set(vehicles.map(v => clean(v.merk)).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'id')), [vehicles])
   const summaryFiltered = useMemo(() => {
     const q = summarySearch.trim().toLowerCase()
+    const kmMin = summaryKmMin === '' ? null : Number(summaryKmMin)
+    const kmMax = summaryKmMax === '' ? null : Number(summaryKmMax)
+    const jarakMin = summaryJarakMin === '' ? null : Number(summaryJarakMin)
+    const jarakMax = summaryJarakMax === '' ? null : Number(summaryJarakMax)
     return summaryRows.filter(row => {
       const v = row.vehicle
-      const hay = [v.nomor_polisi, v.merk, v.tipe, v.jenis_kendaraan, v.pemilik, v.unit_kerja].filter(Boolean).join(' ').toLowerCase()
+      const hay = [v.kode_kendaraan, v.nomor_polisi, v.merk, v.tipe, v.jenis_kendaraan, v.pemilik, v.unit_kerja, v.lokasi].filter(Boolean).join(' ').toLowerCase()
       const modeOk = summaryDataMode === 'SEMUA' || (summaryDataMode === 'HAS_SERVICE' && row.totalTransaksi > 0) || (summaryDataMode === 'BELUM_SERVICE' && row.totalTransaksi === 0)
-      return modeOk && (!q || hay.includes(q)) && (brandFilter === 'SEMUA' || v.merk === brandFilter) && (summaryOwnership === 'SEMUA' || v.kepemilikan === summaryOwnership)
+      const kmOk = (kmMin === null || row.kmAkhir >= kmMin) && (kmMax === null || row.kmAkhir <= kmMax)
+      const jarakOk = (jarakMin === null || row.jarak >= jarakMin) && (jarakMax === null || row.jarak <= jarakMax)
+      return modeOk && (!q || hay.includes(q)) && (brandFilter === 'SEMUA' || v.merk === brandFilter) && (summaryOwnership === 'SEMUA' || v.kepemilikan === summaryOwnership) && kmOk && jarakOk
     })
-  }, [summaryRows, summarySearch, brandFilter, summaryOwnership, summaryDataMode])
+  }, [summaryRows, summarySearch, brandFilter, summaryOwnership, summaryDataMode, summaryKmMin, summaryKmMax, summaryJarakMin, summaryJarakMax])
 
   const totalSummaryExpense = useMemo(() => summaryRows.reduce((sum, row) => sum + row.totalPengeluaran, 0), [summaryRows])
   const overPriceCount = useMemo(() => summaryRows.filter(r => r.costFlag === 'MELEWATI_HARGA').length, [summaryRows])
 
+  const benchmarkBengkelOptions = useMemo(() => Array.from(new Set(services.map(s => clean(s.bengkel)).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'id')), [services])
+
   const benchmarkRows = useMemo(() => {
     const grouped = new Map()
+    const serviceMap = Object.fromEntries(services.map(s => [s.id, s]))
     const sourceCategory = (category, name) => clean(category).toUpperCase() || itemCategory('', name)
     const keyFor = (name, kategori, satuan) => normalizeItemName(name) + '|' + String(kategori || 'LAINNYA') + '|' + String(satuan || '-')
 
@@ -162,24 +176,24 @@ export default function PermintaanServicePage({ profile }) {
       if (!name) return
       const kategori = sourceCategory(item.kategori, item.nama_item)
       const satuan = clean(item.satuan) || '-'
+      const service = serviceMap[item.service_id]
+      const bengkel = clean(service?.bengkel) || '(Bengkel belum diisi)'
       const key = keyFor(name, kategori, satuan)
       const current = grouped.get(key) || {
         nama_item: name,
         kategori,
-        harga: [],
         satuan,
-        jumlah: 0,
-        total_qty: 0,
-        total_nilai: 0,
+        history: [],
       }
       const qty = Number(item.jumlah || 0)
       const unitPrice = Number(item.harga_satuan || 0)
       const subtotal = Number(item.subtotal ?? (qty * unitPrice))
-      if (Number.isFinite(unitPrice)) current.harga.push(unitPrice)
-      current.jumlah += 1
-      current.total_qty += Number.isFinite(qty) ? qty : 0
-      current.total_nilai += Number.isFinite(subtotal) ? subtotal : 0
-      if (item.satuan && current.satuan === '-') current.satuan = item.satuan
+      current.history.push({
+        bengkel,
+        qty: Number.isFinite(qty) ? qty : 0,
+        unitPrice: Number.isFinite(unitPrice) ? unitPrice : 0,
+        subtotal: Number.isFinite(subtotal) ? subtotal : 0,
+      })
       grouped.set(key, current)
     })
 
@@ -189,27 +203,49 @@ export default function PermintaanServicePage({ profile }) {
       const kategori = sourceCategory(ref.kategori, ref.nama_item)
       const satuan = clean(ref.satuan) || '-'
       const key = keyFor(name, kategori, satuan)
-      if (grouped.has(key)) return
-      grouped.set(key, {
-        nama_item: name,
-        kategori,
-        harga: [],
-        satuan,
-        jumlah: 0,
-        total_qty: 0,
-        total_nilai: 0,
-      })
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          nama_item: name,
+          kategori,
+          satuan,
+          history: [],
+        })
+      }
     })
 
     const q = benchmarkSearch.trim().toLowerCase()
     return Array.from(grouped.values()).map(row => {
-      const sorted = row.harga.filter(Number.isFinite).sort((a, b) => a - b)
+      const bengkelNames = Array.from(new Set(row.history.map(h => h.bengkel))).sort((a, b) => a.localeCompare(b, 'id'))
+      const filteredHistory = benchmarkBengkelFilter === 'SEMUA'
+        ? row.history
+        : row.history.filter(h => h.bengkel === benchmarkBengkelFilter)
+      const prices = filteredHistory.map(h => h.unitPrice).filter(Number.isFinite)
+      const sorted = [...prices].sort((a, b) => a - b)
       const avg = sorted.length ? sorted.reduce((a, b) => a + b, 0) / sorted.length : 0
       const median = sorted.length % 2 ? sorted[(sorted.length - 1) / 2] : sorted.length ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2 : 0
+      const totalQty = filteredHistory.reduce((sum, h) => sum + h.qty, 0)
+      const totalNilai = filteredHistory.reduce((sum, h) => sum + h.subtotal, 0)
       const reference = benchmarks.find(b => normalizeItemName(b.nama_item) === row.nama_item && sourceCategory(b.kategori, b.nama_item) === row.kategori && String(b.satuan || '-') === String(row.satuan || '-'))
-      return { ...row, min: sorted[0] || 0, max: sorted[sorted.length - 1] || 0, avg, median, reference }
-    }).filter(row => !q || (row.nama_item + ' ' + row.kategori).toLowerCase().includes(q)).sort((a, b) => a.nama_item.localeCompare(b.nama_item, 'id'))
-  }, [items, benchmarks, benchmarkSearch])
+      return {
+        ...row,
+        bengkelNames,
+        bengkelDisplay: benchmarkBengkelFilter !== 'SEMUA' ? benchmarkBengkelFilter : bengkelNames.join(' • '),
+        jumlah: filteredHistory.length,
+        total_qty: totalQty,
+        total_nilai: totalNilai,
+        min: sorted[0] || 0,
+        max: sorted[sorted.length - 1] || 0,
+        avg,
+        median,
+        reference,
+        hasSelectedWorkshopHistory: filteredHistory.length > 0,
+      }
+    }).filter(row => {
+      const textMatch = !q || (row.nama_item + ' ' + row.kategori + ' ' + row.satuan + ' ' + row.bengkelNames.join(' ')).toLowerCase().includes(q)
+      const workshopMatch = benchmarkBengkelFilter === 'SEMUA' || row.hasSelectedWorkshopHistory || Boolean(row.reference)
+      return textMatch && workshopMatch
+    }).sort((a, b) => a.nama_item.localeCompare(b.nama_item, 'id'))
+  }, [items, services, benchmarks, benchmarkSearch, benchmarkBengkelFilter])
   const resetBenchmarkForm = () => {
     setEditingBenchmark(null)
     setBenchmarkForm({ id: null, nama_item: '', kategori: 'SPAREPART', satuan: 'pcs', harga_patokan: '', berlaku_mulai: new Date().toISOString().slice(0, 10), keterangan: '' })
@@ -451,15 +487,30 @@ export default function PermintaanServicePage({ profile }) {
     </div>
 
     {viewMode === 'ringkasan' && <section className="request-panel">
-      <div className="request-toolbar"><input value={summarySearch} onChange={e => setSummarySearch(e.target.value)} placeholder="Cari BM, nomor polisi, merk, type, pemilik..." /><select value={summaryDataMode} onChange={e => setSummaryDataMode(e.target.value)}><option value="HAS_SERVICE">Ada histori service</option><option value="SEMUA">Semua kendaraan</option><option value="BELUM_SERVICE">Belum ada service</option></select><select value={brandFilter} onChange={e => setBrandFilter(e.target.value)}><option value="SEMUA">Semua merk</option>{brands.map(brand => <option key={brand} value={brand}>{brand}</option>)}</select><select value={summaryOwnership} onChange={e => setSummaryOwnership(e.target.value)}><option value="SEMUA">Semua kepemilikan</option><option value="ASET">Aset</option><option value="SEWA">Sewa</option></select><button className="request-light-button" onClick={loadData} disabled={loading}>↻ Refresh</button></div>
+      <div className="request-toolbar service-summary-filter-toolbar">
+        <input value={summarySearch} onChange={e => setSummarySearch(e.target.value)} placeholder="Cari BM, no. polisi, merk, type, pemilik, lokasi..." />
+        <select value={summaryDataMode} onChange={e => setSummaryDataMode(e.target.value)}><option value="HAS_SERVICE">Ada histori service</option><option value="SEMUA">Semua kendaraan</option><option value="BELUM_SERVICE">Belum ada service</option></select>
+        <select value={brandFilter} onChange={e => setBrandFilter(e.target.value)}><option value="SEMUA">Semua merk</option>{brands.map(brand => <option key={brand} value={brand}>{brand}</option>)}</select>
+        <select value={summaryOwnership} onChange={e => setSummaryOwnership(e.target.value)}><option value="SEMUA">Semua kepemilikan</option><option value="ASET">Aset</option><option value="SEWA">Sewa</option></select>
+        <input type="number" min="0" value={summaryKmMin} onChange={e => setSummaryKmMin(e.target.value)} placeholder="KM min" />
+        <input type="number" min="0" value={summaryKmMax} onChange={e => setSummaryKmMax(e.target.value)} placeholder="KM max" />
+        <input type="number" min="0" value={summaryJarakMin} onChange={e => setSummaryJarakMin(e.target.value)} placeholder="Jarak min" />
+        <input type="number" min="0" value={summaryJarakMax} onChange={e => setSummaryJarakMax(e.target.value)} placeholder="Jarak max" />
+        <button className="request-light-button" onClick={() => { setSummarySearch(''); setBrandFilter('SEMUA'); setSummaryOwnership('SEMUA'); setSummaryDataMode('HAS_SERVICE'); setSummaryKmMin(''); setSummaryKmMax(''); setSummaryJarakMin(''); setSummaryJarakMax('') }}>Reset</button>
+        <button className="request-light-button" onClick={loadData} disabled={loading}>↻ Refresh</button>
+      </div>
       <div className="request-table-wrap service-summary-table-wrap"><table className="request-table service-summary-table"><thead><tr><th>No Polisi</th><th>Kendaraan</th><th>Service</th><th>Jasa</th><th>Sparepart</th><th>Total Jasa</th><th>Total Sparepart</th><th>Total Pengeluaran</th><th>Harga Perolehan</th><th>KM/Jarak</th><th>Service Terakhir</th><th>Sparepart Terakhir</th><th>Patokan</th><th>Aksi</th></tr></thead><tbody>{summaryFiltered.length ? summaryFiltered.map(row => <tr key={row.vehicle.id}><td><strong>{row.vehicle.nomor_polisi}</strong></td><td><strong>{row.vehicle.merk}</strong><small>{row.vehicle.tipe || '-'} • {row.vehicle.jenis_kendaraan || '-'}</small></td><td><strong>{row.totalTransaksi} kali</strong></td><td>{row.jasaKali} kali</td><td>{row.spareKali} kali</td><td>{money(row.totalJasa)}</td><td>{money(row.totalSpare)}</td><td><strong>{money(row.totalPengeluaran)}</strong></td><td>{row.vehiclePrice ? money(row.vehiclePrice) : 'Belum diisi'}</td><td>{number(row.kmAkhir)} km<small>Jarak terpantau: {number(row.jarak)} km</small></td><td>{fmtDate(row.lastJasa)}</td><td>{fmtDate(row.lastSpare)}</td><td><span className={`request-status request-cost-flag ${row.costFlag.toLowerCase()}`}>{row.costFlag === 'MELEWATI_HARGA' ? 'Melewati' : row.costFlag === 'MENDEKATI_HARGA' ? '≥ 80%' : row.costFlag === 'DI_BAWAH_HARGA' ? 'Di bawah' : 'Harga belum diisi'}</span>{row.ratio != null && <small>{(row.ratio * 100).toFixed(1)}% dari harga</small>}</td><td className="request-actions"><button className="request-detail-button" onClick={() => setDetail({ type: 'vehicle', row })}>Detail</button>{canManageService && (row.serviceHistory.length > 0
                 ? <><button className="request-detail-button" onClick={() => openServiceEdit(row.serviceHistory[0])}>Edit</button><button className="request-detail-button danger" onClick={() => deleteServiceRecord(row.serviceHistory[0])} disabled={saving}>Hapus</button></>
                 : <button className="request-detail-button" disabled title="Belum ada histori service untuk diedit">Edit</button>)}{canCreate && <button className="request-detail-button" onClick={() => { setViewMode('pengajuan'); openCreate(row.vehicle.id) }}>Pengajuan</button>}</td></tr>) : <tr><td colSpan="14"><div className="request-empty">Belum ada kendaraan yang cocok dengan filter. Gunakan “Semua kendaraan” untuk melihat seluruh armada.</div></td></tr>}</tbody></table></div>
     </section>}
 
     {viewMode === 'harga' && <section className="request-panel">
-      <div className="request-toolbar">
-        <input value={benchmarkSearch} onChange={e => setBenchmarkSearch(e.target.value)} placeholder="Cari oli, ban, kaca, jasa, sparepart..." />
+      <div className="request-toolbar service-shopping-filter-toolbar">
+        <input value={benchmarkSearch} onChange={e => setBenchmarkSearch(e.target.value)} placeholder="Cari item, kategori, satuan, bengkel..." />
+        <select value={benchmarkBengkelFilter} onChange={e => setBenchmarkBengkelFilter(e.target.value)}>
+          <option value="SEMUA">Semua bengkel</option>
+          {benchmarkBengkelOptions.map(bengkel => <option key={bengkel} value={bengkel}>{bengkel}</option>)}
+        </select>
         {['ADMIN', 'TRANSPORT'].includes(profile?.role) && <button className="request-light-button" onClick={resetBenchmarkForm}>+ Patokan Harga / Shopping List</button>}
         <span className="request-toolbar-note">{benchmarkRows.length} jenis item • {items.length} baris histori • {benchmarks.length} patokan admin</span>
       </div>
@@ -474,9 +525,9 @@ export default function PermintaanServicePage({ profile }) {
         </div>
         <div className="request-form-actions"><button type="button" className="request-light-button" onClick={resetBenchmarkForm}>Batal</button><button className="request-primary-button" disabled={saving}>{editingBenchmark ? 'Perbarui Patokan' : 'Simpan Patokan'}</button></div>
       </form>}
-      <div className="request-toolbar-note service-benchmark-note">Harga terendah/tertinggi/median berasal dari histori service. Patokan Admin adalah angka referensi internal yang dapat diperbarui.</div>
+      <div className="request-toolbar-note service-benchmark-note">Harga histori dihitung dari harga satuan item. Gunakan filter bengkel untuk membandingkan item yang sama pada bengkel yang sama; ini membantu Transport mendeteksi perubahan harga yang tidak wajar. Patokan Admin adalah referensi internal.</div>
       <div className="request-table-wrap service-price-table-wrap"><table className="request-table">
-        <thead><tr><th>Item</th><th>Kategori</th><th>Satuan</th><th>Transaksi</th><th>Qty</th><th>Nilai Histori</th><th>Terendah</th><th>Tertinggi</th><th>Median</th><th>Patokan Admin</th><th>Selisih Rata-rata</th><th>Keterangan Admin</th><th>Aksi</th></tr></thead>
+        <thead><tr><th>Item</th><th>Kategori</th><th>Satuan</th><th>Bengkel Histori</th><th>Transaksi</th><th>Qty</th><th>Nilai Histori</th><th>Terendah</th><th>Tertinggi</th><th>Median</th><th>Patokan Admin</th><th>Selisih Rata-rata</th><th>Keterangan Admin</th><th>Aksi</th></tr></thead>
         <tbody>{benchmarkRows.length ? benchmarkRows.map(row => {
           const ref = row.reference
           const diff = ref ? Number(row.avg) - Number(ref.harga_patokan) : null
@@ -484,6 +535,7 @@ export default function PermintaanServicePage({ profile }) {
             <td><strong>{row.nama_item}</strong></td>
             <td>{row.kategori}</td>
             <td>{row.satuan || '-'}</td>
+            <td><span title={row.bengkelDisplay}>{row.bengkelDisplay || 'Belum ada histori bengkel'}</span></td>
             <td>{row.jumlah}</td>
             <td>{row.total_qty || 0}</td>
             <td>{money(row.total_nilai)}</td>
@@ -500,7 +552,7 @@ export default function PermintaanServicePage({ profile }) {
               {ref && <button className="request-detail-button danger" onClick={() => deleteBenchmark(ref)} disabled={saving}>Hapus</button>}
             </td>
           </tr>
-        }) : <tr><td colSpan="13"><div className="request-empty">Belum ada data item service untuk dijadikan patokan.</div></td></tr>}</tbody>
+        }) : <tr><td colSpan="14"><div className="request-empty">Belum ada data item service untuk dijadikan patokan.</div></td></tr>}</tbody>
       </table></div>
     </section>}
     {viewMode === 'pengajuan' && <section className="request-panel">
