@@ -229,3 +229,15 @@ body.transport-service-fullscreen-open{overflow:hidden}
     max-width:210px;
   }
 }
+
+
+/* Full detail text: wrap long descriptions without horizontal scrolling. */
+.x-detail .full > p,
+.x-detail .full p{
+  margin:7px 0 0;
+  max-width:100%;
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+  word-break:break-word;
+  line-height:1.65;
+}
