@@ -158,14 +158,14 @@ export default function AuditTrailPanel({ users = [] }) {
       </section>
 
       {selected && <div className="x-overlay"><section className="x-modal users-audit-modal">
-        <div className="x-modal-head"><div><span className="eyebrow">AUDIT TRAIL</span><h3>{ACTION_LABELS[selected.action] || selected.action} • {TABLE_LABELS[selected.table_name] || selected.table_name}</h3><p>{new Intl.DateTimeFormat('id-ID', { dateStyle: 'full', timeStyle: 'medium' }).format(new Date(selected.occurred_at))}</p></div><button type="button" onClick={() => setSelected(null)}>×</button></div>
+        <div className="x-modal-head"><div><span className="eyebrow">AUDIT TRAIL</span><h3>{ACTION_LABELS[selected.action] || selected.action} • {TABLE_LABELS[selected.table_name] || selected.table_name}</h3><p>{new Intl.DateTimeFormat('id-ID', { dateStyle: 'full', timeStyle: 'medium' }).format(new Date(selected.occurred_at))}</p></div><button type="button" onClick={() => { setSelected(null); setDetailError(''); setDetailLoading(false) }}>×</button></div>
         <div className="users-audit-meta-grid"><div><span>Pelaku</span><strong>{actorMap[selected.actor_id]?.nama_lengkap || actorMap[selected.actor_id]?.email || 'Pengguna sistem'}</strong></div><div><span>Role</span><strong>{ROLE_LABELS[selected.actor_role] || selected.actor_role || '-'}</strong></div><div><span>Data ID</span><strong>{selected.record_id || '-'}</strong></div><div><span>Field berubah</span><strong>{selected.changed_fields?.length || 0}</strong></div></div>
         {detailError && <div className="x-alert error">{detailError}</div>}
         <div className="users-audit-change-table"><table className="x-table"><thead><tr><th>Field</th><th>Sebelum</th><th>Sesudah</th></tr></thead><tbody>
           {detailLoading ? <tr><td colSpan="3"><div className="x-empty">Memuat detail perubahan...</div></td></tr> :
             (selected.changed_fields || []).map(field => <tr key={field}><td><b>{field}</b></td><td>{valueText(selected.old_data?.[field])}</td><td>{valueText(selected.new_data?.[field])}</td></tr>)}
         </tbody></table></div>
-        <div className="x-actions"><button type="button" className="x-btn secondary" onClick={() => setSelected(null)}>Tutup</button></div>
+        <div className="x-actions"><button type="button" className="x-btn secondary" onClick={() => { setSelected(null); setDetailError(''); setDetailLoading(false) }}>Tutup</button></div>
       </section></div>}
     </>
   )
