@@ -3,7 +3,7 @@ import { Component } from 'react'
 export default class AppErrorBoundary extends Component {
   constructor(props) {
     super(props)
-    this.state = { error: null }
+    this.state = { error: null, retryCount: 0 }
   }
 
   static getDerivedStateFromError(error) {
@@ -16,8 +16,7 @@ export default class AppErrorBoundary extends Component {
   }
 
   retry = () => {
-    this.setState({ error: null })
-    window.location.reload()
+    this.setState({ error: null, retryCount: (this.state.retryCount || 0) + 1 })
   }
 
   render() {
@@ -28,8 +27,9 @@ export default class AppErrorBoundary extends Component {
         <section style={{ width: 'min(100%, 640px)', background: '#fff', border: '1px solid #dce7e1', borderRadius: 20, padding: 28, boxShadow: '0 16px 45px rgba(18, 59, 42, 0.08)' }}>
           <span style={{ display: 'inline-block', fontSize: 12, fontWeight: 800, letterSpacing: '.08em', color: '#b42318' }}>SISTEM TRANSPORT</span>
           <h1 style={{ margin: '8px 0 10px', fontSize: 24 }}>Halaman mengalami error</h1>
-          <p style={{ margin: 0, color: '#5d6b64', lineHeight: 1.6 }}>Data Anda tetap tersimpan. Tampilan tidak dapat dirender untuk sementara. Silakan muat ulang halaman.</p>
-          <button type="button" onClick={this.retry} style={{ marginTop: 20, border: 0, borderRadius: 12, padding: '11px 16px', background: '#123b2a', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>Muat Ulang Halaman</button>
+          <p style={{ margin: 0, color: '#5d6b64', lineHeight: 1.6 }}>Data Anda tetap tersimpan. Tampilan tidak dapat dirender untuk sementara. Coba render ulang tanpa me-refresh seluruh aplikasi.</p>
+          <button type="button" onClick={this.retry} style={{ marginTop: 20, border: 0, borderRadius: 12, padding: '11px 16px', background: '#123b2a', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>Coba Lagi</button>
+          <small style={{ display: 'block', marginTop: 12, color: '#8a9690', lineHeight: 1.5 }}>Percobaan render: {this.state.retryCount || 0}. Jika error tetap muncul, catat halaman terakhir yang dibuka agar sumber masalah bisa ditelusuri.</small>
         </section>
       </main>
     )
