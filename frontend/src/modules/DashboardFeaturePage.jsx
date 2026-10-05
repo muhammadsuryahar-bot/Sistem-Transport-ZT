@@ -282,7 +282,7 @@ export default function DashboardFeaturePage({ profile, onNavigate }) {
             </div>
             <span className="dashboard-stat-arrow" aria-hidden="true">›</span>
           </button>
-        ))}))}
+        ))}
       </section>
 
       <section className="dashboard-v2-grid top-grid">
