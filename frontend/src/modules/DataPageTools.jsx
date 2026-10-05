@@ -804,13 +804,37 @@ export default function DataPageTools({ context, profile, onExport }) {
     }
     run()
     const observerTarget = document.querySelector('.content-container') || document.body
+    const isOwnedDataToolsNode = node => {
+      if (!(node instanceof Element)) return true
+      return node.matches('.dpt-inline-row-actions, .dpt-row-mark-cell, .dpt-row-mark-head, .dpt-bulk-select-cell, .dpt-bulk-select-head, .dpt-bulk-selection-toolbar') ||
+        Boolean(node.closest('.dpt-inline-row-actions, .dpt-bulk-selection-toolbar'))
+    }
+    const mutationNeedsScan = mutations => mutations.some(mutation => {
+      if (!mutation.addedNodes.length && !mutation.removedNodes.length) return false
+      const changedNodes = [...mutation.addedNodes, ...mutation.removedNodes]
+      return changedNodes.some(node => !isOwnedDataToolsNode(node))
+    })
+    const scheduleRun = () => {
+      if (typeof window.requestIdleCallback === 'function') {
+        idleId = window.requestIdleCallback(run, { timeout: 260 })
+      } else {
+        timer = window.setTimeout(run, 120)
+      }
+    }
+    let idleId = 0
     const observer = new MutationObserver(mutations => {
-      if (!mutations.some(mutation => mutation.addedNodes.length || mutation.removedNodes.length)) return
+      if (!mutationNeedsScan(mutations)) return
+      if (idleId && typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(idleId)
       clearTimeout(timer)
-      timer = setTimeout(run, 90)
+      scheduleRun()
     })
     observer.observe(observerTarget, { childList: true, subtree: true })
-    return () => { clearTimeout(timer); observer.disconnect(); applyCleanRoot(false) }
+    return () => {
+      if (idleId && typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(idleId)
+      clearTimeout(timer)
+      observer.disconnect()
+      applyCleanRoot(false)
+    }
   }, [context])
 
   if (!CONTEXT_LABEL[context]) return null
