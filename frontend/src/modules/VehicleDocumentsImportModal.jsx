@@ -83,7 +83,7 @@ function chooseSheet(sheets) {
 
 async function importDocuments(rows, profile, sheetName) {
   const valid = rows.filter(row => row.nomor_polisi && (row.stnk || row.lima_tahun))
-  if (!valid.length) throw new Error('Tidak ada data dokumen valid. Pastikan ada No. Polisi dan tanggal STNK/KIR/5 Tahun.')
+  if (!valid.length) throw new Error('Tidak ada data dokumen valid. Pastikan ada No. Polisi dan tanggal STNK/5 Tahun.')
 
   const { data: vehicles, error: vehicleError } = await supabase
     .from('kendaraan')
@@ -102,7 +102,7 @@ async function importDocuments(rows, profile, sheetName) {
     nomor_rangka: row.nomor_rangka || null,
     pemilik: row.pemilik || null,
     stnk: row.stnk || null,
-    kir: row.kir || null,
+    kir: null,
     lima_tahun: row.lima_tahun || null,
     nomor_dokumen: row.nomor_dokumen || null,
   }))
@@ -132,12 +132,12 @@ export default function VehicleDocumentsImportModal({ profile, onDone, onClose }
     if (nextFile.size > MAX_FILE_SIZE) return setError('Ukuran file maksimal 25 MB.')
     setLoading(true)
     try {
-      const sheets = await parseXlsx(nextFile); const chosen = chooseSheet(sheets); if (!chosen || chosen.score < 10) throw new Error('Sheet STNK/KIR tidak ditemukan secara meyakinkan.')
+      const sheets = await parseXlsx(nextFile); const chosen = chooseSheet(sheets); if (!chosen || chosen.score < 10) throw new Error('Sheet STNK tidak ditemukan secara meyakinkan.')
       const data = chosen.sheet.rows
         .slice(chosen.header.index + 1)
-        .map((r) => ({
+        .map((r, index) => ({
           excelRow: r.excelRow,
-          source_no: valueOf(r, chosen.header.row, 'source_no'),
+          source_no: String(index + 1),
           nomor_polisi: upper(valueOf(r, chosen.header.row, 'nomor_polisi')),
           merk: valueOf(r, chosen.header.row, 'merk'),
           tipe: valueOf(r, chosen.header.row, 'tipe'),
