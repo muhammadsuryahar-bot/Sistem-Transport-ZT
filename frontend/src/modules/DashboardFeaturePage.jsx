@@ -255,15 +255,34 @@ export default function DashboardFeaturePage({ profile, onNavigate }) {
 
       <section className={`dashboard-v2-stats stats-count-${stats.length}`}>
         {stats.map(([key, label, helper, icon]) => (
-          <article className="dashboard-stat-card" key={`${key}-${label}`}>
+          <button
+            type="button"
+            className="dashboard-stat-card dashboard-stat-card-clickable"
+            key={key + '-' + label}
+            onClick={() => onNavigate(({
+              totalVehicles: 'kendaraan',
+              activeVehicles: 'kendaraan',
+              serviceVehicles: 'service',
+              transportQueue: 'pengajuan',
+              pendingRequests: 'pengajuan',
+              completedRequests: role === 'OPERASIONAL' ? 'pengajuan' : 'service',
+              approvalQueue: 'service',
+              runningServices: 'service',
+              unpaidRentals: 'sewa',
+              expiringContracts: 'sewa',
+              activeContracts: 'sewa',
+            })[key] || 'dashboard')}
+            aria-label={'Buka ' + label}
+          >
             <div className="dashboard-stat-icon" data-icon={icon} aria-hidden="true" />
             <div>
               <span>{label}</span>
               <strong>{loading ? '...' : metrics[key]}</strong>
               <small>{helper}</small>
             </div>
-          </article>
-        ))}
+            <span className="dashboard-stat-arrow" aria-hidden="true">›</span>
+          </button>
+        ))}))}
       </section>
 
       <section className="dashboard-v2-grid top-grid">
