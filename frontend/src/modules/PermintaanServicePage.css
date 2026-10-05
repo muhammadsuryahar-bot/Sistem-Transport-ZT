@@ -72,6 +72,52 @@
 @media (max-width:560px){ .request-header p{font-size:.86rem;} .request-primary-button{width:100%;} .request-summary-grid{gap:10px;} .request-panel{border-radius:13px;} .request-modal-backdrop{padding:10px;} .request-modal{max-height:calc(100svh - 20px);border-radius:15px;} .request-modal-header,.request-modal form,.request-detail-grid{padding-left:16px;padding-right:16px;} .request-form-grid,.request-detail-grid{grid-template-columns:1fr;} .request-field.full,.request-detail-grid .full{grid-column:auto;} .request-vehicle-preview{grid-template-columns:1fr;} .request-selection-bar{margin:8px 0;padding:10px;border-radius:10px}.request-selection-actions button{min-height:40px}.request-selection-hint{font-size:10px}}
 
 .service-kpi-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+.service-summary-filter-toolbar,
+.service-shopping-filter-toolbar{
+  grid-template-columns:minmax(260px,1.7fr) repeat(4,minmax(120px,.8fr)) auto auto !important;
+  align-items:center;
+}
+.service-summary-filter-toolbar input[type="number"]{
+  min-width:105px;
+}
+.service-shopping-filter-toolbar{
+  grid-template-columns:minmax(260px,1.6fr) minmax(220px,.9fr) auto minmax(230px,1fr) !important;
+}
+.service-price-table-wrap .request-table{
+  min-width:1750px !important;
+}
+@media(max-width:1200px){
+  .service-summary-filter-toolbar{
+    grid-template-columns:repeat(4,minmax(145px,1fr)) !important;
+  }
+  .service-summary-filter-toolbar input:first-child{
+    grid-column:1/-1;
+  }
+  .service-summary-filter-toolbar .request-light-button{
+    min-width:120px;
+  }
+  .service-shopping-filter-toolbar{
+    grid-template-columns:minmax(220px,1.4fr) minmax(180px,1fr) auto !important;
+  }
+  .service-shopping-filter-toolbar .request-toolbar-note{
+    grid-column:1/-1;
+  }
+}
+@media(max-width:700px){
+  .service-summary-filter-toolbar,
+  .service-shopping-filter-toolbar{
+    grid-template-columns:1fr !important;
+  }
+  .service-summary-filter-toolbar input:first-child,
+  .service-shopping-filter-toolbar .request-toolbar-note{
+    grid-column:auto;
+  }
+  .service-summary-filter-toolbar > *,
+  .service-shopping-filter-toolbar > *{
+    width:100% !important;
+    min-width:0 !important;
+  }
+}
 .service-view-toolbar {
   margin-top:12px;
   margin-bottom:12px;
