@@ -912,3 +912,31 @@
   border-color:#cbdcd2 !important;
   color:#426053 !important;
 }
+/* Native row interaction: in Data Bersih, the selected row must still expose
+   its actionable controls (Aksi + Penanda). Unselected rows remain clean. */
+.mep-table[data-native-row-selection="true"]:has(tbody tr.dpt-row-selected) thead th:last-child,
+.request-table[data-native-row-selection="true"]:has(tbody tr.dpt-row-selected) thead th:last-child,
+.x-table[data-native-row-selection="true"]:has(tbody tr.dpt-row-selected) thead th:last-child {
+  display: table-cell !important;
+  visibility: visible !important;
+}
+.mep-table[data-native-row-selection="true"] tbody tr.dpt-row-selected .mep-actions,
+.request-table[data-native-row-selection="true"] tbody tr.dpt-row-selected .request-actions,
+.x-table[data-native-row-selection="true"] tbody tr.dpt-row-selected .x-action-compact {
+  display: table-cell !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+.mep-table[data-native-row-selection="true"]:has(tbody tr.dpt-row-selected) thead .dpt-row-mark-head,
+.request-table[data-native-row-selection="true"]:has(tbody tr.dpt-row-selected) thead .dpt-row-mark-head,
+.x-table[data-native-row-selection="true"]:has(tbody tr.dpt-row-selected) thead .dpt-row-mark-head {
+  display: table-cell !important;
+  visibility: visible !important;
+}
+.mep-table[data-native-row-selection="true"] tbody tr.dpt-row-selected .dpt-row-mark-cell,
+.request-table[data-native-row-selection="true"] tbody tr.dpt-row-selected .dpt-row-mark-cell,
+.x-table[data-native-row-selection="true"] tbody tr.dpt-row-selected .dpt-row-mark-cell {
+  display: table-cell !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
