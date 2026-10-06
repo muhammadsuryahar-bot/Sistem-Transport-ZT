@@ -940,3 +940,55 @@
   visibility: visible !important;
   pointer-events: auto !important;
 }
+
+
+/* Final Excel/Data Bersih contract:
+   every operational table gets the same local horizontal-scroll behavior,
+   data cells stay readable without clipping, and the utility columns remain hidden. */
+.dpt-clean-data-wrap {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.dpt-clean-data-table {
+  width: max-content !important;
+  min-width: 100% !important;
+  max-width: none !important;
+  table-layout: auto !important;
+  border-collapse: collapse;
+}
+.dpt-clean-data-table thead th:not([data-dpt-column-kind="mark"]):not([data-dpt-column-kind="action"]),
+.dpt-clean-data-table tbody td:not([data-dpt-column-kind="mark"]):not([data-dpt-column-kind="action"]) {
+  white-space: nowrap !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+}
+.dpt-clean-data-table tbody td:not([data-dpt-column-kind="mark"]):not([data-dpt-column-kind="action"]) {
+  font-size: 15px !important;
+  line-height: 1.5 !important;
+}
+.dpt-clean-data-table tbody td:not([data-dpt-column-kind="mark"]):not([data-dpt-column-kind="action"]) b,
+.dpt-clean-data-table tbody td:not([data-dpt-column-kind="mark"]):not([data-dpt-column-kind="action"]) strong {
+  font-size: 15.5px !important;
+}
+.dpt-clean-data-table tbody td:not([data-dpt-column-kind="mark"]):not([data-dpt-column-kind="action"]) small {
+  font-size: 12px !important;
+  white-space: nowrap !important;
+}
+@media (max-width: 600px) {
+  .dpt-clean-data-table thead th:not([data-dpt-column-kind="mark"]):not([data-dpt-column-kind="action"]) {
+    font-size: 11px !important;
+  }
+  .dpt-clean-data-table tbody td:not([data-dpt-column-kind="mark"]):not([data-dpt-column-kind="action"]) {
+    font-size: 14px !important;
+  }
+  .dpt-clean-data-table tbody td:not([data-dpt-column-kind="mark"]):not([data-dpt-column-kind="action"]) b,
+  .dpt-clean-data-table tbody td:not([data-dpt-column-kind="mark"]):not([data-dpt-column-kind="action"]) strong {
+    font-size: 14.5px !important;
+  }
+}
