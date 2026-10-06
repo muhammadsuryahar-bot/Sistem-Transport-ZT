@@ -21,7 +21,7 @@ function safeSheetName(name, index) {
 }
 
 function isIsoDate(value) {
-  return typeof value === 'string' && /^\\d{4}-\\d{2}-\\d{2}(?:T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,3})?Z?)?$/.test(value)
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\\.\d{1,3})?Z?)?$/.test(value)
 }
 function isMoneyColumn(column) {
   const key = String(column?.key || '').toLowerCase()
@@ -33,7 +33,7 @@ function cellXml(value, header = false, wrap = false, column = null) {
   const numericValue = typeof printable === 'number' && Number.isFinite(printable)
   const type = dateValue ? 'DateTime' : numericValue ? 'Number' : 'String'
   const style = header ? 'Header' : dateValue ? 'Date' : numericValue && isMoneyColumn(column) ? 'Money' : (wrap ? 'BodyWrap' : 'Default')
-  const output = dateValue && /^\\d{4}-\\d{2}-\\d{2}$/.test(printable) ? `${printable}T00:00:00.000` : printable
+  const output = dateValue && /^\d{4}-\d{2}-\d{2}$/.test(printable) ? `${printable}T00:00:00.000` : printable
   return `<Cell ss:StyleID="${style}"><Data ss:Type="${type}">${escapeXml(output)}</Data></Cell>`
 }
 
