@@ -97,11 +97,11 @@ async function importPengajuan(sheet, profile) {
   const existing = await supabase.from('permintaan_service').select('kendaraan_id,tanggal_pengajuan,kilometer_pengajuan,jenis_permintaan,keluhan'); if (existing.error) throw new Error(`Tidak bisa memeriksa pengajuan lama: ${existing.error.message}`)
   const existingKeys = new Set((existing.data || []).map((item) => importFingerprint({ vehicle: { id: item.kendaraan_id }, date: item.tanggal_pengajuan, jenis: item.jenis_permintaan || 'SERVICE', complaint: item.keluhan || '', km: item.kilometer_pengajuan ?? 0 })))
   const toInsert = valid.filter((item) => !existingKeys.has(item.fingerprint)); const duplicate = valid.length - toInsert.length
-  if (!toInsert.length) return { imported: 0, skipped: invalid.length + duplicate, duplicate, unknownPlates: [], message: `0 pengajuan baru. ${duplicate} data sudah ada/duplikat.` }
+  if (!toInsert.length) return { validRows: valid.length, imported: 0, skipped: invalid.length + duplicate, duplicate, unknownPlates: [], message: `0 pengajuan baru. ${duplicate} data sudah ada/duplikat.` }
   const payload = toInsert.map((item) => ({ pemohon_id: profile.id, kendaraan_id: item.vehicle.id, tanggal_pengajuan: item.date, kilometer_pengajuan: item.km, jenis_permintaan: item.jenis, keluhan: item.complaint, prioritas: upper(valueOf(rows.find((row) => upper(valueOf(row, headers, 'nomor_polisi')) === item.plate), headers, 'prioritas') || 'NORMAL'), status: 'MENUNGGU_TRANSPORT' }))
   const result = await supabase.from('permintaan_service').insert(payload); if (result.error) throw new Error(`Gagal menyimpan pengajuan hasil import: ${result.error.message}`)
   const unknownPlates = [...new Set(invalid.filter((item) => item.reason === 'Plat belum ada di Master Kendaraan').map((item) => item.plate).filter(Boolean))]
-  return { imported: payload.length, skipped: invalid.length + duplicate, unknownPlates, duplicate, message: `${payload.length} pengajuan ditambahkan, ${invalid.length + duplicate} baris dilewati (${duplicate} sudah ada/duplikat).` }
+  return { validRows: valid.length, imported: payload.length, skipped: invalid.length + duplicate, unknownPlates, duplicate, message: `${payload.length} pengajuan ditambahkan, ${invalid.length + duplicate} baris dilewati (${duplicate} sudah ada/duplikat).` }
 }
 
 async function importSewa(sheet, profile) {
@@ -196,6 +196,7 @@ async function importSewa(sheet, profile) {
   const skipped = Number(data?.skipped || 0) + invalid.length
 
   return {
+    validRows: candidates.length,
     imported,
     skipped,
     unknownPlates: [...new Set(invalid.filter(item => item.reason === 'Plat belum ada di Master Kendaraan Sewa').map(item => item.plate).filter(Boolean))],
@@ -220,7 +221,7 @@ export default function UnifiedExcelImportModalSafe({ context, profile, onDone, 
   }
   const start = async () => {
     if (!selected || !canImport || saving) return; setSaving(true); setError(''); setMessage('Memproses import...')
-    try { const result = await IMPORTERS[context](selected, profile); const report = { context, sourceRows: dataRows(selected).length, validRows: Math.max(0, dataRows(selected).length - (result.skipped || 0)), addedCount: Number(result.imported || 0), updatedCount: 0, skippedCount: Number(result.skipped || 0), errorCount: Number((result.unknownPlates || []).length), imported: result.imported || 0, skipped: result.skipped || 0, duplicate: result.duplicate || 0, unknownPlates: result.unknownPlates || [], message: result.message, fileName: file?.name || '', completedAt: new Date().toISOString() }; sessionStorage.setItem('transport_import_report', JSON.stringify(report)); onDone?.(report) } catch (e) { setError(e?.message || 'Import gagal. Data tidak dilanjutkan ke langkah berikutnya.'); setMessage('') } finally { setSaving(false) }
+    try { const result = await IMPORTERS[context](selected, profile); const report = { context, sourceRows: dataRows(selected).length, validRows: Number(result.validRows ?? Math.max(0, dataRows(selected).length - (result.skipped || 0))), addedCount: Number(result.imported || 0), updatedCount: 0, skippedCount: Number(result.skipped || 0), errorCount: Number((result.unknownPlates || []).length), imported: result.imported || 0, skipped: result.skipped || 0, duplicate: result.duplicate || 0, unknownPlates: result.unknownPlates || [], message: result.message, fileName: file?.name || '', completedAt: new Date().toISOString() }; sessionStorage.setItem('transport_import_report', JSON.stringify(report)); onDone?.(report) } catch (e) { setError(e?.message || 'Import gagal. Data tidak dilanjutkan ke langkah berikutnya.'); setMessage('') } finally { setSaving(false) }
   }
   return <div className="dpt-overlay" role="dialog" aria-modal="true" aria-label={`Import ${LABELS[context] || 'Excel'}`}>
     <section className="dpt-modal"><header className="dpt-modal-head"><div><span className="eyebrow">IMPORT EXCEL</span><h3>Import {LABELS[context] || 'Excel'}</h3><p>Upload → deteksi format → validasi header → preview → cek data master → cek duplikat → simpan.</p></div><button type="button" className="dpt-icon" onClick={onClose} aria-label="Tutup">×</button></header>
