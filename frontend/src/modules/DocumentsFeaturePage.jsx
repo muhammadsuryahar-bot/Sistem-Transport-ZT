@@ -70,7 +70,7 @@ export default function DocumentsFeaturePage({profile}){
   const targetMonth=monthFilter==='SEMUA'||dates.some(d=>d.slice(5,7)===monthFilter)
   const statuses=[row.stnk,row.lima_tahun,row.pajak].map(d=>statusOf(d))
   const targetStatus=statusFilter==='SEMUA'||statuses.includes(statusFilter)
-  const typeOk=typeFilter==='SEMUA'||(typeFilter==='PAJAK'?Boolean(row.pajak):typeFilter==='STNK'?Boolean(row.stnk):typeFilter==='5_TAHUNAN'?Boolean(row.lima_tahun):true)
+  const typeOk=typeFilter==='SEMUA'||(typeFilter==='PAJAK'?Boolean(row.pajak):typeFilter==='STNK'?Boolean(row.stnk):typeFilter==='5_TAHUNAN'?Boolean(row.lima_tahun):false)
   return (!query.trim()||hay.includes(query.trim().toLowerCase()))&&targetYear&&targetMonth&&targetStatus&&typeOk
  }),[monitorRows,query,yearFilter,monthFilter,statusFilter,typeFilter]) const reminders=useMemo(()=>docs.map(d=>({kind:'dokumen',doc:d,vehicle:vehicleMap[d.kendaraan_id],days:daysLeft(d.tanggal_jatuh_tempo)})).filter(x=>x.days!==null&&x.days<=30).sort((a,b)=>a.days-b.days),[docs,vehicleMap])
  const taxReminders=useMemo(()=>monitorRows.map(row=>({kind:'pajak',vehicle:vehicleMap[row.kendaraan_id],days:daysLeft(row.pajak)})).filter(x=>x.days!==null&&x.days<=30).sort((a,b)=>a.days-b.days),[monitorRows,vehicleMap])
