@@ -31,7 +31,7 @@ export default function DocumentsFeaturePage({profile}){
   if(d.error)setError(`Dokumen: ${d.error.message}`)
   if(v.error)setError(e=>e||`Kendaraan: ${v.error.message}`)
   const assetIds=new Set((v.data||[]).map(x=>x.id))
-  setDocs((d.data||[]).filter(row=>assetIds.has(row.kendaraan_id) && row.jenis_dokumen!=='KIR'))
+  setDocs((d.data||[]).filter(row=>assetIds.has(row.kendaraan_id)))
   setVehicles(v.data||[]);setSelectedDocIds([]);setSelectionMode(false);setActiveDocId(null);setLoading(false)
  }
  useEffect(()=>{load();const h=e=>{if(['dokumen','kendaraan'].includes(e.detail?.context))load()};window.addEventListener('transport:data-imported',h);return()=>window.removeEventListener('transport:data-imported',h)},[])
@@ -50,7 +50,7 @@ export default function DocumentsFeaturePage({profile}){
   const rows=vehicles.map(v=>{
    const vehicleDocs=docs.filter(d=>d.kendaraan_id===v.id)
    const byType={};vehicleDocs.forEach(d=>{byType[d.jenis_dokumen]=d})
-   const sourceDocs=vehicleDocs.filter(d=>decodeExcelMeta(d.keterangan).meta?.source==='STNK_DAN_KIR')
+   const sourceDocs=vehicleDocs.filter(d=>decodeExcelMeta(d.keterangan).meta?.source==='STNK_DAN_5_TAHUNAN')
    const sourceDoc=sourceDocs[0]||null
    const meta=sourceDoc?decodeExcelMeta(sourceDoc.keterangan).meta:null
    const sourceOrder=sourceDocs.reduce((min,d)=>Math.min(min,Number(d.id)||Number.MAX_SAFE_INTEGER),Number.MAX_SAFE_INTEGER)
