@@ -600,8 +600,8 @@ export default function PermintaanServicePage({ profile }) {
             <td>{ref?.keterangan || '-'}</td>
             <td className="request-actions">
               {ref
-                ? <button className="request-detail-button" onClick={() => setBenchmarkDetail(row)}>Histori</button><button className="request-detail-button" onClick={() => editBenchmark(ref)}>Edit</button>
-                : <button className="request-detail-button" onClick={() => setBenchmarkDetail(row)}>Histori</button><button className="request-detail-button" onClick={() => prepareBenchmarkFromItem(row)}>Atur Patokan</button>}
+                ? <><button className="request-detail-button" onClick={() => setBenchmarkDetail(row)}>Histori</button><button className="request-detail-button" onClick={() => editBenchmark(ref)}>Edit</button></>
+                : <><button className="request-detail-button" onClick={() => setBenchmarkDetail(row)}>Histori</button><button className="request-detail-button" onClick={() => prepareBenchmarkFromItem(row)}>Atur Patokan</button></>}
               {ref && <button className="request-detail-button danger" onClick={() => deleteBenchmark(ref)} disabled={saving}>Hapus</button>}
             </td>
           </tr>
