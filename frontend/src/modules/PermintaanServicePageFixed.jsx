@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import './PermintaanServicePage.css'
 import PageBreadcrumb from './PageBreadcrumb.jsx'
+import { decodeExcelMeta } from '../utils/excelSourceMeta.js'
 
 const TYPE_LABELS = { SERVICE: 'Jasa / Perbaikan', GANTI_BAN: 'Ganti Ban', GANTI_AKI: 'Ganti Aki / Baterai', PEMERIKSAAN: 'Pemeriksaan' }
 const STATUS_LABELS = { MENUNGGU_TRANSPORT: 'Menunggu Transport', DITERIMA_TRANSPORT: 'Diterima Transport', DALAM_PROSES: 'Dalam Proses', MENUNGGU_APPROVAL: 'Menunggu Approval', DISETUJUI: 'Disetujui', DITOLAK: 'Ditolak', SELESAI: 'Selesai', DIBATALKAN: 'Dibatalkan' }
@@ -24,6 +25,13 @@ const itemCategory = (category, name = '') => {
   if (/OLI|PELUMAS|GREASE|FILTER OLI|FILTER MINYAK|FILTER HAWA|FILTER UDARA|BUSI|KANVAS REM|BRAKE PAD|KAMPAS REM|KOPLING|CLUTCH|SHOCK|ABSORBER|BEARING|RACK END|DRAGLINK|SPAREPART|PENGADAAN BARANG/.test(raw)) return 'SPAREPART'
   if (/JASA|SERVICE|PEKERJAAN|LABOR/.test(raw)) return 'JASA'
   return clean(category).toUpperCase() || 'LAINNYA'
+}
+const sourceWorkCategory = (item = {}) => {
+  const meta = decodeExcelMeta(item.keterangan).meta || {}
+  const source = clean(meta.jenis_pekerjaan).toUpperCase()
+  if (/PENGADAAN BARANG|SPAREPART|SUKU CADANG/.test(source)) return 'SPAREPART'
+  if (/JASA SERVICE|\bJASA\b|\bSERVICE\b|PEKERJAAN|LABOR/.test(source)) return 'JASA'
+  return itemCategory(item.kategori, item.nama_item)
 }
 
 export default function PermintaanServicePage({ profile }) {
@@ -117,7 +125,7 @@ export default function PermintaanServicePage({ profile }) {
     const vehicleServices = services.filter(s => Number(s.kendaraan_id) === Number(vehicle.id))
     const serviceIds = new Set(vehicleServices.map(s => s.id))
     const vehicleItems = items.filter(i => serviceIds.has(i.service_id))
-    const categorizedItems = vehicleItems.map(i => ({ ...i, computedCategory: itemCategory(i.kategori, i.nama_item) }))
+    const categorizedItems = vehicleItems.map(i => ({ ...i, computedCategory: sourceWorkCategory(i) }))
     const jasaItems = categorizedItems.filter(i => i.computedCategory === 'JASA')
     const spareItems = categorizedItems.filter(i => ['SPAREPART', 'BAN', 'AKI'].includes(i.computedCategory))
     const noItemService = vehicleServices.filter(s => !vehicleItems.some(i => i.service_id === s.id) && ['SERVICE', 'PEMERIKSAAN'].includes(String(s.jenis_service || '').toUpperCase()))
@@ -137,7 +145,7 @@ export default function PermintaanServicePage({ profile }) {
     ].filter(n => Number.isFinite(n) && n >= 0)
     const kmAwal = usagePoints.length ? Math.min(...usagePoints) : 0
     const kmAkhir = usagePoints.length ? Math.max(...usagePoints) : Number(vehicle.kilometer_terakhir || 0)
-    const serviceHistory = [...vehicleServices].sort((a, b) => String(b.tanggal_service || '').localeCompare(String(a.tanggal_service || ''))).map(s => ({ ...s, id: s.id, tanggal: s.tanggal_service, kilometer: s.kilometer, bengkel: s.bengkel, jenis: itemCategory(s.jenis_service, s.keluhan), jenisLabel: TYPE_LABELS[s.jenis_service] || s.jenis_service || '-', keluhan: s.keluhan || '-', total: Number(s.total ?? s.biaya_aktual ?? s.estimasi_biaya ?? 0), items: items.filter(i => i.service_id === s.id).map(i => ({ nama_item: i.nama_item, kategori: itemCategory(i.kategori, i.nama_item), jumlah: i.jumlah, satuan: i.satuan, harga_satuan: Number(i.harga_satuan || 0), subtotal: Number(i.subtotal || 0) })) }))
+    const serviceHistory = [...vehicleServices].sort((a, b) => String(b.tanggal_service || '').localeCompare(String(a.tanggal_service || ''))).map(s => ({ ...s, id: s.id, tanggal: s.tanggal_service, kilometer: s.kilometer, bengkel: s.bengkel, jenis: itemCategory(s.jenis_service, s.keluhan), jenisLabel: TYPE_LABELS[s.jenis_service] || s.jenis_service || '-', keluhan: s.keluhan || '-', total: Number(s.total ?? s.biaya_aktual ?? s.estimasi_biaya ?? 0), items: items.filter(i => i.service_id === s.id).map(i => ({ nama_item: i.nama_item, kategori: sourceWorkCategory(i), jumlah: i.jumlah, satuan: i.satuan, harga_satuan: Number(i.harga_satuan || 0), subtotal: Number(i.subtotal || 0) })) }))
     const jarak = Math.max(0, kmAkhir - kmAwal)
     const vehiclePrice = Number(vehicle.harga_perolehan || 0)
     const ratio = vehiclePrice > 0 ? totalPengeluaran / vehiclePrice : null
@@ -147,7 +155,7 @@ export default function PermintaanServicePage({ profile }) {
     return {
       vehicle, totalTransaksi: vehicleServices.length, jasaKali: jasaServiceIds.size, spareKali: new Set([...spareServiceIds, ...vehicleServices.filter(s => ['GANTI_BAN', 'GANTI_AKI'].includes(String(s.jenis_service || '').toUpperCase())).map(s => s.id)]).size + bans.filter(r => Number(r.kendaraan_id) === Number(vehicle.id)).length + akis.filter(r => Number(r.kendaraan_id) === Number(vehicle.id)).length,
       totalJasa, totalSpare, totalService, totalRepair, totalPengeluaran, vehiclePrice, ratio, jarak, kmAwal, kmAkhir, serviceHistory,
-      lastJasa: lastService?.tanggal_service || null, lastSpare: lastSpareDate,
+      lastJasa: lastJasa?.tanggal_service || null, lastSpare: lastSpareDate,
       costFlag: vehiclePrice > 0 && totalPengeluaran > vehiclePrice ? 'MELEWATI_HARGA' : vehiclePrice > 0 && totalPengeluaran >= vehiclePrice * 0.8 ? 'MENDEKATI_HARGA' : vehiclePrice > 0 ? 'DI_BAWAH_HARGA' : 'HARGA_BELUM_DIISI',
     }
   }), [vehicles, services, items, kilometers, bans, akis, requests])
