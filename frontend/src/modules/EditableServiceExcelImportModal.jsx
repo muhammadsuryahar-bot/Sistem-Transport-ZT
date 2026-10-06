@@ -547,8 +547,7 @@ export default function EditableServiceExcelImportModal({ profile, onDone, onClo
       setProgress({ completed: 0, total: activeTransactions.length })
       const result = await importHistory(activeRows, sheet?.name || 'Data Service', ({ completed, total }) => { setProgress({ completed, total }); setMessage(`Memproses import: ${completed}/${total} transaksi...`) })
       const report = { context: 'service', ...result, validRows: activeValidRows.length, addedCount: Number(result.imported || 0), updatedCount: 0, skippedCount: Number(result.skipped || 0), errorCount: Number(result.unknownPlates?.length || 0), transactions: result.transactions, fileName: file?.name || '', completedAt: new Date().toISOString(), message: `${result.imported} transaksi disimpan • ${result.skipped} dilewati • ${result.items} item tersimpan • ${result.kmUpdated} KM kendaraan diperbarui.` }
-      sessionStorage.setItem('transport_import_report', JSON.stringify(report)); setProgress({ completed: transactions.length, total: transactions.length }); setMessage(report.message)
-      if (result.unknownPlates.length) setError(`Plat belum ada di Master Kendaraan: ${result.unknownPlates.slice(0, 20).join(', ')}${result.unknownPlates.length > 20 ? ' …' : ''}. Baris tersebut tidak dibuat otomatis.`)
+      sessionStorage.setItem('transport_import_report', JSON.stringify(report)); setProgress({ completed: transactions.length, total: transactions.length }); setMessage(result.unknownPlates.length ? `${report.message} ${result.unknownPlates.length} plat tidak ada di Master dan tidak dibuat.` : report.message)
       onDone?.(report)
     } catch (e) {
       setError(e.message || 'Import histori service gagal.')
