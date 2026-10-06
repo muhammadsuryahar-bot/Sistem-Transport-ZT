@@ -496,10 +496,11 @@ export default function PermintaanServicePage({ profile }) {
   }
 
   const enterSelectionMode = id => {
-    if (!canDelete || selectionMode) return
+    if (selectionMode) return
     setSelectionMode(true)
     setSelectedIds(current => current.includes(id) ? current : [...current, id])
   }
+  useEffect(() => () => window.clearTimeout(rowClickTimer.current), [])
 
   const summaryStats = [
     ['Kendaraan dipantau', summaryRows.filter(r => r.totalTransaksi > 0).length, 'Memiliki histori service'],
