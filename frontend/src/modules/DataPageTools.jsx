@@ -409,18 +409,25 @@ function ensureRowSelection(context, table) {
 
   if (!table.dataset.dptRowSelectionReady) {
     table.dataset.dptRowSelectionReady = '1'
+    let pendingClickTimer = 0
     table.addEventListener('click', event => {
       const row = event.target.closest('tbody tr')
       if (!row || row.classList.contains('dpt-inline-row-actions')) return
       if (event.target.closest('button, input, select, textarea, a')) return
       if (!table.contains(row) || row.querySelector('td[colspan]')) return
+
+      window.clearTimeout(pendingClickTimer)
       if (table.dataset.dptBulkMode === 'true') {
         row.dataset.dptBulkSelected = row.dataset.dptBulkSelected === 'true' ? 'false' : 'true'
         const toolbar = table.parentElement?.parentElement?.querySelector('.dpt-bulk-selection-toolbar')
         syncGenericBulkUI(table, toolbar)
         return
       }
-      applySelection(row)
+
+      // Delay the single-click action so a double-click cannot briefly enter
+      // selected-row mode before the bulk-selection mode takes over.
+      if (event.detail > 1) return
+      pendingClickTimer = window.setTimeout(() => applySelection(row), 180)
     })
     table.addEventListener('dblclick', event => {
       const row = event.target.closest('tbody tr')
@@ -428,11 +435,10 @@ function ensureRowSelection(context, table) {
       // Native selection pages own their double-click behavior.
       if (hasNativeBulkSelection(table, context)) return
       if (event.target.closest('button, input, select, textarea, a')) return
-      if (table.dataset.dptBulkMode === 'true') {
-        removeGenericBulkUI(table)
-        clearRowSelection(table)
-        return
-      }
+      window.clearTimeout(pendingClickTimer)
+      // Once bulk mode is active, use its explicit Batal control rather than
+      // unexpectedly leaving the mode because of another double-click.
+      if (table.dataset.dptBulkMode === 'true') return
       clearRowSelection(table)
       enterGenericBulkMode(table, row, context)
     })
@@ -466,7 +472,7 @@ function getBulkRows(table) {
 function createGenericBulkToolbar(table) {
   const toolbar = document.createElement('div')
   toolbar.className = 'dpt-bulk-selection-toolbar'
-  toolbar.innerHTML = '<div class="dpt-bulk-selection-main"><span class="dpt-selected-row-badge">MODE PILIH</span><strong class="dpt-bulk-selection-count">0 dipilih</strong></div><div class="dpt-bulk-selection-actions"><button type="button" class="dpt-inline-action dpt-bulk-select-all">Pilih semua</button><button type="button" class="dpt-inline-action danger dpt-bulk-delete">Hapus 0</button><button type="button" class="dpt-inline-close dpt-bulk-cancel" aria-label="Batal pilih">×</button></div>'
+  toolbar.innerHTML = '<div class="dpt-bulk-selection-main"><span class="dpt-selected-row-badge">MODE PILIH</span><strong class="dpt-bulk-selection-count">0 dipilih</strong></div><div class="dpt-bulk-selection-actions"><button type="button" class="dpt-inline-action dpt-bulk-select-all">Pilih semua</button><button type="button" class="dpt-inline-action danger dpt-bulk-delete">Hapus 0</button><button type="button" class="dpt-inline-action dpt-bulk-cancel" aria-label="Batal pilih">Batal</button></div>'
   const tableWrap = table.closest('.x-table-wrap, .request-table-wrap, .mep-table-wrap') || table.parentElement
   tableWrap?.parentElement?.insertBefore(toolbar, tableWrap)
   return toolbar
@@ -505,7 +511,7 @@ function removeGenericBulkUI(table) {
 function enterGenericBulkMode(table, firstRow = null, context = '') {
   if (!table || hasNativeBulkSelection(table, context)) return
   const rows = getBulkRows(table)
-  if (!rows.length || !rows.some(row => getBulkDeleteButton(row))) return
+  if (!rows.length) return
   clearRowSelection(table)
   table.dataset.dptBulkMode = 'true'
   const header = table.querySelector('thead tr')
