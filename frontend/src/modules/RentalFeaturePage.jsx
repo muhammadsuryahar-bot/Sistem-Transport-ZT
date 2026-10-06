@@ -55,6 +55,16 @@ export default function RentalFeaturePage({ profile }) {
   const [openedFiles, setOpenedFiles] = useState({})
   const [rentalSearch, setRentalSearch] = useState('')
   const [rentalTypeFilter, setRentalTypeFilter] = useState('SEMUA')
+  const [contractSearch, setContractSearch] = useState('')
+  const [contractStatusFilter, setContractStatusFilter] = useState('SEMUA')
+  const [contractVehicleFilter, setContractVehicleFilter] = useState('SEMUA')
+  const [contractOwnerFilter, setContractOwnerFilter] = useState('SEMUA')
+  const [ownerSearch, setOwnerSearch] = useState('')
+  const [ownerTypeFilter, setOwnerTypeFilter] = useState('SEMUA')
+  const [ownerStatusFilter, setOwnerStatusFilter] = useState('SEMUA')
+  const [repairSearch, setRepairSearch] = useState('')
+  const [repairStatusFilter, setRepairStatusFilter] = useState('SEMUA')
+  const [repairVehicleFilter, setRepairVehicleFilter] = useState('SEMUA')
   const [paymentSearch, setPaymentSearch] = useState('')
   const [paymentStatus, setPaymentStatus] = useState('SEMUA')
   const [editingPaymentId, setEditingPaymentId] = useState(null)
@@ -81,6 +91,10 @@ export default function RentalFeaturePage({ profile }) {
       return (!q || hay.includes(q)) && (rentalTypeFilter === 'SEMUA' || v.jenis_sewa === rentalTypeFilter)
     })
   }, [vehicles, rentalSearch, rentalTypeFilter])
+  const filteredContracts = useMemo(() => { const q=contractSearch.trim().toLowerCase(); return contracts.filter(c => { const v=vehicleMap[c.kendaraan_id], o=owners.find(x=>Number(x.id)===Number(c.pemilik_sewa_id)); const hay=[c.nomor_kontrak,v?.nomor_polisi,v?.merk,v?.tipe,o?.nama_pemilik,o?.nama_perusahaan].filter(Boolean).join(' ').toLowerCase(); return (!q||hay.includes(q))&&(contractStatusFilter==='SEMUA'||c.status===contractStatusFilter)&&(contractVehicleFilter==='SEMUA'||String(c.kendaraan_id)===String(contractVehicleFilter))&&(contractOwnerFilter==='SEMUA'||String(c.pemilik_sewa_id)===String(contractOwnerFilter)) }) },[contracts,owners,vehicleMap,contractSearch,contractStatusFilter,contractVehicleFilter,contractOwnerFilter])
+  const filteredOwners = useMemo(() => { const q=ownerSearch.trim().toLowerCase(); return owners.filter(o=>{const hay=[o.nama_pemilik,o.nama_perusahaan,o.nomor_identitas,o.nomor_hp,o.email,o.alamat].filter(Boolean).join(' ').toLowerCase(); return (!q||hay.includes(q))&&(ownerTypeFilter==='SEMUA'||o.jenis_pemilik===ownerTypeFilter)&&(ownerStatusFilter==='SEMUA'||String(Boolean(o.aktif))===ownerStatusFilter)}) },[owners,ownerSearch,ownerTypeFilter,ownerStatusFilter])
+  const filteredRepairs = useMemo(() => { const q=repairSearch.trim().toLowerCase(); return repairs.filter(r=>{const v=vehicleMap[r.kendaraan_id],hay=[r.nomor_perbaikan,r.jenis_kerusakan,r.deskripsi_kerusakan,r.penyebab,r.metode_penanganan,v?.nomor_polisi,v?.merk,v?.tipe].filter(Boolean).join(' ').toLowerCase();return (!q||hay.includes(q))&&(repairStatusFilter==='SEMUA'||r.status===repairStatusFilter)&&(repairVehicleFilter==='SEMUA'||String(r.kendaraan_id)===String(repairVehicleFilter))}) },[repairs,vehicleMap,repairSearch,repairStatusFilter,repairVehicleFilter])
+
   const historicalRows = useMemo(() => rentalHistoryExcel.map(row => ({
     no_excel: Number(row.source_no) || row.excel_row,
     excel_row: row.excel_row,
