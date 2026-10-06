@@ -211,14 +211,21 @@
   display:none!important;
 }
 
+.content-container.dpt-clean-table-view .dpt-clean-data-wrap {
+  width:100%!important;
+  max-width:100%!important;
+  overflow-x:auto!important;
+  overflow-y:visible!important;
+  overscroll-behavior-x:contain;
+}
 .content-container.dpt-clean-table-view .dpt-clean-data-table,
 .content-container.dpt-clean-table-view .mep-table:has(tbody .mep-actions),
 .content-container.dpt-clean-table-view .x-table:has(tbody .x-action-compact),
 .content-container.dpt-clean-table-view .x-table:has(tbody .x-row-actions),
 .content-container.dpt-clean-table-view .request-table:has(tbody .request-actions),
 .content-container.dpt-clean-table-view .m-table:has(tbody .m-row-actions) {
-  width:100%!important;
-  max-width:100%!important;
+  width:max-content!important;
+  max-width:none!important;
   min-width:100%!important;
   table-layout:auto!important;
 }
@@ -233,6 +240,7 @@
   white-space:normal!important;
   overflow-wrap:break-word!important;
   word-break:normal!important;
+  overflow-wrap:anywhere!important;
   vertical-align:middle!important;
 }
 
@@ -303,8 +311,15 @@
 .dpt-clean-data-table td[data-dpt-column-kind="action"] {
   display: none !important;
 }
-.dpt-clean-data-table {
+.dpt-clean-data-wrap {
   width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+  overscroll-behavior-x: contain;
+}
+.dpt-clean-data-table {
+  width: max-content !important;
   min-width: 100% !important;
   max-width: none !important;
   table-layout: auto !important;
