@@ -171,8 +171,7 @@ export default function RentalHistoryImportModalV2({ profile, onClose, onDone })
       }
       sessionStorage.setItem('transport_import_report', JSON.stringify(report))
       onDone?.(report)
-      setMessage(result.message)
-      if (result.skipped.length) setError(`Perlu verifikasi ${result.skipped.length} baris. Contoh: ${result.skipped.slice(0, 3).join(' | ')}`)
+      setMessage(result.skipped.length ? `${result.message} ${result.skipped.length} baris perlu verifikasi.` : result.message)
     } catch (e) {
       setError(e.message || 'Import pembayaran rental gagal.')
       setMessage('')
