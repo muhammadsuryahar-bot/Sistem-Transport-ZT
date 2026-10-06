@@ -616,9 +616,9 @@
   visibility: hidden;
   pointer-events: none;
 }
-.mep-table:not([data-native-row-selection="true"]) tbody tr .mep-actions > button,
-.request-table:not([data-native-row-selection="true"]) tbody tr .request-actions > button,
-.x-table:not([data-native-row-selection="true"]) tbody tr .x-action-compact > button {
+.mep-table[data-dpt-row-selection="true"] tbody tr .mep-actions > button,
+.request-table[data-dpt-row-selection="true"] tbody tr .request-actions > button,
+.x-table[data-dpt-row-selection="true"] tbody tr .x-action-compact > button {
   visibility: hidden;
   pointer-events: none;
 }
