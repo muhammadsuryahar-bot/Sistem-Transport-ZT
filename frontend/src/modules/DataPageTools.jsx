@@ -200,7 +200,9 @@ function applyColumnVisibility(context, table, descriptors, visibility, cleanMod
   }
 
   applyDirectColumnDisplay(table, descriptors, visibility, cleanMode, showMarks)
-  const cleanModeActive = dataColumns > 0 && visibleDataColumns === dataColumns && utilityColumns > 0 && hiddenUtilityColumns === utilityColumns
+  // In Data Bersih every operational table, including read-only tables without
+  // Aksi/Penanda columns, follows the same Excel-like reading contract.
+  const cleanModeActive = cleanMode && dataColumns > 0 && visibleDataColumns === dataColumns
   const header = table.querySelector('thead tr')
   if (header) {
     for (const column of descriptors) {
