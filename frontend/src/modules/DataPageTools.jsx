@@ -411,9 +411,14 @@ function ensureRowSelection(context, table) {
     table.addEventListener('click', event => {
       const row = event.target.closest('tbody tr')
       if (!row || row.classList.contains('dpt-inline-row-actions')) return
-      if (table.dataset.dptBulkMode === 'true') return
       if (event.target.closest('button, input, select, textarea, a')) return
       if (!table.contains(row) || row.querySelector('td[colspan]')) return
+      if (table.dataset.dptBulkMode === 'true') {
+        row.dataset.dptBulkSelected = row.dataset.dptBulkSelected === 'true' ? 'false' : 'true'
+        const toolbar = table.parentElement?.parentElement?.querySelector('.dpt-bulk-selection-toolbar')
+        syncGenericBulkUI(table, toolbar)
+        return
+      }
       applySelection(row)
     })
     table.addEventListener('dblclick', event => {
@@ -572,24 +577,6 @@ function enterGenericBulkMode(table, firstRow = null, context = '') {
     headCheckbox.addEventListener('change', () => {
       const all = getBulkRows(table).every(row => row.dataset.dptBulkSelected === 'true')
       getBulkRows(table).forEach(row => { row.dataset.dptBulkSelected = all ? 'false' : 'true' })
-      syncGenericBulkUI(table, toolbar)
-    })
-  }
-  if (!table.dataset.dptBulkDoubleClickReady) {
-    table.dataset.dptBulkDoubleClickReady = '1'
-    table.addEventListener('dblclick', event => {
-      const row = event.target.closest('tbody tr')
-      if (!row || row.classList.contains('dpt-inline-row-actions')) return
-      if (event.target.closest('button, input, select, textarea, a')) return
-      event.preventDefault()
-      enterGenericBulkMode(table, row, context)
-    })
-    table.addEventListener('click', event => {
-      if (!table.dataset.dptBulkMode) return
-      const row = event.target.closest('tbody tr')
-      if (!row || row.classList.contains('dpt-inline-row-actions')) return
-      if (event.target.closest('button, input, select, textarea, a')) return
-      row.dataset.dptBulkSelected = row.dataset.dptBulkSelected === 'true' ? 'false' : 'true'
       syncGenericBulkUI(table, toolbar)
     })
   }
