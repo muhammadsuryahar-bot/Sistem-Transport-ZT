@@ -607,6 +607,28 @@
 }
 
 
+/* Row action visibility: one-click selection controls when native tables expose actions.
+   Generic DataPageTools tables use the inline action row; native tables keep actions
+   visible only for the selected record so pages do not become button-heavy. */
+.mep-table[data-native-row-selection="true"] tbody tr:not(.dpt-row-selected) .mep-actions > button,
+.request-table[data-native-row-selection="true"] tbody tr:not(.dpt-row-selected) .request-actions > button,
+.x-table[data-native-row-selection="true"] tbody tr:not(.dpt-row-selected) .x-action-compact > button {
+  visibility: hidden;
+  pointer-events: none;
+}
+.mep-table:not([data-native-row-selection="true"]) tbody tr .mep-actions > button,
+.request-table:not([data-native-row-selection="true"]) tbody tr .request-actions > button,
+.x-table:not([data-native-row-selection="true"]) tbody tr .x-action-compact > button {
+  visibility: hidden;
+  pointer-events: none;
+}
+.mep-table[data-native-row-selection="true"] tbody tr.dpt-row-selected .mep-actions > button,
+.request-table[data-native-row-selection="true"] tbody tr.dpt-row-selected .request-actions > button,
+.x-table[data-native-row-selection="true"] tbody tr.dpt-row-selected .x-action-compact > button {
+  visibility: visible;
+  pointer-events: auto;
+}
+
 /* Selected row actions: action controls stay attached to the selected record. */
 .dpt-inline-row-actions > td {
   padding: 0 !important;
