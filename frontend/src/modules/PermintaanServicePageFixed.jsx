@@ -288,7 +288,7 @@ export default function PermintaanServicePage({ profile }) {
       const workshopMatch = benchmarkBengkelFilter === 'SEMUA' || row.hasSelectedWorkshopHistory || Boolean(row.reference)
       return textMatch && workshopMatch
     }).sort((a, b) => a.nama_item.localeCompare(b.nama_item, 'id'))
-  }, [items, services, benchmarks, benchmarkSearch, benchmarkBengkelFilter])
+  }, [items, services, benchmarks, vehicles, benchmarkSearch, benchmarkBengkelFilter])
   const resetBenchmarkForm = () => {
     setEditingBenchmark(null)
     setBenchmarkForm({ id: null, nama_item: '', kategori: 'SPAREPART', satuan: 'pcs', harga_patokan: '', berlaku_mulai: new Date().toISOString().slice(0, 10), keterangan: '' })
