@@ -72,7 +72,9 @@ export default function DocumentsFeaturePage({profile}){
   const targetStatus=statusFilter==='SEMUA'||statuses.includes(statusFilter)
   const typeOk=typeFilter==='SEMUA'||(typeFilter==='PAJAK'?Boolean(row.pajak):typeFilter==='STNK'?Boolean(row.stnk):typeFilter==='5_TAHUNAN'?Boolean(row.lima_tahun):false)
   return (!query.trim()||hay.includes(query.trim().toLowerCase()))&&targetYear&&targetMonth&&targetStatus&&typeOk
- }),[monitorRows,query,yearFilter,monthFilter,statusFilter,typeFilter]) const reminders=useMemo(()=>docs.map(d=>({kind:'dokumen',doc:d,vehicle:vehicleMap[d.kendaraan_id],days:daysLeft(d.tanggal_jatuh_tempo)})).filter(x=>x.days!==null&&x.days<=30).sort((a,b)=>a.days-b.days),[docs,vehicleMap])
+ }),[monitorRows,query,yearFilter,monthFilter,statusFilter,typeFilter])
+
+ const reminders=useMemo(()=>docs.map(d=>({kind:'dokumen',doc:d,vehicle:vehicleMap[d.kendaraan_id],days:daysLeft(d.tanggal_jatuh_tempo)})).filter(x=>x.days!==null&&x.days<=30).sort((a,b)=>a.days-b.days),[docs,vehicleMap])
  const taxReminders=useMemo(()=>monitorRows.map(row=>({kind:'pajak',vehicle:vehicleMap[row.kendaraan_id],days:daysLeft(row.pajak)})).filter(x=>x.days!==null&&x.days<=30).sort((a,b)=>a.days-b.days),[monitorRows,vehicleMap])
  const summary={total:docs.length,expired:docs.filter(d=>statusOf(d.tanggal_jatuh_tempo)==='EXPIRED').length,soon:docs.filter(d=>statusOf(d.tanggal_jatuh_tempo)==='SEGERA').length,taxExpired:taxReminders.filter(x=>x.days<0).length,taxSoon:taxReminders.filter(x=>x.days>=0).length}
 
