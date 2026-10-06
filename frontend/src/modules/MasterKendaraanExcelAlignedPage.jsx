@@ -231,6 +231,7 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
       return
     }
     setSelectionMode(true)
+    setActiveRowId(null)
     setSelected(current => current.includes(id) ? current : [...current, id])
   }
   const toggleSelected = id => setSelected(current => current.includes(id) ? current.filter(x => x !== id) : [...current, id])
