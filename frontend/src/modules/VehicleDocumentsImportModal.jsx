@@ -11,9 +11,8 @@ const ALIASES = {
   tipe: ['type', 'tipe'],
   tahun: ['tahun'],
   stnk: ['stnk', 'jatuh_tempo_stnk'],
-  kir: ['kir', 'jatuh_tempo_kir'],
   lima_tahun: ['5_tahun', '5_tahunan', 'lima_tahun', 'jatuh_tempo_5_tahun'],
-  nomor_dokumen: ['nomor_dokumen', 'no_dokumen', 'nomor_stnk', 'nomor_kir'],
+  nomor_dokumen: ['nomor_dokumen', 'no_dokumen', 'nomor_stnk'],
   pemilik: ['pemilik', 'nama_pemilik'],
   source_no: ['no', 'nomor', 'nomor_urut'],
   nomor_rangka: ['no_rangka', 'no_ranka', 'nomor_rangka'],
@@ -72,8 +71,10 @@ function chooseSheet(sheets) {
     const headers = h.row.map(norm)
     let score = h.score
     const name = norm(sheet.name)
-    if (name === 'stnk_dan_kir') score += 20
-    else if (name.includes('stnk_dan_kir')) score += 12
+    if (name === 'stnk_dan_5_tahun') score += 20
+    else if (name.includes('stnk_dan_5_tahun')) score += 12
+    else if (name === 'stnk_dan_kir') score += 8
+    else if (name.includes('stnk_dan_kir')) score += 6
     if (headers.includes('no_polisi')) score += 4
     if (headers.includes('stnk')) score += 4
     if (headers.includes('5_tahun')) score += 3
@@ -102,7 +103,6 @@ async function importDocuments(rows, profile, sheetName) {
     nomor_rangka: row.nomor_rangka || null,
     pemilik: row.pemilik || null,
     stnk: row.stnk || null,
-    kir: null,
     lima_tahun: row.lima_tahun || null,
     nomor_dokumen: row.nomor_dokumen || null,
   }))
