@@ -266,6 +266,8 @@ function clearRowSelection(table) {
 function ensureRowSelection(context, table) {
   if (!table || !isMainOperationalTable(table)) return
   if (table.closest('.dpt-preview')) return
+  // Native-selection pages own their row click/double-click events.
+  if (hasNativeBulkSelection(table, context)) return
 
   const buildInlineActions = (row, sourceMark, detailTarget, editTarget, deleteTarget) => {
     const old = row.nextElementSibling
@@ -442,7 +444,7 @@ function ensureRowSelection(context, table) {
 }
 
 function hasNativeBulkSelection(table, context = '') {
-  if (['kendaraan', 'pengajuan', 'dokumen'].includes(context)) return true
+  if (table?.dataset?.nativeRowSelection === 'true') return true
   return Boolean(table?.querySelector('thead .mep-check, thead .request-select-cell, thead .x-select-cell'))
 }
 
