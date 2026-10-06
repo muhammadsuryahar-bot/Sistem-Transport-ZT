@@ -60,7 +60,7 @@ export default function PermintaanServicePage({ profile }) {
   const [serviceEditing, setServiceEditing] = useState(null)
   const [serviceDetail, setServiceDetail] = useState(null)
   const [serviceEditForm, setServiceEditForm] = useState({ tanggal_service: '', kilometer: '', bengkel: '', jenis_service: 'SERVICE', keluhan: '', estimasi_biaya: '', biaya_aktual: '', nilai_dpp: '', ppn: '', total: '', catatan: '' })
-  const [viewMode, setViewMode] = useState('ringkasan')
+  const [viewMode, setViewMode] = useState(profile?.role === 'OPERASIONAL' ? 'pengajuan' : 'ringkasan')
   const [summaryDataMode, setSummaryDataMode] = useState('HAS_SERVICE')
   const [summaryCostFilter, setSummaryCostFilter] = useState('SEMUA')
   const [error, setError] = useState('')
@@ -71,18 +71,20 @@ export default function PermintaanServicePage({ profile }) {
   const canDelete = profile?.role === 'ADMIN'
   const canEditRequest = ['ADMIN', 'OPERASIONAL', 'TRANSPORT'].includes(profile?.role)
   const canManageService = ['ADMIN', 'TRANSPORT'].includes(profile?.role)
+  const canReadServiceData = ['ADMIN', 'TRANSPORT', 'ATASAN_TRANSPORT', 'DIREKTUR', 'AKUNTANSI'].includes(profile?.role)
+  const operationalOnly = profile?.role === 'OPERASIONAL'
 
   const loadData = async () => {
     setLoading(true); setError('')
     const rs = await Promise.all([
       supabase.from('kendaraan').select('id,kode_kendaraan,nomor_polisi,merk,tipe,jenis_kendaraan,tahun,kepemilikan,jenis_sewa,pemilik,lokasi,unit_kerja,harga_perolehan,kilometer_terakhir,status').order('nomor_polisi'),
       supabase.from('permintaan_service').select('*').order('created_at', { ascending: false }),
-      supabase.from('service').select('id,nomor_service,permintaan_service_id,kendaraan_id,tanggal_service,kilometer,bengkel,jenis_service,keluhan,estimasi_biaya,biaya_aktual,status,total').order('tanggal_service', { ascending: false }),
-      supabase.from('service_item').select('id,service_id,nama_item,kategori,jumlah,satuan,harga_satuan,subtotal,keterangan').order('created_at', { ascending: false }),
-      supabase.from('riwayat_kilometer').select('id,kendaraan_id,tanggal,kilometer,sumber').order('tanggal', { ascending: true }),
-      supabase.from('riwayat_ban').select('id,kendaraan_id,tanggal_penggantian,kilometer,biaya,merek_ban,ukuran_ban').order('tanggal_penggantian', { ascending: true }),
-      supabase.from('riwayat_aki').select('id,kendaraan_id,tanggal_penggantian,kilometer,biaya,merek_aki,tipe_aki').order('tanggal_penggantian', { ascending: true }),
-      supabase.from('patokan_harga_service').select('*').eq('aktif', true).order('nama_item'),
+      canReadServiceData ? supabase.from('service').select('id,nomor_service,permintaan_service_id,kendaraan_id,tanggal_service,kilometer,bengkel,jenis_service,keluhan,estimasi_biaya,biaya_aktual,status,total').order('tanggal_service', { ascending: false }) : Promise.resolve({ data: [], error: null }),
+      canReadServiceData ? supabase.from('service_item').select('id,service_id,nama_item,kategori,jumlah,satuan,harga_satuan,subtotal,keterangan').order('created_at', { ascending: false }) : Promise.resolve({ data: [], error: null }),
+      canReadServiceData ? supabase.from('riwayat_kilometer').select('id,kendaraan_id,tanggal,kilometer,sumber').order('tanggal', { ascending: true }) : Promise.resolve({ data: [], error: null }),
+      canReadServiceData ? supabase.from('riwayat_ban').select('id,kendaraan_id,tanggal_penggantian,kilometer,biaya,merek_ban,ukuran_ban').order('tanggal_penggantian', { ascending: true }) : Promise.resolve({ data: [], error: null }),
+      canReadServiceData ? supabase.from('riwayat_aki').select('id,kendaraan_id,tanggal_penggantian,kilometer,biaya,merek_aki,tipe_aki').order('tanggal_penggantian', { ascending: true }) : Promise.resolve({ data: [], error: null }),
+      canReadServiceData ? supabase.from('patokan_harga_service').select('*').eq('aktif', true).order('nama_item') : Promise.resolve({ data: [], error: null }),
     ])
     const names = ['Kendaraan', 'Pengajuan', 'Service', 'Item Service', 'Riwayat KM', 'Riwayat Ban', 'Riwayat Aki', 'Patokan Harga']
     rs.forEach((r, i) => { if (r.error) setError(prev => prev || `${names[i]}: ${r.error.message}`) })
@@ -90,6 +92,10 @@ export default function PermintaanServicePage({ profile }) {
     setKilometers(rs[4].data || []); setBans(rs[5].data || []); setAkis(rs[6].data || []); setBenchmarks(rs[7].data || [])
     setSelectedIds([]); setSelectionMode(false); setLoading(false)
   }
+
+  useEffect(() => {
+    if (operationalOnly && viewMode !== 'pengajuan') setViewMode('pengajuan')
+  }, [operationalOnly, viewMode])
 
   useEffect(() => {
     loadData()
@@ -478,22 +484,22 @@ export default function PermintaanServicePage({ profile }) {
     <div className="request-header"><div><span className="eyebrow">TRANSPORT • DATA SERVICE</span><h2>Data Service</h2><p>Kelola data service langsung dari sistem seperti katalog kendaraan: cari BM/nomor polisi/merk, lihat total biaya, jasa, sparepart, KM/jarak, service terakhir, patokan harga, dan buat surat pengantar.</p></div>{canCreate && <button className="request-primary-button" onClick={openCreate}>+ Buat Pengajuan Service</button>}</div>
     {success && <div className="request-alert success">{success}</div>}{error && !showForm && <div className="request-alert error">{error}</div>}
 
-    <section className="request-summary-grid service-kpi-grid">
+    {!operationalOnly && <section className="request-summary-grid service-kpi-grid">
       <button type="button" className="request-summary-card" onClick={() => { setViewMode('ringkasan'); setSummaryDataMode('HAS_SERVICE'); setSummaryCostFilter('SEMUA'); requestAnimationFrame(() => document.querySelector('.service-summary-table-wrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' })) }}><span>Kendaraan dipantau</span><strong>{summaryStats[0][1]}</strong><small>{summaryStats[0][2]}</small><i aria-hidden="true">›</i></button>
       <button type="button" className="request-summary-card" onClick={() => { setViewMode('ringkasan'); setSummaryDataMode('HAS_SERVICE'); setSummaryCostFilter('SEMUA'); requestAnimationFrame(() => document.querySelector('.service-summary-table-wrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' })) }}><span>Total transaksi service</span><strong>{summaryStats[1][1]}</strong><small>{summaryStats[1][2]}</small><i aria-hidden="true">›</i></button>
       <button type="button" className="request-summary-card" onClick={() => { setViewMode('ringkasan'); setSummaryDataMode('HAS_SERVICE'); setSummaryCostFilter('SEMUA'); requestAnimationFrame(() => document.querySelector('.service-summary-table-wrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' })) }}><span>Total pengeluaran</span><strong>{summaryStats[2][1]}</strong><small>{summaryStats[2][2]}</small><i aria-hidden="true">›</i></button>
       <button type="button" className="request-summary-card warning" onClick={() => { setViewMode('ringkasan'); setSummaryDataMode('HAS_SERVICE'); setSummaryCostFilter('MELEWATI_HARGA'); requestAnimationFrame(() => document.querySelector('.service-summary-table-wrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' })) }}><span>Melewati harga perolehan</span><strong>{summaryStats[3][1]}</strong><small>{summaryStats[3][2]}</small><i aria-hidden="true">›</i></button>
-    </section>
+    </section>}
 
     <div className="service-view-toolbar">
       <div className="request-view-toggle x-tabs" role="tablist" aria-label="Bagian Data Service">
-        <button type="button" role="tab" aria-selected={viewMode === 'ringkasan'} className={viewMode === 'ringkasan' ? 'active' : ''} onClick={() => setViewMode('ringkasan')}>Ringkasan Kendaraan</button>
+        {!operationalOnly && <button type="button" role="tab" aria-selected={viewMode === 'ringkasan'} className={viewMode === 'ringkasan' ? 'active' : ''} onClick={() => setViewMode('ringkasan')}>Ringkasan Kendaraan</button>}
         <button type="button" role="tab" aria-selected={viewMode === 'pengajuan'} className={viewMode === 'pengajuan' ? 'active' : ''} onClick={() => setViewMode('pengajuan')}>Pengajuan Service</button>
-        <button type="button" role="tab" aria-selected={viewMode === 'harga'} className={viewMode === 'harga' ? 'active' : ''} onClick={() => setViewMode('harga')}>Patokan Harga / Shopping List</button>
+        {!operationalOnly && <button type="button" role="tab" aria-selected={viewMode === 'harga'} className={viewMode === 'harga' ? 'active' : ''} onClick={() => setViewMode('harga')}>Patokan Harga / Shopping List</button>}
       </div>
     </div>
 
-    {viewMode === 'ringkasan' && <section className="request-panel">
+    {!operationalOnly && viewMode === 'ringkasan' && <section className="request-panel">
       <div className="request-toolbar service-summary-filter-toolbar">
         <input value={summarySearch} onChange={e => setSummarySearch(e.target.value)} placeholder="Cari BM, no. polisi, merk, type, pemilik, lokasi..." />
         <select value={summaryDataMode} onChange={e => setSummaryDataMode(e.target.value)}><option value="HAS_SERVICE">Ada histori service</option><option value="SEMUA">Semua kendaraan</option><option value="BELUM_SERVICE">Belum ada service</option></select>
@@ -512,7 +518,7 @@ export default function PermintaanServicePage({ profile }) {
                 : <button className="request-detail-button" disabled title="Belum ada histori service untuk diedit">Edit</button>)}{canCreate && <button className="request-detail-button" onClick={() => { setViewMode('pengajuan'); openCreate(row.vehicle.id) }}>Pengajuan</button>}</td></tr>) : <tr><td colSpan="14"><div className="request-empty">Belum ada kendaraan yang cocok dengan filter. Gunakan “Semua kendaraan” untuk melihat seluruh armada.</div></td></tr>}</tbody></table></div>
     </section>}
 
-    {viewMode === 'harga' && <section className="request-panel">
+    {!operationalOnly && viewMode === 'harga' && <section className="request-panel">
       <div className="request-toolbar service-shopping-filter-toolbar">
         <input value={benchmarkSearch} onChange={e => setBenchmarkSearch(e.target.value)} placeholder="Cari item, kategori, satuan, bengkel..." />
         <select value={benchmarkBengkelFilter} onChange={e => setBenchmarkBengkelFilter(e.target.value)}>
