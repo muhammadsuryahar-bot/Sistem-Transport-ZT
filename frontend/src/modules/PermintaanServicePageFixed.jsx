@@ -132,15 +132,41 @@ export default function PermintaanServicePage({ profile }) {
     const categorizedItems = vehicleItems.map(i => ({ ...i, computedCategory: sourceWorkCategory(i) }))
     const jasaItems = categorizedItems.filter(i => i.computedCategory === 'JASA')
     const spareItems = categorizedItems.filter(i => ['SPAREPART', 'BAN', 'AKI'].includes(i.computedCategory))
+    const vehicleBans = bans.filter(r => Number(r.kendaraan_id) === Number(vehicle.id))
+    const vehicleAkis = akis.filter(r => Number(r.kendaraan_id) === Number(vehicle.id))
     const noItemService = vehicleServices.filter(s => !vehicleItems.some(i => i.service_id === s.id) && ['SERVICE', 'PEMERIKSAAN'].includes(String(s.jenis_service || '').toUpperCase()))
+    const replacementServices = vehicleServices.filter(s => ['GANTI_BAN', 'GANTI_AKI'].includes(String(s.jenis_service || '').toUpperCase()))
+    const matchedBanIds = new Set()
+    const matchedAkiIds = new Set()
+    const sameReplacementEvent = (service, row) => {
+      const serviceDate = String(service.tanggal_service || '')
+      const rowDate = String(row.tanggal_penggantian || '')
+      if (!serviceDate || serviceDate !== rowDate) return false
+      const serviceKm = Number(service.kilometer)
+      const rowKm = Number(row.kilometer)
+      return Number.isFinite(serviceKm) && Number.isFinite(rowKm) && serviceKm === rowKm
+    }
+    replacementServices.forEach(service => {
+      const type = String(service.jenis_service || '').toUpperCase()
+      const rows = type === 'GANTI_BAN' ? vehicleBans : vehicleAkis
+      const matched = rows.find(row => (type === 'GANTI_BAN' ? !matchedBanIds.has(row.id) : !matchedAkiIds.has(row.id)) && sameReplacementEvent(service, row))
+      if (matched) {
+        if (type === 'GANTI_BAN') matchedBanIds.add(matched.id)
+        else matchedAkiIds.add(matched.id)
+      }
+    })
+    const standaloneBans = vehicleBans.filter(row => !matchedBanIds.has(row.id))
+    const standaloneAkis = vehicleAkis.filter(row => !matchedAkiIds.has(row.id))
     const totalJasa = jasaItems.reduce((sum, i) => sum + Number(i.subtotal || 0), 0) + noItemService.reduce((sum, s) => sum + Number(s.total ?? s.biaya_aktual ?? s.estimasi_biaya ?? 0), 0)
-    const totalSpare = spareItems.reduce((sum, i) => sum + Number(i.subtotal || 0), 0) + bans.filter(r => Number(r.kendaraan_id) === Number(vehicle.id)).reduce((sum, r) => sum + Number(r.biaya || 0), 0) + akis.filter(r => Number(r.kendaraan_id) === Number(vehicle.id)).reduce((sum, r) => sum + Number(r.biaya || 0), 0)
+    const totalSpare = spareItems.reduce((sum, i) => sum + Number(i.subtotal || 0), 0) + standaloneBans.reduce((sum, r) => sum + Number(r.biaya || 0), 0) + standaloneAkis.reduce((sum, r) => sum + Number(r.biaya || 0), 0)
     const totalService = vehicleServices.reduce((sum, s) => sum + Number(s.total ?? s.biaya_aktual ?? s.estimasi_biaya ?? 0), 0)
-    const totalRepair = bans.filter(r => Number(r.kendaraan_id) === Number(vehicle.id)).reduce((sum, r) => sum + Number(r.biaya || 0), 0) + akis.filter(r => Number(r.kendaraan_id) === Number(vehicle.id)).reduce((sum, r) => sum + Number(r.biaya || 0), 0)
+    const replacementServiceEvents = replacementServices.filter(s => !spareItems.some(i => i.service_id === s.id && ['GANTI_BAN', 'GANTI_AKI', 'SPAREPART'].includes(String(i.kategori || '').toUpperCase())))
+    const totalRepair = standaloneBans.reduce((sum, r) => sum + Number(r.biaya || 0), 0) + standaloneAkis.reduce((sum, r) => sum + Number(r.biaya || 0), 0)
     const totalPengeluaran = totalService + totalRepair
     const jasaServiceIds = new Set(jasaItems.map(i => i.service_id))
     noItemService.forEach(s => jasaServiceIds.add(s.id))
     const spareServiceIds = new Set(spareItems.map(i => i.service_id))
+    replacementServiceEvents.forEach(s => spareServiceIds.add(s.id))
     const usagePoints = [
       ...kilometers.filter(k => Number(k.kendaraan_id) === Number(vehicle.id)).map(k => Number(k.kilometer)),
       ...vehicleServices.map(s => Number(s.kilometer)).filter(Number.isFinite),
@@ -156,7 +182,7 @@ export default function PermintaanServicePage({ profile }) {
     const lastJasa = [...vehicleServices.filter(s => jasaServiceIds.has(s.id))].sort((a, b) => String(b.tanggal_service || '').localeCompare(String(a.tanggal_service || '')))[0]
     const lastSpareDate = [...vehicleServices.filter(s => spareServiceIds.has(s.id)), ...bans.filter(r => Number(r.kendaraan_id) === Number(vehicle.id)).map(r => ({ tanggal_service: r.tanggal_penggantian })), ...akis.filter(r => Number(r.kendaraan_id) === Number(vehicle.id)).map(r => ({ tanggal_service: r.tanggal_penggantian }))].sort((a, b) => String(b.tanggal_service || '').localeCompare(String(a.tanggal_service || '')))[0]?.tanggal_service
     return {
-      vehicle, totalTransaksi: vehicleServices.length, jasaKali: jasaServiceIds.size, spareKali: new Set([...spareServiceIds, ...vehicleServices.filter(s => ['GANTI_BAN', 'GANTI_AKI'].includes(String(s.jenis_service || '').toUpperCase())).map(s => s.id)]).size + bans.filter(r => Number(r.kendaraan_id) === Number(vehicle.id)).length + akis.filter(r => Number(r.kendaraan_id) === Number(vehicle.id)).length,
+      vehicle, totalTransaksi: vehicleServices.length, jasaKali: jasaServiceIds.size, spareKali: spareServiceIds.size + standaloneBans.length + standaloneAkis.length,
       totalJasa, totalSpare, totalService, totalRepair, totalPengeluaran, vehiclePrice, ratio, jarak, kmAwal, kmAkhir, serviceHistory,
       lastJasa: lastJasa?.tanggal_service || null, lastSpare: lastSpareDate,
       workProfile: jasaServiceIds.size && spareServiceIds.size ? 'KEDUANYA' : jasaServiceIds.size ? 'JASA' : spareServiceIds.size ? 'SPAREPART' : 'BELUM_ADA_RINCIAN',
