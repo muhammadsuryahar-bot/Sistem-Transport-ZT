@@ -222,13 +222,14 @@ export default function ServiceFeaturePage({ profile }) {
         ? await supabase.from('service').update(payload).eq('id', editingServiceId).select('*').single()
         : await supabase.from('service').insert({ ...payload, nomor_service: `SRV-${Date.now()}` }).select('*').single()
       if (result.error) throw result.error
-      if (form.permintaan_service_id) {
-        const requestUpdate = await supabase.from('permintaan_service').update({ status: needsApproval ? 'MENUNGGU_APPROVAL' : 'DALAM_PROSES', diproses_oleh: profile.id, diproses_at: new Date().toISOString() }).eq('id', form.permintaan_service_id)
-        if (requestUpdate.error) throw new Error(`Service tersimpan tetapi status pengajuan gagal: ${requestUpdate.error.message}`)
-      }
       setForm({ ...emptyService, tanggal_service: new Date().toISOString().slice(0, 10) }); setEditingServiceId(null)
       setServices(current => editingServiceId ? current.map(row => row.id === result.data.id ? result.data : row) : [result.data, ...current])
-      setRequests(current => form.permintaan_service_id ? current.map(row => row.id === Number(form.permintaan_service_id) ? { ...row, status: needsApproval ? 'MENUNGGU_APPROVAL' : 'DALAM_PROSES', diproses_oleh: profile.id, diproses_at: new Date().toISOString() } : row) : current)
+      if (form.permintaan_service_id) {
+        setRequests(current => current.map(row => row.id === Number(form.permintaan_service_id)
+          ? { ...row, status: needsApproval ? 'MENUNGGU_APPROVAL' : 'DALAM_PROSES', diproses_oleh: profile.id, diproses_at: new Date().toISOString() }
+          : row
+        ))
+      }
       emitServiceStateUpdate({ kind: 'service', service: result.data })
       setSuccess(editingServiceId ? `Service ${result.data.nomor_service || result.data.id} diperbarui.` : `Service ${result.data.nomor_service} berhasil dibuat.${form.permintaan_service_id ? '' : ' Service dibuat langsung tanpa pengajuan.'}`)
     } catch (e2) { setError(e2.message) } finally { setSaving(false) }
