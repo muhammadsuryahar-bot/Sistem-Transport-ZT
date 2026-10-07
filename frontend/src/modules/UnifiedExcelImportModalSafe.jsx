@@ -325,7 +325,6 @@ async function importSewa(sheet, profile) {
     message: `${imported} kontrak sewa ditambahkan, ${duplicateInFile + duplicateExisting} data duplikat di-skip, ${invalid.length + unknownCount} baris bermasalah. Sistem tidak mengubah rekap pembayaran menjadi kontrak.`,
   }
 }
-}
 
 const IMPORTERS = { pengajuan: importPengajuan, sewa: importSewa }
 function displayCell(value, header) { const raw = clean(value); if (!raw) return '-'; const key = norm(header); if (/^(tanggal|tgl|tanggal_pengajuan|tanggal_mulai|tanggal_selesai|tanggal_jatuh_tempo_bulanan)$/.test(key)) { const d = excelDate(raw); if (d) return formatDateSafe(d, { day: '2-digit', month: '2-digit', year: 'numeric' }) }; return raw }
