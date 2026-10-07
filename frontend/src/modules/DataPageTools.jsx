@@ -169,8 +169,6 @@ function applyColumnVisibility(context, table, descriptors, visibility, cleanMod
   const showMarks = readRowMarkVisibility(context)
   let dataColumns = 0
   let visibleDataColumns = 0
-  let utilityColumns = 0
-  let hiddenUtilityColumns = 0
 
   for (const column of descriptors) {
     const hiddenBySetting = !isColumnVisible(column, visibility, showMarks, cleanMode)
@@ -179,9 +177,6 @@ function applyColumnVisibility(context, table, descriptors, visibility, cleanMod
     if (column.kind === 'data') {
       dataColumns += 1
       if (!hidden) visibleDataColumns += 1
-    } else {
-      utilityColumns += 1
-      if (hidden) hiddenUtilityColumns += 1
     }
     for (const row of table.rows) {
       // Utility rows injected by DataPageTools (selected-row action panel)
@@ -270,7 +265,7 @@ function ensureRowSelection(context, table) {
   if (!table || !isMainOperationalTable(table)) return
   if (table.closest('.dpt-preview')) return
   // Native-selection pages own their row click/double-click events.
-  if (hasNativeBulkSelection(table, context)) return
+  if (hasNativeBulkSelection(table)) return
   table.dataset.dptRowSelection = 'true'
 
   const buildInlineActions = (row, sourceMark, detailTarget, editTarget, deleteTarget) => {
@@ -436,7 +431,7 @@ function ensureRowSelection(context, table) {
       const row = event.target.closest('tbody tr')
       if (!row || row.classList.contains('dpt-inline-row-actions')) return
       // Native selection pages own their double-click behavior.
-      if (hasNativeBulkSelection(table, context)) return
+      if (hasNativeBulkSelection(table)) return
       if (event.target.closest('button, input, select, textarea, a')) return
       window.clearTimeout(pendingClickTimer)
       // Once bulk mode is active, use its explicit Batal control rather than
@@ -512,7 +507,7 @@ function removeGenericBulkUI(table) {
 }
 
 function enterGenericBulkMode(table, firstRow = null, context = '') {
-  if (!table || hasNativeBulkSelection(table, context)) return
+  if (!table || hasNativeBulkSelection(table)) return
   const rows = getBulkRows(table)
   if (!rows.length) return
   clearRowSelection(table)
