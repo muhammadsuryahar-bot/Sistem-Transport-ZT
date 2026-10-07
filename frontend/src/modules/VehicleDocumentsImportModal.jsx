@@ -53,8 +53,7 @@ async function parseXlsx(file) {
   }
   if (!sheets.length) throw new Error('Tidak ada sheet yang bisa dibaca dari file Excel.'); return sheets
 }
-function findHeader(sheet) {
-  const required = ['source_no', 'merk', 'tipe', 'nomor_polisi', 'tahun', 'nomor_rangka', 'stnk', 'lima_tahun', 'pemilik']
+function findHeader(sheet, required = ['source_no', 'merk', 'tipe', 'nomor_polisi', 'tahun']) {
   let best = { index: -1, row: [], score: -1 }
   sheet.rows.slice(0, 50).forEach((item, idx) => {
     const headers = item.values.map(norm)
@@ -66,20 +65,94 @@ function findHeader(sheet) {
 function valueOf(row, headers, key) { const aliases = ALIASES[key] || [key]; const i = headers.findIndex((h) => aliases.includes(norm(h))); return i >= 0 ? clean(row.values[i]) : '' }
 function excelDate(value) { const v = clean(value); if (!v) return null; if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v; if (/^\d{1,2}[/-]\d{1,2}[/-]\d{4}$/.test(v)) { const [d, m, y] = v.split(/[/-]/); return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}` }; const serial = Number(v); if (Number.isFinite(serial) && serial > 20000 && serial < 80000) return new Date(Date.UTC(1899, 11, 30) + serial * 86400000).toISOString().slice(0, 10); const d = new Date(v); return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10) }
 function formatDate(v) { return formatDateSafe(v, { day: '2-digit', month: '2-digit', year: 'numeric' }) }
-function chooseSheet(sheets) {
+function chooseDocumentSheet(sheets) {
   return sheets.map((sheet) => {
-    const h = findHeader(sheet)
+    const h = findHeader(sheet, ['source_no', 'merk', 'tipe', 'nomor_polisi', 'tahun', 'stnk', 'lima_tahun'])
     const headers = h.row.map(norm)
     let score = h.score
     const name = norm(sheet.name)
-    if (name === 'stnk_dan_5_tahun') score += 20
-    else if (name.includes('stnk_dan_5_tahun')) score += 12
-    if (headers.includes('no_polisi')) score += 4
-    if (headers.includes('stnk')) score += 4
-    if (headers.includes('5_tahun')) score += 3
+    if (name === 'stnk' || name === 'stnk_dan_kir') score += 20
+    if (name.includes('stnk')) score += 8
+    if (headers.includes('stnk')) score += 5
+    if (headers.includes('5_tahun')) score += 5
+    return { sheet, header: h, score }
+  }).sort((a, b) => b.score - a.score)[0]
+}
+
+function chooseTaxSheet(sheets) {
+  return sheets.map((sheet) => {
+    const h = findHeader(sheet, ['source_no', 'nomor_polisi', 'merk', 'tipe', 'tahun', 'pajak'])
+    const headers = h.row.map(norm)
+    let score = h.score
+    const name = norm(sheet.name)
+    if (name === 'data_kendaraan' || name === 'list_kendaraan') score += 20
+    if (name.includes('kendaraan')) score += 8
+    if (headers.includes('masa_berlaku_pajak') || headers.includes('masa_pajak')) score += 8
     if (headers.includes('pajak')) score += 4
     return { sheet, header: h, score }
   }).sort((a, b) => b.score - a.score)[0]
+}
+
+function sourceRows(source, kind) {
+  if (!source || source.header.index < 0) return []
+  return source.sheet.rows
+    .slice(source.header.index + 1)
+    .map((r) => ({
+      excelRow: r.excelRow,
+      source_no: valueOf(r, source.header.row, 'source_no'),
+      nomor_polisi: upper(valueOf(r, source.header.row, 'nomor_polisi')),
+      merk: valueOf(r, source.header.row, 'merk'),
+      tipe: valueOf(r, source.header.row, 'tipe'),
+      tahun: valueOf(r, source.header.row, 'tahun'),
+      nomor_rangka: valueOf(r, source.header.row, 'nomor_rangka'),
+      pemilik: valueOf(r, source.header.row, 'pemilik'),
+      stnk: kind === 'doc' ? excelDate(valueOf(r, source.header.row, 'stnk')) : null,
+      pajak: kind === 'tax' ? excelDate(valueOf(r, source.header.row, 'pajak')) : null,
+      lima_tahun: kind === 'doc' ? excelDate(valueOf(r, source.header.row, 'lima_tahun')) : null,
+      nomor_dokumen: kind === 'doc' ? valueOf(r, source.header.row, 'nomor_dokumen') : '',
+    }))
+    .filter((r) => r.nomor_polisi)
+}
+
+function mergeSourceRows(documentSource, taxSource) {
+  const merged = new Map()
+  for (const row of sourceRows(taxSource, 'tax')) {
+    const current = merged.get(row.nomor_polisi) || { ...row }
+    merged.set(row.nomor_polisi, {
+      ...current,
+      ...row,
+      nomor_polisi: row.nomor_polisi || current.nomor_polisi,
+      merk: row.merk || current.merk,
+      tipe: row.tipe || current.tipe,
+      tahun: row.tahun || current.tahun,
+      nomor_rangka: row.nomor_rangka || current.nomor_rangka,
+      pemilik: row.pemilik || current.pemilik,
+      source_no: current.source_no || row.source_no || null,
+      stnk: current.stnk || null,
+      lima_tahun: current.lima_tahun || null,
+      pajak: row.pajak || current.pajak || null,
+      nomor_dokumen: current.nomor_dokumen || '',
+    })
+  }
+  for (const row of sourceRows(documentSource, 'doc')) {
+    const current = merged.get(row.nomor_polisi) || {}
+    merged.set(row.nomor_polisi, {
+      ...current,
+      ...row,
+      nomor_polisi: row.nomor_polisi || current.nomor_polisi,
+      merk: row.merk || current.merk,
+      tipe: row.tipe || current.tipe,
+      tahun: row.tahun || current.tahun,
+      nomor_rangka: row.nomor_rangka || current.nomor_rangka,
+      pemilik: row.pemilik || current.pemilik,
+      source_no: row.source_no || current.source_no || null,
+      stnk: row.stnk || current.stnk || null,
+      lima_tahun: row.lima_tahun || current.lima_tahun || null,
+      pajak: current.pajak || null,
+      nomor_dokumen: row.nomor_dokumen || current.nomor_dokumen || '',
+    })
+  }
+  return Array.from(merged.values()).map((row, index) => ({ ...row, source_no: row.source_no || String(index + 1) }))
 }
 
 async function importDocuments(rows, profile, sheetName) {
@@ -133,29 +206,25 @@ export default function VehicleDocumentsImportModal({ profile, onDone, onClose }
     if (nextFile.size > MAX_FILE_SIZE) return setError('Ukuran file maksimal 25 MB.')
     setLoading(true)
     try {
-      const sheets = await parseXlsx(nextFile); const chosen = chooseSheet(sheets); if (!chosen || chosen.score < 10) throw new Error('Sheet STNK tidak ditemukan secara meyakinkan.')
-      const data = chosen.sheet.rows
-        .slice(chosen.header.index + 1)
-        .map((r) => ({
-          excelRow: r.excelRow,
-          source_no: null,
-          nomor_polisi: upper(valueOf(r, chosen.header.row, 'nomor_polisi')),
-          merk: valueOf(r, chosen.header.row, 'merk'),
-          tipe: valueOf(r, chosen.header.row, 'tipe'),
-          tahun: valueOf(r, chosen.header.row, 'tahun'),
-          nomor_rangka: valueOf(r, chosen.header.row, 'nomor_rangka'),
-          pemilik: valueOf(r, chosen.header.row, 'pemilik'),
-          stnk: excelDate(valueOf(r, chosen.header.row, 'stnk')),
-          pajak: excelDate(valueOf(r, chosen.header.row, 'pajak')),
-          lima_tahun: excelDate(valueOf(r, chosen.header.row, 'lima_tahun')),
-          nomor_dokumen: valueOf(r, chosen.header.row, 'nomor_dokumen'),
-        }))
-        .filter((r) => r.nomor_polisi && (r.stnk || r.lima_tahun || r.pajak)).map((r, index) => ({ ...r, source_no: String(index + 1) }))
-      const valid = data.filter((r) => r.nomor_polisi && (r.stnk || r.lima_tahun || r.pajak)); const missing = data.length - valid.length; const docCount = valid.reduce((n, r) => n + [r.stnk, r.pajak, r.lima_tahun].filter(Boolean).length, 0)
-      setWorkbook({ sheet: chosen.sheet, header: chosen.header, data, valid, missing, docCount }); setMessage(`Sheet “${chosen.sheet.name}” terdeteksi: ${data.length} baris sumber • ${valid.length} kendaraan memiliki dokumen • ${docCount} dokumen terdeteksi.`)
+      const sheets = await parseXlsx(nextFile)
+      const documentSource = chooseDocumentSheet(sheets)
+      const taxSource = chooseTaxSheet(sheets)
+      if ((!documentSource || documentSource.score < 10) && (!taxSource || taxSource.score < 9)) throw new Error('Sheet STNK dan/atau sheet pajak kendaraan tidak ditemukan secara meyakinkan.')
+      const data = mergeSourceRows(
+        documentSource && documentSource.score >= 10 ? documentSource : null,
+        taxSource && taxSource.score >= 9 ? taxSource : null,
+      )
+      const valid = data.filter((r) => r.nomor_polisi && (r.stnk || r.lima_tahun || r.pajak))
+      const missing = data.length - valid.length
+      const docCount = valid.reduce((n, r) => n + [r.stnk, r.pajak, r.lima_tahun].filter(Boolean).length, 0)
+      const docSheetName = documentSource?.score >= 10 ? documentSource.sheet.name : ''
+      const taxSheetName = taxSource?.score >= 9 ? taxSource.sheet.name : ''
+      setWorkbook({ documentSource, taxSource, data, valid, missing, docCount, docSheetName, taxSheetName })
+      setMessage(`Sumber terdeteksi: ${[docSheetName, taxSheetName].filter(Boolean).join(' + ')} • ${data.length} kendaraan teridentifikasi • ${docCount} tanggal dokumen/pajak ditemukan.`)
     } catch (e) { setError(e.message || 'File Excel tidak dapat dibaca.') } finally { setLoading(false) }
   }
   const start = async () => { if (!workbook || !canImport || saving) return; setSaving(true); setError(''); setMessage('Import dokumen berjalan...'); try { const activeRows = filterDeletedExcelRows('dokumen', workbook.valid)
-      const result = await importDocuments(activeRows, profile, workbook.sheet.name); const unknownText = result.unknown.length ? ` • ${result.unknown.length} plat tidak ada di master dan dilewati` : ''; setMessage(`Import selesai: ${result.inserted} dokumen baru • ${result.skipped} sudah ada • ${result.taxUpdated} masa pajak master disinkronkan${unknownText}.`); const report = { context: 'dokumen', ...result, validRows: workbook.valid.length, addedCount: Number(result.inserted || 0), updatedCount: 0, skippedCount: Number(result.skipped || 0), errorCount: Number(result.unknown?.length || 0), imported: result.inserted, skipped: result.skipped, unknownPlates: result.unknown, documentCount: workbook.docCount, fileName: file?.name || '', completedAt: new Date().toISOString() }; sessionStorage.setItem('transport_import_report', JSON.stringify(report)); onDone?.(report) } catch (e) { setError(e.message || 'Import dokumen gagal.'); setMessage('') } finally { setSaving(false) } }
-  return <div className="dpt-overlay" role="dialog" aria-modal="true" aria-label="Import Dokumen Kendaraan"><section className="dpt-modal vehicle-docs-import-modal"><header className="dpt-modal-head"><div><span className="eyebrow">IMPORT EXCEL DOKUMEN</span><h3>STNK, Pajak & 5 Tahunan</h3><p>Mapping mengikuti data STNK, pajak, dan 5 tahunan yang digunakan halaman Dokumen.</p></div><button type="button" className="dpt-icon" onClick={onClose}>×</button></header>{error&&<div className="dpt-alert error">{error}</div>}{message&&<div className="dpt-alert success">{message}</div>}<div className="dpt-upload"><input ref={inputRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(e)=>scan(e.target.files?.[0])}/><button type="button" className="dpt-upload-button" onClick={()=>inputRef.current?.click()} disabled={loading||saving}>{loading?'Membaca Excel…':file?'Ganti File':'Pilih File Excel'}</button><div className="dpt-file-meta"><strong title={file?.name}>{file?.name||'Belum ada file'}</strong><span>{file?`✓ .xlsx • ${(file.size/1024/1024).toFixed(2)} MB`:'Maksimal 25 MB'}</span></div></div>{workbook&&<><div className="docs-import-stats"><div><b>{workbook.data.length}</b><span>baris sumber</span></div><div><b>{workbook.valid.length}</b><span>baris valid</span></div><div><b>{workbook.docCount}</b><span>dokumen</span></div><div><b>{workbook.missing}</b><span>baris dilewati</span></div></div><div className="docs-import-note"><b>Penyesuaian sistem</b><span>STNK → jenis dokumen STNK.</span><span>PAJAK → jenis dokumen PAJAK dan Masa Berlaku Pajak.</span><span>5 TAHUN → jenis dokumen 5_TAHUNAN.</span><span>STNK tidak lagi digunakan untuk mengisi Masa Berlaku Pajak.</span><span>Plat rental tidak diimpor; hanya kendaraan ASET.</span></div><div className="dpt-preview"><div className="dpt-sheet-title"><b>Preview Sumber: {workbook.sheet.name}</b><span>Semua baris sumber</span></div><div className="dpt-preview-wrap"><table><thead><tr><th>No</th><th>Merk</th><th>Type</th><th>No. Polisi</th><th>Tahun</th><th>No Rangka</th><th>STNK</th><th>PAJAK</th><th>5 TAHUN</th><th>Pemilik</th></tr></thead><tbody>{workbook.data.map(r=><tr key={r.excelRow}><td>{r.source_no||'-'}</td><td>{r.merk||'-'}</td><td>{r.tipe||'-'}</td><td>{r.nomor_polisi||'-'}</td><td>{r.tahun||'-'}</td><td>{r.nomor_rangka||'-'}</td><td>{formatDate(r.stnk)}</td><td>{formatDate(r.pajak)}</td><td>{formatDate(r.lima_tahun)}</td><td>{r.pemilik||'-'}</td></tr>)}</tbody></table></div></div></> }<div className="dpt-actions"><button type="button" className="dpt-button" onClick={onClose} disabled={saving}>Batal</button><button type="button" className="dpt-button primary" onClick={start} disabled={!workbook||saving||!canImport}>{saving?'Mengimport…':'Import Dokumen Kendaraan'}</button></div></section></div>
+      const sourceLabel = [workbook.docSheetName, workbook.taxSheetName].filter(Boolean).join(' + ') || file?.name || 'Excel'
+      const result = await importDocuments(activeRows, profile, sourceLabel); const unknownText = result.unknown.length ? ` • ${result.unknown.length} plat tidak ada di master dan dilewati` : ''; setMessage(`Import selesai: ${result.inserted} dokumen baru • ${result.skipped} sudah ada • ${result.taxUpdated} masa pajak master disinkronkan${unknownText}.`); const report = { context: 'dokumen', ...result, validRows: workbook.valid.length, addedCount: Number(result.inserted || 0), updatedCount: 0, skippedCount: Number(result.skipped || 0), errorCount: Number(result.unknown?.length || 0), imported: result.inserted, skipped: result.skipped, unknownPlates: result.unknown, documentCount: workbook.docCount, fileName: file?.name || '', completedAt: new Date().toISOString() }; sessionStorage.setItem('transport_import_report', JSON.stringify(report)); onDone?.(report) } catch (e) { setError(e.message || 'Import dokumen gagal.'); setMessage('') } finally { setSaving(false) } }
+  return <div className="dpt-overlay" role="dialog" aria-modal="true" aria-label="Import Dokumen Kendaraan"><section className="dpt-modal vehicle-docs-import-modal"><header className="dpt-modal-head"><div><span className="eyebrow">IMPORT EXCEL DOKUMEN</span><h3>STNK, Pajak & 5 Tahunan</h3><p>Mapping mengikuti data STNK/5 tahunan berasal dari sheet STNK, sedangkan pajak berasal dari Masa Berlaku Pajak/Masa Pajak pada sheet kendaraan.</p></div><button type="button" className="dpt-icon" onClick={onClose}>×</button></header>{error&&<div className="dpt-alert error">{error}</div>}{message&&<div className="dpt-alert success">{message}</div>}<div className="dpt-upload"><input ref={inputRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(e)=>scan(e.target.files?.[0])}/><button type="button" className="dpt-upload-button" onClick={()=>inputRef.current?.click()} disabled={loading||saving}>{loading?'Membaca Excel…':file?'Ganti File':'Pilih File Excel'}</button><div className="dpt-file-meta"><strong title={file?.name}>{file?.name||'Belum ada file'}</strong><span>{file?`✓ .xlsx • ${(file.size/1024/1024).toFixed(2)} MB`:'Maksimal 25 MB'}</span></div></div>{workbook&&<><div className="docs-import-stats"><div><b>{workbook.data.length}</b><span>baris sumber</span></div><div><b>{workbook.valid.length}</b><span>baris valid</span></div><div><b>{workbook.docCount}</b><span>dokumen</span></div><div><b>{workbook.missing}</b><span>baris dilewati</span></div></div><div className="docs-import-note"><b>Penyesuaian sistem</b><span>STNK → jenis dokumen STNK.</span><span>PAJAK → jenis dokumen PAJAK dari kolom Masa Berlaku Pajak/Masa Pajak.</span><span>5 TAHUN → jenis dokumen 5_TAHUNAN.</span><span>STNK tidak pernah dipakai sebagai sumber pajak.</span><span>Plat rental tidak diimpor; hanya kendaraan ASET. Nomor polisi yang berbeda antar-sheet tidak digabung otomatis.</span></div><div className="dpt-preview"><div className="dpt-sheet-title"><b>Preview Sumber: {workbook.sheet.name}</b><span>Semua baris sumber</span></div><div className="dpt-preview-wrap"><table><thead><tr><th>No</th><th>Merk</th><th>Type</th><th>No. Polisi</th><th>Tahun</th><th>No Rangka</th><th>STNK</th><th>PAJAK</th><th>5 TAHUN</th><th>Pemilik</th></tr></thead><tbody>{workbook.data.map(r=><tr key={r.excelRow}><td>{r.source_no||'-'}</td><td>{r.merk||'-'}</td><td>{r.tipe||'-'}</td><td>{r.nomor_polisi||'-'}</td><td>{r.tahun||'-'}</td><td>{r.nomor_rangka||'-'}</td><td>{formatDate(r.stnk)}</td><td>{formatDate(r.pajak)}</td><td>{formatDate(r.lima_tahun)}</td><td>{r.pemilik||'-'}</td></tr>)}</tbody></table></div></div></> }<div className="dpt-actions"><button type="button" className="dpt-button" onClick={onClose} disabled={saving}>Batal</button><button type="button" className="dpt-button primary" onClick={start} disabled={!workbook||saving||!canImport}>{saving?'Mengimport…':'Import Dokumen Kendaraan'}</button></div></section></div>
 }
