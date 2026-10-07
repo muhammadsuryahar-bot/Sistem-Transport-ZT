@@ -266,7 +266,7 @@ export default function ReportsFeaturePage({ profile, onNavigate }) {
     </section>
 
     <section className="x-card" style={{ background: '#f4f8f5' }}>
-      <div className="x-card-title"><div><h3>Rekap Lengkap untuk Atasan / Bos</h3><p>Satu file rekap periode berisi kendaraan, pengajuan, service, approval, kontrak sewa, pembayaran, perbaikan, potongan, dan dokumen yang masuk ke rentang tanggal aktif.</p></div></div>
+      <div className="x-card-title"><div><h3>Rekap Lengkap untuk Atasan / Bos</h3><p>Satu file rekap periode berisi data yang tersedia sesuai hak akses: kendaraan, pengajuan, service, approval, dokumen, dan transaksi rental untuk role yang diizinkan.</p></div></div>
       <div className="x-actions"><button className="x-btn primary" onClick={exportAll} disabled={exporting}>{exporting ? 'Membuat file…' : '↓ Download Rekap Excel'}</button></div>
     </section>
 
@@ -274,21 +274,21 @@ export default function ReportsFeaturePage({ profile, onNavigate }) {
       <button type="button" className="x-stat x-stat-clickable" onClick={() => onNavigate('kendaraan')}><span>Kendaraan</span><b>{metrics.totalVehicles}</b><i aria-hidden="true">›</i></button>
       <button type="button" className="x-stat x-stat-clickable" onClick={() => onNavigate('kendaraan')}><span>Kendaraan Aktif</span><b>{metrics.activeVehicles}</b><i aria-hidden="true">›</i></button>
       <button type="button" className="x-stat x-stat-clickable" onClick={() => onNavigate('service')}><span>Kendaraan Sedang Service</span><b>{metrics.vehiclesInService}</b><i aria-hidden="true">›</i></button>
-      <button type="button" className="x-stat x-stat-clickable" onClick={() => onNavigate('sewa')}><span>Kontrak Aktif</span><b>{metrics.activeContracts == null ? '—' : metrics.activeContracts}</b><i aria-hidden="true">›</i></button>
+      {canReadRental && <button type="button" className="x-stat x-stat-clickable" onClick={() => onNavigate('sewa')}><span>Kontrak Aktif</span><b>{metrics.activeContracts}</b><i aria-hidden="true">›</i></button>}
       <button type="button" className="x-stat x-stat-clickable warning" onClick={() => onNavigate('pengajuan')}><span>Pengajuan Menunggu</span><b>{metrics.pendingRequests}</b><i aria-hidden="true">›</i></button>
       <button type="button" className="x-stat x-stat-clickable warning" onClick={() => onNavigate('service')}><span>Service Menunggu Approval</span><b>{metrics.pendingApproval}</b><i aria-hidden="true">›</i></button>
       <button type="button" className="x-stat x-stat-clickable" onClick={() => onNavigate('service')}><span>Biaya Service</span><b>{money(metrics.serviceCost)}</b><i aria-hidden="true">›</i></button>
-      <button type="button" className="x-stat x-stat-clickable" onClick={() => onNavigate('sewa')}><span>Tagihan Rental</span><b>{metrics.rentalGross == null ? '—' : money(metrics.rentalGross)}</b><i aria-hidden="true">›</i></button>
-      <button type="button" className="x-stat x-stat-clickable" onClick={() => onNavigate('sewa')}><span>Rental Dibayar</span><b>{metrics.rentalPaid == null ? '—' : money(metrics.rentalPaid)}</b><i aria-hidden="true">›</i></button>
-      <button type="button" className="x-stat x-stat-clickable" onClick={() => onNavigate('sewa')}><span>Potongan Rental</span><b>{metrics.totalDeduction == null ? '—' : money(metrics.totalDeduction)}</b><i aria-hidden="true">›</i></button>
+      {canReadRental && <button type="button" className="x-stat x-stat-clickable" onClick={() => onNavigate('sewa')}><span>Tagihan Rental</span><b>{money(metrics.rentalGross)}</b><i aria-hidden="true">›</i></button>}
+      {canReadRental && <button type="button" className="x-stat x-stat-clickable" onClick={() => onNavigate('sewa')}><span>Rental Dibayar</span><b>{money(metrics.rentalPaid)}</b><i aria-hidden="true">›</i></button>}
+      {canReadRental && <button type="button" className="x-stat x-stat-clickable" onClick={() => onNavigate('sewa')}><span>Potongan Rental</span><b>{money(metrics.totalDeduction)}</b><i aria-hidden="true">›</i></button>
       <button type="button" className="x-stat x-stat-clickable warning" onClick={() => onNavigate('dokumen')}><span>Dokumen ≤30 Hari</span><b>{metrics.soonDocs}</b><i aria-hidden="true">›</i></button>
     </div>
 
     <section className="x-card"><div className="x-card-title"><h3>Perhatian Utama</h3></div><div className="x-stat-grid">
       <button type="button" className="x-stat x-stat-clickable danger" onClick={() => onNavigate('service')}><span>Approval Menunggu</span><b>{metrics.pendingApproval}</b><i aria-hidden="true">›</i></button>
-      <button type="button" className="x-stat x-stat-clickable danger" onClick={() => onNavigate('sewa')}><span>Pembayaran Bermasalah</span><b>{metrics.overduePayments == null ? '—' : metrics.overduePayments}</b><i aria-hidden="true">›</i></button>
+      {canReadRental && <button type="button" className="x-stat x-stat-clickable danger" onClick={() => onNavigate('sewa')}><span>Pembayaran Bermasalah</span><b>{metrics.overduePayments}</b><i aria-hidden="true">›</i></button>}
       <button type="button" className="x-stat x-stat-clickable danger" onClick={() => onNavigate('dokumen')}><span>Dokumen Expired</span><b>{metrics.expiredDocs}</b><i aria-hidden="true">›</i></button>
-      <button type="button" className="x-stat x-stat-clickable warning" onClick={() => onNavigate('sewa')}><span>Perbaikan Dibayar Kantor</span><b>{metrics.repairedAndPaidByOffice == null ? '—' : metrics.repairedAndPaidByOffice}</b><i aria-hidden="true">›</i></button>
+      {canReadRental && <button type="button" className="x-stat x-stat-clickable warning" onClick={() => onNavigate('sewa')}><span>Perbaikan Dibayar Kantor</span><b>{metrics.repairedAndPaidByOffice}</b><i aria-hidden="true">›</i></button>
     </div></section>
 
     <section className="x-card"><div className="x-card-title"><div><h3>Rekap Service</h3><p>Gunakan filter untuk melihat pekerjaan selesai atau yang menunggu approval.</p></div><div className="x-actions"><button className={`x-btn ${filter === 'SEMUA' ? 'primary' : 'secondary'}`} onClick={() => setFilter('SEMUA')}>Semua</button><button className={`x-btn ${filter === 'MENUNGGU_APPROVAL' ? 'primary' : 'secondary'}`} onClick={() => setFilter('MENUNGGU_APPROVAL')}>Approval</button><button className={`x-btn ${filter === 'SELESAI' ? 'primary' : 'secondary'}`} onClick={() => setFilter('SELESAI')}>Selesai</button></div></div><div className="x-table-wrap"><table className="x-table"><thead><tr><th>Tanggal</th><th>Kendaraan</th><th>Jenis</th><th>Biaya</th><th>Status</th></tr></thead><tbody>{serviceRows.map(x => <tr key={x.id}><td>{date(x.tanggal_service)}</td><td>{periodData.vehicles.find(k => k.id === x.kendaraan_id)?.nomor_polisi || '-'}</td><td>{x.jenis_service || '-'}</td><td>{money(x.biaya_aktual ?? x.estimasi_biaya)}</td><td>{x.status}</td></tr>)}{!serviceRows.length && <tr><td colSpan="5">Tidak ada data.</td></tr>}</tbody></table></div></section>
