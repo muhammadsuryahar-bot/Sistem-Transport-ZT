@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { humanizeError } from '../utils/feedback.js'
 import { formatDateSafe } from '../utils/dateSafe'
 import { clearDeletedExcelRows, filterDeletedExcelRows } from '../utils/excelPreviewControls.js'
 import { parseXlsx } from '../utils/xlsxParser.js'
@@ -243,7 +244,7 @@ export default function VehicleExcelImportModalV2({ profile, onDone, onClose }) 
       for (let n = 1; n <= maxNo; n += 1) if (!sourceNumbers.includes(n)) missingSourceNumbers.push(n)
       setWorkbook({ sheet: chosen, header: { ...header, row: header.row.slice(0, width) }, data, valid, uniqueCount: groups.size, duplicateCount: valid.length - groups.size, missingSourceNumbers })
       setMessage(`Pemeriksaan selesai: ${data.length} baris sumber dibaca • ${valid.length} valid • ${groups.size} No. Polisi unik.`)
-    } catch (e) { setError(e.message || 'File Excel tidak dapat dibaca.') }
+    } catch (e) { setError(humanizeError(e, 'File Excel tidak dapat dibaca.')) }
     finally { setLoading(false) }
   }
   const start = async () => {
@@ -275,7 +276,7 @@ export default function VehicleExcelImportModalV2({ profile, onDone, onClose }) 
       sessionStorage.setItem('transport_import_report', JSON.stringify(report))
       setMessage(`Import selesai: ${result.uniqueVehicles} kendaraan unik • ${result.added} baru • ${result.updated} diperbarui • ${result.mergedDuplicates} duplikat digabung • ${result.driversCreated} driver dibuat.`)
       onDone?.(report)
-    } catch (e) { setError(e.message || 'Import gagal.') }
+    } catch (e) { setError(humanizeError(e, 'Import gagal.')) }
     finally { setSaving(false) }
   }
 
