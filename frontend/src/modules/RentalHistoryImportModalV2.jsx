@@ -201,6 +201,7 @@ export default function RentalHistoryImportModalV2({ profile, onClose, onDone })
     try {
       const activeRows = filterDeletedExcelRows('sewa', rows)
       const result = await importSummary(activeRows, profile, file?.name || '', sheetName)
+       const deletedCount = rows.length - filterDeletedExcelRows('sewa', rows).length
        const report = {
          context: 'sewa',
          sourceRows: parseStats.sourceRows,
@@ -211,7 +212,7 @@ export default function RentalHistoryImportModalV2({ profile, onClose, onDone })
          errorCount: Number(parseStats.invalidRows || 0),
          imported: result.imported,
          updated: result.updated,
-         skipped: Number(result.skipped || 0) + Number(parseStats.ignoredRows || 0),
+         skipped: Number(result.skipped || 0) + Number(parseStats.ignoredRows || 0) + deletedCount,
          duplicate: result.skipped,
          message: result.message + ` ${parseStats.invalidRows} baris bermasalah, ${parseStats.ignoredRows} baris total/diabaikan.`,
          fileName: file?.name || '',
