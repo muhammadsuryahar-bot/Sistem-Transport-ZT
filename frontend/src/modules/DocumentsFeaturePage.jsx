@@ -4,6 +4,7 @@ import './TransportOperationsFixed.css'
 import PageBreadcrumb from './PageBreadcrumb.jsx'
 import { formatDateSafe } from '../utils/dateSafe'
 import { decodeExcelMeta } from '../utils/excelSourceMeta.js'
+import { downloadXlsx } from '../utils/xlsxExport.js'
 
 const EMPTY={kendaraan_id:'',jenis_dokumen:'STNK',nomor_dokumen:'',tanggal_terbit:'',tanggal_berlaku_mulai:'',tanggal_jatuh_tempo:'',keterangan:''}
 const fmt=v=>formatDateSafe(v)
@@ -112,6 +113,54 @@ export default function DocumentsFeaturePage({profile}){
  const toggleAll=()=>setSelectedDocIds(current=>allSelected?current.filter(id=>!filtered.some(d=>d.id===id)):Array.from(new Set([...current,...filtered.map(d=>d.id)])))
 
  const openSummary = status => { if (canManage) setViewMode('detail'); setStatusFilter(status); requestAnimationFrame(() => document.querySelector('.x-table-wrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' })) }
+ const exportStnk = async () => {
+  if (!filteredMonitorRows.length) { setError('Tidak ada data STNK yang cocok dengan filter untuk diekspor.'); return }
+  setError(''); setSuccess('')
+  const nearestStatus = row => {
+   const days = [row.stnk, row.pajak, row.lima_tahun].filter(Boolean).map(daysLeft)
+   if (!days.length) return 'Belum ada tanggal'
+   const nearest = Math.min(...days)
+   return nearest < 0 ? 'Sudah lewat' : nearest <= 30 ? 'Segera jatuh tempo' : 'Aman'
+  }
+  const daysValue = value => value == null ? '' : daysLeft(value)
+  const today = new Date().toISOString().slice(0, 10)
+  try {
+   await downloadXlsx(`Rekap_STNK_${today}.xlsx`, [
+    {
+     name: 'REKAP STNK',
+     headers: ['NO', 'MERK', 'TYPE', 'NO. POLISI', 'TAHUN', 'NO. RANGKA', 'PEMILIK', 'STNK', 'SISA STNK (HARI)', 'PAJAK', 'SISA PAJAK (HARI)', '5 TAHUNAN', 'SISA 5 TAHUNAN (HARI)', 'STATUS TERDEKAT'],
+     rows: filteredMonitorRows.map(row => [
+      row.no, row.merk, row.tipe, row.nomor_polisi, row.tahun, row.nomor_rangka, row.pemilik,
+      row.stnk || '', daysValue(row.stnk), row.pajak || '', daysValue(row.pajak),
+      row.lima_tahun || '', daysValue(row.lima_tahun), nearestStatus(row)
+     ]),
+    },
+    {
+     name: 'DATA DOKUMEN',
+     headers: ['KENDARAAN', 'MERK', 'TYPE', 'JENIS DOKUMEN', 'NOMOR DOKUMEN', 'BERLAKU MULAI', 'JATUH TEMPO', 'SISA (HARI)', 'STATUS', 'KETERANGAN'],
+     rows: filtered.map(doc => {
+      const vehicle = vehicleMap[doc.kendaraan_id]
+      const days = daysLeft(doc.tanggal_jatuh_tempo)
+      return [
+       vehicle?.nomor_polisi || '-',
+       vehicle?.merk || '-',
+       vehicle?.tipe || '-',
+       doc.jenis_dokumen || '-',
+       doc.nomor_dokumen || '-',
+       doc.tanggal_berlaku_mulai || '',
+       doc.tanggal_jatuh_tempo || '',
+       days == null ? '' : days,
+       statusLabel(statusOf(doc.tanggal_jatuh_tempo)),
+       doc.keterangan || '',
+      ]
+     }),
+    },
+   ])
+   setSuccess(`Rekap STNK Excel berhasil diunduh: ${filteredMonitorRows.length} kendaraan.`)
+  } catch (e) {
+   setError(e?.message || 'Rekap STNK gagal dibuat.')
+  }
+ }
 
  return <div className="x-page">
   <PageBreadcrumb items={['Transport', 'Dokumen Kendaraan', viewMode === 'excel' ? 'Format STNK' : 'Data Dokumen']} />
@@ -121,7 +170,7 @@ export default function DocumentsFeaturePage({profile}){
   <div className="x-summary-grid"><button type="button" className="x-summary-clickable" onClick={() => openSummary('SEMUA')}><span>Total dokumen</span><b>{summary.total}</b><i aria-hidden="true">›</i></button><button type="button" className="x-summary-clickable danger" onClick={() => openSummary('EXPIRED')}><span>Sudah lewat</span><b>{summary.expired}</b><i aria-hidden="true">›</i></button><button type="button" className="x-summary-clickable warning" onClick={() => openSummary('SEGERA')}><span>≤ 30 hari</span><b>{summary.soon}</b><i aria-hidden="true">›</i></button><button type="button" className="x-summary-clickable" onClick={() => openSummary('TANPA_TANGGAL')}><span>Menunggu tanggal</span><b>{docs.filter(d=>!d.tanggal_jatuh_tempo).length}</b><i aria-hidden="true">›</i></button></div>
   <div className="x-tabs"><button className={viewMode==='excel'?'active':''} onClick={()=>setViewMode('excel')}>Format STNK</button>{canManage&&<button className={viewMode==='detail'?'active':''} onClick={()=>setViewMode('detail')}>Data Dokumen</button>}</div>
 
-  {viewMode==='excel'&&<section className="x-card"><div className="x-card-title"><div><h3>Monitoring STNK — ASET</h3><p>Rekap per kendaraan untuk membaca STNK, pajak, dan 5 tahunan beserta sisa hari. Rental tidak masuk.</p></div></div><div className="x-toolbar-inline"><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Cari BM, nomor polisi, merk, type, nomor rangka..."/><select value={yearFilter} onChange={e=>setYearFilter(e.target.value)}><option value="SEMUA">Semua tahun</option>{years.map(y=><option key={y}>{y}</option>)}</select><select value={monthFilter} onChange={e=>setMonthFilter(e.target.value)}><option value="SEMUA">Semua bulan</option>{Array.from({length:12},(_,i)=><option key={i+1} value={String(i+1).padStart(2,'0')}>{new Intl.DateTimeFormat('id-ID',{month:'long'}).format(new Date(2026,i,1))}</option>)}</select><select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}><option value="SEMUA">Semua status</option><option value="EXPIRED">Sudah lewat</option><option value="SEGERA">≤ 30 hari</option><option value="AMAN">Aman</option><option value="TANPA_TANGGAL">Tanpa tanggal</option></select><button className="x-btn secondary" type="button" onClick={()=>{setQuery('');setTypeFilter('SEMUA');setYearFilter('SEMUA');setMonthFilter('SEMUA');setStatusFilter('SEMUA')}}>Reset Filter</button></div><div className="x-table-wrap"><table className="x-table document-monitor-table"><thead><tr><th>NO</th><th>MERK</th><th>TYPE</th><th>NO.POLISI</th><th>TAHUN</th><th>No Rangka</th><th>STNK</th><th>Sisa STNK</th><th>Foto STNK</th><th>PAJAK</th><th>Sisa Pajak</th><th>5 TAHUN</th><th>Sisa 5 Tahunan</th><th>PEMILIK</th><th>Aksi</th></tr></thead><tbody>{filteredMonitorRows.length?filteredMonitorRows.map(row=><tr key={`${row.no}-${row.nomor_polisi}`}><td>{row.no}</td><td><b>{row.merk}</b></td><td>{row.tipe}</td><td><b>{row.nomor_polisi}</b></td><td>{row.tahun}</td><td>{row.nomor_rangka}</td><td>{fmt(row.stnk)}</td><td>{row.stnk==null?'—':daysLeft(row.stnk)<0?'Lewat '+Math.abs(daysLeft(row.stnk))+' hari':daysLeft(row.stnk)+' hari lagi'}</td><td>{row.foto_stnk_path?<button className="x-link" type="button" onClick={()=>openStnkPhoto(row.foto_stnk_path)}>Lihat</button>:'-'}</td><td>{fmt(row.pajak)}</td><td>{row.pajak==null?'—':daysLeft(row.pajak)<0?'Lewat '+Math.abs(daysLeft(row.pajak))+' hari':daysLeft(row.pajak)+' hari lagi'}</td><td>{fmt(row.lima_tahun)}</td><td>{row.lima_tahun==null?'—':daysLeft(row.lima_tahun)<0?'Lewat '+Math.abs(daysLeft(row.lima_tahun))+' hari':daysLeft(row.lima_tahun)+' hari lagi'}</td><td>{row.pemilik}</td><td className="x-action-compact"><button className="x-link" onClick={()=>openMonitorDetail(row)}>Detail</button>{canManage&&<button className="x-link" onClick={()=>{const doc=docs.find(d=>d.kendaraan_id===row.kendaraan_id&&['STNK','5_TAHUNAN'].includes(d.jenis_dokumen));if(doc)edit(doc);else{resetForm();setViewMode('detail');setForm(current=>({...current,kendaraan_id:String(row.kendaraan_id),jenis_dokumen:'STNK'}))}}}>Edit</button>}</td></tr>) : <tr><td colSpan="15"><Empty /></td></tr>}</tbody></table></div></section>}
+  {viewMode==='excel'&&<section className="x-card"><div className="x-card-title"><div><h3>Monitoring STNK — ASET</h3><p>Rekap per kendaraan untuk membaca STNK, pajak, dan 5 tahunan beserta sisa hari. Rental tidak masuk.</p></div><div className="x-head-actions"><button className="x-btn primary" type="button" onClick={exportStnk} disabled={loading||!filteredMonitorRows.length}>Unduh Excel</button></div></div><div className="x-toolbar-inline"><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Cari BM, nomor polisi, merk, type, nomor rangka..."/><select value={yearFilter} onChange={e=>setYearFilter(e.target.value)}><option value="SEMUA">Semua tahun</option>{years.map(y=><option key={y}>{y}</option>)}</select><select value={monthFilter} onChange={e=>setMonthFilter(e.target.value)}><option value="SEMUA">Semua bulan</option>{Array.from({length:12},(_,i)=><option key={i+1} value={String(i+1).padStart(2,'0')}>{new Intl.DateTimeFormat('id-ID',{month:'long'}).format(new Date(2026,i,1))}</option>)}</select><select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}><option value="SEMUA">Semua status</option><option value="EXPIRED">Sudah lewat</option><option value="SEGERA">≤ 30 hari</option><option value="AMAN">Aman</option><option value="TANPA_TANGGAL">Tanpa tanggal</option></select><button className="x-btn secondary" type="button" onClick={()=>{setQuery('');setTypeFilter('SEMUA');setYearFilter('SEMUA');setMonthFilter('SEMUA');setStatusFilter('SEMUA')}}>Reset Filter</button></div><div className="x-table-wrap"><table className="x-table document-monitor-table"><thead><tr><th>NO</th><th>MERK</th><th>TYPE</th><th>NO.POLISI</th><th>TAHUN</th><th>No Rangka</th><th>STNK</th><th>Sisa STNK</th><th>Foto STNK</th><th>PAJAK</th><th>Sisa Pajak</th><th>5 TAHUN</th><th>Sisa 5 Tahunan</th><th>PEMILIK</th><th>Aksi</th></tr></thead><tbody>{filteredMonitorRows.length?filteredMonitorRows.map(row=><tr key={`${row.no}-${row.nomor_polisi}`}><td>{row.no}</td><td><b>{row.merk}</b></td><td>{row.tipe}</td><td><b>{row.nomor_polisi}</b></td><td>{row.tahun}</td><td>{row.nomor_rangka}</td><td>{fmt(row.stnk)}</td><td>{row.stnk==null?'—':daysLeft(row.stnk)<0?'Lewat '+Math.abs(daysLeft(row.stnk))+' hari':daysLeft(row.stnk)+' hari lagi'}</td><td>{row.foto_stnk_path?<button className="x-link" type="button" onClick={()=>openStnkPhoto(row.foto_stnk_path)}>Lihat</button>:'-'}</td><td>{fmt(row.pajak)}</td><td>{row.pajak==null?'—':daysLeft(row.pajak)<0?'Lewat '+Math.abs(daysLeft(row.pajak))+' hari':daysLeft(row.pajak)+' hari lagi'}</td><td>{fmt(row.lima_tahun)}</td><td>{row.lima_tahun==null?'—':daysLeft(row.lima_tahun)<0?'Lewat '+Math.abs(daysLeft(row.lima_tahun))+' hari':daysLeft(row.lima_tahun)+' hari lagi'}</td><td>{row.pemilik}</td><td className="x-action-compact"><button className="x-link" onClick={()=>openMonitorDetail(row)}>Detail</button>{canManage&&<button className="x-link" onClick={()=>{const doc=docs.find(d=>d.kendaraan_id===row.kendaraan_id&&['STNK','5_TAHUNAN'].includes(d.jenis_dokumen));if(doc)edit(doc);else{resetForm();setViewMode('detail');setForm(current=>({...current,kendaraan_id:String(row.kendaraan_id),jenis_dokumen:'STNK'}))}}}>Edit</button>}</td></tr>) : <tr><td colSpan="15"><Empty /></td></tr>}</tbody></table></div></section>}
 
   {viewMode==='detail'&&canManage&&<section className="x-card"><div className="x-card-title"><div><h3>{editing?'Edit Dokumen':'Tambah Dokumen'}</h3><p>Untuk STNK dan 5 tahunan, pilihan kendaraan otomatis hanya ASET.</p></div>{editing&&<button className="x-btn secondary" onClick={resetForm}>Batal Edit</button>}</div><form className="x-grid" onSubmit={save}><label>Kendaraan<select value={form.kendaraan_id} onChange={e=>setForm({...form,kendaraan_id:e.target.value})}><option value="">Pilih kendaraan aset</option>{vehicles.map(v=><option key={v.id} value={v.id}>{v.nomor_polisi} — {v.merk} {v.tipe||''}</option>)}</select></label><label>Jenis Dokumen<select value={form.jenis_dokumen} onChange={e=>setForm({...form,jenis_dokumen:e.target.value})}><option>STNK</option><option>5_TAHUNAN</option><option>PAJAK</option><option>LAINNYA</option></select></label><label>Nomor Dokumen<input value={form.nomor_dokumen} onChange={e=>setForm({...form,nomor_dokumen:e.target.value})}/></label><label>Tanggal Terbit<input type="date" value={form.tanggal_terbit} onChange={e=>setForm({...form,tanggal_terbit:e.target.value})}/></label><label>Berlaku Mulai<input type="date" value={form.tanggal_berlaku_mulai} onChange={e=>setForm({...form,tanggal_berlaku_mulai:e.target.value})}/></label><label>Jatuh Tempo<input type="date" value={form.tanggal_jatuh_tempo} onChange={e=>setForm({...form,tanggal_jatuh_tempo:e.target.value})}/></label><label>File<input type="file" accept=".pdf,image/*" onChange={e=>setFile(e.target.files?.[0]||null)}/></label><label className="full">Keterangan<textarea value={form.keterangan} onChange={e=>setForm({...form,keterangan:e.target.value})}/></label><div className="full x-actions"><button className="x-btn primary" disabled={saving}>{saving? 'Menyimpan…':editing?'Perbarui Dokumen':'Simpan Dokumen'}</button></div></form></section>}
 
