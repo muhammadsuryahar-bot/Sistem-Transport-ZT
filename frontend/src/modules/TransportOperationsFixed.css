@@ -268,3 +268,5 @@ body.transport-service-fullscreen-open{overflow:hidden}
   outline-offset:2px;
   border-radius:3px;
 }
+
+.x-filter-date{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#475569}.x-filter-date input{min-height:42px;border:1px solid #cbd5e1;border-radius:10px;padding:9px 12px;background:#fff;box-sizing:border-box}
