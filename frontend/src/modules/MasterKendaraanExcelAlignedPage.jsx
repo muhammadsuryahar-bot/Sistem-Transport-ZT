@@ -291,7 +291,7 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
         <td><span>{v.lokasi || '-'}</span><small>{v.unit_kerja || '-'}</small></td>
         <td><span>{v.masa_berlaku_pajak ? formatDate(v.masa_berlaku_pajak) : '-'}</span><small>{v.status_pajak || '-'}</small></td>
         <td><span>{v.keterangan || '-'}</span><small>{v.catatan_hutang || ''}</small></td>
-        <td className="mep-actions"><button type="button" onClick={() => openDetail(v)}>Detail</button>{canEdit && <button type="button" onClick={() => openEdit(v)}>Edit</button>}{normalizeOwnership(v.kepemilikan) === 'SEWA' && onNavigate && <button type="button" onClick={() => onNavigate('sewa')}>Kelola Sewa</button>}{canDelete && <button type="button" onClick={async () => { if (window.confirm(`Hapus kendaraan ${v.nomor_polisi}?`)) { await deleteOne(v) } }}>Hapus</button>}</td>
+        <td className="mep-actions"><button type="button" onClick={() => openDetail(v)}>Detail</button>{canEdit && <button type="button" onClick={() => openEdit(v)}>Edit</button>}{normalizeOwnership(v.kepemilikan) === 'SEWA' && onNavigate && <button type="button" onClick={() => onNavigate('sewa')}>Kelola Sewa</button>}{canDelete && <button type="button" onClick={async () => { if (window.confirm(`Hapus kendaraan ${v.nomor_polisi}?`)) { const removed = await deleteOne(v); if (removed) setSuccess(`Kendaraan ${v.nomor_polisi} berhasil dihapus.`) } }}>Hapus</button>}</td>
       </tr> })}</tbody></table>}</div>
     </section>
 
