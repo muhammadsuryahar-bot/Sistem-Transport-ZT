@@ -212,7 +212,7 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
     const check = await canDeleteVehicle(vehicle)
     if (!check.ok) { setError(check.reason); return false }
     const { error: deleteError } = await supabase.from('kendaraan').delete().eq('id', vehicle.id)
-    if (deleteError) { setError(deleteError.message); return false }
+    if (deleteError) { setError(humanizeError(deleteError)); return false }
     const photoPaths = [
       vehicle.foto_stnk_path,
       ...LEGACY_PHOTO_FIELDS.map(field => vehicle[field]),
