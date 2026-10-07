@@ -268,7 +268,7 @@ function ensureRowSelection(context, table) {
   if (!table || !isMainOperationalTable(table)) return
   if (table.closest('.dpt-preview')) return
   // Native-selection pages own their row click/double-click events.
-  if (hasNativeBulkSelection(table, context)) return
+  if (hasNativeBulkSelection(table)) return
 
   const buildInlineActions = (row, sourceMark, detailTarget, editTarget, deleteTarget) => {
     const old = row.nextElementSibling
@@ -426,7 +426,7 @@ function ensureRowSelection(context, table) {
       const row = event.target.closest('tbody tr')
       if (!row || row.classList.contains('dpt-inline-row-actions')) return
       // Native selection pages own their double-click behavior.
-      if (hasNativeBulkSelection(table, context)) return
+      if (hasNativeBulkSelection(table)) return
       if (event.target.closest('button, input, select, textarea, a')) return
       if (table.dataset.dptBulkMode === 'true') {
         removeGenericBulkUI(table)
@@ -449,7 +449,7 @@ function ensureRowSelection(context, table) {
   }
 }
 
-function hasNativeBulkSelection(table, context = '') {
+function hasNativeBulkSelection(table) {
   if (table?.dataset?.nativeRowSelection === 'true') return true
   return Boolean(table?.querySelector('thead .mep-check, thead .request-select-cell, thead .x-select-cell'))
 }
@@ -503,7 +503,7 @@ function removeGenericBulkUI(table) {
 }
 
 function enterGenericBulkMode(table, firstRow = null, context = '') {
-  if (!table || hasNativeBulkSelection(table, context)) return
+  if (!table || hasNativeBulkSelection(table)) return
   const rows = getBulkRows(table)
   if (!rows.length || !rows.some(row => getBulkDeleteButton(row))) return
   clearRowSelection(table)
