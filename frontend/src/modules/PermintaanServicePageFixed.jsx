@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { humanizeError } from '../utils/feedback.js'
 import './PermintaanServicePage.css'
 import PageBreadcrumb from './PageBreadcrumb.jsx'
 
@@ -88,7 +89,7 @@ export default function PermintaanServicePage({ profile }) {
       canReadServiceData ? supabase.from('patokan_harga_service').select('*').eq('aktif', true).order('nama_item') : Promise.resolve({ data: [], error: null }),
     ])
     const names = ['Kendaraan', 'Pengajuan', 'Service', 'Item Service', 'Riwayat KM', 'Riwayat Ban', 'Riwayat Aki', 'Patokan Harga']
-    rs.forEach((r, i) => { if (r.error) setError(prev => prev || `${names[i]}: ${r.error.message}`) })
+    rs.forEach((r, i) => { if (r.error) setError(prev => prev || `${names[i]}: ${humanizeError(r.error)}`) })
     setVehicles(rs[0].data || []); setRequests(rs[1].data || []); setServices(rs[2].data || []); setItems(rs[3].data || [])
     setKilometers(rs[4].data || []); setBans(rs[5].data || []); setAkis(rs[6].data || []); setBenchmarks(rs[7].data || [])
     setSelectedIds([]); setSelectionMode(false); setActiveRequestId(null); setLoading(false)
@@ -291,7 +292,7 @@ export default function PermintaanServicePage({ profile }) {
       })
       resetBenchmarkForm()
       setSuccess(editingBenchmark ? 'Patokan harga diperbarui.' : 'Patokan harga ditambahkan.')
-    } catch (e) { setError(e.message) } finally { setSaving(false) }
+    } catch (e) { setError(humanizeError(e)) } finally { setSaving(false) }
   }
   const editBenchmark = row => {
     setEditingBenchmark(row)
@@ -306,7 +307,7 @@ export default function PermintaanServicePage({ profile }) {
       if (result.error) throw result.error
       setBenchmarks(current => current.filter(item => item.id !== row.id))
       setSuccess('Patokan harga dihapus.')
-    } catch (e) { setError(e.message) } finally { setSaving(false) }
+    } catch (e) { setError(humanizeError(e)) } finally { setSaving(false) }
   }
   const filteredRequests = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -335,7 +336,7 @@ export default function PermintaanServicePage({ profile }) {
     const result = form.id
       ? await supabase.from('permintaan_service').update(payload).eq('id', form.id).select('*').single()
       : await supabase.from('permintaan_service').insert({ ...payload, pemohon_id: profile.id, tanggal_pengajuan: new Date().toISOString().slice(0, 10), status: 'MENUNGGU_TRANSPORT' }).select('*').single()
-    if (result.error) setError(`Gagal menyimpan data service: ${result.error.message}`)
+    if (result.error) setError(`Gagal menyimpan data service: ${humanizeError(result.error)}`)
     else { setRequests(current => form.id ? current.map(row => row.id === form.id ? result.data : row) : [result.data, ...current]); setShowForm(false); setSuccess(form.id ? 'Pengajuan service diperbarui.' : `Pengajuan ${result.data?.nomor_pengajuan || ''} berhasil dibuat.`) }
     setSaving(false)
   }
@@ -344,10 +345,10 @@ export default function PermintaanServicePage({ profile }) {
   const deleteOne = async request => {
     if (!canDelete || !canDeleteRequest(request)) { setError('Hanya pengajuan yang sudah terminal yang dapat dihapus oleh Administrator.'); return false }
     const serviceCheck = await supabase.from('service').select('id', { count: 'exact', head: true }).eq('permintaan_service_id', request.id)
-    if (serviceCheck.error) { setError(`Gagal memeriksa histori service: ${serviceCheck.error.message}`); return false }
+    if (serviceCheck.error) { setError(`Gagal memeriksa histori service: ${humanizeError(serviceCheck.error)}`); return false }
     if (serviceCheck.count) { setError(`Pengajuan ${request.nomor_pengajuan || request.id} memiliki histori service dan tidak boleh dihapus.`); return false }
     const result = await supabase.from('permintaan_service').delete().eq('id', request.id)
-    if (result.error) { setError(result.error.message); return false }
+    if (result.error) { setError(humanizeError(result.error)); return false }
     setRequests(current => current.filter(row => row.id !== request.id))
     return true
   }
@@ -418,7 +419,7 @@ export default function PermintaanServicePage({ profile }) {
       setServiceEditForm({ tanggal_service: '', kilometer: '', bengkel: '', jenis_service: 'SERVICE', keluhan: '', estimasi_biaya: '', biaya_aktual: '', nilai_dpp: '', ppn: '', total: '', catatan: '' })
       setSuccess(`Service ${result.data.nomor_service || result.data.id} berhasil diperbarui.`)
     } catch (e) {
-      setError(e.message)
+      setError(humanizeError(e))
     } finally {
       setSaving(false)
     }
@@ -449,7 +450,7 @@ export default function PermintaanServicePage({ profile }) {
       setServiceDetail(null)
       setSuccess('Data service berhasil dihapus.')
     } catch (e) {
-      setError(e.message)
+      setError(humanizeError(e))
     } finally {
       setSaving(false)
     }
