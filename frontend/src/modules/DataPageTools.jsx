@@ -434,7 +434,7 @@ function ensureRowSelection(context, table) {
         return
       }
       clearRowSelection(table)
-      enterGenericBulkMode(table, row, context)
+      enterGenericBulkMode(table, row)
     })
   }
 
@@ -502,7 +502,7 @@ function removeGenericBulkUI(table) {
   delete table.dataset.dptBulkMode
 }
 
-function enterGenericBulkMode(table, firstRow = null, context = '') {
+function enterGenericBulkMode(table, firstRow = null) {
   if (!table || hasNativeBulkSelection(table)) return
   const rows = getBulkRows(table)
   if (!rows.length || !rows.some(row => getBulkDeleteButton(row))) return
