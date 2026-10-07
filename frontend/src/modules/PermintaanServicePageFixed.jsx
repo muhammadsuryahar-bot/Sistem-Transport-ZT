@@ -142,7 +142,6 @@ export default function PermintaanServicePage({ profile }) {
     const vehiclePrice = Number(vehicle.harga_perolehan || 0)
     const ratio = vehiclePrice > 0 ? totalPengeluaran / vehiclePrice : null
     const lastService = [...vehicleServices].sort((a, b) => String(b.tanggal_service || '').localeCompare(String(a.tanggal_service || '')))[0]
-    const lastJasa = [...vehicleServices.filter(s => jasaServiceIds.has(s.id))].sort((a, b) => String(b.tanggal_service || '').localeCompare(String(a.tanggal_service || '')))[0]
     const lastSpareDate = [...vehicleServices.filter(s => spareServiceIds.has(s.id)), ...bans.filter(r => Number(r.kendaraan_id) === Number(vehicle.id)).map(r => ({ tanggal_service: r.tanggal_penggantian })), ...akis.filter(r => Number(r.kendaraan_id) === Number(vehicle.id)).map(r => ({ tanggal_service: r.tanggal_penggantian }))].sort((a, b) => String(b.tanggal_service || '').localeCompare(String(a.tanggal_service || '')))[0]?.tanggal_service
     return {
       vehicle, totalTransaksi: vehicleServices.length, jasaKali: jasaServiceIds.size, spareKali: new Set([...spareServiceIds, ...vehicleServices.filter(s => ['GANTI_BAN', 'GANTI_AKI'].includes(String(s.jenis_service || '').toUpperCase())).map(s => s.id)]).size + bans.filter(r => Number(r.kendaraan_id) === Number(vehicle.id)).length + akis.filter(r => Number(r.kendaraan_id) === Number(vehicle.id)).length,
