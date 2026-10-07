@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { humanizeError } from '../utils/feedback.js'
 import { clearDeletedExcelRows, filterDeletedExcelRows } from '../utils/excelPreviewControls.js'
 import { parseXlsx } from '../utils/xlsxParser.js'
 import { encodeExcelMeta } from '../utils/excelSourceMeta.js'
@@ -133,7 +134,7 @@ export default function PengajuanExcelImportModal({ profile, onDone, onClose }) 
       setRows(data)
       setMessage(`Sheet “${candidate.sheet.name}” terdeteksi: ${data.length} baris sumber.`)
     } catch (e) {
-      setError(e.message || 'File Excel tidak dapat dibaca.')
+      setError(humanizeError(e, 'File Excel tidak dapat dibaca.'))
     } finally { setLoading(false) }
   }
 
@@ -203,7 +204,7 @@ export default function PengajuanExcelImportModal({ profile, onDone, onClose }) 
       sessionStorage.setItem('transport_import_report', JSON.stringify(report))
       onDone?.(report)
     } catch (e) {
-      setError(e.message || 'Import pengajuan gagal.')
+      setError(humanizeError(e, 'Import pengajuan gagal.'))
       setMessage('')
     } finally { setSaving(false) }
   }
