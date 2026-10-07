@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { humanizeError } from '../utils/feedback.js'
 import './TransportOperationsFixed.css'
 import PageBreadcrumb from './PageBreadcrumb.jsx'
 import { formatDateSafe, formatMonthSafe } from '../utils/dateSafe'
@@ -116,7 +117,7 @@ export default function RentalFeaturePage({ profile }) {
         rentalTabLoadedRef.current.historis = true
       }
     } catch (e) {
-      setError(e.message)
+      setError(humanizeError(e))
     } finally {
       // Tab data is cached in-memory until the module refreshes.
     }
@@ -134,7 +135,7 @@ export default function RentalFeaturePage({ profile }) {
       supabase.from('kendaraan').select('id,nomor_polisi,merk,tipe,kepemilikan,jenis_sewa,pemilik,lokasi,unit_kerja').eq('kepemilikan', 'SEWA').order('nomor_polisi'),
     ])
     const names = ['Pemilik', 'Kontrak', 'Kendaraan']
-    rs.forEach((r, i) => { if (r.error) setError(e => e || `${names[i]}: ${r.error.message}`) })
+    rs.forEach((r, i) => { if (r.error) setError(e => e || `${names[i]}: ${humanizeError(r.error)}`) })
     setOwners(rs[0].data || [])
     setContracts(rs[1].data || [])
     setVehicles(rs[2].data || [])
@@ -161,7 +162,7 @@ export default function RentalFeaturePage({ profile }) {
     if (!editable) return
     if (contracts.some(c => Number(c.pemilik_sewa_id) === Number(row.id))) return setError('Pemilik masih dipakai pada kontrak. Hapus/ubah kontraknya terlebih dahulu.')
     if (!window.confirm('Hapus pemilik ' + row.nama_pemilik + '?')) return
-    setSaving(true); try { const result = await supabase.from('pemilik_sewa').delete().eq('id', row.id); if (result.error) throw result.error; setOwners(current => current.filter(x => x.id !== row.id)); setSuccess('Pemilik sewa dihapus.'); } catch (e) { setError(e.message) } finally { setSaving(false) }
+    setSaving(true); try { const result = await supabase.from('pemilik_sewa').delete().eq('id', row.id); if (result.error) throw result.error; setOwners(current => current.filter(x => x.id !== row.id)); setSuccess('Pemilik sewa dihapus.'); } catch (e) { setError(humanizeError(e)) } finally { setSaving(false) }
   }
   const saveOwner = async e => {
     e.preventDefault(); clearMessages()
@@ -175,7 +176,7 @@ export default function RentalFeaturePage({ profile }) {
       if (result.error) throw result.error
       setOwners(current => editingOwnerId ? current.map(x => x.id === result.data.id ? result.data : x) : [...current, result.data].sort((a,b) => String(a.nama_pemilik || '').localeCompare(String(b.nama_pemilik || ''), 'id')))
       resetOwnerForm(); setSuccess(editingOwnerId ? 'Pemilik sewa diperbarui.' : 'Pemilik sewa tersimpan.')
-    } catch (e1) { setError(e1.message) } finally { setSaving(false) }
+    } catch (e1) { setError(humanizeError(e1)) } finally { setSaving(false) }
   }
   const resetContractForm = () => { setContract(EMPTY_CONTRACT); setContractFile(null); setEditingContractId(null) }
   const editContract = row => { setEditingContractId(row.id); setContract({ ...EMPTY_CONTRACT, ...row, kendaraan_id: String(row.kendaraan_id), pemilik_sewa_id: String(row.pemilik_sewa_id), nilai_sewa_bulanan: row.nilai_sewa_bulanan ?? '', tanggal_jatuh_tempo_bulanan: row.tanggal_jatuh_tempo_bulanan ?? '' }); setContractFile(null); setTab('kontrak') }
@@ -185,7 +186,7 @@ export default function RentalFeaturePage({ profile }) {
     if (dataReady === false) return
     if (payments.some(p => Number(p.kontrak_sewa_id) === Number(row.id)) || repairs.some(p => Number(p.kontrak_sewa_id) === Number(row.id))) return setError('Kontrak sudah memiliki pembayaran/perbaikan. Jangan hapus; ubah statusnya menjadi SELESAI/DIBATALKAN.')
     if (!window.confirm('Hapus kontrak ' + (row.nomor_kontrak || row.id) + '?')) return
-    setSaving(true); try { const result = await supabase.from('kontrak_sewa').delete().eq('id', row.id); if (result.error) throw result.error; setContracts(current => current.filter(x => x.id !== row.id)); setSuccess('Kontrak sewa dihapus.') } catch(e){ setError(e.message) } finally { setSaving(false) }
+    setSaving(true); try { const result = await supabase.from('kontrak_sewa').delete().eq('id', row.id); if (result.error) throw result.error; setContracts(current => current.filter(x => x.id !== row.id)); setSuccess('Kontrak sewa dihapus.') } catch(e){ setError(humanizeError(e)) } finally { setSaving(false) }
   }
   const saveContract = async e => {
     e.preventDefault(); clearMessages()
@@ -204,7 +205,7 @@ export default function RentalFeaturePage({ profile }) {
       if (oldPath && contractPath) await supabase.storage.from('dokumen-sewa').remove([oldPath])
       setContracts(current => editingContractId ? current.map(x => x.id === result.data.id ? result.data : x) : [result.data, ...current])
       resetContractForm(); setSuccess(editingContractId ? 'Kontrak sewa diperbarui.' : 'Kontrak 6 bulan dan dokumen kontrak tersimpan.')
-    } catch (e2) { if (contractPath) await supabase.storage.from('dokumen-sewa').remove([contractPath]); setError(e2.message) } finally { setSaving(false) }
+    } catch (e2) { if (contractPath) await supabase.storage.from('dokumen-sewa').remove([contractPath]); setError(humanizeError(e2)) } finally { setSaving(false) }
   }
   const resetPaymentForm = () => { setPayment(EMPTY_PAYMENT); setPaymentFile(null); setEditingPaymentId(null) }
   const editPayment = async row => {
@@ -217,7 +218,7 @@ export default function RentalFeaturePage({ profile }) {
     const rel = await supabase.from('potongan_pembayaran_sewa').select('id').eq('pembayaran_sewa_id', row.id).limit(1)
     if (rel.data?.length) return setError('Pembayaran memiliki potongan repair. Jangan hapus agar histori potongan tetap konsisten.')
     if (!window.confirm('Hapus pembayaran periode ' + row.periode_ke + '?')) return
-    setSaving(true); try { const result = await supabase.from('pembayaran_sewa').delete().eq('id', row.id); if (result.error) throw result.error; if (row.bukti_pembayaran_path) await supabase.storage.from('dokumen-sewa').remove([row.bukti_pembayaran_path]); setPayments(current => current.filter(x => x.id !== row.id)); setSuccess('Pembayaran dihapus.') } catch(e){ setError(e.message) } finally { setSaving(false) }
+    setSaving(true); try { const result = await supabase.from('pembayaran_sewa').delete().eq('id', row.id); if (result.error) throw result.error; if (row.bukti_pembayaran_path) await supabase.storage.from('dokumen-sewa').remove([row.bukti_pembayaran_path]); setPayments(current => current.filter(x => x.id !== row.id)); setSuccess('Pembayaran dihapus.') } catch(e){ setError(humanizeError(e)) } finally { setSaving(false) }
   }
   const savePayment = async e => {
     e.preventDefault(); clearMessages()
@@ -248,7 +249,7 @@ export default function RentalFeaturePage({ profile }) {
         if (rollback.error) console.warn('Rollback pembayaran rental gagal:', rollback.error.message)
       }
       if (proofPath && !editingPaymentId) await supabase.storage.from('dokumen-sewa').remove([proofPath])
-      setError(e3.message)
+      setError(humanizeError(e3))
     } finally { setSaving(false) }
   }
   const resetRepairForm = () => { setRepair(EMPTY_REPAIR); setRepairPhoto(null); setRepairProof(null); setEditingRepairId(null) }
@@ -259,7 +260,7 @@ export default function RentalFeaturePage({ profile }) {
     if (dataReady === false) return
     if (payments.some(p => Number(p.perbaikan_sewa_id) === Number(row.id))) return setError('Perbaikan sudah dipakai sebagai dasar potongan pembayaran. Jangan hapus data ini.')
     if (!window.confirm('Hapus perbaikan ' + (row.jenis_kerusakan || row.id) + '?')) return
-    setSaving(true); try { const result = await supabase.from('perbaikan_sewa').delete().eq('id', row.id); if (result.error) throw result.error; const paths=[row.foto_kerusakan_path,row.bukti_perbaikan_path].filter(Boolean); if(paths.length) await supabase.storage.from('dokumen-sewa').remove(paths); setRepairs(current=>current.filter(x=>x.id!==row.id)); setSuccess('Data perbaikan dihapus.') } catch(e){setError(e.message)} finally{setSaving(false)}
+    setSaving(true); try { const result = await supabase.from('perbaikan_sewa').delete().eq('id', row.id); if (result.error) throw result.error; const paths=[row.foto_kerusakan_path,row.bukti_perbaikan_path].filter(Boolean); if(paths.length) await supabase.storage.from('dokumen-sewa').remove(paths); setRepairs(current=>current.filter(x=>x.id!==row.id)); setSuccess('Data perbaikan dihapus.') } catch(e){setError(humanizeError(e))} finally{setSaving(false)}
   }
   const saveRepair = async e => {
     e.preventDefault(); clearMessages()
@@ -280,7 +281,7 @@ export default function RentalFeaturePage({ profile }) {
       const newPaths = [fotoPath, proofPath].filter(Boolean); const removed = old.filter(x => !newPaths.includes(x)); if(removed.length) await supabase.storage.from('dokumen-sewa').remove(removed)
       setRepairs(current => editingRepairId ? current.map(x => x.id === result.data.id ? result.data : x) : [result.data, ...current])
       resetRepairForm(); setSuccess(editingRepairId ? 'Data perbaikan diperbarui.' : 'Perbaikan kendaraan sewa, dokumentasi dan status potongannya tersimpan.')
-    } catch (e2) { const currentNew=[fotoPath,proofPath].filter(Boolean); const oldKeep=editingRepairId?repairs.find(x=>x.id===editingRepairId):null; const oldPaths=[oldKeep?.foto_kerusakan_path,oldKeep?.bukti_perbaikan_path].filter(Boolean); const orphan=currentNew.filter(x=>!oldPaths.includes(x)); if(orphan.length) await supabase.storage.from('dokumen-sewa').remove(orphan); setError(e2.message) } finally { setSaving(false) }
+    } catch (e2) { const currentNew=[fotoPath,proofPath].filter(Boolean); const oldKeep=editingRepairId?repairs.find(x=>x.id===editingRepairId):null; const oldPaths=[oldKeep?.foto_kerusakan_path,oldKeep?.bukti_perbaikan_path].filter(Boolean); const orphan=currentNew.filter(x=>!oldPaths.includes(x)); if(orphan.length) await supabase.storage.from('dokumen-sewa').remove(orphan); setError(humanizeError(e2)) } finally { setSaving(false) }
   }
   const openFile = async (key, bucket, path) => {
     if (!path) return
@@ -288,7 +289,7 @@ export default function RentalFeaturePage({ profile }) {
       setOpenedFiles(v => ({ ...v, [key]: 'loading' }))
       const url = await signedRentalFile(path)
       setOpenedFiles(v => ({ ...v, [key]: url }))
-    } catch (e) { setError(e.message); setOpenedFiles(v => ({ ...v, [key]: null })) }
+    } catch (e) { setError(humanizeError(e)); setOpenedFiles(v => ({ ...v, [key]: null })) }
   }
 
   const getRepairAvailableAmount = r => r.dapat_dipotong && r.dibayar_kantor ? Number(r.jumlah_dipotong || 0) : 0
@@ -329,12 +330,12 @@ export default function RentalFeaturePage({ profile }) {
       if(result.error) throw result.error
       setRentalHistoryExcel(current => { const next=editingHistory?current.map(row=>row.id===result.data.id?result.data:row):[...current,result.data]; return next.sort((a,b)=>Number(a.excel_row||0)-Number(b.excel_row||0)) })
       resetHistoryForm(); setSuccess(editingHistory?'Data SUMMERY RENTAL diperbarui.':'Data SUMMERY RENTAL ditambahkan.')
-    } catch(e2) { setError(e2.message) } finally { setSaving(false) }
+    } catch(e2) { setError(humanizeError(e2)) } finally { setSaving(false) }
   }
   const deleteHistory = async row => {
     if(!editable) return
     if(!window.confirm(`Hapus data rental ${row.no_excel || row.id} dari riwayat tagihan?`)) return
-    setSaving(true); try { const result=await supabase.from('rental_historis_excel').delete().eq('id',row.id); if(result.error) throw result.error; setRentalHistoryExcel(current=>current.filter(x=>x.id!==row.id)); setSuccess('Data riwayat rental dihapus.'); if(historyDetail?.id===row.id) setHistoryDetail(null) } catch(e){setError(e.message)} finally{setSaving(false)}
+    setSaving(true); try { const result=await supabase.from('rental_historis_excel').delete().eq('id',row.id); if(result.error) throw result.error; setRentalHistoryExcel(current=>current.filter(x=>x.id!==row.id)); setSuccess('Data riwayat rental dihapus.'); if(historyDetail?.id===row.id) setHistoryDetail(null) } catch(e){setError(humanizeError(e))} finally{setSaving(false)}
   }
 
 
