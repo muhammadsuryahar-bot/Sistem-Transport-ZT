@@ -73,8 +73,6 @@ function chooseSheet(sheets) {
     const name = norm(sheet.name)
     if (name === 'stnk_dan_5_tahun') score += 20
     else if (name.includes('stnk_dan_5_tahun')) score += 12
-    else if (name === 'stnk_dan_kir') score += 8
-    else if (name.includes('stnk_dan_kir')) score += 6
     if (headers.includes('no_polisi')) score += 4
     if (headers.includes('stnk')) score += 4
     if (headers.includes('5_tahun')) score += 3
