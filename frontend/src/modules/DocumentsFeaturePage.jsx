@@ -29,8 +29,8 @@ export default function DocumentsFeaturePage({profile}){
    supabase.from('dokumen_kendaraan').select('*').order('tanggal_jatuh_tempo',{ascending:true}),
    supabase.from('kendaraan').select('id,nomor_polisi,merk,tipe,tahun,nomor_rangka,pemilik,foto_stnk_path,kepemilikan').eq('kepemilikan','ASET').order('nomor_polisi')
   ])
-  if(d.error)setError(`Dokumen: ${d.error.message}`)
-  if(v.error)setError(e=>e||`Kendaraan: ${v.error.message}`)
+  if(d.error)setError(`Dokumen: ${humanizeError(d.error)}`)
+  if(v.error)setError(e=>e||`Kendaraan: ${humanizeError(v.error)}`)
   const assetIds=new Set((v.data||[]).map(x=>x.id))
   setDocs((d.data||[]).filter(row=>assetIds.has(row.kendaraan_id)))
   setVehicles(v.data||[]);setSelectedDocIds([]);setSelectionMode(false);setActiveDocId(null);setLoading(false)
