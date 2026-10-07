@@ -303,16 +303,17 @@ async function importHistory(rows, sheetName, onProgress = () => {}) {
   const unknownPlates = [...new Set(plates.filter(plate => !vehicleMap[plate]))]
 
   const candidates = []
-  let skipped = 0
+  let duplicateTransactions = 0
+  let unknownTransactions = 0
   groups.forEach(group => {
     const first = group.values[0]
     const vehicle = vehicleMap[first.nomor_polisi]
     if (!vehicle) {
-      skipped += 1
+      unknownTransactions += 1
       return
     }
     const duplicateKey = `${vehicle.id}|${first.tanggal}|${upper(first.bengkel || '-')}`
-    if (existingKeys.has(duplicateKey)) skipped += 1
+    if (existingKeys.has(duplicateKey)) duplicateTransactions += 1
     else candidates.push({ group, vehicle })
   })
 
@@ -323,7 +324,10 @@ async function importHistory(rows, sheetName, onProgress = () => {}) {
       validRows: valid.length,
       transactions: groups.length,
       imported: 0,
-      skipped,
+      skipped: duplicateTransactions,
+      duplicateTransactions,
+      invalidRows: rows.length - valid.length,
+      unknownTransactions,
       unknownPlates,
       items: 0,
       kmUpdated: 0,
@@ -411,7 +415,10 @@ async function importHistory(rows, sheetName, onProgress = () => {}) {
     validRows: valid.length,
     transactions: groups.length,
     imported,
-    skipped,
+    skipped: duplicateTransactions,
+    duplicateTransactions,
+    invalidRows: rows.length - valid.length,
+    unknownTransactions,
     unknownPlates,
     items,
     kmUpdated,
@@ -546,7 +553,7 @@ export default function EditableServiceExcelImportModal({ profile, onDone, onClo
       const activeTransactions = groupRows(activeValidRows)
       setProgress({ completed: 0, total: activeTransactions.length })
       const result = await importHistory(activeRows, sheet?.name || 'Data Service', ({ completed, total }) => { setProgress({ completed, total }); setMessage(`Memproses import: ${completed}/${total} transaksi...`) })
-      const report = { context: 'service', ...result, validRows: activeValidRows.length, addedCount: Number(result.imported || 0), updatedCount: 0, skippedCount: Number(result.skipped || 0), errorCount: Number(result.unknownPlates?.length || 0), transactions: result.transactions, fileName: file?.name || '', completedAt: new Date().toISOString(), message: `${result.imported} transaksi disimpan • ${result.skipped} dilewati • ${result.items} item tersimpan • ${result.kmUpdated} KM kendaraan diperbarui.` }
+      const report = { context: 'service', ...result, validRows: activeValidRows.length, addedCount: Number(result.imported || 0), updatedCount: 0, skippedCount: Number(result.duplicateTransactions || 0), errorCount: Number(result.invalidRows || 0) + Number(result.unknownTransactions || 0), transactions: result.transactions, fileName: file?.name || '', completedAt: new Date().toISOString(), message: `${result.imported} transaksi baru disimpan • ${result.duplicateTransactions} transaksi sudah ada/skip • ${Number(result.invalidRows || 0) + Number(result.unknownTransactions || 0)} baris bermasalah • ${result.items} item tersimpan • ${result.kmUpdated} KM kendaraan diperbarui.` }
       sessionStorage.setItem('transport_import_report', JSON.stringify(report)); setProgress({ completed: transactions.length, total: transactions.length }); setMessage(result.unknownPlates.length ? `${report.message} ${result.unknownPlates.length} plat tidak ada di Master dan tidak dibuat.` : report.message)
       onDone?.(report)
     } catch (e) {
