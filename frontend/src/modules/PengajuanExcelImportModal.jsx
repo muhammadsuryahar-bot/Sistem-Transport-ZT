@@ -183,16 +183,17 @@ export default function PengajuanExcelImportModal({ profile, onDone, onClose }) 
         if (insert.error) throw insert.error
       }
 
+      const deletedCount = rows.length - activeRows.length
       const report = {
         context: 'pengajuan',
-        sourceRows: activeRows.length,
+        sourceRows: rows.length,
         validRows: valid.length,
         addedCount: toInsert.length,
         updatedCount: 0,
-        skippedCount: invalid.length + duplicate,
+        skippedCount: deletedCount + duplicate,
         errorCount: invalid.length,
         imported: toInsert.length,
-        skipped: invalid.length + duplicate,
+        skipped: deletedCount + duplicate,
         duplicate,
         unknownPlates: [...new Set(invalid.filter((x) => x.reason.includes('belum ada')).map((x) => rows.find((r) => r.excelRow === x.row)?.nomor_polisi).filter(Boolean))],
         message: `${toInsert.length} pengajuan ditambahkan, ${invalid.length + duplicate} baris dilewati. Sumber: ${selected.sheet.name}.`,
