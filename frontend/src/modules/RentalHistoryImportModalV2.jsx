@@ -62,12 +62,12 @@ function parseRows(sheet) {
 async function importSummary(rows, profile, sourceFile, sourceSheet) {
   const existingRes = await supabase
     .from('rental_historis_excel')
-    .select('excel_row')
+    .select('excel_row,source_no,tahun,supplier,uraian,periode_tagihan,nilai_invoice,source_file,source_sheet')
     .eq('source_sheet', sourceSheet)
 
   if (existingRes.error) throw new Error(`Tidak bisa membaca histori SUMMERY RENTAL: ${existingRes.error.message}`)
 
-  const existingRows = new Set((existingRes.data || []).map(item => Number(item.excel_row)))
+  const existingByRow = new Map((existingRes.data || []).map(item => [Number(item.excel_row), item]))
   const payloads = rows.map(row => ({
     source_no: row.source_no || null,
     excel_row: Number(row.excelRow),
@@ -81,23 +81,36 @@ async function importSummary(rows, profile, sourceFile, sourceSheet) {
     catatan: 'Import Excel: SUMMERY RENTAL',
   }))
 
-  const result = payloads.length
-    ? await supabase.from('rental_historis_excel').upsert(payloads, { onConflict: 'source_sheet,excel_row', ignoreDuplicates: false })
+  const same = (left, right) =>
+    String(left?.source_no ?? '') === String(right?.source_no ?? '') &&
+    Number(left?.tahun ?? 0) === Number(right?.tahun ?? 0) &&
+    String(left?.supplier ?? '') === String(right?.supplier ?? '') &&
+    String(left?.uraian ?? '') === String(right?.uraian ?? '') &&
+    String(left?.periode_tagihan ?? '') === String(right?.periode_tagihan ?? '') &&
+    Number(left?.nilai_invoice ?? 0) === Number(right?.nilai_invoice ?? 0) &&
+    String(left?.source_file ?? '') === String(right?.source_file ?? '')
+
+  const newRows = payloads.filter(row => !existingByRow.has(row.excel_row))
+  const existingRows = payloads.filter(row => existingByRow.has(row.excel_row))
+  const updatedRows = existingRows.filter(row => !same(row, existingByRow.get(row.excel_row)))
+  const skippedRows = existingRows.length - updatedRows.length
+  const toSave = [...newRows, ...updatedRows]
+
+  const result = toSave.length
+    ? await supabase.from('rental_historis_excel').upsert(toSave, { onConflict: 'source_sheet,excel_row', ignoreDuplicates: false })
     : { error: null }
 
   if (result.error) throw new Error(`Gagal menyimpan histori SUMMERY RENTAL: ${result.error.message}`)
 
-  const duplicate = payloads.filter(row => existingRows.has(row.excel_row)).length
-  const imported = payloads.length - duplicate
-
   return {
-    imported,
-    duplicate,
-    skipped: [],
+    imported: newRows.length,
+    updated: updatedRows.length,
+    skipped: skippedRows,
     totalStored: payloads.length,
-    message: `${imported} data histori rental disimpan, ${duplicate} data diperbarui/duplikat. Data historis disimpan terpisah dari kontrak rental.`,
+    message: `${newRows.length} data baru • ${updatedRows.length} data diperbarui • ${skippedRows} data sama/skip. Data historis disimpan terpisah dari kontrak rental.`,
   }
 }
+
 
 export default function RentalHistoryImportModalV2({ profile, onClose, onDone }) {
   const inputRef = useRef(null)
@@ -154,24 +167,25 @@ export default function RentalHistoryImportModalV2({ profile, onClose, onDone })
     try {
       const activeRows = filterDeletedExcelRows('sewa', rows)
       const result = await importSummary(activeRows, profile, file?.name || '', sheetName)
-      const report = {
-        context: 'sewa',
-        sourceRows: rows.length,
-        validRows: result.imported + result.duplicate,
-        addedCount: Number(result.imported || 0),
-        updatedCount: Number(result.duplicate || 0),
-        skippedCount: Number(result.skipped.length || 0),
-        errorCount: Number(result.skipped.length || 0),
-        imported: result.imported,
-        skipped: result.skipped.length,
-        duplicate: result.duplicate,
-        message: result.message,
-        fileName: file?.name || '',
-        completedAt: new Date().toISOString(),
-      }
-      sessionStorage.setItem('transport_import_report', JSON.stringify(report))
-      onDone?.(report)
-      setMessage(result.skipped.length ? `${result.message} ${result.skipped.length} baris perlu verifikasi.` : result.message)
+       const report = {
+         context: 'sewa',
+         sourceRows: rows.length,
+         validRows: rows.length,
+         addedCount: Number(result.imported || 0),
+         updatedCount: Number(result.updated || 0),
+         skippedCount: Number(result.skipped || 0),
+         errorCount: 0,
+         imported: result.imported,
+         updated: result.updated,
+         skipped: result.skipped,
+         duplicate: result.skipped,
+         message: result.message,
+         fileName: file?.name || '',
+         completedAt: new Date().toISOString(),
+       }
+       sessionStorage.setItem('transport_import_report', JSON.stringify(report))
+       onDone?.(report)
+       setMessage(result.message)
     } catch (e) {
       setError(e.message || 'Import pembayaran rental gagal.')
       setMessage('')
