@@ -44,20 +44,51 @@ function numberValue(value) {
 function parseRows(sheet) {
   const header = findHeader(sheet)
   if (header.index < 0 || header.score < 5) throw new Error('Header SUMMERY RENTAL tidak ditemukan secara meyakinkan.')
-  const rows = sheet.rows.slice(header.index + 1)
-    .map(row => ({
-      id: `${row.excelRow}`,
-      excelRow: row.excelRow,
-      source_no: valueOf(row, header.row, ['No', 'Nomor', 'No Excel']),
-      tahun: valueOf(row, header.row, ['Tahun', 'Year']),
-      supplier: valueOf(row, header.row, ['Supplier', 'Pemilik', 'Nama Supplier']),
-      uraian: valueOf(row, header.row, ['Uraian', 'Keterangan', 'Deskripsi']),
-      periode: valueOf(row, header.row, ['Periode Tagihan', 'Periode', 'Bulan']),
-      nilai_invoice: valueOf(row, header.row, ['Nilai Invoice', 'Nilai Invoice (Rp)', 'Invoice', 'Nilai']),
-    }))
-    .filter(row => row.tahun && row.supplier && row.uraian && row.periode && row.nilai_invoice)
-  return { header, rows }
+
+  const rawRows = sheet.rows
+    .slice(header.index + 1)
+    .filter(row => row.values.some(value => clean(value)))
+  const ignoredRows = rawRows.filter(row => row.values.some(value => /grand\s*total/i.test(clean(value))))
+  const candidateRows = rawRows.filter(row => !row.values.some(value => /grand\s*total/i.test(clean(value))))
+
+  const parsed = candidateRows.map(row => ({
+    id: `${row.excelRow}`,
+    excelRow: row.excelRow,
+    source_no: valueOf(row, header.row, ['No', 'Nomor', 'No Excel']),
+    tahun: valueOf(row, header.row, ['Tahun', 'Year']),
+    supplier: valueOf(row, header.row, ['Supplier', 'Pemilik', 'Nama Supplier']),
+    uraian: valueOf(row, header.row, ['Uraian', 'Keterangan', 'Deskripsi']),
+    periode: valueOf(row, header.row, ['Periode Tagihan', 'Periode', 'Bulan']),
+    nilai_invoice: valueOf(row, header.row, ['Nilai Invoice', 'Nilai Invoice (Rp)', 'Invoice', 'Nilai']),
+  }))
+
+  const validRows = parsed.filter(row => {
+    const year = Number(String(row.tahun).replace(/\D/g, ''))
+    const invoice = numberValue(row.nilai_invoice)
+    return Boolean(
+      row.tahun &&
+      Number.isFinite(year) &&
+      year >= 1900 &&
+      year <= 2100 &&
+      row.supplier &&
+      row.uraian &&
+      row.periode &&
+      row.nilai_invoice &&
+      invoice != null &&
+      Number.isFinite(invoice) &&
+      invoice >= 0
+    )
+  })
+
+  return {
+    header,
+    rows: validRows,
+    invalidRows: parsed.length - validRows.length,
+    ignoredRows: ignoredRows.length,
+    sourceRows: rawRows.length,
+  }
 }
+
 
 async function importSummary(rows, profile, sourceFile, sourceSheet) {
   const existingRes = await supabase
@@ -123,6 +154,7 @@ export default function RentalHistoryImportModalV2({ profile, onClose, onDone })
   const [message, setMessage] = useState('')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(50)
+  const [parseStats, setParseStats] = useState({ sourceRows: 0, invalidRows: 0, ignoredRows: 0 })
   const canImport = ['ADMIN', 'TRANSPORT'].includes(profile?.role)
 
   const pageCount = Math.max(1, Math.ceil(rows.length / pageSize))
@@ -137,6 +169,7 @@ export default function RentalHistoryImportModalV2({ profile, onClose, onDone })
     setFile(nextFile || null)
     setRows([])
     setSheetName('')
+    setParseStats({ sourceRows: 0, invalidRows: 0, ignoredRows: 0 })
     setError('')
     setMessage('')
     setPage(1)
@@ -149,9 +182,10 @@ export default function RentalHistoryImportModalV2({ profile, onClose, onDone })
       const chosen = sheets.find(sheet => norm(sheet.name) === 'summery_rental') || sheets.find(sheet => norm(sheet.name).includes('summery_rental'))
       if (!chosen) throw new Error('Sheet SUMMERY RENTAL tidak ditemukan di workbook.')
       const parsed = parseRows(chosen)
-      setRows(parsed.rows)
-      setSheetName(chosen.name)
-      setMessage(`Sheet “${chosen.name}” terdeteksi • ${parsed.rows.length} baris transaksi rental terbaca. Baris kosong/trailing dan GRAND TOTAL tidak dimasukkan.`)
+       setRows(parsed.rows)
+       setParseStats({ sourceRows: parsed.sourceRows, invalidRows: parsed.invalidRows, ignoredRows: parsed.ignoredRows })
+       setSheetName(chosen.name)
+       setMessage(`Sheet “${chosen.name}” terdeteksi • ${parsed.rows.length} valid • ${parsed.invalidRows} bermasalah • ${parsed.ignoredRows} total/diabaikan.`)
     } catch (e) {
       setError(e.message || 'File Excel tidak dapat dibaca.')
     } finally {
@@ -169,23 +203,23 @@ export default function RentalHistoryImportModalV2({ profile, onClose, onDone })
       const result = await importSummary(activeRows, profile, file?.name || '', sheetName)
        const report = {
          context: 'sewa',
-         sourceRows: rows.length,
+         sourceRows: parseStats.sourceRows,
          validRows: rows.length,
          addedCount: Number(result.imported || 0),
          updatedCount: Number(result.updated || 0),
-         skippedCount: Number(result.skipped || 0),
-         errorCount: 0,
+         skippedCount: Number(result.skipped || 0) + Number(parseStats.ignoredRows || 0),
+         errorCount: Number(parseStats.invalidRows || 0),
          imported: result.imported,
          updated: result.updated,
-         skipped: result.skipped,
+         skipped: Number(result.skipped || 0) + Number(parseStats.ignoredRows || 0),
          duplicate: result.skipped,
-         message: result.message,
+         message: result.message + ` ${parseStats.invalidRows} baris bermasalah, ${parseStats.ignoredRows} baris total/diabaikan.`,
          fileName: file?.name || '',
          completedAt: new Date().toISOString(),
        }
        sessionStorage.setItem('transport_import_report', JSON.stringify(report))
        onDone?.(report)
-       setMessage(result.message)
+       setMessage(report.message)
     } catch (e) {
       setError(e.message || 'Import pembayaran rental gagal.')
       setMessage('')
