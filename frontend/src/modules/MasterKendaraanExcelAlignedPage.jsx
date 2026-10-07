@@ -17,16 +17,11 @@ const EMPTY = {
 const clean = value => String(value ?? '').trim()
 const normalizeRentalType = value => { const v = clean(value).toUpperCase().replace(/\s+/g, '_'); if (v === 'SEWA_PERUSAHAAN' || v === 'PERUSAHAAN') return 'SEWA_PERUSAHAAN'; if (v === 'SEWA_PERORANGAN' || v === 'PERORANGAN') return 'SEWA_PERORANGAN'; return '' }
 const rentalTypeLabel = value => value === 'SEWA_PERORANGAN' ? 'Sewa Perorangan' : value === 'SEWA_PERUSAHAAN' ? 'Sewa Perusahaan' : 'Belum ditentukan'
-const inferRentalTypeFromOwner = owner => {
-  const value = clean(owner)
-  if (!value) return ''
-  return /^(PT|CV|UD|YAYASAN|KOPERASI)(\.|\s|$)/i.test(value) ? 'SEWA_PERUSAHAAN' : 'SEWA_PERORANGAN'
-}
-const rentalTypeForVehicle = vehicle => normalizeRentalType(vehicle?.jenis_sewa) || inferRentalTypeFromOwner(vehicle?.pemilik)
+const rentalTypeForVehicle = vehicle => normalizeRentalType(vehicle?.jenis_sewa)
 const normalizeOwnership = value => {
   const v = clean(value).toUpperCase().replace(/\s+/g, '_')
-  if (v === 'ASET' || v === 'ASET_KANTOR') return 'ASET'
-  if (v === 'SEWA' || v === 'RENTAL' || v === 'KENDARAAN_SEWA') return 'SEWA'
+  if (v === 'ASET') return 'ASET'
+  if (v === 'SEWA') return 'SEWA'
   return ''
 }
 const formatDate = value => formatDateSafe(value)
@@ -102,7 +97,7 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
   const openNew = () => { setEditing(null); setForm({ ...EMPTY, kode_kendaraan: `KND-${Date.now()}` }); setPhotoFiles({}); setPhotoUrls({}); setError(''); setModal(true) }
   const openEdit = async vehicle => {
     setEditing(vehicle)
-    setForm({ ...EMPTY, ...vehicle, kepemilikan: normalizeOwnership(vehicle.kepemilikan), jenis_sewa: normalizeRentalType(vehicle.jenis_sewa) || inferRentalTypeFromOwner(vehicle.pemilik), harga_perolehan: vehicle.harga_perolehan ?? '', driver_id: vehicle.driver_id ?? '' })
+    setForm({ ...EMPTY, ...vehicle, kepemilikan: normalizeOwnership(vehicle.kepemilikan), jenis_sewa: normalizeRentalType(vehicle.jenis_sewa), harga_perolehan: vehicle.harga_perolehan ?? '', driver_id: vehicle.driver_id ?? '' })
     setPhotoFiles({})
     setPhotoUrls({})
     setError('')
