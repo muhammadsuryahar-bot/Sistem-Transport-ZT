@@ -453,7 +453,7 @@ function ensureRowSelection(context, table) {
   }
 }
 
-function hasNativeBulkSelection(table, context = '') {
+function hasNativeBulkSelection(table) {
   if (table?.dataset?.nativeRowSelection === 'true') return true
   return Boolean(table?.querySelector('thead .mep-check, thead .request-select-cell, thead .x-select-cell'))
 }
@@ -506,7 +506,7 @@ function removeGenericBulkUI(table) {
   delete table.dataset.dptBulkMode
 }
 
-function enterGenericBulkMode(table, firstRow = null, context = '') {
+function enterGenericBulkMode(table, firstRow = null) {
   if (!table || hasNativeBulkSelection(table)) return
   const rows = getBulkRows(table)
   if (!rows.length) return
