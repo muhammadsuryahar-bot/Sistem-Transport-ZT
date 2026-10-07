@@ -21,7 +21,7 @@ function safeSheetName(name, index) {
 }
 
 function isIsoDate(value) {
-  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z?)?$/.test(value)
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})?)?$/.test(value)
 }
 function isMoneyColumn(column) {
   const key = String(column?.key || '').toLowerCase()
@@ -48,18 +48,20 @@ function columnWidth(column) {
 }
 
 export function exportToExcel(filename, sections) {
-  const generatedAt = new Intl.DateTimeFormat('id-ID', {
-    dateStyle: 'full',
-    timeStyle: 'short',
-  }).format(new Date())
-
   const safeSections = (sections || []).map((section, index) => ({
     title: section?.title || `Rekap ${index + 1}`,
     columns: section?.columns || [],
     rows: section?.rows || [],
   }))
 
+  const usedSheetNames = new Set()
   const worksheets = safeSections.map((section, index) => {
+    const sheetName = safeSheetName(section.title, index)
+    if (usedSheetNames.has(sheetName)) {
+      throw new Error(`Nama sheet export duplikat: "${sheetName}".`)
+    }
+    usedSheetNames.add(sheetName)
+
     const headers = section.columns.map(column => column.label || column.key)
     const rows = section.rows
     const columnsCount = Math.max(1, section.columns.length)
@@ -72,12 +74,10 @@ export function exportToExcel(filename, sections) {
         : [`<Row><Cell ss:MergeAcross="${Math.max(0, columnsCount - 1)}" ss:StyleID="BodyWrap"><Data ss:Type="String">Tidak ada data</Data></Cell></Row>`]),
     ].join('')
 
-    return `<Worksheet ss:Name="${escapeXml(safeSheetName(section.title, index))}"><Table>${columnXml}${tableRows}</Table><WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel"><FreezePanes/><FrozenNoSplit/><SplitHorizontal>2</SplitHorizontal><TopRowBottomPane>2</TopRowBottomPane><ActivePane>2</ActivePane><ProtectContents>False</ProtectContents><ProtectObjects>False</ProtectObjects></WorksheetOptions></Worksheet>`
+    return `<Worksheet ss:Name="${escapeXml(sheetName)}"><Table>${columnXml}${tableRows}</Table><WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel"><FreezePanes/><FrozenNoSplit/><SplitHorizontal>2</SplitHorizontal><TopRowBottomPane>2</TopRowBottomPane><ActivePane>2</ActivePane><ProtectContents>False</ProtectContents><ProtectObjects>False</ProtectObjects></WorksheetOptions></Worksheet>`
   }).join('')
 
-  const summarySheet = `<Worksheet ss:Name="INFO"><Table><Column ss:Width="180"/><Column ss:Width="520"/><Row><Cell ss:StyleID="Title"><Data ss:Type="String">Rekap Sistem Transport PT Zaman Teknindo</Data></Cell><Cell ss:StyleID="Title"><Data ss:Type="String">Dibuat ${escapeXml(generatedAt)}</Data></Cell></Row><Row><Cell ss:StyleID="Header"><Data ss:Type="String">Isi File</Data></Cell><Cell ss:StyleID="Header"><Data ss:Type="String">Sheet terpisah per kelompok data agar mudah dibaca dan dicetak.</Data></Cell></Row>${safeSections.map((section, index) => `<Row><Cell><Data ss:Type="Number">${index + 1}</Data></Cell><Cell><Data ss:Type="String">${escapeXml(section.title)}</Data></Cell></Row>`).join('')}</Table><WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel"><FreezePanes/><FrozenNoSplit/><SplitHorizontal>2</SplitHorizontal><TopRowBottomPane>2</TopRowBottomPane><ActivePane>2</ActivePane></WorksheetOptions></Worksheet>`
-
-  const xml = `<?xml version="1.0"?><?mso-application progid="Excel.Sheet"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet" xmlns:html="http://www.w3.org/TR/REC-html40"><DocumentProperties xmlns="urn:schemas-microsoft-com:office:office"><Author>PT Zaman Teknindo</Author><Title>Rekap Sistem Transport</Title><Created>${new Date().toISOString()}</Created></DocumentProperties><Styles><Style ss:ID="Default" ss:Name="Normal"><Font ss:FontName="Calibri" ss:Size="11"/><Alignment ss:Vertical="Top"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D4DDD8"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D4DDD8"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D4DDD8"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D4DDD8"/></Borders></Style><Style ss:ID="Title"><Font ss:FontName="Calibri" ss:Size="14" ss:Bold="1"/><Interior ss:Color="#DFEEE6" ss:Pattern="Solid"/><Alignment ss:Vertical="Center"/></Style><Style ss:ID="Header"><Font ss:FontName="Calibri" ss:Size="11" ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#123B2A" ss:Pattern="Solid"/><Alignment ss:Vertical="Center" ss:WrapText="1"/></Style><Style ss:ID="Money"><Font ss:FontName="Calibri" ss:Size="11"/><NumberFormat ss:Format="#,##0"/></Style><Style ss:ID="Date"><Font ss:FontName="Calibri" ss:Size="11"/><NumberFormat ss:Format="dd/mm/yyyy"/></Style><Style ss:ID="BodyWrap"><Font ss:FontName="Calibri" ss:Size="11"/><Alignment ss:Vertical="Top" ss:WrapText="1"/></Style></Styles>${summarySheet}${worksheets}</Workbook>`
+  const xml = `<?xml version="1.0"?><?mso-application progid="Excel.Sheet"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet" xmlns:html="http://www.w3.org/TR/REC-html40"><DocumentProperties xmlns="urn:schemas-microsoft-com:office:office"><Author>PT Zaman Teknindo</Author><Title>Rekap Sistem Transport</Title><Created>${new Date().toISOString()}</Created></DocumentProperties><Styles><Style ss:ID="Default" ss:Name="Normal"><Font ss:FontName="Calibri" ss:Size="11"/><Alignment ss:Vertical="Top"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D4DDD8"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D4DDD8"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D4DDD8"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D4DDD8"/></Borders></Style><Style ss:ID="Title"><Font ss:FontName="Calibri" ss:Size="14" ss:Bold="1"/><Interior ss:Color="#DFEEE6" ss:Pattern="Solid"/><Alignment ss:Vertical="Center"/></Style><Style ss:ID="Header"><Font ss:FontName="Calibri" ss:Size="11" ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#123B2A" ss:Pattern="Solid"/><Alignment ss:Vertical="Center" ss:WrapText="1"/></Style><Style ss:ID="Money"><Font ss:FontName="Calibri" ss:Size="11"/><NumberFormat ss:Format="#,##0"/></Style><Style ss:ID="Date"><Font ss:FontName="Calibri" ss:Size="11"/><NumberFormat ss:Format="dd/mm/yyyy"/></Style><Style ss:ID="BodyWrap"><Font ss:FontName="Calibri" ss:Size="11"/><Alignment ss:Vertical="Top" ss:WrapText="1"/></Style></Styles>${worksheets}</Workbook>`
 
   const blob = new Blob([xml], { type: 'application/vnd.ms-excel;charset=utf-8' })
   const url = URL.createObjectURL(blob)
