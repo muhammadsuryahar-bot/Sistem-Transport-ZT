@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { humanizeError } from '../utils/feedback.js'
 import './TransportOperationsFixed.css'
 import PageBreadcrumb from './PageBreadcrumb.jsx'
 import AuditTrailPanel from './AuditTrailPanel.jsx'
