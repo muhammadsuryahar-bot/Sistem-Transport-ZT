@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { humanizeError } from '../utils/feedback.js'
 import './MasterKendaraanExcelAlignedPage.css'
 import PageBreadcrumb from './PageBreadcrumb.jsx'
 import { formatDateSafe } from '../utils/dateSafe'
@@ -187,7 +188,7 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
       setSuccess(editing ? 'Data kendaraan diperbarui.' : 'Kendaraan baru berhasil ditambahkan.')
       resetModal()
     } catch (saveError) {
-      setError(saveError.message || 'Gagal menyimpan kendaraan.')
+      setError(humanizeError(saveError, 'Gagal menyimpan kendaraan.'))
     } finally { setSaving(false) }
   }
 
