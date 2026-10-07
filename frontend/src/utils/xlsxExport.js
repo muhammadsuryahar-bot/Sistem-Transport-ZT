@@ -118,7 +118,7 @@ const makeZip = async (files) => {
 
 const safeSheetName = (value, index) => {
   const cleaned = String(value || `Sheet ${index + 1}`)
-    .replace(/[\\/*?:\[\]]/g, ' ')
+    .replace(/[\\/*?:[\]]/g, ' ')
     .trim()
     .slice(0, 31)
   return cleaned || `Sheet ${index + 1}`
@@ -192,7 +192,6 @@ const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 
 export async function downloadXlsx(filename, sheets) {
   if (!Array.isArray(sheets) || sheets.length === 0) throw new Error('Tidak ada data untuk diekspor.')
-  const encoder = new TextEncoder()
   const safeSheets = sheets.slice(0, 10).map((sheet, index) => ({
     ...sheet,
     name: safeSheetName(sheet?.name, index),
