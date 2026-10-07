@@ -122,23 +122,40 @@ export default function ReportsFeaturePage({ profile, onNavigate }) {
 
   const metrics = useMemo(() => {
     const { vehicles, services, requests, contracts, payments, docs, approvals, repairs, deductions } = periodData
-    const activeContracts = contracts.filter(x => x.status === 'AKTIF').length
+    const activeVehicles = vehicles.filter(x => x.status === 'ACTIVE').length
+    const vehiclesInService = new Set(
+      data.services
+        .filter(x => !['SELESAI', 'DIBATALKAN'].includes(x.status) && x.kendaraan_id)
+        .map(x => x.kendaraan_id)
+    ).size
+    const activeContracts = canReadRental
+      ? contracts.filter(x => x.tanggal_mulai && x.tanggal_selesai && x.tanggal_mulai <= periodEnd && x.tanggal_selesai >= periodEnd && x.status !== 'DIBATALKAN').length
+      : null
     const pendingRequests = requests.filter(x => ['MENUNGGU_TRANSPORT', 'DITERIMA_TRANSPORT', 'DALAM_PROSES'].includes(x.status)).length
     const pendingApproval = services.filter(s => s.status === 'MENUNGGU_APPROVAL').length
     const expiredDocs = docs.filter(x => x.tanggal_jatuh_tempo && new Date(x.tanggal_jatuh_tempo).getTime() < now).length
     const soonDocs = docs.filter(x => x.tanggal_jatuh_tempo && new Date(x.tanggal_jatuh_tempo).getTime() >= now && new Date(x.tanggal_jatuh_tempo).getTime() <= now + DAYS).length
     const serviceCost = services.reduce((n, x) => n + Number(x.biaya_aktual ?? x.estimasi_biaya ?? 0), 0)
-    const rentalGross = payments.reduce((n, x) => n + Number(x.jumlah_tagihan || 0), 0)
-    const rentalPaid = payments.reduce((n, x) => n + Number(x.jumlah_dibayar || 0), 0)
-    const totalDeduction = deductions.reduce((n, x) => n + Number(x.jumlah_potongan || 0), 0)
-    const overduePayments = payments.filter(x => x.status === 'TERLAMBAT' || ((x.status === 'BELUM_DIBAYAR' || x.status === 'SEBAGIAN_DIBAYAR') && x.tanggal_jatuh_tempo && new Date(x.tanggal_jatuh_tempo).getTime() < now)).length
-    const repairedAndPaidByOffice = repairs.filter(x => x.dibayar_kantor).length
+    const rentalGross = canReadRental ? payments.reduce((n, x) => n + Number(x.jumlah_tagihan || 0), 0) : null
+    const rentalHistoricalBilling = canReadRental ? payments.filter(x => x.status === 'DATA_HISTORIS').reduce((n, x) => n + Number(x.jumlah_tagihan || 0), 0) : null
+    const rentalPaid = canReadRental ? payments.filter(x => x.status !== 'DATA_HISTORIS').reduce((n, x) => n + Number(x.jumlah_dibayar || 0), 0) : null
+    const totalDeduction = canReadRental ? deductions.reduce((n, x) => n + Number(x.jumlah_potongan || 0), 0) : null
+    const overduePayments = canReadRental
+      ? payments.filter(x => x.status === 'TERLAMBAT' || ((x.status === 'BELUM_DIBAYAR' || x.status === 'SEBAGIAN_DIBAYAR') && x.tanggal_jatuh_tempo && new Date(x.tanggal_jatuh_tempo).getTime() < now)).length
+      : null
+    const repairedAndPaidByOffice = canReadRental ? repairs.filter(x => x.dibayar_kantor).length : null
     const approved = approvals.filter(x => x.status === 'DISETUJUI').length
-    return { activeContracts, pendingRequests, pendingApproval, expiredDocs, soonDocs, serviceCost, rentalGross, rentalPaid, totalDeduction, overduePayments, repairedAndPaidByOffice, approved, totalVehicles: vehicles.length }
-  }, [periodData, now])
+    return {
+      activeContracts, pendingRequests, pendingApproval, expiredDocs, soonDocs, serviceCost,
+      rentalGross, rentalHistoricalBilling, rentalPaid, totalDeduction, overduePayments,
+      repairedAndPaidByOffice, approved, totalVehicles: vehicles.length, activeVehicles, vehiclesInService,
+    }
+  }, [data.services, periodData, periodEnd, canReadRental, now])
 
   const serviceRows = filter === 'SELESAI' ? periodData.services.filter(x => x.status === 'SELESAI') : filter === 'MENUNGGU_APPROVAL' ? periodData.services.filter(x => x.status === 'MENUNGGU_APPROVAL') : periodData.services.filter(x => x.status !== 'DIBATALKAN')
-  const problemPayments = periodData.payments.filter(x => x.status === 'TERLAMBAT' || ((x.status === 'BELUM_DIBAYAR' || x.status === 'SEBAGIAN_DIBAYAR') && x.tanggal_jatuh_tempo && new Date(x.tanggal_jatuh_tempo).getTime() < now))
+  const problemPayments = canReadRental
+    ? periodData.payments.filter(x => x.status === 'TERLAMBAT' || ((x.status === 'BELUM_DIBAYAR' || x.status === 'SEBAGIAN_DIBAYAR') && x.tanggal_jatuh_tempo && new Date(x.tanggal_jatuh_tempo).getTime() < now))
+    : []
 
   const exportAll = async () => {
     setExporting(true)
@@ -158,15 +175,24 @@ export default function ReportsFeaturePage({ profile, onNavigate }) {
 
       const exportRows = rows => uniqueRows(rows.map(row => ({ ...row })), row => row.id ?? row.nomor_service ?? row.nomor_pengajuan ?? row.nomor_kontrak ?? row.nomor_perbaikan ?? `${row.kendaraan_id ?? ''}:${row.jenis_dokumen ?? ''}:${row.nomor_dokumen ?? ''}:${row.periode_ke ?? ''}:${row.excel_row ?? ''}`)
 
-      exportToExcel(`Rekap-Transport-ZT-${periodStart}_sd_${periodEnd}.xls`, [
+      const sections = [
         {
           title: 'RINGKASAN',
           columns: columns([
-            ['totalVehicles', 'Total Kendaraan'], ['activeContracts', 'Kontrak Aktif'], ['pendingRequests', 'Pengajuan Menunggu'], ['pendingApproval', 'Service Menunggu Approval'],
-            ['serviceCost', 'Total Biaya Service'], ['rentalPaid', 'Total Pembayaran Rental'], ['totalDeduction', 'Total Potongan Rental'], ['soonDocs', 'Dokumen <= 30 Hari'],
+            ['totalVehicles', 'Total Kendaraan'], ['activeVehicles', 'Kendaraan Aktif'], ['vehiclesInService', 'Kendaraan Sedang Service'],
+            ['activeContracts', 'Kontrak Aktif'], ['pendingRequests', 'Pengajuan Menunggu'], ['pendingApproval', 'Service Menunggu Approval'],
+            ['serviceCost', 'Total Biaya Service'], ['rentalGross', 'Total Tagihan Rental'], ['rentalHistoricalBilling', 'Tagihan Rental Historis'],
+            ['rentalPaid', 'Total Dibayar Rental'], ['totalDeduction', 'Total Potongan Rental'], ['soonDocs', 'Dokumen <= 30 Hari'],
             ['overduePayments', 'Pembayaran Bermasalah'], ['approved', 'Approval Disetujui'],
           ]),
-          rows: [{ ...metrics, serviceCost: money(metrics.serviceCost), rentalPaid: money(metrics.rentalPaid), totalDeduction: money(metrics.totalDeduction) }],
+          rows: [{
+            ...metrics,
+            serviceCost: money(metrics.serviceCost),
+            rentalGross: metrics.rentalGross == null ? null : money(metrics.rentalGross),
+            rentalHistoricalBilling: metrics.rentalHistoricalBilling == null ? null : money(metrics.rentalHistoricalBilling),
+            rentalPaid: metrics.rentalPaid == null ? null : money(metrics.rentalPaid),
+            totalDeduction: metrics.totalDeduction == null ? null : money(metrics.totalDeduction),
+          }],
         },
         {
           title: 'KENDARAAN',
@@ -213,7 +239,12 @@ export default function ReportsFeaturePage({ profile, onNavigate }) {
           columns: columns([['kendaraan','Nomor Polisi'],['jenis_dokumen','Jenis Dokumen'],['nomor_dokumen','Nomor Dokumen'],['tanggal_terbit','Tanggal Terbit'],['tanggal_berlaku_mulai','Berlaku Mulai'],['tanggal_jatuh_tempo','Jatuh Tempo'],['keterangan','Keterangan']]),
           rows: exportRows(periodData.docs).map(d => ({ ...d, kendaraan: vehicleMap[d.kendaraan_id]?.nomor_polisi || '-' })),
         },
-      ])
+      ]
+
+      if (!canReadRental) {
+        sections.splice(5, 4)
+      }
+      exportToExcel(`Rekap-Transport-ZT-${periodStart}_sd_${periodEnd}.xls`, sections)
     } catch (exportError) {
       console.error('Export Excel error:', exportError)
       setError(`Gagal mengekspor Excel: ${exportError.message || 'kesalahan tidak diketahui'}`)
@@ -241,28 +272,31 @@ export default function ReportsFeaturePage({ profile, onNavigate }) {
 
     <div className="x-stat-grid">
       <button type="button" className="x-stat x-stat-clickable" onClick={() => onNavigate('kendaraan')}><span>Kendaraan</span><b>{metrics.totalVehicles}</b><i aria-hidden="true">›</i></button>
-      <button type="button" className="x-stat x-stat-clickable" onClick={() => onNavigate('sewa')}><span>Kontrak Aktif</span><b>{metrics.activeContracts}</b><i aria-hidden="true">›</i></button>
+      <button type="button" className="x-stat x-stat-clickable" onClick={() => onNavigate('kendaraan')}><span>Kendaraan Aktif</span><b>{metrics.activeVehicles}</b><i aria-hidden="true">›</i></button>
+      <button type="button" className="x-stat x-stat-clickable" onClick={() => onNavigate('service')}><span>Kendaraan Sedang Service</span><b>{metrics.vehiclesInService}</b><i aria-hidden="true">›</i></button>
+      <button type="button" className="x-stat x-stat-clickable" onClick={() => onNavigate('sewa')}><span>Kontrak Aktif</span><b>{metrics.activeContracts == null ? '—' : metrics.activeContracts}</b><i aria-hidden="true">›</i></button>
       <button type="button" className="x-stat x-stat-clickable warning" onClick={() => onNavigate('pengajuan')}><span>Pengajuan Menunggu</span><b>{metrics.pendingRequests}</b><i aria-hidden="true">›</i></button>
       <button type="button" className="x-stat x-stat-clickable warning" onClick={() => onNavigate('service')}><span>Service Menunggu Approval</span><b>{metrics.pendingApproval}</b><i aria-hidden="true">›</i></button>
       <button type="button" className="x-stat x-stat-clickable" onClick={() => onNavigate('service')}><span>Biaya Service</span><b>{money(metrics.serviceCost)}</b><i aria-hidden="true">›</i></button>
-      <button type="button" className="x-stat x-stat-clickable" onClick={() => onNavigate('sewa')}><span>Pembayaran Rental</span><b>{money(metrics.rentalPaid)}</b><i aria-hidden="true">›</i></button>
-      <button type="button" className="x-stat x-stat-clickable" onClick={() => onNavigate('sewa')}><span>Potongan Rental</span><b>{money(metrics.totalDeduction)}</b><i aria-hidden="true">›</i></button>
+      <button type="button" className="x-stat x-stat-clickable" onClick={() => onNavigate('sewa')}><span>Tagihan Rental</span><b>{metrics.rentalGross == null ? '—' : money(metrics.rentalGross)}</b><i aria-hidden="true">›</i></button>
+      <button type="button" className="x-stat x-stat-clickable" onClick={() => onNavigate('sewa')}><span>Rental Dibayar</span><b>{metrics.rentalPaid == null ? '—' : money(metrics.rentalPaid)}</b><i aria-hidden="true">›</i></button>
+      <button type="button" className="x-stat x-stat-clickable" onClick={() => onNavigate('sewa')}><span>Potongan Rental</span><b>{metrics.totalDeduction == null ? '—' : money(metrics.totalDeduction)}</b><i aria-hidden="true">›</i></button>
       <button type="button" className="x-stat x-stat-clickable warning" onClick={() => onNavigate('dokumen')}><span>Dokumen ≤30 Hari</span><b>{metrics.soonDocs}</b><i aria-hidden="true">›</i></button>
     </div>
 
     <section className="x-card"><div className="x-card-title"><h3>Perhatian Utama</h3></div><div className="x-stat-grid">
       <button type="button" className="x-stat x-stat-clickable danger" onClick={() => onNavigate('service')}><span>Approval Menunggu</span><b>{metrics.pendingApproval}</b><i aria-hidden="true">›</i></button>
-      <button type="button" className="x-stat x-stat-clickable danger" onClick={() => onNavigate('sewa')}><span>Pembayaran Bermasalah</span><b>{metrics.overduePayments}</b><i aria-hidden="true">›</i></button>
+      <button type="button" className="x-stat x-stat-clickable danger" onClick={() => onNavigate('sewa')}><span>Pembayaran Bermasalah</span><b>{metrics.overduePayments == null ? '—' : metrics.overduePayments}</b><i aria-hidden="true">›</i></button>
       <button type="button" className="x-stat x-stat-clickable danger" onClick={() => onNavigate('dokumen')}><span>Dokumen Expired</span><b>{metrics.expiredDocs}</b><i aria-hidden="true">›</i></button>
-      <button type="button" className="x-stat x-stat-clickable warning" onClick={() => onNavigate('sewa')}><span>Perbaikan Dibayar Kantor</span><b>{metrics.repairedAndPaidByOffice}</b><i aria-hidden="true">›</i></button>
+      <button type="button" className="x-stat x-stat-clickable warning" onClick={() => onNavigate('sewa')}><span>Perbaikan Dibayar Kantor</span><b>{metrics.repairedAndPaidByOffice == null ? '—' : metrics.repairedAndPaidByOffice}</b><i aria-hidden="true">›</i></button>
     </div></section>
 
     <section className="x-card"><div className="x-card-title"><div><h3>Rekap Service</h3><p>Gunakan filter untuk melihat pekerjaan selesai atau yang menunggu approval.</p></div><div className="x-actions"><button className={`x-btn ${filter === 'SEMUA' ? 'primary' : 'secondary'}`} onClick={() => setFilter('SEMUA')}>Semua</button><button className={`x-btn ${filter === 'MENUNGGU_APPROVAL' ? 'primary' : 'secondary'}`} onClick={() => setFilter('MENUNGGU_APPROVAL')}>Approval</button><button className={`x-btn ${filter === 'SELESAI' ? 'primary' : 'secondary'}`} onClick={() => setFilter('SELESAI')}>Selesai</button></div></div><div className="x-table-wrap"><table className="x-table"><thead><tr><th>Tanggal</th><th>Kendaraan</th><th>Jenis</th><th>Biaya</th><th>Status</th></tr></thead><tbody>{serviceRows.map(x => <tr key={x.id}><td>{date(x.tanggal_service)}</td><td>{periodData.vehicles.find(k => k.id === x.kendaraan_id)?.nomor_polisi || '-'}</td><td>{x.jenis_service || '-'}</td><td>{money(x.biaya_aktual ?? x.estimasi_biaya)}</td><td>{x.status}</td></tr>)}{!serviceRows.length && <tr><td colSpan="5">Tidak ada data.</td></tr>}</tbody></table></div></section>
 
-    <section className="x-card"><div className="x-card-title"><h3>Pembayaran Sewa Terlambat / Belum Lunas</h3></div><div className="x-table-wrap"><table className="x-table"><thead><tr><th>Kontrak</th><th>Jatuh Tempo</th><th>Tagihan Bersih</th><th>Dibayar</th><th>Status</th></tr></thead><tbody>{problemPayments.map(x => <tr key={x.id}><td>#{x.kontrak_sewa_id}</td><td>{date(x.tanggal_jatuh_tempo)}</td><td>{money(x.jumlah_tagihan)}</td><td>{money(x.jumlah_dibayar)}</td><td>{x.status}</td></tr>)}{!problemPayments.length && <tr><td colSpan="5">Tidak ada pembayaran bermasalah.</td></tr>}</tbody></table></div></section>
+    <section className="x-card"><div className="x-card-title"><h3>Pembayaran Sewa Terlambat / Belum Lunas</h3></div><div className="x-table-wrap"><table className="x-table"><thead><tr><th>Kontrak</th><th>Jatuh Tempo</th><th>Tagihan Bersih</th><th>Dibayar</th><th>Status</th></tr></thead><tbody>{!canReadRental && <tr><td colSpan="5">Data pembayaran rental tidak tersedia untuk role ini.</td></tr>}{canReadRental && problemPayments.map(x => <tr key={x.id}><td>#{x.kontrak_sewa_id}</td><td>{date(x.tanggal_jatuh_tempo)}</td><td>{money(x.jumlah_tagihan)}</td><td>{money(x.jumlah_dibayar)}</td><td>{x.status}</td></tr>)}{canReadRental && !problemPayments.length && <tr><td colSpan="5">Tidak ada pembayaran bermasalah.</td></tr>}</tbody></table></div></section>
 
     <section className="x-card"><div className="x-card-title"><h3>Dokumen Hampir Jatuh Tempo</h3></div><div className="x-table-wrap"><table className="x-table"><thead><tr><th>Kendaraan</th><th>Dokumen</th><th>Jatuh Tempo</th><th>Status</th></tr></thead><tbody>{periodData.docs.filter(x => x.tanggal_jatuh_tempo && new Date(x.tanggal_jatuh_tempo).getTime() <= now + DAYS).map(x => { const diff = Math.ceil((new Date(x.tanggal_jatuh_tempo).getTime() - now) / 86400000); return <tr key={x.id}><td>{data.vehicles.find(k => k.id === x.kendaraan_id)?.nomor_polisi || '-'}</td><td>{x.jenis_dokumen} {x.nomor_dokumen ? `— ${x.nomor_dokumen}` : ''}</td><td>{date(x.tanggal_jatuh_tempo)}</td><td>{diff < 0 ? 'EXPIRED' : `${diff} hari lagi`}</td></tr> })}{!periodData.docs.some(x => x.tanggal_jatuh_tempo && new Date(x.tanggal_jatuh_tempo).getTime() <= now + DAYS) && <tr><td colSpan="4">Tidak ada dokumen yang perlu diperhatikan dalam 30 hari.</td></tr>}</tbody></table></div></section>
 
-    <section className="x-card"><div className="x-card-title"><h3>Ringkasan Penggunaan Sistem</h3></div><div className="x-detail"><p><b>Total pengajuan periode:</b> {periodData.requests.length}</p><p><b>Total service selesai periode:</b> {periodData.services.filter(x => x.status === 'SELESAI').length}</p><p><b>Total approval disetujui:</b> {metrics.approved}</p><p><b>Total tagihan rental:</b> {money(metrics.rentalGross)}</p><p><b>Total dibayar rental:</b> {money(metrics.rentalPaid)}</p><p><b>Total potongan repair rental:</b> {money(metrics.totalDeduction)}</p></div></section>
+    <section className="x-card"><div className="x-card-title"><h3>Ringkasan Penggunaan Sistem</h3></div><div className="x-detail"><p><b>Total pengajuan periode:</b> {periodData.requests.length}</p><p><b>Total service selesai periode:</b> {periodData.services.filter(x => x.status === 'SELESAI').length}</p><p><b>Total approval disetujui:</b> {metrics.approved}</p><p><b>Total tagihan rental:</b> {metrics.rentalGross == null ? 'Tidak tersedia untuk role ini' : money(metrics.rentalGross)}</p><p><b>Tagihan rental historis:</b> {metrics.rentalHistoricalBilling == null ? 'Tidak tersedia untuk role ini' : money(metrics.rentalHistoricalBilling)}</p><p><b>Total dibayar rental:</b> {metrics.rentalPaid == null ? 'Tidak tersedia untuk role ini' : money(metrics.rentalPaid)}</p><p><b>Total potongan repair rental:</b> {metrics.totalDeduction == null ? 'Tidak tersedia untuk role ini' : money(metrics.totalDeduction)}</p></div></section>
   </div>
 }
