@@ -208,7 +208,6 @@ export default function RentalFeaturePage({ profile }) {
     if (actualEnd.getTime() !== expectedEnd.getTime()) return setError('Kontrak sewa harus tepat 6 bulan. Tanggal selesai otomatis harus 1 hari sebelum tanggal yang sama pada bulan ke-6.')
     setSaving(true); let contractPath = null
     try {
-      if (!editingContractId && !contractFile) throw new Error('Dokumen kontrak wajib diunggah.')
       contractPath = contractFile ? await uploadRentalFile(contractFile, `kontrak/${contract.kendaraan_id}`) : null
       const payload = { ...contract, kendaraan_id: Number(contract.kendaraan_id), pemilik_sewa_id: Number(contract.pemilik_sewa_id), periode_bulan: 6, nilai_sewa_bulanan: Number(contract.nilai_sewa_bulanan), tanggal_jatuh_tempo_bulanan: Number(contract.tanggal_jatuh_tempo_bulanan || 0) || null, dokumen_kontrak_path: contractPath || (editingContractId ? contracts.find(x => x.id === editingContractId)?.dokumen_kontrak_path || null : null) }
       const result = editingContractId ? await supabase.from('kontrak_sewa').update(payload).eq('id', editingContractId).select('*').single() : await supabase.from('kontrak_sewa').insert(payload).select('*').single()
@@ -351,7 +350,7 @@ export default function RentalFeaturePage({ profile }) {
   }
 
 
-  const rentalTabs = [['kendaraan', 'Daftar Sewa'], ['kontrak', 'Kontrak'], ['pemilik', 'Pemilik'], ['pembayaran', 'Pembayaran'], ['historis', 'Summary Rental'], ...(repairEditable ? [['repair', 'Perbaikan']] : [])]
+  const rentalTabs = [['kendaraan', 'Daftar Sewa'], ['kontrak', 'Kontrak'], ['pemilik', 'Pemilik'], ['pembayaran', 'Pembayaran'], ['historis', 'Summary Rental'], ['repair', 'Perbaikan']]
 
   return <div className="x-page">
     <Header breadcrumb={rentalTabs.find(([v]) => v === tab)?.[1]} title="Administrasi Kendaraan Sewa" text="Master kendaraan tetap berada di menu Kendaraan. Halaman ini khusus untuk administrasi kendaraan Sewa: pemilik, kontrak 6 bulan, pembayaran, bukti, perbaikan, dan potongan." action={<button className="x-btn secondary" onClick={load}>↻ Refresh</button>} />
