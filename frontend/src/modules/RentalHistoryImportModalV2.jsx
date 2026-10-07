@@ -208,7 +208,7 @@ export default function RentalHistoryImportModalV2({ profile, onClose, onDone })
          validRows: rows.length,
          addedCount: Number(result.imported || 0),
          updatedCount: Number(result.updated || 0),
-         skippedCount: Number(result.skipped || 0) + Number(parseStats.ignoredRows || 0),
+         skippedCount: Number(result.skipped || 0) + Number(parseStats.ignoredRows || 0) + deletedCount,
          errorCount: Number(parseStats.invalidRows || 0),
          imported: result.imported,
          updated: result.updated,
@@ -216,7 +216,7 @@ export default function RentalHistoryImportModalV2({ profile, onClose, onDone })
          duplicate: result.skipped,
          message: result.message + ` ${parseStats.invalidRows} baris bermasalah, ${parseStats.ignoredRows} baris total/diabaikan.`,
          fileName: file?.name || '',
-         completedAt: new Date().toISOString(),
+          deletedCount,
        }
        sessionStorage.setItem('transport_import_report', JSON.stringify(report))
        onDone?.(report)
