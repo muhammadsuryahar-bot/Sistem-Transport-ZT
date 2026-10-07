@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { humanizeError } from '../utils/feedback.js'
 import { clearDeletedExcelRows, filterDeletedExcelRows } from '../utils/excelPreviewControls.js'
 import { parseXlsx } from '../utils/xlsxParser.js'
 import './DataPageTools.css'
@@ -187,7 +188,7 @@ export default function RentalHistoryImportModalV2({ profile, onClose, onDone })
        setSheetName(chosen.name)
        setMessage(`Sheet “${chosen.name}” terdeteksi • ${parsed.rows.length} valid • ${parsed.invalidRows} bermasalah • ${parsed.ignoredRows} total/diabaikan.`)
     } catch (e) {
-      setError(e.message || 'File Excel tidak dapat dibaca.')
+      setError(humanizeError(e, 'File Excel tidak dapat dibaca.'))
     } finally {
       setLoading(false)
     }
@@ -222,7 +223,7 @@ export default function RentalHistoryImportModalV2({ profile, onClose, onDone })
        onDone?.(report)
        setMessage(report.message)
     } catch (e) {
-      setError(e.message || 'Import pembayaran rental gagal.')
+      setError(humanizeError(e, 'Import pembayaran rental gagal.'))
       setMessage('')
     } finally {
       setSaving(false)
