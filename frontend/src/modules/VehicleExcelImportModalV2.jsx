@@ -251,8 +251,27 @@ export default function VehicleExcelImportModalV2({ profile, onDone, onClose }) 
     
     setSaving(true); setError(''); setMessage('Import kendaraan berjalan...')
     try {
-      const result = await importVehicleRows(filterDeletedExcelRows('kendaraan', workbook.valid))
-      const report = { context: 'kendaraan', ...result, sourceRows: workbook.data.length, validRows: workbook.valid.length, addedCount: Number(result.added || 0), updatedCount: Number(result.updated || 0), skippedCount: 0, errorCount: 0, uniqueVehicles: workbook.uniqueCount, mergedDuplicates: workbook.duplicateCount, missingSourceNumbers: workbook.missingSourceNumbers, fileName: file?.name || '', completedAt: new Date().toISOString() }
+      const activeRows = filterDeletedExcelRows('kendaraan', workbook.valid)
+      const deletedCount = workbook.valid.length - activeRows.length
+      const validationErrorCount = workbook.data.length - workbook.valid.length
+      const result = await importVehicleRows(activeRows)
+      const mergedDuplicates = Number(result.mergedDuplicates || 0)
+      const report = {
+        context: 'kendaraan',
+        ...result,
+        sourceRows: workbook.data.length,
+        validRows: activeRows.length,
+        addedCount: Number(result.added || 0),
+        updatedCount: Number(result.updated || 0),
+        skippedCount: deletedCount + mergedDuplicates,
+        errorCount: validationErrorCount,
+        uniqueVehicles: result.uniqueVehicles,
+        mergedDuplicates,
+        deletedCount,
+        missingSourceNumbers: workbook.missingSourceNumbers,
+        fileName: file?.name || '',
+        completedAt: new Date().toISOString(),
+      }
       sessionStorage.setItem('transport_import_report', JSON.stringify(report))
       setMessage(`Import selesai: ${result.uniqueVehicles} kendaraan unik • ${result.added} baru • ${result.updated} diperbarui • ${result.mergedDuplicates} duplikat digabung • ${result.driversCreated} driver dibuat.`)
       onDone?.(report)
