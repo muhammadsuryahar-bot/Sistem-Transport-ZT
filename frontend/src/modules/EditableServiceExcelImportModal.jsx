@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { humanizeError } from '../utils/feedback.js'
 import { clearDeletedExcelRows, filterDeletedExcelRows } from '../utils/excelPreviewControls.js'
 import { parseXlsx } from '../utils/xlsxParser.js'
 import './DataPageTools.css'
@@ -477,7 +478,7 @@ export default function EditableServiceExcelImportModal({ profile, onDone, onClo
       const parsed = sourceRows.sort((a, b) => Number(a.source_no || 0) - Number(b.source_no || 0) || a.excelRow - b.excelRow)
       setSheet(chosen.sheet); setHeaders(chosen.header.row); setRows(parsed)
       setMessage(`Sheet “${chosen.sheet.name}” terbaca: ${parsed.length} baris. Kolom No. Polisi, Harga Satuan, DPP, PPN, Total, KM, dan Nama Bengkel berhasil dikenali.`)
-    } catch (e) { setError(e.message || 'File Excel tidak dapat dibaca.') } finally { setLoading(false) }
+    } catch (e) { setError(humanizeError(e, 'File Excel tidak dapat dibaca.')) } finally { setLoading(false) }
   }
 
   const filteredRows = useMemo(() => {
@@ -558,7 +559,7 @@ export default function EditableServiceExcelImportModal({ profile, onDone, onClo
       sessionStorage.setItem('transport_import_report', JSON.stringify(report)); setProgress({ completed: transactions.length, total: transactions.length }); setMessage(result.unknownPlates.length ? `${report.message} ${result.unknownPlates.length} plat tidak ada di Master dan tidak dibuat.` : report.message)
       onDone?.(report)
     } catch (e) {
-      setError(e.message || 'Import histori service gagal.')
+      setError(humanizeError(e, 'Import histori service gagal.'))
       setMessage('Import gagal dan seluruh proses transaksi dibatalkan sebagai satu paket. Tidak ada data setengah masuk dari proses ini.')
     } finally { setSaving(false) }
   }
