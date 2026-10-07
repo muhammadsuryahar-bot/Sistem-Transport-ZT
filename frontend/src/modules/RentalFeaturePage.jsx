@@ -396,7 +396,7 @@ export default function RentalFeaturePage({ profile }) {
         <label>Waktu Mulai<input type="time" value={contract.waktu_mulai} onChange={e => setContract({ ...contract, waktu_mulai: e.target.value })} /></label>
         <label>Waktu Selesai<input type="time" value={contract.waktu_selesai} onChange={e => setContract({ ...contract, waktu_selesai: e.target.value })} /></label>
         <label>Status<select value={contract.status} onChange={e => setContract({ ...contract, status: e.target.value })}><option>AKTIF</option><option>SELESAI</option><option>DIBATALKAN</option></select></label>
-        <label className="full">Dokumen Kontrak<input type="file" accept=".pdf,image/*" onChange={e => setContractFile(e.target.files?.[0] || null)} /><small>{contractFile ? contractFile.name : editingContractId ? 'Biarkan kosong untuk mempertahankan file lama.' : 'Wajib untuk arsip kontrak.'}</small></label>
+        <label className="full">Dokumen Kontrak<input type="file" accept=".pdf,image/*" onChange={e => setContractFile(e.target.files?.[0] || null)} /><small>{contractFile ? contractFile.name : editingContractId ? 'Biarkan kosong untuk mempertahankan file lama.' : 'Opsional; unggah jika dokumen sudah tersedia.'}</small></label>
         <label className="full">Catatan<textarea value={contract.catatan} onChange={e => setContract({ ...contract, catatan: e.target.value })} /></label>
         <div className="full x-actions"><button type="button" className="x-btn secondary" onClick={resetContractForm}>Bersihkan</button><button className="x-btn primary" disabled={saving}>{saving ? 'Menyimpan…' : editingContractId ? 'Perbarui Kontrak' : 'Simpan Kontrak'}</button></div>
       </form>}
