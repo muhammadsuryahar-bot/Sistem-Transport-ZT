@@ -128,13 +128,13 @@ export default function DashboardFeaturePage({ profile, onNavigate }) {
 
       if (canReadService) {
         pushCount('antrian transport', supabase.from('permintaan_service').select('id', { count: 'exact', head: true }).eq('status', 'MENUNGGU_TRANSPORT'), 'transportQueue')
-        pushCount('antrian approval', supabase.from('permintaan_service').select('id', { count: 'exact', head: true }).eq('status', 'MENUNGGU_APPROVAL'), 'approvalQueue')
+        pushCount('service menunggu approval', supabase.from('service').select('id', { count: 'exact', head: true }).eq('status', 'MENUNGGU_APPROVAL'), 'approvalQueue')
         pushCount('service berjalan', supabase.from('service').select('id', { count: 'exact', head: true }).eq('status', 'DALAM_PENGERJAAN'), 'runningServices')
         pushCount('service selesai', supabase.from('permintaan_service').select('id', { count: 'exact', head: true }).eq('status', 'SELESAI'), 'completedRequests')
       }
 
       if (canReadFleet) {
-        pushCount('dokumen mendekati jatuh tempo', supabase.from('dokumen_kendaraan').select('id', { count: 'exact', head: true }).not('tanggal_jatuh_tempo', 'is', null).gte('tanggal_jatuh_tempo', todayKey).lte('tanggal_jatuh_tempo', maxDate), 'expiringDocuments')
+        pushCount('dokumen jatuh tempo atau mendekati jatuh tempo', supabase.from('dokumen_kendaraan').select('id', { count: 'exact', head: true }).not('tanggal_jatuh_tempo', 'is', null).lte('tanggal_jatuh_tempo', maxDate).in('kendaraan_id', supabase.from('kendaraan').select('id').eq('kepemilikan', 'ASET')), 'expiringDocuments')
       }
 
       if (canReadRental) {
@@ -183,7 +183,7 @@ export default function DashboardFeaturePage({ profile, onNavigate }) {
       ['activeContracts', 'Kontrak Aktif', 'Sedang berjalan', 'vehicle'],
     ]
     if (role === 'ATASAN_TRANSPORT') return [
-      ['approvalQueue', 'Menunggu Approval', 'Perlu ditinjau', 'request'],
+      ['approvalQueue', 'Menunggu Approval Service', 'Perlu ditinjau', 'request'],
       ['runningServices', 'Service Berjalan', 'Sedang dikerjakan', 'service'],
       ['completedRequests', 'Service Selesai', 'Sudah selesai', 'check'],
     ]
@@ -219,7 +219,7 @@ export default function DashboardFeaturePage({ profile, onNavigate }) {
       ['Pengajuan menunggu Transport', metrics.transportQueue, 'pengajuan', 'Periksa dan proses pengajuan yang baru masuk.', 'danger'],
       ['Service menunggu approval', metrics.approvalQueue, 'service', 'Periksa service yang membutuhkan persetujuan.', 'danger'],
       ['Pembayaran belum lunas / terlambat', metrics.unpaidRentals, 'sewa', 'Periksa tagihan kendaraan sewa.', 'danger'],
-      ['Dokumen jatuh tempo ≤ 30 hari', metrics.expiringDocuments, 'dokumen', 'Periksa dan perbarui dokumen kendaraan.', 'warning'],
+      ['Dokumen jatuh tempo / terlewat', metrics.expiringDocuments, 'dokumen', 'Periksa dokumen yang sudah lewat atau jatuh tempo dalam 30 hari.', 'warning'],
       ['Service sedang dikerjakan', metrics.runningServices, 'service', 'Pantau pekerjaan yang masih berjalan.', 'monitor'],
     ]
   }, [metrics, role])
