@@ -134,7 +134,7 @@ export default function DashboardFeaturePage({ profile, onNavigate }) {
       }
 
       if (canReadFleet) {
-        pushCount('dokumen jatuh tempo atau mendekati jatuh tempo', supabase.from('dokumen_kendaraan').select('id', { count: 'exact', head: true }).not('tanggal_jatuh_tempo', 'is', null).lte('tanggal_jatuh_tempo', maxDate).in('kendaraan_id', supabase.from('kendaraan').select('id').eq('kepemilikan', 'ASET')), 'expiringDocuments')
+        pushCount('dokumen jatuh tempo atau mendekati jatuh tempo', supabase.from('dokumen_kendaraan').select('id, kendaraan!inner(id, kepemilikan)', { count: 'exact', head: true }).eq('kendaraan.kepemilikan', 'ASET').not('tanggal_jatuh_tempo', 'is', null).lte('tanggal_jatuh_tempo', maxDate), 'expiringDocuments')
       }
 
       if (canReadRental) {
