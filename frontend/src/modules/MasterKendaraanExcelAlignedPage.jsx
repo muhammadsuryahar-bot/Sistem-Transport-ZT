@@ -73,6 +73,16 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
     return () => window.removeEventListener('transport:data-imported', onImported)
   }, [])
 
+  useEffect(() => {
+    if (loading || !canEdit || !vehicles.length) return
+    const focusId = localStorage.getItem('transport_vehicle_focus_id')
+    if (!focusId) return
+    const vehicle = vehicles.find(row => String(row.id) === String(focusId))
+    if (!vehicle) return
+    localStorage.removeItem('transport_vehicle_focus_id')
+    openEdit(vehicle)
+  }, [loading, vehicles, canEdit])
+
   const driverMap = useMemo(() => Object.fromEntries(drivers.map(d => [d.id, d])), [drivers])
   const ownerOptions = useMemo(() => Array.from(new Set(vehicles.map(v => clean(v.pemilik)).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'id')), [vehicles])
   const typeOptions = useMemo(() => Array.from(new Set([...VEHICLE_TYPES, ...vehicles.map(v => clean(v.jenis_kendaraan)).filter(Boolean)])), [vehicles])
