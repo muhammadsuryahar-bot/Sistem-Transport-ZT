@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { humanizeError } from '../utils/feedback.js'
 
 const normalize = value => String(value ?? '').trim().toUpperCase()
 const money = value => Number(value || 0).toLocaleString('id-ID')
@@ -90,7 +91,7 @@ export default function DataQualityPanel() {
       ]
       setChecks(checksNext)
     } catch (e) {
-      setError(e.message || 'Pemeriksaan data gagal dijalankan.')
+      setError(humanizeError(e, 'Pemeriksaan data gagal dijalankan.'))
       setChecks([])
     } finally {
       setLoading(false)
