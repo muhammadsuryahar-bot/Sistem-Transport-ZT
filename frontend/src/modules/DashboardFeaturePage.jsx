@@ -3,41 +3,6 @@ import { supabase } from '../lib/supabase'
 import './DashboardFeaturePage.css'
 import PageBreadcrumb from './PageBreadcrumb.jsx'
 
-const QUICK_ACTIONS = {
-  ADMIN: [
-    ['pengajuan', 'request', 'Ajukan Service', 'Buat permintaan untuk kendaraan'],
-    ['kendaraan', 'vehicle', 'Data Kendaraan', 'Lihat armada dan kilometer'],
-    ['service', 'service', 'Proses Service', 'Pantau pekerjaan dan biaya'],
-    ['sewa', 'rental', 'Kendaraan Sewa', 'Kelola kontrak dan pembayaran sewa'],
-    ['dokumen', 'document', 'Dokumen', 'Kelola dokumen kendaraan'],
-    ['laporan', 'report', 'Laporan', 'Lihat ringkasan dan laporan'],
-  ],
-  TRANSPORT: [
-    ['pengajuan', 'request', 'Pengajuan Service', 'Periksa permintaan dari operasional'],
-    ['kendaraan', 'vehicle', 'Data Kendaraan', 'Lihat armada dan kilometer'],
-    ['service', 'service', 'Proses Service', 'Pantau pekerjaan dan biaya'],
-    ['sewa', 'rental', 'Kendaraan Sewa', 'Kelola kontrak dan perbaikan sewa'],
-    ['dokumen', 'document', 'Dokumen', 'Kelola dokumen kendaraan'],
-    ['laporan', 'report', 'Laporan', 'Lihat ringkasan transport'],
-  ],
-  OPERASIONAL: [
-    ['pengajuan', 'request', 'Ajukan Service', 'Buat permintaan service kendaraan'],
-  ],
-  ATASAN_TRANSPORT: [
-    ['pengajuan', 'request', 'Pengajuan Service', 'Pantau antrian dan status pengajuan'],
-    ['service', 'service', 'Approval & Service', 'Tinjau service yang membutuhkan tindakan'],
-    ['laporan', 'report', 'Laporan', 'Lihat ringkasan operasional transport'],
-  ],
-  DIREKTUR: [
-    ['service', 'service', 'Approval Service', 'Tinjau service yang memerlukan persetujuan'],
-    ['laporan', 'report', 'Laporan', 'Lihat ringkasan transport'],
-  ],
-  AKUNTANSI: [
-    ['sewa', 'rental', 'Kendaraan Sewa', 'Kelola tagihan dan pembayaran sewa'],
-    ['laporan', 'report', 'Laporan', 'Lihat ringkasan keuangan transport'],
-  ],
-}
-
 const ROLE_HELP = {
   ADMIN: 'Pantau seluruh aktivitas kendaraan, service, sewa, dokumen, dan pengguna.',
   TRANSPORT: 'Pantau armada dan pekerjaan transport yang perlu diproses.',
@@ -92,7 +57,6 @@ export default function DashboardFeaturePage({ profile, onNavigate }) {
   const todayKey = useMemo(() => localDateKey(today), [today])
   const maxDate = useMemo(() => addDays(today, 30), [today])
   const dateLabel = useMemo(() => new Intl.DateTimeFormat('id-ID', { dateStyle: 'full' }).format(today), [today])
-  const quickActions = QUICK_ACTIONS[role] || QUICK_ACTIONS.OPERASIONAL
 
   const loadDashboard = async () => {
     const firstLoad = loading && Object.values(metrics).every((value) => value === 0)
@@ -224,18 +188,7 @@ export default function DashboardFeaturePage({ profile, onNavigate }) {
     ]
   }, [metrics, role])
 
-  const flow = role === 'OPERASIONAL'
-    ? [
-      ['Pengajuan', metrics.pendingRequests, 'Menunggu proses transport'],
-      ['Selesai', metrics.completedRequests, 'Pengajuan yang sudah selesai'],
-    ]
-    : [
-      ['Operasional', null, 'Awal proses'],
-      ['Permintaan Service', metrics.transportQueue, 'Menunggu diproses Transport'],
-      ['Approval', metrics.approvalQueue, 'Menunggu persetujuan'],
-      ['Service', metrics.runningServices, 'Sedang dikerjakan'],
-      ['Selesai', metrics.completedRequests, 'Permintaan yang selesai'],
-    ]
+  const visibleActionItems = useMemo(() => actionItems.filter(([, count]) => Number(count || 0) > 0), [actionItems])
 
   return (
     <div className="dashboard-v2">
@@ -285,83 +238,37 @@ export default function DashboardFeaturePage({ profile, onNavigate }) {
         ))}
       </section>
 
-      <section className="dashboard-v2-grid top-grid">
-        <article className="dashboard-v2-panel quick-panel-v2">
-          <div className="dashboard-panel-heading">
-            <div>
-              <span className="eyebrow">AKSES CEPAT</span>
-              <h3>Menu yang sering digunakan</h3>
+      <section className="dashboard-v2-panel action-panel-v2 dashboard-attention-panel">
+        <div className="dashboard-panel-heading">
+          <div>
+            <span className="eyebrow">PERLU TINDAKAN</span>
+            <h3>Butuh Perhatian</h3>
+          </div>
+          <span className="dashboard-attention-meta">
+            {loading ? 'Memeriksa data…' : visibleActionItems.length + ' hal perlu dilihat'}
+          </span>
+        </div>
+        <div className="action-list-v2">
+          {loading ? (
+            <div className="dashboard-empty-state">Memeriksa pekerjaan yang perlu diperhatikan…</div>
+          ) : visibleActionItems.length === 0 ? (
+            <div className="dashboard-empty-state dashboard-empty-state-success">
+              <span>✓</span>
+              <div>
+                <strong>Tidak ada pekerjaan mendesak</strong>
+                <small>Semua indikator utama dalam kondisi normal saat ini.</small>
+              </div>
             </div>
-          </div>
-          <div className="quick-grid-v2">
-            {quickActions.map(([page, icon, title, description]) => (
-              <button className="quick-action-v2" key={page} onClick={() => onNavigate(page)}>
-                <span className="quick-action-icon" data-icon={icon} aria-hidden="true" />
-                <span className="quick-action-copy"><strong>{title}</strong><small>{description}</small></span>
-                <span className="quick-arrow" aria-hidden="true">›</span>
-              </button>
-            ))}
-          </div>
-        </article>
-
-        <article className="dashboard-v2-panel action-panel-v2">
-          <div className="dashboard-panel-heading">
-            <div>
-              <span className="eyebrow">PERLU TINDAKAN</span>
-              <h3>Butuh Perhatian</h3>
-            </div>
-            <span className="dashboard-attention-meta">{loading ? 'Memeriksa data…' : actionItems.filter(([, count]) => Number(count || 0) > 0).length + ' hal perlu dilihat'}</span>
-          </div>
-          <div className="action-list-v2">
-            {loading ? (
-              <div className="dashboard-empty-state">Memeriksa pekerjaan yang perlu diperhatikan…</div>
-            ) : actionItems.filter(([, count]) => Number(count || 0) > 0).length === 0 ? (
-              <div className="dashboard-empty-state dashboard-empty-state-success"><span>✓</span><div><strong>Tidak ada pekerjaan mendesak</strong><small>Semua indikator utama dalam kondisi normal saat ini.</small></div></div>
-            ) : actionItems.filter(([, count]) => Number(count || 0) > 0).map(([label, count, page, description, tone]) => (
+          ) : (
+            visibleActionItems.map(([label, count, page, description, tone]) => (
               <button className={`action-row-v2 tone-${tone}`} key={label} onClick={() => onNavigate(page)}>
                 <span className="action-count-v2">{count}</span>
                 <span className="action-copy-v2"><strong>{label}</strong><small>{description}</small></span>
                 <span className="quick-arrow" aria-hidden="true">›</span>
               </button>
-            ))}
-          </div>
-        </article>
-      </section>
-
-      <section className="dashboard-v2-grid bottom-grid">
-        <article className="dashboard-v2-panel flow-panel-v2">
-          <div className="dashboard-panel-heading">
-            <div>
-              <span className="eyebrow">ALUR UTAMA</span>
-              <h3>Proses transport saat ini</h3>
-            </div>
-          </div>
-          <div className="flow-list-v2">
-            {flow.map(([label, count, helper], index) => (
-              <div className={`flow-item-v2 ${count > 0 ? 'has-count' : ''}`} key={label}>
-                <span className="flow-number-v2">{index + 1}</span>
-                <span className="flow-content-v2"><strong>{label}</strong><small>{helper}</small></span>
-                {count !== null && <b>{loading ? '...' : count}</b>}
-              </div>
-            ))}
-          </div>
-        </article>
-
-        <article className="dashboard-v2-panel notice-panel-v2">
-          <div className="dashboard-panel-heading">
-            <div>
-              <span className="eyebrow">PERHATIAN</span>
-              <h3>Pengingat penting</h3>
-            </div>
-          </div>
-          <div className="notice-list-v2">
-            {['ADMIN', 'TRANSPORT'].includes(role) && <div><span className="notice-dot" /><span>Dokumen dengan jatuh tempo dekat perlu diperiksa sebelum masa berlaku habis.</span></div>}
-            {['ADMIN', 'TRANSPORT', 'AKUNTANSI'].includes(role) && <div><span className="notice-dot" /><span>Kontrak sewa berjalan selama 6 bulan dan perlu dibuatkan kontrak baru setelah periodenya berakhir.</span></div>}
-            {['ADMIN', 'TRANSPORT', 'ATASAN_TRANSPORT', 'DIREKTUR'].includes(role) && <div><span className="notice-dot" /><span>Service dengan nilai aktual di atas batas persetujuan harus mengikuti approval yang sesuai.</span></div>}
-            {role === 'OPERASIONAL' && <div><span className="notice-dot" /><span>Gunakan Pengajuan Service untuk melaporkan kebutuhan kendaraan dan pantau statusnya di sistem.</span></div>}
-            {role === 'AKUNTANSI' && <div><span className="notice-dot" /><span>Pembayaran yang terlambat tetap tercatat agar riwayat pembayaran kendaraan sewa dapat dipantau.</span></div>}
-          </div>
-        </article>
+            ))
+          )}
+        </div>
       </section>
     </div>
   )
