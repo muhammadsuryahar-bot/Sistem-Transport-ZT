@@ -165,7 +165,7 @@ export default function RentalHistoryImportModalV2({ profile, onClose, onDone })
     if (!rows.length || !canImport || saving) return
     setSaving(true)
     setError('')
-    setMessage('Memproses pembayaran rental historis...')
+    setMessage('Memproses Summary Rental historis...')
     try {
       const activeRows = filterDeletedExcelRows('sewa', rows)
       const deletedCount = Math.max(0, rows.length - activeRows.length)
@@ -193,19 +193,19 @@ export default function RentalHistoryImportModalV2({ profile, onClose, onDone })
       onDone?.(report)
       setMessage(`${result.message} ${deletedCount} baris di-skip • semua baris valid.`)
     } catch (e) {
-      setError(e.message || 'Import pembayaran rental gagal.')
+      setError(e.message || 'Import Summary Rental gagal.')
       setMessage('')
     } finally {
       setSaving(false)
     }
   }
 
-  return <div className="dpt-overlay" role="dialog" aria-modal="true" aria-label="Import Pembayaran Rental Historis">
+  return <div className="dpt-overlay" role="dialog" aria-modal="true" aria-label="Import Summary Rental Historis">
     <section className="dpt-modal">
       <header className="dpt-modal-head">
         <div>
           <span className="eyebrow">IMPORT EXCEL RENTAL</span>
-          <h3>Import SUMMERY RENTAL</h3>
+          <h3>Import Summary Rental</h3>
           <p>Format mengikuti workbook lama: Tahun, Supplier, Uraian, Periode Tagihan, dan Nilai Invoice. Data dapat dikoreksi langsung sebelum import.</p>
         </div>
         <button type="button" className="dpt-icon" onClick={onClose}>×</button>
@@ -219,7 +219,7 @@ export default function RentalHistoryImportModalV2({ profile, onClose, onDone })
         <div className="dpt-file-meta"><strong title={file?.name}>{file?.name || 'Belum ada file'}</strong><span>{file ? `✓ .xlsx • ${(file.size / 1024 / 1024).toFixed(2)} MB` : 'Maksimal 25 MB'}</span></div>
       </div>
       {rows.length > 0 && <>
-        <div className="dpt-selection"><div><b>Sheet: {sheetName}</b><span>Format pembayaran historis</span></div><span>{rows.length} baris transaksi</span></div>
+        <div className="dpt-selection"><div><b>Sheet: {sheetName}</b><span>Format rekap tagihan historis</span></div><span>{rows.length} baris transaksi</span></div>
         <div className="dpt-preview">
           <div className="dpt-sheet-title"><div><b>Preview Data Rental</b><span className="dpt-preview-note">Semua baris tersedia. Edit sebelum import bila ada koreksi.</span></div><span>{pageRows.length} dari {rows.length} ditampilkan</span></div>
           <div className="dpt-preview-wrap">
