@@ -41,11 +41,15 @@ function numberValue(value) {
   return Number.isFinite(n) ? n : null
 }
 
+function isRentalHistoryRowValid(row) {
+  return Boolean(row.tahun && row.supplier && row.uraian && row.periode && row.nilai_invoice)
+}
+
 function parseRows(sheet) {
   const header = findHeader(sheet)
   if (header.index < 0 || header.score < 5) throw new Error('Header SUMMERY RENTAL tidak ditemukan secara meyakinkan.')
 
-  const sourceRows = sheet.rows.slice(header.index + 1)
+  const rows = sheet.rows.slice(header.index + 1)
     .map(row => ({
       id: `${row.excelRow}`,
       excelRow: row.excelRow,
@@ -59,20 +63,13 @@ function parseRows(sheet) {
     }))
     .filter(row => row._hasData)
     .filter(row => !/grand\s*total|^total$/i.test(row.uraian))
+    .map(row => {
+      const next = { ...row }
+      delete next._hasData
+      return next
+    })
 
-  const isValid = row => Boolean(row.tahun && row.supplier && row.uraian && row.periode && row.nilai_invoice)
-  const rows = sourceRows.filter(isValid).map(row => {
-    const next = { ...row }
-    delete next._hasData
-    return next
-  })
-  const invalidRows = sourceRows.filter(row => !isValid(row)).map(row => {
-    const next = { ...row }
-    delete next._hasData
-    return next
-  })
-
-  return { header, rows, invalidRows }
+  return { header, rows }
 }
 
 async function importSummary(rows, profile, sourceFile, sourceSheet) {
@@ -126,7 +123,6 @@ export default function RentalHistoryImportModalV2({ profile, onClose, onDone })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
-  const [invalidRows, setInvalidRows] = useState([])
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(50)
   const canImport = ['ADMIN', 'TRANSPORT'].includes(profile?.role)
@@ -142,7 +138,6 @@ export default function RentalHistoryImportModalV2({ profile, onClose, onDone })
     clearDeletedExcelRows('sewa')
     setFile(nextFile || null)
     setRows([])
-    setInvalidRows([])
     setSheetName('')
     setError('')
     setMessage('')
@@ -157,9 +152,8 @@ export default function RentalHistoryImportModalV2({ profile, onClose, onDone })
       if (!chosen) throw new Error('Sheet SUMMERY RENTAL tidak ditemukan di workbook.')
       const parsed = parseRows(chosen)
       setRows(parsed.rows)
-      setInvalidRows(parsed.invalidRows)
       setSheetName(chosen.name)
-      setMessage(`Sheet “${chosen.name}” terdeteksi • ${parsed.rows.length} baris valid • ${parsed.invalidRows.length} baris perlu diperiksa. Baris kosong/trailing dan GRAND TOTAL tidak dimasukkan.`)
+      setMessage(`Sheet “${chosen.name}” terdeteksi • ${parsed.rows.length} baris sumber terbaca. Baris kosong/trailing dan GRAND TOTAL tidak dimasukkan.`)
     } catch (e) {
       setError(e.message || 'File Excel tidak dapat dibaca.')
     } finally {
@@ -175,26 +169,29 @@ export default function RentalHistoryImportModalV2({ profile, onClose, onDone })
     try {
       const activeRows = filterDeletedExcelRows('sewa', rows)
       const deletedCount = Math.max(0, rows.length - activeRows.length)
+      const invalidActiveRows = activeRows.filter(row => !isRentalHistoryRowValid(row))
+      if (invalidActiveRows.length) {
+        throw new Error(`Ada ${invalidActiveRows.length} baris yang belum valid. Perbaiki Tahun, Supplier, Uraian, Periode Tagihan, atau Nilai Invoice sebelum import.`)
+      }
       const result = await importSummary(activeRows, profile, file?.name || '', sheetName)
       const report = {
         context: 'sewa',
-        sourceRows: rows.length + invalidRows.length,
-        validRows: rows.length,
+        sourceRows: rows.length,
+        validRows: activeRows.length,
         addedCount: Number(result.added || 0),
         updatedCount: Number(result.updated || 0),
         skippedCount: deletedCount,
-        errorCount: invalidRows.length,
+        errorCount: 0,
         imported: Number(result.added || 0),
         skipped: deletedCount,
         duplicate: Number(result.updated || 0),
-        invalidRows: invalidRows.map(row => row.excelRow),
-        message: `${result.message} ${deletedCount} baris dilewati dan ${invalidRows.length} baris perlu diperbaiki sebelum diimport.`,
+        message: `${result.message} ${deletedCount} baris di-skip. Tidak ada baris validasi yang tertinggal.`,
         fileName: file?.name || '',
         completedAt: new Date().toISOString(),
       }
       sessionStorage.setItem('transport_import_report', JSON.stringify(report))
       onDone?.(report)
-      setMessage(`${result.message} ${deletedCount} baris di-skip • ${invalidRows.length} baris error validasi.`)
+      setMessage(`${result.message} ${deletedCount} baris di-skip • semua baris valid.`)
     } catch (e) {
       setError(e.message || 'Import pembayaran rental gagal.')
       setMessage('')
@@ -215,7 +212,7 @@ export default function RentalHistoryImportModalV2({ profile, onClose, onDone })
       </header>
       {error && <div className="dpt-alert error">{error}</div>}
       {message && <div className="dpt-alert success">{message}</div>}
-      {(rows.length || invalidRows.length) ? <div className="service-import-stats"><div><b>{rows.length + invalidRows.length}</b><span>baris sumber</span></div><div><b>{rows.length}</b><span>valid</span></div><div><b>{invalidRows.length}</b><span>error</span></div><div><b>{rows.length}</b><span>siap import</span></div></div> : null}
+      {rows.length ? <div className="service-import-stats"><div><b>{rows.length}</b><span>baris sumber</span></div><div><b>{rows.filter(isRentalHistoryRowValid).length}</b><span>valid</span></div><div><b>{rows.filter(row => !isRentalHistoryRowValid(row)).length}</b><span>error</span></div><div><b>{filterDeletedExcelRows('sewa', rows).length}</b><span>siap import</span></div></div> : null}
       <div className="dpt-upload">
         <input ref={inputRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={event => scan(event.target.files?.[0])} />
         <button type="button" className="dpt-upload-button" onClick={() => inputRef.current?.click()} disabled={loading || saving}>{loading ? 'Membaca Excel…' : file ? 'Ganti File' : 'Pilih File Excel'}</button>
@@ -243,8 +240,8 @@ export default function RentalHistoryImportModalV2({ profile, onClose, onDone })
           <div className="dpt-pagination"><label>Baris/halaman <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1) }}>{PAGE_OPTIONS.map(size => <option key={size} value={size}>{size}</option>)}</select></label><button type="button" className="dpt-button" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}>‹</button><span>Halaman {page} / {pageCount}</span><button type="button" className="dpt-button" onClick={() => setPage(p => Math.min(pageCount, p + 1))} disabled={page >= pageCount}>›</button></div>
         </div>
       </>}
-      {invalidRows.length > 0 && <div className="dpt-alert error">Ada {invalidRows.length} baris yang belum lengkap. Perbaiki Tahun, Supplier, Uraian, Periode Tagihan, atau Nilai Invoice di sumber Excel sebelum import ulang. Nomor baris Excel: {invalidRows.slice(0, 20).map(row => row.excelRow).join(', ')}{invalidRows.length > 20 ? ' …' : ''}</div>}
-      <div className="dpt-actions"><button type="button" className="dpt-button" onClick={onClose} disabled={saving}>Batal</button><button type="button" className="dpt-button primary" onClick={start} disabled={!rows.length || saving || !canImport}>{saving ? 'Mengimport…' : `Import ${rows.length || ''} Baris`}</button></div>
+      {rows.filter(row => !isRentalHistoryRowValid(row)).length > 0 && <div className="dpt-alert error">Ada {rows.filter(row => !isRentalHistoryRowValid(row)).length} baris yang belum lengkap. Perbaiki Tahun, Supplier, Uraian, Periode Tagihan, atau Nilai Invoice langsung di tabel sebelum import. Nomor baris Excel: {rows.filter(row => !isRentalHistoryRowValid(row)).slice(0, 20).map(row => row.excelRow).join(', ')}{rows.filter(row => !isRentalHistoryRowValid(row)).length > 20 ? ' …' : ''}</div>}
+      <div className="dpt-actions"><button type="button" className="dpt-button" onClick={onClose} disabled={saving}>Batal</button><button type="button" className="dpt-button primary" onClick={start} disabled={!rows.length || rows.some(row => !isRentalHistoryRowValid(row)) || saving || !canImport}>{saving ? 'Mengimport…' : `Import ${rows.length || ''} Baris`}</button></div>
     </section>
   </div>
 }
