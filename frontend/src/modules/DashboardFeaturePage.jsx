@@ -173,8 +173,20 @@ export default function DashboardFeaturePage({ profile, onNavigate }) {
 
       if (canReadFleet) {
         pushCount('total kendaraan', supabase.from('kendaraan').select('id', { count: 'exact', head: true }), 'totalVehicles')
-        pushCount('kendaraan aktif', supabase.from('kendaraan').select('id', { count: 'exact', head: true }).eq('status', 'ACTIVE'), 'activeVehicles')
-        pushCount('kendaraan service', supabase.from('kendaraan').select('id', { count: 'exact', head: true }).eq('status', 'SERVICE'), 'serviceVehicles')
+        countTasks.push(
+          supabase.from('kendaraan').select('id', { count: 'exact', head: true }).eq('status', 'ACTIVE')
+            .then(({ count, error }) => {
+              if (error) failures.push('kendaraan aktif')
+              else result.activeVehicles = count || 0
+            }),
+        )
+        countTasks.push(
+          supabase.from('service').select('kendaraan_id').eq('status', 'DALAM_PENGERJAAN')
+            .then(({ data, error }) => {
+              if (error) failures.push('kendaraan sedang service')
+              else result.serviceVehicles = new Set((data || []).map(row => row.kendaraan_id).filter(Boolean)).size
+            }),
+        )
       }
 
       if (role === 'OPERASIONAL') {
@@ -275,7 +287,7 @@ export default function DashboardFeaturePage({ profile, onNavigate }) {
       ['Pengajuan menunggu Transport', metrics.transportQueue, 'pengajuan', 'Periksa dan proses pengajuan yang baru masuk.', 'danger'],
       ['Service menunggu approval', metrics.approvalQueue, 'service', 'Periksa service yang membutuhkan persetujuan.', 'danger'],
       ['Pembayaran belum lunas / terlambat', metrics.unpaidRentals, 'sewa', 'Periksa tagihan kendaraan sewa.', 'danger'],
-      ['Dokumen jatuh tempo ≤ 30 hari', metrics.expiringDocuments, 'dokumen', 'Periksa dan perbarui dokumen kendaraan.', 'warning'],
+      ['Dokumen jatuh tempo / mendekati', metrics.expiringDocuments, 'dokumen', 'Periksa dokumen yang sudah jatuh tempo atau mendekati batas.', 'warning'],
       ['Service sedang dikerjakan', metrics.runningServices, 'service', 'Pantau pekerjaan yang masih berjalan.', 'monitor'],
     ]
   }, [metrics, role])
