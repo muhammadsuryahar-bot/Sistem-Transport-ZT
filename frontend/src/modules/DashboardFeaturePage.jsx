@@ -46,6 +46,99 @@ function addDays(date, days) {
   return localDateKey(next)
 }
 
+function getDashboardVisual(role, metrics) {
+  if (role === 'ADMIN' || role === 'TRANSPORT') {
+    const total = Number(metrics.totalVehicles || 0)
+    const active = Number(metrics.activeVehicles || 0)
+    const service = Number(metrics.serviceVehicles || 0)
+    const other = Math.max(total - active - service, 0)
+    const readiness = total ? Math.round((active / total) * 100) : 0
+    return {
+      eyebrow: 'STATUS ARMADA',
+      title: 'Kondisi Armada',
+      subtitle: 'Komposisi kendaraan berdasarkan status saat ini.',
+      rows: [
+        ['Aktif', active, 'Siap digunakan', 'green'],
+        ['Sedang Service', service, 'Sedang ditangani', 'amber'],
+        ['Status Lainnya', other, 'Tidak masuk dua status utama', 'slate'],
+      ],
+      gauge: readiness,
+      gaugeLabel: 'Kesiapan armada',
+      highlights: [
+        ['Menunggu Transport', metrics.transportQueue, 'Antrian pekerjaan'],
+        ['Approval Service', metrics.approvalQueue, 'Perlu ditinjau'],
+      ],
+    }
+  }
+
+  if (role === 'OPERASIONAL') {
+    const pending = Number(metrics.pendingRequests || 0)
+    const completed = Number(metrics.completedRequests || 0)
+    const total = pending + completed
+    const completion = total ? Math.round((completed / total) * 100) : 0
+    return {
+      eyebrow: 'STATUS PENGAJUAN',
+      title: 'Pengajuan Saya',
+      subtitle: 'Perbandingan pengajuan yang masih berjalan dan yang sudah selesai.',
+      rows: [
+        ['Masih Diproses', pending, 'Menunggu penyelesaian', 'amber'],
+        ['Selesai', completed, 'Sudah ditutup', 'green'],
+      ],
+      gauge: completion,
+      gaugeLabel: 'Tingkat penyelesaian',
+      highlights: [
+        ['Belum Selesai', pending, 'Perlu dipantau'],
+        ['Selesai', completed, 'Sudah terselesaikan'],
+      ],
+    }
+  }
+
+  if (role === 'AKUNTANSI') {
+    const active = Number(metrics.activeContracts || 0)
+    const expiring = Number(metrics.expiringContracts || 0)
+    const safeContracts = Math.max(active - expiring, 0)
+    const coverage = active ? Math.round((safeContracts / active) * 100) : 0
+    return {
+      eyebrow: 'ADMINISTRASI SEWA',
+      title: 'Status Kontrak & Tagihan',
+      subtitle: 'Ringkasan kontrak aktif dan item administrasi yang perlu ditindaklanjuti.',
+      rows: [
+        ['Kontrak Aktif', active, 'Sedang berjalan', 'green'],
+        ['Berakhir ≤ 30 Hari', expiring, 'Perlu persiapan', 'amber'],
+        ['Tagihan Belum Lunas', metrics.unpaidRentals, 'Perlu ditindaklanjuti', 'red'],
+      ],
+      gauge: coverage,
+      gaugeLabel: 'Kontrak relatif aman',
+      highlights: [
+        ['Tagihan Belum Lunas', metrics.unpaidRentals, 'Perlu diperiksa'],
+        ['Segera Berakhir', expiring, 'Dalam 30 hari'],
+      ],
+    }
+  }
+
+  const approval = Number(metrics.approvalQueue || 0)
+  const running = Number(metrics.runningServices || 0)
+  const completed = Number(metrics.completedRequests || 0)
+  const tracked = approval + running + completed
+  const completion = tracked ? Math.round((completed / tracked) * 100) : 0
+  return {
+    eyebrow: 'STATUS SERVICE',
+    title: 'Alur Pekerjaan Service',
+    subtitle: 'Gambaran pekerjaan yang menunggu, berjalan, dan selesai.',
+    rows: [
+      ['Menunggu Approval', approval, 'Perlu keputusan', 'red'],
+      ['Sedang Dikerjakan', running, 'Dalam proses', 'blue'],
+      ['Selesai', completed, 'Sudah selesai', 'green'],
+    ],
+    gauge: completion,
+    gaugeLabel: 'Porsi pekerjaan selesai',
+    highlights: [
+      ['Menunggu Approval', approval, 'Perlu ditinjau'],
+      ['Sedang Dikerjakan', running, 'Masih berjalan'],
+    ],
+  }
+}
+
 export default function DashboardFeaturePage({ profile, onNavigate }) {
   const [metrics, setMetrics] = useState(EMPTY_METRICS)
   const [loading, setLoading] = useState(true)
@@ -190,6 +283,9 @@ export default function DashboardFeaturePage({ profile, onNavigate }) {
 
   const visibleActionItems = useMemo(() => actionItems.filter(([, count]) => Number(count || 0) > 0), [actionItems])
 
+  const dashboardVisual = useMemo(() => getDashboardVisual(role, metrics), [role, metrics])
+  const maxVisualValue = useMemo(() => Math.max(1, ...dashboardVisual.rows.map(([, value]) => Number(value || 0))), [dashboardVisual.rows])
+
   return (
     <div className="dashboard-v2">
       <PageBreadcrumb items={['Transport', 'Dashboard']} />
@@ -200,7 +296,7 @@ export default function DashboardFeaturePage({ profile, onNavigate }) {
           <p>{ROLE_HELP[role] || ROLE_HELP.OPERASIONAL}</p>
         </div>
         <button className="dashboard-refresh" onClick={loadDashboard} disabled={loading || refreshing}>
-          {refreshing ? 'Memuat...' : '↻ Refresh'}
+          {refreshing ? 'Memuat...' : 'Refresh'}
         </button>
       </section>
 
@@ -238,37 +334,88 @@ export default function DashboardFeaturePage({ profile, onNavigate }) {
         ))}
       </section>
 
-      <section className="dashboard-v2-panel action-panel-v2 dashboard-attention-panel">
-        <div className="dashboard-panel-heading">
-          <div>
-            <span className="eyebrow">PERLU TINDAKAN</span>
-            <h3>Butuh Perhatian</h3>
+      <section className="dashboard-lower-grid">
+        <section className="dashboard-v2-panel dashboard-visual-panel">
+          <div className="dashboard-panel-heading">
+            <div>
+              <span className="eyebrow">{dashboardVisual.eyebrow}</span>
+              <h3>{dashboardVisual.title}</h3>
+              <p className="dashboard-panel-subtitle">{dashboardVisual.subtitle}</p>
+            </div>
           </div>
-          <span className="dashboard-attention-meta">
-            {loading ? 'Memeriksa data…' : visibleActionItems.length + ' hal perlu dilihat'}
-          </span>
-        </div>
-        <div className="action-list-v2">
-          {loading ? (
-            <div className="dashboard-empty-state">Memeriksa pekerjaan yang perlu diperhatikan…</div>
-          ) : visibleActionItems.length === 0 ? (
-            <div className="dashboard-empty-state dashboard-empty-state-success">
-              <span>✓</span>
-              <div>
-                <strong>Tidak ada pekerjaan mendesak</strong>
-                <small>Semua indikator utama dalam kondisi normal saat ini.</small>
+
+          <div className="dashboard-visual-content">
+            <div className="dashboard-bars">
+              {dashboardVisual.rows.map(([label, value, helper, tone]) => {
+                const numericValue = Number(value || 0)
+                const width = Math.max(0, Math.min(100, (numericValue / maxVisualValue) * 100))
+                return (
+                  <div className="dashboard-bar-row" key={label}>
+                    <div className="dashboard-bar-meta">
+                      <span><strong>{label}</strong><small>{helper}</small></span>
+                      <b>{loading ? '...' : numericValue}</b>
+                    </div>
+                    <div className="dashboard-bar-track" aria-hidden="true">
+                      <span className={`dashboard-bar-fill tone-${tone}`} style={{ width: `${width}%` }} />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className="dashboard-health-card">
+              <div className="dashboard-gauge" style={{ '--gauge-value': `${loading ? 0 : dashboardVisual.gauge}%` }}>
+                <div><strong>{loading ? '...' : dashboardVisual.gauge + '%'}</strong><span>Kondisi</span></div>
+              </div>
+              <div className="dashboard-health-copy">
+                <span className="eyebrow">INDIKATOR</span>
+                <strong>{dashboardVisual.gaugeLabel}</strong>
+                <div className="dashboard-highlight-list">
+                  {dashboardVisual.highlights.map(([label, value, helper]) => (
+                    <div key={label}>
+                      <span>{label}</span>
+                      <b>{loading ? '...' : value}</b>
+                      <small>{helper}</small>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
-          ) : (
-            visibleActionItems.map(([label, count, page, description, tone]) => (
-              <button className={`action-row-v2 tone-${tone}`} key={label} onClick={() => onNavigate(page)}>
-                <span className="action-count-v2">{count}</span>
-                <span className="action-copy-v2"><strong>{label}</strong><small>{description}</small></span>
-                <span className="quick-arrow" aria-hidden="true">›</span>
-              </button>
-            ))
-          )}
-        </div>
+          </div>
+        </section>
+
+        <section className="dashboard-v2-panel action-panel-v2 dashboard-attention-panel">
+          <div className="dashboard-panel-heading">
+            <div>
+              <span className="eyebrow">PERLU TINDAKAN</span>
+              <h3>Butuh Perhatian</h3>
+            </div>
+            <span className="dashboard-attention-meta">
+              {loading ? 'Memeriksa data…' : visibleActionItems.length + ' hal perlu dilihat'}
+            </span>
+          </div>
+          <div className="action-list-v2">
+            {loading ? (
+              <div className="dashboard-empty-state">Memeriksa pekerjaan yang perlu diperhatikan…</div>
+            ) : visibleActionItems.length === 0 ? (
+              <div className="dashboard-empty-state dashboard-empty-state-success">
+                <span>✓</span>
+                <div>
+                  <strong>Tidak ada pekerjaan mendesak</strong>
+                  <small>Semua indikator utama dalam kondisi normal saat ini.</small>
+                </div>
+              </div>
+            ) : (
+              visibleActionItems.map(([label, count, page, description, tone]) => (
+                <button className={`action-row-v2 tone-${tone}`} key={label} onClick={() => onNavigate(page)}>
+                  <span className="action-count-v2">{count}</span>
+                  <span className="action-copy-v2"><strong>{label}</strong><small>{description}</small></span>
+                  <span className="quick-arrow" aria-hidden="true">›</span>
+                </button>
+              ))
+            )}
+          </div>
+        </section>
       </section>
     </div>
   )
