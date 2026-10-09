@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { humanizeError } from '../utils/feedback.js'
 import './PermintaanServicePage.css'
@@ -88,7 +88,7 @@ export default function PermintaanServicePage({ profile }) {
   const canReadServiceData = ['ADMIN', 'TRANSPORT', 'ATASAN_TRANSPORT', 'DIREKTUR', 'AKUNTANSI'].includes(profile?.role)
   const operationalOnly = profile?.role === 'OPERASIONAL'
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true); setError('')
     const rs = await Promise.all([
       supabase.from('kendaraan').select('id,kode_kendaraan,nomor_polisi,merk,tipe,jenis_kendaraan,tahun,kepemilikan,jenis_sewa,pemilik,lokasi,unit_kerja,harga_perolehan,kilometer_terakhir,status').order('nomor_polisi'),
@@ -104,8 +104,7 @@ export default function PermintaanServicePage({ profile }) {
     rs.forEach((r, i) => { if (r.error) setError(prev => prev || `${names[i]}: ${humanizeError(r.error)}`) })
     setVehicles(rs[0].data || []); setRequests(rs[1].data || []); setServices(rs[2].data || []); setItems(rs[3].data || [])
     setKilometers(rs[4].data || []); setBans(rs[5].data || []); setAkis(rs[6].data || []); setBenchmarks(rs[7].data || [])
-    setSelectedIds([]); setSelectionMode(false); setActiveRequestId(null); setLoading(false)
-  }
+    setSelectedIds([]); setSelectionMode(false); setActiveRequestId(null); setLoading(false)  }, [canReadServiceData])
 
   useEffect(() => {
     if (operationalOnly && viewMode !== 'pengajuan') setViewMode('pengajuan')
@@ -116,7 +115,7 @@ export default function PermintaanServicePage({ profile }) {
     const onImported = event => { if (['service', 'pengajuan', 'kendaraan'].includes(event.detail?.context)) loadData() }
     window.addEventListener('transport:data-imported', onImported)
     return () => window.removeEventListener('transport:data-imported', onImported)
-  }, [])
+  }, [loadData])
 
   useEffect(() => {
     const handleKey = event => { if ((event.ctrlKey || event.metaKey) && event.key === 'p' && printRequest) { event.preventDefault(); window.print() } }
