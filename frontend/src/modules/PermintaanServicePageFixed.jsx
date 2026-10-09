@@ -104,7 +104,8 @@ export default function PermintaanServicePage({ profile }) {
     rs.forEach((r, i) => { if (r.error) setError(prev => prev || `${names[i]}: ${humanizeError(r.error)}`) })
     setVehicles(rs[0].data || []); setRequests(rs[1].data || []); setServices(rs[2].data || []); setItems(rs[3].data || [])
     setKilometers(rs[4].data || []); setBans(rs[5].data || []); setAkis(rs[6].data || []); setBenchmarks(rs[7].data || [])
-    setSelectedIds([]); setSelectionMode(false); setActiveRequestId(null); setLoading(false)  }, [canReadServiceData])
+    setSelectedIds([]); setSelectionMode(false); setActiveRequestId(null); setLoading(false)
+  }, [canReadServiceData])
 
   useEffect(() => {
     if (operationalOnly && viewMode !== 'pengajuan') setViewMode('pengajuan')
