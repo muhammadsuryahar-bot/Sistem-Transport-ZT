@@ -4,6 +4,7 @@ import { humanizeError } from '../utils/feedback.js'
 import './TransportOperationsFixed.css'
 import PageBreadcrumb from './PageBreadcrumb.jsx'
 import { formatDateSafe, formatMonthSafe } from '../utils/dateSafe'
+import { DOCUMENT_UPLOAD_ACCEPT, IMAGE_UPLOAD_ACCEPT, validateStorageUploadFile } from '../utils/storageUpload.js'
 
 const money = (v) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(v || 0))
 const dateText = (v) => formatDateSafe(v)
@@ -18,11 +19,12 @@ function Empty() { return <div className="x-empty">Belum ada data.</div> }
 const rentalTypeLabel = value => value === 'SEWA_PERORANGAN' ? 'Sewa Perorangan' : value === 'SEWA_PERUSAHAAN' ? 'Sewa Perusahaan' : 'Belum ditentukan'
 const paymentStatusLabel = value => value === 'DATA_HISTORIS' ? 'Data Historis' : value === 'BELUM_DIBAYAR' ? 'Belum Dibayar' : value === 'SEBAGIAN_DIBAYAR' ? 'Sebagian Dibayar' : value === 'SUDAH_DIBAYAR' ? 'Sudah Dibayar' : value === 'TERLAMBAT' ? 'Terlambat' : value === 'DIBATALKAN' ? 'Dibatalkan' : value || '-'
 
-async function uploadRentalFile(file, prefix) {
+async function uploadRentalFile(file, prefix, { imagesOnly = false } = {}) {
   if (!file) return null
+  const contentType = validateStorageUploadFile(file, { imagesOnly })
   const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
   const path = `${prefix}/${Date.now()}-${crypto.randomUUID()}-${safe}`
-  const { error } = await supabase.storage.from('dokumen-sewa').upload(path, file, { upsert: false, contentType: file.type || undefined })
+  const { error } = await supabase.storage.from('dokumen-sewa').upload(path, file, { upsert: false, contentType })
   if (error) throw error
   return path
 }
@@ -301,7 +303,7 @@ export default function RentalFeaturePage({ profile, onNavigate }) {
     setSaving(true); let fotoPath = null; let proofPath = null
     try {
       const previous = editingRepairId ? repairs.find(x => x.id === editingRepairId) : null
-      fotoPath = repairPhoto ? await uploadRentalFile(repairPhoto, `perbaikan/${repair.kendaraan_id}`) : previous?.foto_kerusakan_path || null
+      fotoPath = repairPhoto ? await uploadRentalFile(repairPhoto, `perbaikan/${repair.kendaraan_id}`, { imagesOnly: true }) : previous?.foto_kerusakan_path || null
       proofPath = repairProof ? await uploadRentalFile(repairProof, `perbaikan/${repair.kendaraan_id}/bukti`) : previous?.bukti_perbaikan_path || null
       const payload = { ...repair, nomor_perbaikan: previous?.nomor_perbaikan || `REP-${Date.now()}`, kontrak_sewa_id: Number(repair.kontrak_sewa_id), kendaraan_id: Number(repair.kendaraan_id), kilometer: repair.kilometer === '' ? null : Number(repair.kilometer), estimasi_biaya: Number(repair.estimasi_biaya || 0), biaya_aktual: repair.biaya_aktual === '' ? null : Number(repair.biaya_aktual), jumlah_dipotong: repair.dapat_dipotong ? Number(repair.jumlah_dipotong || 0) : 0, foto_kerusakan_path: fotoPath, bukti_perbaikan_path: proofPath, dicatat_oleh: profile?.id || null }
       const result = editingRepairId ? await supabase.from('perbaikan_sewa').update(payload).eq('id', editingRepairId).select('*').single() : await supabase.from('perbaikan_sewa').insert(payload).select('*').single()
@@ -423,7 +425,7 @@ export default function RentalFeaturePage({ profile, onNavigate }) {
         <label>Waktu Mulai<input type="time" value={contract.waktu_mulai} onChange={e => setContract({ ...contract, waktu_mulai: e.target.value })} /></label>
         <label>Waktu Selesai<input type="time" value={contract.waktu_selesai} onChange={e => setContract({ ...contract, waktu_selesai: e.target.value })} /></label>
         <label>Status<select value={contract.status} onChange={e => setContract({ ...contract, status: e.target.value })}><option>AKTIF</option><option>SELESAI</option><option>DIBATALKAN</option></select></label>
-        <label className="full">Dokumen Kontrak<input type="file" accept=".pdf,image/*" onChange={e => setContractFile(e.target.files?.[0] || null)} /><small>{contractFile ? contractFile.name : editingContractId ? 'Biarkan kosong untuk mempertahankan file lama.' : 'Opsional; unggah jika dokumen sudah tersedia.'}</small></label>
+        <label className="full">Dokumen Kontrak<input type="file" accept={DOCUMENT_UPLOAD_ACCEPT} onChange={e => setContractFile(e.target.files?.[0] || null)} /><small>{contractFile ? contractFile.name : editingContractId ? 'Biarkan kosong untuk mempertahankan file lama.' : 'Opsional; unggah jika dokumen sudah tersedia.'}</small></label>
         <label className="full">Catatan<textarea value={contract.catatan} onChange={e => setContract({ ...contract, catatan: e.target.value })} /></label>
         <div className="full x-actions"><button type="button" className="x-btn secondary" onClick={resetContractForm}>Bersihkan</button><button className="x-btn primary" disabled={saving}>{saving ? 'Menyimpan…' : editingContractId ? 'Perbarui Kontrak' : 'Simpan Kontrak'}</button></div>
       </form>}
@@ -446,7 +448,7 @@ export default function RentalFeaturePage({ profile, onNavigate }) {
         <label>Tanggal Pembayaran<input type="date" value={payment.tanggal_pembayaran} onChange={e => setPayment({ ...payment, tanggal_pembayaran: e.target.value })} /></label>
         <label>Metode Pembayaran<input value={payment.metode_pembayaran} onChange={e => setPayment({ ...payment, metode_pembayaran: e.target.value })} /></label>
         <label>No Referensi<input value={payment.nomor_referensi} onChange={e => setPayment({ ...payment, nomor_referensi: e.target.value })} /></label>
-        <label className="full">Bukti Pembayaran<input type="file" accept=".pdf,image/*" onChange={e => setPaymentFile(e.target.files?.[0] || null)} /><small>{paymentFile ? paymentFile.name : editingPaymentId ? 'Biarkan kosong untuk mempertahankan bukti lama.' : 'Simpan bukti transfer/kwitansi ke arsip rental.'}</small></label>
+        <label className="full">Bukti Pembayaran<input type="file" accept={DOCUMENT_UPLOAD_ACCEPT} onChange={e => setPaymentFile(e.target.files?.[0] || null)} /><small>{paymentFile ? paymentFile.name : editingPaymentId ? 'Biarkan kosong untuk mempertahankan bukti lama.' : 'Simpan bukti transfer/kwitansi ke arsip rental.'}</small></label>
         <label className="full">Catatan<textarea value={payment.catatan} onChange={e => setPayment({ ...payment, catatan: e.target.value })} /></label>
         <div className="full x-actions"><button type="button" className="x-btn secondary" onClick={resetPaymentForm}>Bersihkan</button><button className="x-btn primary" disabled={saving}>{saving ? 'Menyimpan…' : editingPaymentId ? 'Perbarui Pembayaran' : 'Simpan Pembayaran'}</button></div>
       </form>}
@@ -483,8 +485,8 @@ export default function RentalFeaturePage({ profile, onNavigate }) {
         <label>Pemilik Diberitahu<select value={String(repair.pemilik_diberitahu)} onChange={e => setRepair({ ...repair, pemilik_diberitahu: e.target.value === 'true' })}><option value="false">Belum</option><option value="true">Ya</option></select></label>
         <label>Dapat Dipotong<select value={String(repair.dapat_dipotong)} onChange={e => setRepair({ ...repair, dapat_dipotong: e.target.value === 'true' })}><option value="false">Tidak</option><option value="true">Ya</option></select></label>
         <label>Jumlah Potongan<input type="number" min="0" value={repair.jumlah_dipotong} onChange={e => setRepair({ ...repair, jumlah_dipotong: e.target.value })} /></label>
-        <label className="full">Foto Kerusakan<input type="file" accept="image/*" onChange={e => setRepairPhoto(e.target.files?.[0] || null)} /><small>{repairPhoto ? repairPhoto.name : editingRepairId ? 'Biarkan kosong untuk mempertahankan foto lama.' : 'Dokumentasi kondisi kendaraan.'}</small></label>
-        <label className="full">Bukti Perbaikan<input type="file" accept=".pdf,image/*" onChange={e => setRepairProof(e.target.files?.[0] || null)} /><small>{repairProof ? repairProof.name : editingRepairId ? 'Biarkan kosong untuk mempertahankan bukti lama.' : 'Bon/invoice/foto pekerjaan bila tersedia.'}</small></label>
+        <label className="full">Foto Kerusakan<input type="file" accept={IMAGE_UPLOAD_ACCEPT} onChange={e => setRepairPhoto(e.target.files?.[0] || null)} /><small>{repairPhoto ? repairPhoto.name : editingRepairId ? 'Biarkan kosong untuk mempertahankan foto lama.' : 'Dokumentasi kondisi kendaraan.'}</small></label>
+        <label className="full">Bukti Perbaikan<input type="file" accept={DOCUMENT_UPLOAD_ACCEPT} onChange={e => setRepairProof(e.target.files?.[0] || null)} /><small>{repairProof ? repairProof.name : editingRepairId ? 'Biarkan kosong untuk mempertahankan bukti lama.' : 'Bon/invoice/foto pekerjaan bila tersedia.'}</small></label>
         <label className="full">Deskripsi Kerusakan<textarea value={repair.deskripsi_kerusakan} onChange={e => setRepair({ ...repair, deskripsi_kerusakan: e.target.value })} /></label>
         <label className="full">Catatan<textarea value={repair.catatan} onChange={e => setRepair({ ...repair, catatan: e.target.value })} /></label>
         <div className="full x-actions"><button type="button" className="x-btn secondary" onClick={resetRepairForm}>Bersihkan</button><button className="x-btn primary" disabled={saving}>{saving ? 'Menyimpan…' : editingRepairId ? 'Perbarui Perbaikan' : 'Simpan Perbaikan'}</button></div>
