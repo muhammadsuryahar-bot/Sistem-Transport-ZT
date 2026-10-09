@@ -168,6 +168,9 @@ export default function PermintaanServicePage({ profile }) {
     noItemService.forEach(s => jasaServiceIds.add(s.id))
     const spareServiceIds = new Set(spareItems.map(i => i.service_id))
     replacementServiceEvents.forEach(s => spareServiceIds.add(s.id))
+    const lastJasa = vehicleServices
+      .filter(s => jasaServiceIds.has(s.id))
+      .sort((a, b) => String(b.tanggal_service || '').localeCompare(String(a.tanggal_service || '')))[0]
     const usagePoints = [
       ...kilometers.filter(k => Number(k.kendaraan_id) === Number(vehicle.id)).map(k => Number(k.kilometer)),
       ...vehicleServices.map(s => Number(s.kilometer)).filter(Number.isFinite),
