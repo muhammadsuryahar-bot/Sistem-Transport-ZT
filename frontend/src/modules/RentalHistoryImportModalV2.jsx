@@ -167,7 +167,7 @@ export default function RentalHistoryImportModalV2({ profile, onClose, onDone })
       setSheetName(chosen.name)
       setMessage(`Sheet “${chosen.name}” terdeteksi • ${parsed.rows.length} baris sumber terbaca. Baris kosong/trailing dan GRAND TOTAL tidak dimasukkan.`)
     } catch (e) {
-      setError(e.message || 'File Excel tidak dapat dibaca.')
+      setError(humanizeError(e, 'File Excel tidak dapat dibaca.'))
     } finally {
       setLoading(false)
     }
