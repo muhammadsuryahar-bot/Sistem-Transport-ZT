@@ -72,6 +72,9 @@ function AppTransport() {
       return
     }
     if (!data.aktif) {
+      // Set the user-facing message before signOut: the auth listener may
+      // invalidate this request while the sign-out promise is still pending.
+      setErrorMessage('Akun ini sedang dinonaktifkan. Hubungi administrator.')
       try {
         const { error: signOutError } = await supabase.auth.signOut()
         if (signOutError) console.error('Disabled account sign-out failed:', signOutError)
@@ -82,7 +85,6 @@ function AppTransport() {
       profileRequestRef.current += 1
       setSession(null)
       setProfile(null)
-      setErrorMessage('Akun ini sedang dinonaktifkan. Hubungi administrator.')
       return
     }
     setProfile(data)
