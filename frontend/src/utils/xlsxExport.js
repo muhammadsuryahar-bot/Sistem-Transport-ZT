@@ -128,7 +128,7 @@ const isFiniteNumber = (value) => {
   if (typeof value === 'number') return Number.isFinite(value)
   if (typeof value !== 'string') return false
   const text = value.trim()
-  return text !== '' && Number.isFinite(Number(text)) && /^-?(?:\\d+|\\d*\\.\\d+)$/.test(text)
+  return text !== '' && Number.isFinite(Number(text)) && /^-?(?:\d+|\d*\.\d+)$/.test(text)
 }
 
 const cellXml = (ref, value, style = 0) => {
