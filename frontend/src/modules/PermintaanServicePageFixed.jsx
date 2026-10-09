@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { humanizeError } from '../utils/feedback.js'
 import './PermintaanServicePage.css'
 import PageBreadcrumb from './PageBreadcrumb.jsx'
+import { decodeExcelMeta } from '../utils/excelSourceMeta.js'
 
 const TYPE_LABELS = { SERVICE: 'Jasa / Perbaikan', GANTI_BAN: 'Ganti Ban', GANTI_AKI: 'Ganti Aki / Baterai', PEMERIKSAAN: 'Pemeriksaan' }
 const STATUS_LABELS = { MENUNGGU_TRANSPORT: 'Menunggu Transport', DITERIMA_TRANSPORT: 'Diterima Transport', DALAM_PROSES: 'Dalam Proses', MENUNGGU_APPROVAL: 'Menunggu Approval', DISETUJUI: 'Disetujui', DITOLAK: 'Ditolak', SELESAI: 'Selesai', DIBATALKAN: 'Dibatalkan' }
@@ -26,6 +27,13 @@ const itemCategory = (category, name = '') => {
   if (/JASA|SERVICE|PEKERJAAN|LABOR/.test(raw)) return 'JASA'
   return clean(category).toUpperCase() || 'LAINNYA'
 }
+const sourceWorkCategory = (item = {}) => {
+  const meta = decodeExcelMeta(item.keterangan).meta || {}
+  const source = clean(meta.jenis_pekerjaan).toUpperCase()
+  if (/PENGADAAN BARANG|SPAREPART|SUKU CADANG/.test(source)) return 'SPAREPART'
+  if (/JASA SERVICE|\bJASA\b|\bSERVICE\b|PEKERJAAN|LABOR/.test(source)) return 'JASA'
+  return itemCategory(item.kategori, item.nama_item)
+}
 
 export default function PermintaanServicePage({ profile }) {
   const [vehicles, setVehicles] = useState([])
@@ -36,6 +44,7 @@ export default function PermintaanServicePage({ profile }) {
   const [akis, setAkis] = useState([])
   const [requests, setRequests] = useState([])
   const [loading, setLoading] = useState(true)
+  const rowClickTimer = useRef(null)
   const [saving, setSaving] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [detail, setDetail] = useState(null)
@@ -51,11 +60,14 @@ export default function PermintaanServicePage({ profile }) {
   const [summaryKmMax, setSummaryKmMax] = useState('')
   const [summaryJarakMin, setSummaryJarakMin] = useState('')
   const [summaryJarakMax, setSummaryJarakMax] = useState('')
+  const [summaryWorkFilter, setSummaryWorkFilter] = useState('SEMUA')
+  const [summaryBengkelFilter, setSummaryBengkelFilter] = useState('SEMUA')
   const [benchmarkSearch, setBenchmarkSearch] = useState('')
   const [benchmarkBengkelFilter, setBenchmarkBengkelFilter] = useState('SEMUA')
   const [benchmarks, setBenchmarks] = useState([])
   const [benchmarkForm, setBenchmarkForm] = useState({ id: null, nama_item: '', kategori: 'SPAREPART', satuan: 'pcs', harga_patokan: '', berlaku_mulai: new Date().toISOString().slice(0, 10), keterangan: '' })
   const [editingBenchmark, setEditingBenchmark] = useState(null)
+  const [benchmarkDetail, setBenchmarkDetail] = useState(null)
   const [selectedIds, setSelectedIds] = useState([])
   const [selectionMode, setSelectionMode] = useState(false)
   const [activeRequestId, setActiveRequestId] = useState(null)
@@ -118,18 +130,44 @@ export default function PermintaanServicePage({ profile }) {
     const vehicleServices = services.filter(s => Number(s.kendaraan_id) === Number(vehicle.id))
     const serviceIds = new Set(vehicleServices.map(s => s.id))
     const vehicleItems = items.filter(i => serviceIds.has(i.service_id))
-    const categorizedItems = vehicleItems.map(i => ({ ...i, computedCategory: itemCategory(i.kategori, i.nama_item) }))
+    const categorizedItems = vehicleItems.map(i => ({ ...i, computedCategory: sourceWorkCategory(i) }))
     const jasaItems = categorizedItems.filter(i => i.computedCategory === 'JASA')
     const spareItems = categorizedItems.filter(i => ['SPAREPART', 'BAN', 'AKI'].includes(i.computedCategory))
+    const vehicleBans = bans.filter(r => Number(r.kendaraan_id) === Number(vehicle.id))
+    const vehicleAkis = akis.filter(r => Number(r.kendaraan_id) === Number(vehicle.id))
     const noItemService = vehicleServices.filter(s => !vehicleItems.some(i => i.service_id === s.id) && ['SERVICE', 'PEMERIKSAAN'].includes(String(s.jenis_service || '').toUpperCase()))
+    const replacementServices = vehicleServices.filter(s => ['GANTI_BAN', 'GANTI_AKI'].includes(String(s.jenis_service || '').toUpperCase()))
+    const matchedBanIds = new Set()
+    const matchedAkiIds = new Set()
+    const sameReplacementEvent = (service, row) => {
+      const serviceDate = String(service.tanggal_service || '')
+      const rowDate = String(row.tanggal_penggantian || '')
+      if (!serviceDate || serviceDate !== rowDate) return false
+      const serviceKm = Number(service.kilometer)
+      const rowKm = Number(row.kilometer)
+      return Number.isFinite(serviceKm) && Number.isFinite(rowKm) && serviceKm === rowKm
+    }
+    replacementServices.forEach(service => {
+      const type = String(service.jenis_service || '').toUpperCase()
+      const rows = type === 'GANTI_BAN' ? vehicleBans : vehicleAkis
+      const matched = rows.find(row => (type === 'GANTI_BAN' ? !matchedBanIds.has(row.id) : !matchedAkiIds.has(row.id)) && sameReplacementEvent(service, row))
+      if (matched) {
+        if (type === 'GANTI_BAN') matchedBanIds.add(matched.id)
+        else matchedAkiIds.add(matched.id)
+      }
+    })
+    const standaloneBans = vehicleBans.filter(row => !matchedBanIds.has(row.id))
+    const standaloneAkis = vehicleAkis.filter(row => !matchedAkiIds.has(row.id))
     const totalJasa = jasaItems.reduce((sum, i) => sum + Number(i.subtotal || 0), 0) + noItemService.reduce((sum, s) => sum + Number(s.total ?? s.biaya_aktual ?? s.estimasi_biaya ?? 0), 0)
-    const totalSpare = spareItems.reduce((sum, i) => sum + Number(i.subtotal || 0), 0) + bans.filter(r => Number(r.kendaraan_id) === Number(vehicle.id)).reduce((sum, r) => sum + Number(r.biaya || 0), 0) + akis.filter(r => Number(r.kendaraan_id) === Number(vehicle.id)).reduce((sum, r) => sum + Number(r.biaya || 0), 0)
+    const totalSpare = spareItems.reduce((sum, i) => sum + Number(i.subtotal || 0), 0) + standaloneBans.reduce((sum, r) => sum + Number(r.biaya || 0), 0) + standaloneAkis.reduce((sum, r) => sum + Number(r.biaya || 0), 0)
     const totalService = vehicleServices.reduce((sum, s) => sum + Number(s.total ?? s.biaya_aktual ?? s.estimasi_biaya ?? 0), 0)
-    const totalRepair = bans.filter(r => Number(r.kendaraan_id) === Number(vehicle.id)).reduce((sum, r) => sum + Number(r.biaya || 0), 0) + akis.filter(r => Number(r.kendaraan_id) === Number(vehicle.id)).reduce((sum, r) => sum + Number(r.biaya || 0), 0)
+    const replacementServiceEvents = replacementServices.filter(s => !spareItems.some(i => i.service_id === s.id && ['GANTI_BAN', 'GANTI_AKI', 'SPAREPART'].includes(String(i.kategori || '').toUpperCase())))
+    const totalRepair = standaloneBans.reduce((sum, r) => sum + Number(r.biaya || 0), 0) + standaloneAkis.reduce((sum, r) => sum + Number(r.biaya || 0), 0)
     const totalPengeluaran = totalService + totalRepair
     const jasaServiceIds = new Set(jasaItems.map(i => i.service_id))
     noItemService.forEach(s => jasaServiceIds.add(s.id))
     const spareServiceIds = new Set(spareItems.map(i => i.service_id))
+    replacementServiceEvents.forEach(s => spareServiceIds.add(s.id))
     const usagePoints = [
       ...kilometers.filter(k => Number(k.kendaraan_id) === Number(vehicle.id)).map(k => Number(k.kilometer)),
       ...vehicleServices.map(s => Number(s.kilometer)).filter(Number.isFinite),
@@ -138,21 +176,23 @@ export default function PermintaanServicePage({ profile }) {
     ].filter(n => Number.isFinite(n) && n >= 0)
     const kmAwal = usagePoints.length ? Math.min(...usagePoints) : 0
     const kmAkhir = usagePoints.length ? Math.max(...usagePoints) : Number(vehicle.kilometer_terakhir || 0)
-    const serviceHistory = [...vehicleServices].sort((a, b) => String(b.tanggal_service || '').localeCompare(String(a.tanggal_service || ''))).map(s => ({ ...s, id: s.id, tanggal: s.tanggal_service, kilometer: s.kilometer, bengkel: s.bengkel, jenis: itemCategory(s.jenis_service, s.keluhan), jenisLabel: TYPE_LABELS[s.jenis_service] || s.jenis_service || '-', keluhan: s.keluhan || '-', total: Number(s.total ?? s.biaya_aktual ?? s.estimasi_biaya ?? 0), items: items.filter(i => i.service_id === s.id).map(i => ({ nama_item: i.nama_item, kategori: itemCategory(i.kategori, i.nama_item), jumlah: i.jumlah, satuan: i.satuan, harga_satuan: Number(i.harga_satuan || 0), subtotal: Number(i.subtotal || 0) })) }))
+    const serviceHistory = [...vehicleServices].sort((a, b) => String(b.tanggal_service || '').localeCompare(String(a.tanggal_service || ''))).map(s => ({ ...s, id: s.id, tanggal: s.tanggal_service, kilometer: s.kilometer, bengkel: s.bengkel, jenis: itemCategory(s.jenis_service, s.keluhan), jenisLabel: TYPE_LABELS[s.jenis_service] || s.jenis_service || '-', keluhan: s.keluhan || '-', total: Number(s.total ?? s.biaya_aktual ?? s.estimasi_biaya ?? 0), items: items.filter(i => i.service_id === s.id).map(i => ({ nama_item: i.nama_item, kategori: sourceWorkCategory(i), jumlah: i.jumlah, satuan: i.satuan, harga_satuan: Number(i.harga_satuan || 0), subtotal: Number(i.subtotal || 0) })) }))
     const jarak = Math.max(0, kmAkhir - kmAwal)
     const vehiclePrice = Number(vehicle.harga_perolehan || 0)
     const ratio = vehiclePrice > 0 ? totalPengeluaran / vehiclePrice : null
-    const lastService = [...vehicleServices].sort((a, b) => String(b.tanggal_service || '').localeCompare(String(a.tanggal_service || '')))[0]
     const lastSpareDate = [...vehicleServices.filter(s => spareServiceIds.has(s.id)), ...bans.filter(r => Number(r.kendaraan_id) === Number(vehicle.id)).map(r => ({ tanggal_service: r.tanggal_penggantian })), ...akis.filter(r => Number(r.kendaraan_id) === Number(vehicle.id)).map(r => ({ tanggal_service: r.tanggal_penggantian }))].sort((a, b) => String(b.tanggal_service || '').localeCompare(String(a.tanggal_service || '')))[0]?.tanggal_service
     return {
-      vehicle, totalTransaksi: vehicleServices.length, jasaKali: jasaServiceIds.size, spareKali: new Set([...spareServiceIds, ...vehicleServices.filter(s => ['GANTI_BAN', 'GANTI_AKI'].includes(String(s.jenis_service || '').toUpperCase())).map(s => s.id)]).size + bans.filter(r => Number(r.kendaraan_id) === Number(vehicle.id)).length + akis.filter(r => Number(r.kendaraan_id) === Number(vehicle.id)).length,
+      vehicle, totalTransaksi: vehicleServices.length, jasaKali: jasaServiceIds.size, spareKali: spareServiceIds.size + standaloneBans.length + standaloneAkis.length,
       totalJasa, totalSpare, totalService, totalRepair, totalPengeluaran, vehiclePrice, ratio, jarak, kmAwal, kmAkhir, serviceHistory,
-      lastJasa: lastService?.tanggal_service || null, lastSpare: lastSpareDate,
+      lastJasa: lastJasa?.tanggal_service || null, lastSpare: lastSpareDate,
+      workProfile: jasaServiceIds.size && spareServiceIds.size ? 'KEDUANYA' : jasaServiceIds.size ? 'JASA' : spareServiceIds.size ? 'SPAREPART' : 'BELUM_ADA_RINCIAN',
+      workshopNames: Array.from(new Set(vehicleServices.map(s => clean(s.bengkel)).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'id')),
       costFlag: vehiclePrice > 0 && totalPengeluaran > vehiclePrice ? 'MELEWATI_HARGA' : vehiclePrice > 0 && totalPengeluaran >= vehiclePrice * 0.8 ? 'MENDEKATI_HARGA' : vehiclePrice > 0 ? 'DI_BAWAH_HARGA' : 'HARGA_BELUM_DIISI',
     }
   }), [vehicles, services, items, kilometers, bans, akis, requests])
 
   const brands = useMemo(() => Array.from(new Set(vehicles.map(v => clean(v.merk)).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'id')), [vehicles])
+  const summaryBengkelOptions = useMemo(() => Array.from(new Set(services.map(s => clean(s.bengkel)).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'id')), [services])
   const summaryFiltered = useMemo(() => {
     const q = summarySearch.trim().toLowerCase()
     const kmMin = summaryKmMin === '' ? null : Number(summaryKmMin)
@@ -164,12 +204,21 @@ export default function PermintaanServicePage({ profile }) {
       const hay = [v.kode_kendaraan, v.nomor_polisi, v.merk, v.tipe, v.jenis_kendaraan, v.pemilik, v.unit_kerja, v.lokasi].filter(Boolean).join(' ').toLowerCase()
       const modeOk = summaryDataMode === 'SEMUA' || (summaryDataMode === 'HAS_SERVICE' && row.totalTransaksi > 0) || (summaryDataMode === 'BELUM_SERVICE' && row.totalTransaksi === 0)
       const costOk = summaryCostFilter === 'SEMUA' || row.costFlag === summaryCostFilter
+      const workOk = summaryWorkFilter === 'SEMUA' || row.workProfile === summaryWorkFilter
+      const workshopOk = summaryBengkelFilter === 'SEMUA' || row.workshopNames.includes(summaryBengkelFilter)
       const kmOk = (kmMin === null || row.kmAkhir >= kmMin) && (kmMax === null || row.kmAkhir <= kmMax)
       const jarakOk = (jarakMin === null || row.jarak >= jarakMin) && (jarakMax === null || row.jarak <= jarakMax)
-      return modeOk && costOk && (!q || hay.includes(q)) && (brandFilter === 'SEMUA' || v.merk === brandFilter) && (summaryOwnership === 'SEMUA' || v.kepemilikan === summaryOwnership) && kmOk && jarakOk
+      return modeOk && costOk && workOk && workshopOk && (!q || hay.includes(q)) && (brandFilter === 'SEMUA' || v.merk === brandFilter) && (summaryOwnership === 'SEMUA' || v.kepemilikan === summaryOwnership) && kmOk && jarakOk
     })
-  }, [summaryRows, summarySearch, brandFilter, summaryOwnership, summaryDataMode, summaryCostFilter, summaryKmMin, summaryKmMax, summaryJarakMin, summaryJarakMax])
+  }, [summaryRows, summarySearch, brandFilter, summaryOwnership, summaryDataMode, summaryCostFilter, summaryWorkFilter, summaryBengkelFilter, summaryKmMin, summaryKmMax, summaryJarakMin, summaryJarakMax])
 
+  const filteredSummaryStats = useMemo(() => ({
+    vehicles: summaryFiltered.length,
+    transactions: summaryFiltered.reduce((sum,row)=>sum+row.totalTransaksi,0),
+    jasaCost: summaryFiltered.reduce((sum,row)=>sum+row.totalJasa,0),
+    spareCost: summaryFiltered.reduce((sum,row)=>sum+row.totalSpare,0),
+    expense: summaryFiltered.reduce((sum,row)=>sum+row.totalPengeluaran,0),
+  }), [summaryFiltered])
   const totalSummaryExpense = useMemo(() => summaryRows.reduce((sum, row) => sum + row.totalPengeluaran, 0), [summaryRows])
   const overPriceCount = useMemo(() => summaryRows.filter(r => r.costFlag === 'MELEWATI_HARGA').length, [summaryRows])
 
@@ -187,6 +236,7 @@ export default function PermintaanServicePage({ profile }) {
       const kategori = sourceCategory(item.kategori, item.nama_item)
       const satuan = clean(item.satuan) || '-'
       const service = serviceMap[item.service_id]
+      const vehicle = vehicles.find(v => Number(v.id) === Number(service?.kendaraan_id))
       const bengkel = clean(service?.bengkel) || '(Bengkel belum diisi)'
       const key = keyFor(name, kategori, satuan)
       const current = grouped.get(key) || {
@@ -200,6 +250,11 @@ export default function PermintaanServicePage({ profile }) {
       const subtotal = Number(item.subtotal ?? (qty * unitPrice))
       current.history.push({
         bengkel,
+        date: service?.tanggal_service || null,
+        serviceId: service?.id || null,
+        nomor_polisi: vehicle?.nomor_polisi || '-',
+        vehicleLabel: vehicle ? [vehicle.merk, vehicle.tipe].filter(Boolean).join(' ') : '-',
+        vehicleId: vehicle?.id || service?.kendaraan_id || null,
         qty: Number.isFinite(qty) ? qty : 0,
         unitPrice: Number.isFinite(unitPrice) ? unitPrice : 0,
         subtotal: Number.isFinite(subtotal) ? subtotal : 0,
@@ -235,6 +290,19 @@ export default function PermintaanServicePage({ profile }) {
       const median = sorted.length % 2 ? sorted[(sorted.length - 1) / 2] : sorted.length ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2 : 0
       const totalQty = filteredHistory.reduce((sum, h) => sum + h.qty, 0)
       const totalNilai = filteredHistory.reduce((sum, h) => sum + h.subtotal, 0)
+      const sortedHistory = [...filteredHistory].sort((a,b) => {
+        const dateDiff = String(b.date || '').localeCompare(String(a.date || ''))
+        if (dateDiff !== 0) return dateDiff
+        return Number(b.serviceId || 0) - Number(a.serviceId || 0)
+      })
+      const latest = sortedHistory[0] || null
+      const previous = sortedHistory[1] || null
+      const priceDelta = benchmarkBengkelFilter !== 'SEMUA' && latest && previous
+        ? Number(latest.unitPrice || 0) - Number(previous.unitPrice || 0)
+        : null
+      const priceDeltaPercent = priceDelta !== null && Number(previous.unitPrice || 0) > 0
+        ? (priceDelta / Number(previous.unitPrice)) * 100
+        : null
       const reference = benchmarks.find(b => normalizeItemName(b.nama_item) === row.nama_item && sourceCategory(b.kategori, b.nama_item) === row.kategori && String(b.satuan || '-') === String(row.satuan || '-'))
       return {
         ...row,
@@ -247,6 +315,13 @@ export default function PermintaanServicePage({ profile }) {
         max: sorted[sorted.length - 1] || 0,
         avg,
         median,
+        latestDate: latest?.date || null,
+        latestUnitPrice: latest?.unitPrice ?? null,
+        previousUnitPrice: previous?.unitPrice ?? null,
+        priceDelta,
+        priceDeltaPercent,
+        vehicleCount: new Set(filteredHistory.map(h => h.vehicleId).filter(Boolean)).size,
+        filteredHistory: sortedHistory,
         reference,
         hasSelectedWorkshopHistory: filteredHistory.length > 0,
       }
@@ -255,7 +330,7 @@ export default function PermintaanServicePage({ profile }) {
       const workshopMatch = benchmarkBengkelFilter === 'SEMUA' || row.hasSelectedWorkshopHistory || Boolean(row.reference)
       return textMatch && workshopMatch
     }).sort((a, b) => a.nama_item.localeCompare(b.nama_item, 'id'))
-  }, [items, services, benchmarks, benchmarkSearch, benchmarkBengkelFilter])
+  }, [items, services, benchmarks, vehicles, benchmarkSearch, benchmarkBengkelFilter])
   const resetBenchmarkForm = () => {
     setEditingBenchmark(null)
     setBenchmarkForm({ id: null, nama_item: '', kategori: 'SPAREPART', satuan: 'pcs', harga_patokan: '', berlaku_mulai: new Date().toISOString().slice(0, 10), keterangan: '' })
@@ -457,20 +532,19 @@ export default function PermintaanServicePage({ profile }) {
   }
 
   const selectedForDelete = async () => {
-    for (const request of requests.filter(row => selectedIds.includes(row.id))) await deleteOne(request)
+    if (!canDelete) return
+    const deletableRequests = requests.filter(row => selectedIds.includes(row.id) && canDeleteRequest(row))
+    if (!deletableRequests.length) return
+    for (const request of deletableRequests) await deleteOne(request)
     setSelectedIds([]); setSelectionMode(false); setActiveRequestId(null)
   }
 
   const enterSelectionMode = id => {
-    if (!canDelete) return
-    if (selectionMode) {
-      setSelectionMode(false)
-      setSelectedIds([])
-      return
-    }
+    if (selectionMode) return
     setSelectionMode(true)
     setSelectedIds(current => current.includes(id) ? current : [...current, id])
   }
+  useEffect(() => () => window.clearTimeout(rowClickTimer.current), [])
 
   const summaryStats = [
     ['Kendaraan dipantau', summaryRows.filter(r => r.totalTransaksi > 0).length, 'Memiliki histori service'],
@@ -503,21 +577,22 @@ export default function PermintaanServicePage({ profile }) {
 
     {!operationalOnly && viewMode === 'ringkasan' && <section className="request-panel">
       <div className="request-toolbar service-summary-filter-toolbar">
-        <input value={summarySearch} onChange={e => setSummarySearch(e.target.value)} placeholder="Cari BM, no. polisi, merk, type, pemilik, lokasi..." />
+        <input value={summarySearch} onChange={e => setSummarySearch(e.target.value)} placeholder="Cari katalog: BM, nomor polisi, kode, merk, type, unit kerja, lokasi..." />
         <select value={summaryDataMode} onChange={e => setSummaryDataMode(e.target.value)}><option value="HAS_SERVICE">Ada histori service</option><option value="SEMUA">Semua kendaraan</option><option value="BELUM_SERVICE">Belum ada service</option></select>
         <select value={brandFilter} onChange={e => setBrandFilter(e.target.value)}><option value="SEMUA">Semua merk</option>{brands.map(brand => <option key={brand} value={brand}>{brand}</option>)}</select>
         <select value={summaryOwnership} onChange={e => setSummaryOwnership(e.target.value)}><option value="SEMUA">Semua kepemilikan</option><option value="ASET">Aset</option><option value="SEWA">Sewa</option></select>
-        <select value={summaryCostFilter} onChange={e => setSummaryCostFilter(e.target.value)} aria-label="Filter status biaya"><option value="SEMUA">Semua patokan biaya</option><option value="MELEWATI_HARGA">Melewati harga</option><option value="MENDEKATI_HARGA">Mendekati harga</option><option value="DI_BAWAH_HARGA">Di bawah harga</option><option value="HARGA_BELUM_DIISI">Harga belum diisi</option></select>
+        <select value={summaryCostFilter} onChange={e => setSummaryCostFilter(e.target.value)} aria-label="Filter status biaya"><option value="SEMUA">Semua patokan biaya</option><option value="MELEWATI_HARGA">Melewati harga</option><option value="MENDEKATI_HARGA">Mendekati harga</option><option value="DI_BAWAH_HARGA">Di bawah harga</option><option value="HARGA_BELUM_DIISI">Harga belum diisi</option></select><select value={summaryWorkFilter} onChange={e=>setSummaryWorkFilter(e.target.value)} aria-label="Filter rincian service"><option value="SEMUA">Semua rincian</option><option value="JASA">Ada jasa</option><option value="SPAREPART">Ada sparepart</option><option value="KEDUANYA">Jasa + sparepart</option></select><select value={summaryBengkelFilter} onChange={e=>setSummaryBengkelFilter(e.target.value)} aria-label="Filter bengkel"><option value="SEMUA">Semua bengkel</option>{summaryBengkelOptions.map(bengkel=><option key={bengkel} value={bengkel}>{bengkel}</option>)}</select>
         <input type="number" min="0" value={summaryKmMin} onChange={e => setSummaryKmMin(e.target.value)} placeholder="KM min" />
         <input type="number" min="0" value={summaryKmMax} onChange={e => setSummaryKmMax(e.target.value)} placeholder="KM max" />
         <input type="number" min="0" value={summaryJarakMin} onChange={e => setSummaryJarakMin(e.target.value)} placeholder="Jarak min" />
         <input type="number" min="0" value={summaryJarakMax} onChange={e => setSummaryJarakMax(e.target.value)} placeholder="Jarak max" />
-        <button className="request-light-button" onClick={() => { setSummarySearch(''); setBrandFilter('SEMUA'); setSummaryOwnership('SEMUA'); setSummaryDataMode('HAS_SERVICE'); setSummaryCostFilter('SEMUA'); setSummaryKmMin(''); setSummaryKmMax(''); setSummaryJarakMin(''); setSummaryJarakMax('') }}>Reset</button>
+        <button className="request-light-button" onClick={() => { setSummarySearch(''); setBrandFilter('SEMUA'); setSummaryOwnership('SEMUA'); setSummaryDataMode('HAS_SERVICE'); setSummaryCostFilter('SEMUA'); setSummaryWorkFilter('SEMUA'); setSummaryBengkelFilter('SEMUA'); setSummaryKmMin(''); setSummaryKmMax(''); setSummaryJarakMin(''); setSummaryJarakMax('') }}>Reset</button>
         <button className="request-light-button" onClick={loadData} disabled={loading}>↻ Refresh</button>
       </div>
-      <div className="request-table-wrap service-summary-table-wrap"><table className="request-table service-summary-table"><thead><tr><th>No Polisi</th><th>Kendaraan</th><th>Service</th><th>Jasa</th><th>Sparepart</th><th>Total Jasa</th><th>Total Sparepart</th><th>Total Pengeluaran</th><th>Harga Perolehan</th><th>KM/Jarak</th><th>Service Terakhir</th><th>Sparepart Terakhir</th><th>Patokan</th><th>Aksi</th></tr></thead><tbody>{summaryFiltered.length ? summaryFiltered.map(row => <tr key={row.vehicle.id}><td><strong>{row.vehicle.nomor_polisi}</strong></td><td><strong>{row.vehicle.merk}</strong><small>{row.vehicle.tipe || '-'} • {row.vehicle.jenis_kendaraan || '-'}</small></td><td><strong>{row.totalTransaksi} kali</strong></td><td>{row.jasaKali} kali</td><td>{row.spareKali} kali</td><td>{money(row.totalJasa)}</td><td>{money(row.totalSpare)}</td><td><strong>{money(row.totalPengeluaran)}</strong></td><td>{row.vehiclePrice ? money(row.vehiclePrice) : 'Belum diisi'}</td><td>{number(row.kmAkhir)} km<small>Jarak terpantau: {number(row.jarak)} km</small></td><td>{fmtDate(row.lastJasa)}</td><td>{fmtDate(row.lastSpare)}</td><td><span className={`request-status request-cost-flag ${row.costFlag.toLowerCase()}`}>{row.costFlag === 'MELEWATI_HARGA' ? 'Melewati' : row.costFlag === 'MENDEKATI_HARGA' ? '≥ 80%' : row.costFlag === 'DI_BAWAH_HARGA' ? 'Di bawah' : 'Harga belum diisi'}</span>{row.ratio != null && <small>{(row.ratio * 100).toFixed(1)}% dari harga</small>}</td><td className="request-actions"><button className="request-detail-button" onClick={() => setDetail({ type: 'vehicle', row })}>Detail</button>{canManageService && (row.serviceHistory.length > 0
+      <div className="request-summary-strip service-filter-summary"><div><span>Kendaraan tampil</span><strong>{filteredSummaryStats.vehicles}</strong></div><div><span>Transaksi service</span><strong>{filteredSummaryStats.transactions}</strong></div><div><span>Total jasa</span><strong>{money(filteredSummaryStats.jasaCost)}</strong></div><div><span>Total sparepart</span><strong>{money(filteredSummaryStats.spareCost)}</strong></div><div><span>Total pengeluaran</span><strong>{money(filteredSummaryStats.expense)}</strong></div></div>
+      <div className="request-table-wrap service-summary-table-wrap"><table className="request-table service-summary-table"><thead><tr><th>No Polisi</th><th>Kendaraan</th><th>Service</th><th>Jasa</th><th>Sparepart</th><th>Total Jasa</th><th>Total Sparepart</th><th>Total Pengeluaran</th><th>Harga Perolehan</th><th>% Harga</th><th>KM/Jarak</th><th>Service/Jasa Terakhir</th><th>Sparepart Terakhir</th><th>Patokan / Rekomendasi</th><th>Aksi</th></tr></thead><tbody>{summaryFiltered.length ? summaryFiltered.map(row => <tr key={row.vehicle.id}><td><strong>{row.vehicle.nomor_polisi}</strong></td><td><strong>{row.vehicle.merk}</strong><small>{row.vehicle.tipe || '-'} • {row.vehicle.jenis_kendaraan || '-'}</small></td><td><strong>{row.totalTransaksi} kali</strong></td><td>{row.jasaKali} kali</td><td>{row.spareKali} kali</td><td>{money(row.totalJasa)}</td><td>{money(row.totalSpare)}</td><td><strong>{money(row.totalPengeluaran)}</strong></td><td>{row.vehiclePrice ? money(row.vehiclePrice) : 'Belum diisi'}</td><td>{row.ratio == null ? '—' : (row.ratio * 100).toFixed(1) + '%'}</td><td>{number(row.kmAkhir)} km<small>Jarak terpantau: {number(row.jarak)} km</small></td><td>{fmtDate(row.lastJasa)}</td><td>{fmtDate(row.lastSpare)}</td><td><span className={`request-status request-cost-flag ${row.costFlag.toLowerCase()}`}>{row.costFlag === 'MELEWATI_HARGA' ? 'Melewati harga' : row.costFlag === 'MENDEKATI_HARGA' ? 'Mendekati 80%' : row.costFlag === 'DI_BAWAH_HARGA' ? 'Di bawah harga' : 'Harga belum diisi'}</span><small>{row.costFlag === 'MELEWATI_HARGA' ? 'Evaluasi kelayakan / opsi jual' : row.costFlag === 'MENDEKATI_HARGA' ? 'Pantau pengeluaran' : row.costFlag === 'HARGA_BELUM_DIISI' ? 'Isi harga perolehan' : 'Normal'}</small></td><td className="request-actions"><button className="request-detail-button" onClick={() => setDetail({ type: 'vehicle', row })}>Detail</button>{canManageService && (row.serviceHistory.length > 0
                 ? <><button className="request-detail-button" onClick={() => openServiceEdit(row.serviceHistory[0])}>Edit</button><button className="request-detail-button danger" onClick={() => deleteServiceRecord(row.serviceHistory[0])} disabled={saving}>Hapus</button></>
-                : <button className="request-detail-button" disabled title="Belum ada histori service untuk diedit">Edit</button>)}{canCreate && <button className="request-detail-button" onClick={() => { setViewMode('pengajuan'); openCreate(row.vehicle.id) }}>Pengajuan</button>}</td></tr>) : <tr><td colSpan="14"><div className="request-empty">Belum ada kendaraan yang cocok dengan filter. Gunakan “Semua kendaraan” untuk melihat seluruh armada.</div></td></tr>}</tbody></table></div>
+                : <button className="request-detail-button" disabled title="Belum ada histori service untuk diedit">Edit</button>)}{canCreate && <button className="request-detail-button" onClick={() => { setViewMode('pengajuan'); openCreate(row.vehicle.id) }}>Pengajuan</button>}</td></tr>) : <tr><td colSpan="15"><div className="request-empty">Belum ada kendaraan yang cocok dengan filter. Gunakan “Semua kendaraan” untuk melihat seluruh armada.</div></td></tr>}</tbody></table></div>
     </section>}
 
     {!operationalOnly && viewMode === 'harga' && <section className="request-panel">
@@ -543,7 +618,7 @@ export default function PermintaanServicePage({ profile }) {
       </form>}
       <div className="request-toolbar-note service-benchmark-note">Harga histori dihitung dari harga satuan item. Gunakan filter bengkel untuk membandingkan item yang sama pada bengkel yang sama; ini membantu Transport mendeteksi perubahan harga yang tidak wajar. Patokan Admin adalah referensi internal.</div>
       <div className="request-table-wrap service-price-table-wrap"><table className="request-table">
-        <thead><tr><th>Item</th><th>Kategori</th><th>Satuan</th><th>Bengkel Histori</th><th>Transaksi</th><th>Qty</th><th>Nilai Histori</th><th>Terendah</th><th>Tertinggi</th><th>Median</th><th>Patokan Admin</th><th>Selisih Rata-rata</th><th>Keterangan Admin</th><th>Aksi</th></tr></thead>
+        <thead><tr><th>Item</th><th>Kategori</th><th>Satuan</th><th>Bengkel Histori</th><th>Transaksi</th><th>Mobil</th><th>Harga Terakhir</th><th>Perubahan Terakhir</th><th>Qty</th><th>Nilai Histori</th><th>Terendah</th><th>Tertinggi</th><th>Median</th><th>Patokan Admin</th><th>Selisih Rata-rata</th><th>Keterangan Admin</th><th>Aksi</th></tr></thead>
         <tbody>{benchmarkRows.length ? benchmarkRows.map(row => {
           const ref = row.reference
           const diff = ref ? Number(row.avg) - Number(ref.harga_patokan) : null
@@ -553,6 +628,9 @@ export default function PermintaanServicePage({ profile }) {
             <td>{row.satuan || '-'}</td>
             <td><span title={row.bengkelDisplay}>{row.bengkelDisplay || 'Belum ada histori bengkel'}</span></td>
             <td>{row.jumlah}</td>
+            <td>{row.vehicleCount || 0}</td>
+            <td>{row.latestUnitPrice == null ? '-' : money(row.latestUnitPrice)}<small>{row.latestDate ? fmtDate(row.latestDate) : '-'}</small></td>
+            <td>{row.priceDeltaPercent == null ? <span className="request-toolbar-note">{benchmarkBengkelFilter === 'SEMUA' ? 'Pilih bengkel' : row.jumlah < 2 ? 'Belum ada pembanding' : 'Tidak dapat dihitung'}</span> : <span className={'request-status ' + (Math.abs(row.priceDeltaPercent) >= 10 ? 'status-warning' : 'status-ok')}>{row.priceDelta >= 0 ? '+' : ''}{money(row.priceDelta)}<small>{row.priceDeltaPercent >= 0 ? '+' : ''}{row.priceDeltaPercent.toFixed(1)}%</small></span>}</td>
             <td>{row.total_qty || 0}</td>
             <td>{money(row.total_nilai)}</td>
             <td>{money(row.min)}</td>
@@ -563,19 +641,19 @@ export default function PermintaanServicePage({ profile }) {
             <td>{ref?.keterangan || '-'}</td>
             <td className="request-actions">
               {ref
-                ? <button className="request-detail-button" onClick={() => editBenchmark(ref)}>Edit</button>
-                : <button className="request-detail-button" onClick={() => prepareBenchmarkFromItem(row)}>Atur Patokan</button>}
+                ? <><button className="request-detail-button" onClick={() => setBenchmarkDetail(row)}>Histori</button><button className="request-detail-button" onClick={() => editBenchmark(ref)}>Edit</button></>
+                : <><button className="request-detail-button" onClick={() => setBenchmarkDetail(row)}>Histori</button><button className="request-detail-button" onClick={() => prepareBenchmarkFromItem(row)}>Atur Patokan</button></>}
               {ref && <button className="request-detail-button danger" onClick={() => deleteBenchmark(ref)} disabled={saving}>Hapus</button>}
             </td>
           </tr>
-        }) : <tr><td colSpan="14"><div className="request-empty">Belum ada data item service untuk dijadikan patokan.</div></td></tr>}</tbody>
+        }) : <tr><td colSpan="16"><div className="request-empty">Belum ada data item service untuk dijadikan patokan.</div></td></tr>}</tbody>
       </table></div>
     </section>}
     {viewMode === 'pengajuan' && <section className="request-panel">
       <div className="request-toolbar"><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Cari nomor pengajuan, BM, merk, type, keluhan..." /><select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}><option value="SEMUA">Semua status</option>{Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select><select value={vehicleFilter} onChange={e => setVehicleFilter(e.target.value)}><option value="SEMUA">Semua kendaraan</option>{vehicles.map(v => <option key={v.id} value={v.id}>{v.nomor_polisi} — {v.merk}</option>)}</select><button className="request-light-button" onClick={loadData} disabled={loading || saving}>↻ Refresh</button></div>
-      {selectionMode && <div className="request-selection-bar"><div className="request-selection-meta"><span>Mode pilih pengajuan</span><strong>{selectedIds.length} dipilih</strong></div><div className="request-selection-actions"><button className="ghost" onClick={() => setSelectedIds(summary => summary.length ? [] : filteredRequests.map(r => r.id))}>{selectedIds.length ? 'Batalkan semua' : 'Pilih semua'}</button><button className="ghost" onClick={() => { setSelectedIds([]); setSelectionMode(false) }}>Batal</button>{canDelete && <button className="danger" onClick={selectedForDelete} disabled={saving || !selectedIds.length}>Hapus {selectedIds.length} Pengajuan</button>}</div></div>}
+      {selectionMode && <div className="request-selection-bar"><div className="request-selection-meta"><span>Mode pilih pengajuan</span><strong>{selectedIds.length} dipilih</strong></div><div className="request-selection-actions"><button className="ghost" onClick={() => setSelectedIds(summary => summary.length ? [] : filteredRequests.map(r => r.id))}>{selectedIds.length ? 'Batalkan semua' : 'Pilih semua'}</button><button className="ghost" onClick={() => { setSelectedIds([]); setSelectionMode(false) }}>Batal</button>{canDelete && <button className="danger" onClick={selectedForDelete} disabled={saving || !selectedIds.some(id => { const row = requests.find(item => item.id === id); return row && canDeleteRequest(row) })}>Hapus {selectedIds.filter(id => { const row = requests.find(item => item.id === id); return row && canDeleteRequest(row) }).length} Pengajuan</button>}</div></div>}
       {!selectionMode && filteredRequests.length > 0 && <p className="request-selection-hint">Klik dua kali pada baris untuk masuk mode pilih banyak pengajuan.</p>}
-      <div className="request-table-wrap"><table className="request-table" data-native-row-selection="true"><thead><tr>{selectionMode && <th className="request-select-cell"><input type="checkbox" aria-label="Pilih semua pengajuan" checked={selectedIds.length === filteredRequests.length && filteredRequests.length > 0} onChange={() => setSelectedIds(current => current.length ? [] : filteredRequests.map(r => r.id))}/></th>}<th>Pengajuan</th><th>Kendaraan</th><th>Kebutuhan</th><th>KM</th><th>Prioritas</th><th>Status</th><th>Aksi</th></tr></thead><tbody>{filteredRequests.map(r => { const v = vehicleMap[r.kendaraan_id]; const selected = selectedIds.includes(r.id); const editableRow = canEditRequest && !TERMINAL.includes(r.status); return <tr key={r.id} className={(selected ? 'request-selected' : '') + (activeRequestId === r.id ? ' dpt-row-selected' : '')} onDoubleClick={e => { if (e.target?.closest?.('button,input,select,textarea,a')) return; e.preventDefault(); enterSelectionMode(r.id) }} onClick={e => { if (e.target?.closest?.('button,input,select,textarea,a')) return; if (selectionMode) { setSelectedIds(current => current.includes(r.id) ? current.filter(x => x !== r.id) : [...current, r.id]); return }; setActiveRequestId(current => current === r.id ? null : r.id) }}>{selectionMode && <td className="request-select-cell"><input type="checkbox" checked={selected} onChange={() => setSelectedIds(current => current.includes(r.id) ? current.filter(x => x !== r.id) : [...current, r.id])}/></td>}<td><strong>{r.nomor_pengajuan || `#${r.id}`}</strong><small>{fmtDate(r.tanggal_pengajuan)}</small></td><td><strong>{v?.nomor_polisi || '-'}</strong><small>{v ? `${v.merk} • ${v.tipe || '-'}` : 'Data kendaraan tidak ditemukan'}</small></td><td><strong>{TYPE_LABELS[r.jenis_permintaan] || r.jenis_permintaan}</strong><small>{r.keluhan}</small></td><td>{number(r.kilometer_pengajuan)} km</td><td><span className={`request-priority priority-${String(r.prioritas || 'NORMAL').toLowerCase()}`}>{r.prioritas === 'MENDESAK' ? 'Mendesak' : 'Normal'}</span></td><td><span className={`request-status status-${String(r.status || '').toLowerCase()}`}>{STATUS_LABELS[r.status] || r.status}</span></td><td className="request-actions">{<button className="request-detail-button" onClick={() => setDetail({ type: 'request', request: r })}>Detail</button>}{canEditRequest && <button className="request-detail-button" onClick={() => { if (editableRow) openEdit(r) }} disabled={!editableRow} title={editableRow ? 'Edit pengajuan' : 'Pengajuan terminal tidak dapat diedit'}>Edit</button>}<button className="request-detail-button" onClick={() => setPrintRequest(r)}>Surat</button>{canDelete && TERMINAL.includes(r.status) && <button className="request-detail-button danger" onClick={() => window.confirm(`Hapus pengajuan ${r.nomor_pengajuan || r.id}?`) && deleteOne(r)}>Hapus</button>}</td></tr>})}</tbody></table></div>
+      <div className="request-table-wrap"><table className="request-table" data-native-row-selection="true"><thead><tr>{selectionMode && <th className="request-select-cell"><input type="checkbox" aria-label="Pilih semua pengajuan" checked={selectedIds.length === filteredRequests.length && filteredRequests.length > 0} onChange={() => setSelectedIds(current => current.length ? [] : filteredRequests.map(r => r.id))}/></th>}<th>Pengajuan</th><th>Kendaraan</th><th>Kebutuhan</th><th>KM</th><th>Prioritas</th><th>Status</th><th>Aksi</th></tr></thead><tbody>{filteredRequests.map(r => { const v = vehicleMap[r.kendaraan_id]; const selected = selectedIds.includes(r.id); const editableRow = canEditRequest && !TERMINAL.includes(r.status); return <tr key={r.id} className={(selected ? 'request-selected' : '') + (activeRequestId === r.id ? ' dpt-row-selected' : '')} onDoubleClick={e => { if (e.target?.closest?.('button,input,select,textarea,a')) return; e.preventDefault(); window.clearTimeout(rowClickTimer.current); enterSelectionMode(r.id) }} onClick={e => { if (e.target?.closest?.('button,input,select,textarea,a')) return; window.clearTimeout(rowClickTimer.current); if (selectionMode) { setSelectedIds(current => current.includes(r.id) ? current.filter(x => x !== r.id) : [...current, r.id]); return }; if (e.detail > 1) return; rowClickTimer.current = window.setTimeout(() => setActiveRequestId(current => current === r.id ? null : r.id), 180) }}>{selectionMode && <td className="request-select-cell"><input type="checkbox" checked={selected} onChange={() => setSelectedIds(current => current.includes(r.id) ? current.filter(x => x !== r.id) : [...current, r.id])}/></td>}<td><strong>{r.nomor_pengajuan || `#${r.id}`}</strong><small>{fmtDate(r.tanggal_pengajuan)}</small></td><td><strong>{v?.nomor_polisi || '-'}</strong><small>{v ? `${v.merk} • ${v.tipe || '-'}` : 'Data kendaraan tidak ditemukan'}</small></td><td><strong>{TYPE_LABELS[r.jenis_permintaan] || r.jenis_permintaan}</strong><small>{r.keluhan}</small></td><td>{number(r.kilometer_pengajuan)} km</td><td><span className={`request-priority priority-${String(r.prioritas || 'NORMAL').toLowerCase()}`}>{r.prioritas === 'MENDESAK' ? 'Mendesak' : 'Normal'}</span></td><td><span className={`request-status status-${String(r.status || '').toLowerCase()}`}>{STATUS_LABELS[r.status] || r.status}</span></td><td className="request-actions">{<button className="request-detail-button" onClick={() => setDetail({ type: 'request', request: r })}>Detail</button>}{canEditRequest && <button className="request-detail-button" onClick={() => { if (editableRow) openEdit(r) }} disabled={!editableRow} title={editableRow ? 'Edit pengajuan' : 'Pengajuan terminal tidak dapat diedit'}>Edit</button>}<button className="request-detail-button" onClick={() => setPrintRequest(r)}>Surat</button>{canDelete && TERMINAL.includes(r.status) && <button className="request-detail-button danger" onClick={() => window.confirm(`Hapus pengajuan ${r.nomor_pengajuan || r.id}?`) && deleteOne(r)}>Hapus</button>}</td></tr>})}</tbody></table></div>
       <div className="request-footer">Menampilkan {filteredRequests.length} dari {requests.length} pengajuan</div>
     </section>}
 
@@ -583,10 +661,11 @@ export default function PermintaanServicePage({ profile }) {
 
     {detail?.type === 'request' && <div className="request-modal-backdrop"><section className="request-modal request-detail-modal" role="dialog" aria-modal="true"><div className="request-modal-header"><div><span className="eyebrow">DETAIL DATA SERVICE</span><h3>{detail.request.nomor_pengajuan || `Pengajuan #${detail.request.id}`}</h3></div><button type="button" className="request-close-button" onClick={() => setDetail(null)}>×</button></div><div className="request-detail-grid"><div><span>Status</span><strong>{STATUS_LABELS[detail.request.status] || detail.request.status}</strong></div><div><span>Tanggal</span><strong>{fmtDate(detail.request.tanggal_pengajuan)}</strong></div><div><span>Kendaraan</span><strong>{vehicleMap[detail.request.kendaraan_id]?.nomor_polisi || '-'}</strong></div><div><span>KM</span><strong>{number(detail.request.kilometer_pengajuan)} km</strong></div><div><span>Jenis</span><strong>{TYPE_LABELS[detail.request.jenis_permintaan] || detail.request.jenis_permintaan}</strong></div><div><span>Prioritas</span><strong>{detail.request.prioritas === 'MENDESAK' ? 'Mendesak' : 'Normal'}</strong></div><div className="full"><span>Keluhan / Pekerjaan</span><p>{detail.request.keluhan}</p></div><div className="full"><span>Catatan Transport</span><p>{detail.request.catatan_transport || 'Belum ada catatan.'}</p></div></div><div className="request-form-actions"><button className="request-light-button" onClick={() => setDetail(null)}>Tutup</button><button className="request-primary-button" onClick={() => setPrintRequest(detail.request)}>Cetak Surat</button></div></section></div>}
 
-    {detail?.type === 'vehicle' && <div className="request-modal-backdrop"><section className="request-modal request-detail-modal" role="dialog" aria-modal="true"><div className="request-modal-header"><div><span className="eyebrow">KATALOG KENDARAAN</span><h3>{detail.row.vehicle.nomor_polisi}</h3></div><button type="button" className="request-close-button" onClick={() => setDetail(null)}>×</button></div><div className="request-detail-grid"><div><span>Merk / Type</span><strong>{detail.row.vehicle.merk} {detail.row.vehicle.tipe || ''}</strong></div><div><span>Total Service</span><strong>{detail.row.totalTransaksi} kali</strong></div><div><span>Jasa</span><strong>{detail.row.jasaKali} kali • {money(detail.row.totalJasa)}</strong></div><div><span>Sparepart</span><strong>{detail.row.spareKali} kali • {money(detail.row.totalSpare)}</strong></div><div><span>Total Pengeluaran</span><strong>{money(detail.row.totalPengeluaran)}</strong></div><div><span>Harga Perolehan</span><strong>{detail.row.vehiclePrice ? money(detail.row.vehiclePrice) : 'Belum diisi'}</strong></div><div><span>Status Perbandingan</span><strong>{detail.row.costFlag === 'MELEWATI_HARGA' ? 'Pengeluaran tercatat sudah melewati harga perolehan; perlu evaluasi kelayakan kendaraan.' : detail.row.costFlag === 'MENDEKATI_HARGA' ? 'Pengeluaran tercatat sudah mencapai minimal 80% harga perolehan; perlu dipantau.' : 'Belum melewati harga perolehan.'}</strong></div><div><span>KM Awal Terpantau</span><strong>{number(detail.row.kmAwal)} km</strong></div><div><span>KM Akhir</span><strong>{number(detail.row.kmAkhir)} km</strong></div><div className="full"><span>Jarak Terpantau</span><strong>{number(detail.row.jarak)} km</strong></div><div className="full"><span>Histori Service per Mobil</span><div className="request-table-wrap"><table className="request-table"><thead><tr><th>Tanggal</th><th>KM</th><th>Jenis</th><th>Bengkel</th><th>Uraian</th><th>Total</th><th>Aksi</th></tr></thead><tbody>{detail.row.serviceHistory.length ? detail.row.serviceHistory.map(h => <tr key={h.id}><td>{fmtDate(h.tanggal)}</td><td>{number(h.kilometer)} km</td><td>{h.jenisLabel}</td><td>{h.bengkel || '-'}</td><td>{h.items.length ? h.items.map(item => item.nama_item).join(' • ') : h.keluhan}</td><td>{money(h.total)}</td><td className="request-actions"><button className="request-detail-button" onClick={() => setServiceDetail(h)}>Detail</button>{canManageService && <button className="request-detail-button" onClick={() => openServiceEdit(h)}>Edit</button>}{canManageService && <button className="request-detail-button danger" onClick={() => deleteServiceRecord(h)} disabled={saving}>Hapus</button>}</td></tr>) : <tr><td colSpan="7">Belum ada histori service.</td></tr>}</tbody></table></div></div><div><span>Service/Jasa Terakhir</span><strong>{fmtDate(detail.row.lastJasa)}</strong></div><div><span>Sparepart Terakhir</span><strong>{fmtDate(detail.row.lastSpare)}</strong></div></div><div className="request-form-actions"><button className="request-light-button" onClick={() => setDetail(null)}>Tutup</button>{canManageService && <button className="request-primary-button" onClick={() => { const vehicleId = detail.row.vehicle.id; setViewMode('pengajuan'); setDetail(null); openCreate(vehicleId) }}>+ Buat Pengajuan Service</button>}</div></section></div>}
+    {detail?.type === 'vehicle' && <div className="request-modal-backdrop"><section className="request-modal request-detail-modal" role="dialog" aria-modal="true"><div className="request-modal-header"><div><span className="eyebrow">KATALOG KENDARAAN</span><h3>{detail.row.vehicle.nomor_polisi}</h3></div><button type="button" className="request-close-button" onClick={() => setDetail(null)}>×</button></div><div className="request-detail-grid"><div><span>Merk / Type</span><strong>{detail.row.vehicle.merk} {detail.row.vehicle.tipe || ''}</strong></div><div><span>Total Service</span><strong>{detail.row.totalTransaksi} kali</strong></div><div><span>Jasa</span><strong>{detail.row.jasaKali} kali • {money(detail.row.totalJasa)}</strong></div><div><span>Sparepart</span><strong>{detail.row.spareKali} kali • {money(detail.row.totalSpare)}</strong></div><div><span>Total Pengeluaran</span><strong>{money(detail.row.totalPengeluaran)}</strong></div><div><span>Harga Perolehan</span><strong>{detail.row.vehiclePrice ? money(detail.row.vehiclePrice) : 'Belum diisi'}</strong></div><div><span>Status Perbandingan</span><strong>{detail.row.costFlag === 'MELEWATI_HARGA' ? 'Pengeluaran tercatat sudah melewati harga perolehan; perlu evaluasi kelayakan kendaraan.' : detail.row.costFlag === 'MENDEKATI_HARGA' ? 'Pengeluaran tercatat sudah mencapai minimal 80% harga perolehan; perlu dipantau.' : detail.row.costFlag === 'HARGA_BELUM_DIISI' ? 'Harga perolehan belum diisi; perbandingan biaya belum dapat dilakukan.' : 'Belum melewati harga perolehan.'}</strong></div><div><span>KM Awal Terpantau</span><strong>{number(detail.row.kmAwal)} km</strong></div><div><span>KM Akhir</span><strong>{number(detail.row.kmAkhir)} km</strong></div><div className="full"><span>Jarak Terpantau</span><strong>{number(detail.row.jarak)} km</strong></div><div className="full"><span>Histori Service per Mobil</span><div className="request-table-wrap"><table className="request-table"><thead><tr><th>Tanggal</th><th>KM</th><th>Jenis</th><th>Bengkel</th><th>Uraian</th><th>Total</th><th>Aksi</th></tr></thead><tbody>{detail.row.serviceHistory.length ? detail.row.serviceHistory.map(h => <tr key={h.id}><td>{fmtDate(h.tanggal)}</td><td>{number(h.kilometer)} km</td><td>{h.jenisLabel}</td><td>{h.bengkel || '-'}</td><td>{h.items.length ? h.items.map(item => item.nama_item).join(' • ') : h.keluhan}</td><td>{money(h.total)}</td><td className="request-actions"><button className="request-detail-button" onClick={() => setServiceDetail(h)}>Detail</button>{canManageService && <button className="request-detail-button" onClick={() => openServiceEdit(h)}>Edit</button>}{canManageService && <button className="request-detail-button danger" onClick={() => deleteServiceRecord(h)} disabled={saving}>Hapus</button>}</td></tr>) : <tr><td colSpan="7">Belum ada histori service.</td></tr>}</tbody></table></div></div><div><span>Service/Jasa Terakhir</span><strong>{fmtDate(detail.row.lastJasa)}</strong></div><div><span>Sparepart Terakhir</span><strong>{fmtDate(detail.row.lastSpare)}</strong></div></div><div className="request-form-actions"><button className="request-light-button" onClick={() => setDetail(null)}>Tutup</button>{canManageService && <button className="request-primary-button" onClick={() => { const vehicleId = detail.row.vehicle.id; setViewMode('pengajuan'); setDetail(null); openCreate(vehicleId) }}>+ Buat Pengajuan Service</button>}</div></section></div>}
 
     {serviceDetail && <div className="request-modal-backdrop"><section className="request-modal request-detail-modal" role="dialog" aria-modal="true"><div className="request-modal-header"><div><span className="eyebrow">DETAIL SERVICE</span><h3>{serviceDetail.nomor_service || '#' + serviceDetail.id}</h3></div><button type="button" className="request-close-button" onClick={() => setServiceDetail(null)}>×</button></div><div className="request-detail-grid"><div><span>Kendaraan</span><strong>{vehicleMap[serviceDetail.kendaraan_id]?.nomor_polisi || '-'}</strong></div><div><span>Tanggal</span><strong>{fmtDate(serviceDetail.tanggal_service)}</strong></div><div><span>KM</span><strong>{number(serviceDetail.kilometer)} km</strong></div><div><span>Bengkel</span><strong>{serviceDetail.bengkel || '-'}</strong></div><div><span>Jenis</span><strong>{TYPE_LABELS[serviceDetail.jenis_service] || serviceDetail.jenis_service || '-'}</strong></div><div><span>Status</span><strong>{STATUS_LABELS[serviceDetail.status] || serviceDetail.status || '-'}</strong></div><div><span>Estimasi</span><strong>{money(serviceDetail.estimasi_biaya)}</strong></div><div><span>Biaya Aktual</span><strong>{serviceDetail.biaya_aktual == null ? '-' : money(serviceDetail.biaya_aktual)}</strong></div><div><span>Nilai DPP</span><strong>{money(serviceDetail.nilai_dpp)}</strong></div><div><span>PPN</span><strong>{money(serviceDetail.ppn)}</strong></div><div><span>Total</span><strong>{money(serviceDetail.total ?? serviceDetail.biaya_aktual ?? serviceDetail.estimasi_biaya)}</strong></div><div className="full"><span>Keluhan / Uraian</span><p>{serviceDetail.keluhan || '-'}</p></div><div className="full"><span>Catatan</span><p>{serviceDetail.catatan || '-'}</p></div><div className="full"><span>Rincian Item Service</span><div className="request-table-wrap"><table className="request-table"><thead><tr><th>Item</th><th>Kategori</th><th>Qty</th><th>Satuan</th><th>Harga</th><th>Subtotal</th></tr></thead><tbody>{items.filter(item => item.service_id === serviceDetail.id).length ? items.filter(item => item.service_id === serviceDetail.id).map(item => <tr key={item.id}><td>{item.nama_item}</td><td>{item.kategori || '-'}</td><td>{item.jumlah}</td><td>{item.satuan || '-'}</td><td>{money(item.harga_satuan)}</td><td>{money(item.subtotal)}</td></tr>) : <tr><td colSpan="6">Belum ada item service.</td></tr>}</tbody></table></div></div></div><div className="request-form-actions"><button className="request-light-button" onClick={() => setServiceDetail(null)}>Tutup</button>{canManageService && <button className="request-detail-button" onClick={() => openServiceEdit(serviceDetail)}>Edit</button>}{canManageService && <button className="request-detail-button danger" onClick={() => deleteServiceRecord(serviceDetail)} disabled={saving}>Hapus</button>}</div></section></div>}
 
+    {benchmarkDetail && <div className="request-modal-backdrop"><section className="request-modal request-detail-modal" role="dialog" aria-modal="true"><div className="request-modal-header"><div><span className="eyebrow">HISTORI HARGA SHOPPING LIST</span><h3>{benchmarkDetail.nama_item}</h3></div><button type="button" className="request-close-button" onClick={() => setBenchmarkDetail(null)}>×</button></div><div className="request-detail-grid"><div><span>Kategori / Satuan</span><strong>{benchmarkDetail.kategori} • {benchmarkDetail.satuan}</strong></div><div><span>Bengkel yang dipakai</span><strong>{benchmarkBengkelFilter === "SEMUA" ? "Semua bengkel" : benchmarkBengkelFilter}</strong></div><div><span>Transaksi</span><strong>{benchmarkDetail.jumlah}</strong></div><div><span>Median</span><strong>{money(benchmarkDetail.median)}</strong></div><div className="full"><span>Perbandingan per transaksi</span><div className="request-table-wrap"><table className="request-table"><thead><tr><th>Tanggal</th><th>No. Polisi</th><th>Merk / Type</th><th>Bengkel</th><th>Qty</th><th>Harga Satuan</th><th>Subtotal</th></tr></thead><tbody>{benchmarkDetail.filteredHistory?.length ? benchmarkDetail.filteredHistory.map((h,i)=><tr key={(h.serviceId||"s")+"-"+i}><td>{fmtDate(h.date)}</td><td>{h.nomor_polisi}</td><td>{h.vehicleLabel}</td><td>{h.bengkel}</td><td>{h.qty} {benchmarkDetail.satuan}</td><td>{money(h.unitPrice)}</td><td>{money(h.subtotal)}</td></tr>) : <tr><td colSpan="7">Belum ada histori untuk filter ini.</td></tr>}</tbody></table></div></div></div><div className="request-form-actions"><button className="request-light-button" onClick={() => setBenchmarkDetail(null)}>Tutup</button></div></section></div>}
     {serviceEditing && <div className="request-modal-backdrop"><section className="request-modal request-detail-modal" role="dialog" aria-modal="true"><div className="request-modal-header"><div><span className="eyebrow">EDIT DATA SERVICE</span><h3>{serviceEditing.nomor_service || '#' + serviceEditing.id}</h3></div><button type="button" className="request-close-button" onClick={() => !saving && setServiceEditing(null)}>×</button></div>{error && <div className="request-alert error">{error}</div>}<form onSubmit={saveServiceEdit}><div className="request-form-grid"><div className="request-field"><label>Tanggal Service<input type="date" value={serviceEditForm.tanggal_service} onChange={e => setServiceEditForm(current => ({ ...current, tanggal_service: e.target.value }))} disabled={saving}/></label></div><div className="request-field"><label>KM<input type="number" min="0" value={serviceEditForm.kilometer} onChange={e => setServiceEditForm(current => ({ ...current, kilometer: e.target.value }))} disabled={saving}/></label></div><div className="request-field"><label>Bengkel<input value={serviceEditForm.bengkel} onChange={e => setServiceEditForm(current => ({ ...current, bengkel: e.target.value }))} disabled={saving}/></label></div><div className="request-field"><label>Jenis<select value={serviceEditForm.jenis_service} onChange={e => setServiceEditForm(current => ({ ...current, jenis_service: e.target.value }))} disabled={saving}>{Object.entries(TYPE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label></div><div className="request-field full"><label>Keluhan / Uraian<textarea rows="4" value={serviceEditForm.keluhan} onChange={e => setServiceEditForm(current => ({ ...current, keluhan: e.target.value }))} disabled={saving}/></label></div><div className="request-field"><label>Estimasi Biaya<input type="number" min="0" value={serviceEditForm.estimasi_biaya} onChange={e => setServiceEditForm(current => ({ ...current, estimasi_biaya: e.target.value }))} disabled={saving}/></label></div><div className="request-field"><label>Biaya Aktual<input type="number" min="0" value={serviceEditForm.biaya_aktual} onChange={e => setServiceEditForm(current => ({ ...current, biaya_aktual: e.target.value }))} disabled={saving}/></label></div><div className="request-field"><label>Nilai DPP<input type="number" min="0" value={serviceEditForm.nilai_dpp} onChange={e => setServiceEditForm(current => ({ ...current, nilai_dpp: e.target.value }))} disabled={saving}/></label></div><div className="request-field"><label>PPN<input type="number" min="0" value={serviceEditForm.ppn} onChange={e => setServiceEditForm(current => ({ ...current, ppn: e.target.value }))} disabled={saving}/></label></div><div className="request-field"><label>Total<input type="number" min="0" value={serviceEditForm.total} onChange={e => setServiceEditForm(current => ({ ...current, total: e.target.value }))} disabled={saving}/></label></div><div className="request-field full"><label>Catatan<textarea rows="3" value={serviceEditForm.catatan} onChange={e => setServiceEditForm(current => ({ ...current, catatan: e.target.value }))} disabled={saving}/></label></div></div><div className="request-form-actions"><button type="button" className="request-light-button" onClick={() => setServiceEditing(null)} disabled={saving}>Batal</button><button type="submit" className="request-primary-button" disabled={saving}>{saving ? 'Menyimpan...' : 'Simpan Perubahan'}</button></div></form></section></div>}
 
     {printRequest && <div className="request-modal-backdrop request-print-modal"><section className="request-print-sheet"><div className="request-print-header"><div><strong>PT ZAMAN TEKNINDO</strong><span>SURAT PENGANTAR SERVICE / PERBAIKAN</span></div><div className="request-print-meta"><span>No. Pengajuan: {printRequest.nomor_pengajuan || `#${printRequest.id}`}</span><span>Tanggal: {fmtDate(printRequest.tanggal_pengajuan)}</span></div></div><div className="request-print-grid"><div><span>Nomor Polisi</span><strong>{vehicleMap[printRequest.kendaraan_id]?.nomor_polisi || '-'}</strong></div><div><span>Merk / Type</span><strong>{vehicleMap[printRequest.kendaraan_id]?.merk || '-'} {vehicleMap[printRequest.kendaraan_id]?.tipe || ''}</strong></div><div><span>KM</span><strong>{number(printRequest.kilometer_pengajuan)} km</strong></div><div><span>Jenis</span><strong>{TYPE_LABELS[printRequest.jenis_permintaan] || printRequest.jenis_permintaan}</strong></div><div><span>Prioritas</span><strong>{printRequest.prioritas === 'MENDESAK' ? 'Mendesak' : 'Normal'}</strong></div><div className="full"><span>Uraian pekerjaan / keluhan</span><p>{printRequest.keluhan}</p></div></div><div className="request-print-checklist"><strong>Ruang pekerjaan yang diminta</strong><p>☐ Pemeriksaan awal &nbsp;&nbsp; ☐ Estimasi biaya &nbsp;&nbsp; ☐ Jasa/perbaikan &nbsp;&nbsp; ☐ Sparepart &nbsp;&nbsp; ☐ Dokumentasi sebelum/sesudah</p></div><div className="request-print-sign"><div>Pengaju / Pemohon</div><div>Transport</div><div>Atasan / Approval</div></div><div className="request-print-actions no-print"><button className="request-light-button" onClick={() => setPrintRequest(null)}>Tutup</button><button className="request-primary-button" onClick={() => window.print()}>Cetak / Print</button></div></section></div>}
