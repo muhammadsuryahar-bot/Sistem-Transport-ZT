@@ -222,7 +222,7 @@ export default function VehicleDocumentsImportModal({ profile, onDone, onClose }
       const taxSheetName = taxSource?.score >= 9 ? taxSource.sheet.name : ''
       setWorkbook({ documentSource, taxSource, data, valid, missing, docCount, docSheetName, taxSheetName })
       setMessage(`Sumber terdeteksi: ${[docSheetName, taxSheetName].filter(Boolean).join(' + ')} • ${data.length} kendaraan teridentifikasi • ${docCount} tanggal dokumen/pajak ditemukan.`)
-    } catch (e) { setError(e.message || 'File Excel tidak dapat dibaca.') } finally { setLoading(false) }
+    } catch (e) { setError(humanizeError(e, 'File Excel tidak dapat dibaca.')) } finally { setLoading(false) }
   }
   const start = async () => { if (!workbook || !canImport || saving) return; setSaving(true); setError(''); setMessage('Import dokumen berjalan...'); try { const activeRows = filterDeletedExcelRows('dokumen', workbook.valid)
       const sourceLabel = [workbook.docSheetName, workbook.taxSheetName].filter(Boolean).join(' + ') || file?.name || 'Excel'
