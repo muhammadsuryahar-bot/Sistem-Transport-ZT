@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { humanizeError } from '../utils/feedback.js'
 import './MasterKendaraanExcelAlignedPage.css'
@@ -18,16 +18,11 @@ const EMPTY = {
 const clean = value => String(value ?? '').trim()
 const normalizeRentalType = value => { const v = clean(value).toUpperCase().replace(/\s+/g, '_'); if (v === 'SEWA_PERUSAHAAN' || v === 'PERUSAHAAN') return 'SEWA_PERUSAHAAN'; if (v === 'SEWA_PERORANGAN' || v === 'PERORANGAN') return 'SEWA_PERORANGAN'; return '' }
 const rentalTypeLabel = value => value === 'SEWA_PERORANGAN' ? 'Sewa Perorangan' : value === 'SEWA_PERUSAHAAN' ? 'Sewa Perusahaan' : 'Belum ditentukan'
-const inferRentalTypeFromOwner = owner => {
-  const value = clean(owner)
-  if (!value) return ''
-  return /^(PT|CV|UD|YAYASAN|KOPERASI)(\.|\s|$)/i.test(value) ? 'SEWA_PERUSAHAAN' : 'SEWA_PERORANGAN'
-}
-const rentalTypeForVehicle = vehicle => normalizeRentalType(vehicle?.jenis_sewa) || inferRentalTypeFromOwner(vehicle?.pemilik)
+const rentalTypeForVehicle = vehicle => normalizeRentalType(vehicle?.jenis_sewa)
 const normalizeOwnership = value => {
   const v = clean(value).toUpperCase().replace(/\s+/g, '_')
-  if (v === 'ASET' || v === 'ASET_KANTOR') return 'ASET'
-  if (v === 'SEWA' || v === 'RENTAL' || v === 'KENDARAAN_SEWA') return 'SEWA'
+  if (v === 'ASET') return 'ASET'
+  if (v === 'SEWA') return 'SEWA'
   return ''
 }
 const formatDate = value => formatDateSafe(value)
@@ -40,6 +35,7 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
   const [vehicles, setVehicles] = useState([])
   const [drivers, setDrivers] = useState([])
   const [loading, setLoading] = useState(true)
+  const rowClickTimer = useRef(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -78,6 +74,16 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
     return () => window.removeEventListener('transport:data-imported', onImported)
   }, [])
 
+  useEffect(() => {
+    if (loading || !canEdit || !vehicles.length) return
+    const focusId = localStorage.getItem('transport_vehicle_focus_id')
+    if (!focusId) return
+    const vehicle = vehicles.find(row => String(row.id) === String(focusId))
+    if (!vehicle) return
+    localStorage.removeItem('transport_vehicle_focus_id')
+    openEdit(vehicle)
+  }, [loading, vehicles, canEdit])
+
   const driverMap = useMemo(() => Object.fromEntries(drivers.map(d => [d.id, d])), [drivers])
   const ownerOptions = useMemo(() => Array.from(new Set(vehicles.map(v => clean(v.pemilik)).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'id')), [vehicles])
   const typeOptions = useMemo(() => Array.from(new Set([...VEHICLE_TYPES, ...vehicles.map(v => clean(v.jenis_kendaraan)).filter(Boolean)])), [vehicles])
@@ -102,7 +108,7 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
   const openNew = () => { setEditing(null); setForm({ ...EMPTY, kode_kendaraan: `KND-${Date.now()}` }); setPhotoFiles({}); setPhotoUrls({}); setError(''); setModal(true) }
   const openEdit = async vehicle => {
     setEditing(vehicle)
-    setForm({ ...EMPTY, ...vehicle, kepemilikan: normalizeOwnership(vehicle.kepemilikan), jenis_sewa: normalizeRentalType(vehicle.jenis_sewa) || inferRentalTypeFromOwner(vehicle.pemilik), harga_perolehan: vehicle.harga_perolehan ?? '', driver_id: vehicle.driver_id ?? '' })
+    setForm({ ...EMPTY, ...vehicle, kepemilikan: normalizeOwnership(vehicle.kepemilikan), jenis_sewa: normalizeRentalType(vehicle.jenis_sewa), harga_perolehan: vehicle.harga_perolehan ?? '', driver_id: vehicle.driver_id ?? '' })
     setPhotoFiles({})
     setPhotoUrls({})
     setError('')
@@ -226,16 +232,13 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
   }
 
   const enterSelectionMode = id => {
-    if (!canDelete) return
-    if (selectionMode) {
-      exitSelection()
-      return
-    }
+    if (selectionMode) return
     setSelectionMode(true)
     setActiveRowId(null)
     setSelected(current => current.includes(id) ? current : [...current, id])
   }
   const toggleSelected = id => setSelected(current => current.includes(id) ? current.filter(x => x !== id) : [...current, id])
+  useEffect(() => () => window.clearTimeout(rowClickTimer.current), [])
   const allSelected = filtered.length > 0 && filtered.every(v => selected.includes(v.id))
   const toggleAll = () => setSelected(current => allSelected ? current.filter(id => !filtered.some(v => v.id === id)) : Array.from(new Set([...current, ...filtered.map(v => v.id)])))
   const exitSelection = () => { setSelectionMode(false); setSelected([]); setActiveRowId(null) }
@@ -278,8 +281,8 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
     </div>
     <section className="mep-card"><div className="mep-toolbar"><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Cari No. Pol, merk, pemilik, driver, lokasi..."/><select value={ownershipFilter} onChange={e => setOwnershipFilter(e.target.value)}><option value="SEMUA">Semua kepemilikan</option><option value="ASET">Aset</option><option value="SEWA">Sewa</option></select><select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}><option value="SEMUA">Semua jenis</option>{typeOptions.map(item => <option key={item} value={item}>{item}</option>)}</select><button type="button" className="mep-secondary" onClick={loadData} disabled={loading}>↻ Refresh</button></div>
       {selectionMode && <div className="mep-selection"><span><b>{selected.length}</b> kendaraan dipilih</span><div><button type="button" onClick={toggleAll}>{allSelected ? 'Batal pilih semua' : 'Pilih semua'}</button><button type="button" onClick={exitSelection}>Batal</button>{canDelete && <button type="button" className="danger" onClick={bulkDelete} disabled={saving}>Hapus yang dipilih</button>}</div></div>}
-      {!selectionMode && filtered.length > 0 && <p className="mep-hint">Klik dua kali pada baris untuk masuk mode pilih dan menghapus beberapa data sekaligus.</p>}
-      <div className="mep-table-wrap">{loading ? <div className="mep-empty">Memuat data...</div> : filtered.length === 0 ? <div className="mep-empty"><b>Belum ada data kendaraan.</b><span>Import Excel atau tambah kendaraan secara manual.</span></div> : <table className="mep-table" data-native-row-selection="true"><thead><tr>{selectionMode && <th className="mep-check"><input type="checkbox" aria-label="Pilih semua" checked={allSelected} onChange={toggleAll}/></th>}<th>No. Pol / Merk / Type</th><th>Jenis</th><th>Kepemilikan</th><th>Jenis Sewa</th><th>Harga Perolehan</th><th>Pemilik</th><th>Driver</th><th>Lokasi Kerja</th><th>Pajak</th><th>Keterangan</th><th>Aksi</th></tr></thead><tbody>{filtered.map(v => { const driver = driverMap[v.driver_id]; const picked = selected.includes(v.id); return <tr key={v.id} className={(picked ? 'picked' : '') + (activeRowId === v.id ? ' dpt-row-selected' : '')} onDoubleClick={e => { if (isInteractive(e.target)) return; e.preventDefault(); enterSelectionMode(v.id) }} onClick={e => { if (isInteractive(e.target)) return; if (selectionMode) { toggleSelected(v.id); return }; setActiveRowId(current => current === v.id ? null : v.id) }}>
+      {!selectionMode && filtered.length > 0 && <p className="mep-hint">Klik dua kali pada baris untuk masuk mode pilih banyak data.</p>}
+      <div className="mep-table-wrap">{loading ? <div className="mep-empty">Memuat data...</div> : filtered.length === 0 ? <div className="mep-empty"><b>Belum ada data kendaraan.</b><span>Import Excel atau tambah kendaraan secara manual.</span></div> : <table className="mep-table" data-native-row-selection="true"><thead><tr>{selectionMode && <th className="mep-check"><input type="checkbox" aria-label="Pilih semua" checked={allSelected} onChange={toggleAll}/></th>}<th>No. Pol / Merk / Type</th><th>Jenis</th><th>Kepemilikan</th><th>Jenis Sewa</th><th>Harga Perolehan</th><th>Pemilik</th><th>Driver</th><th>Lokasi Kerja</th><th>Pajak</th><th>Keterangan</th><th>Aksi</th></tr></thead><tbody>{filtered.map(v => { const driver = driverMap[v.driver_id]; const picked = selected.includes(v.id); return <tr key={v.id} className={(picked ? 'picked' : '') + (activeRowId === v.id ? ' dpt-row-selected' : '')} onDoubleClick={e => { if (isInteractive(e.target)) return; e.preventDefault(); window.clearTimeout(rowClickTimer.current); enterSelectionMode(v.id) }} onClick={e => { if (isInteractive(e.target)) return; window.clearTimeout(rowClickTimer.current); if (selectionMode) { toggleSelected(v.id); return }; if (e.detail > 1) return; rowClickTimer.current = window.setTimeout(() => setActiveRowId(current => current === v.id ? null : v.id), 180) }}>
         {selectionMode && <td className="mep-check"><input type="checkbox" checked={picked} onChange={() => toggleSelected(v.id)} aria-label={`Pilih ${v.nomor_polisi}`}/></td>}
         <td><b>{v.nomor_polisi}</b><span>{v.merk} {v.tipe || ''}</span><small>{v.tahun || '-'}{v.nomor_mesin ? ` • Mesin ${v.nomor_mesin}` : ''}</small></td>
         <td><span className="mep-pill">{v.jenis_kendaraan || '-'}</span></td>
