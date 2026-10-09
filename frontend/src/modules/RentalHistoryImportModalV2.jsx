@@ -46,7 +46,7 @@ function isRentalHistoryRowValid(row) {
   const yearText = clean(row.tahun)
   const year = Number(yearText)
   const invoice = numberValue(row.nilai_invoice)
-  return /^\\d{4}$/.test(yearText)
+  return /^\d{4}$/.test(yearText)
     && Number.isInteger(year)
     && year >= 1900
     && year <= new Date().getFullYear() + 1
