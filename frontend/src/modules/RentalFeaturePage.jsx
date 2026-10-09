@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { humanizeError } from '../utils/feedback.js'
 import './TransportOperationsFixed.css'
@@ -119,7 +119,7 @@ export default function RentalFeaturePage({ profile, onNavigate }) {
 
   const rentalTabLoadedRef = useRef({ pembayaran: false, repair: false, historis: false })
 
-  const loadRentalTabData = async (targetTab, force = false) => {
+  const loadRentalTabData = useCallback(async (targetTab, force = false) => {
     if (!['pembayaran', 'repair', 'historis'].includes(targetTab)) return
     if (!force && rentalTabLoadedRef.current[targetTab]) return
     try {
@@ -145,9 +145,9 @@ export default function RentalFeaturePage({ profile, onNavigate }) {
     } finally {
       // Tab data is cached in-memory until the module refreshes.
     }
-  }
+  }, [])
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true)
     setError('')
     rentalTabLoadedRef.current.pembayaran = false
@@ -164,19 +164,25 @@ export default function RentalFeaturePage({ profile, onNavigate }) {
     setContracts(rs[1].data || [])
     setVehicles(rs[2].data || [])
     setLoading(false)
-    await loadRentalTabData(tab, true)
-  }
-
-  useEffect(() => {
-    load()
-    const handleImported = (event) => { if (['sewa', 'kendaraan'].includes(event.detail?.context)) load() }
-    window.addEventListener('transport:data-imported', handleImported)
-    return () => window.removeEventListener('transport:data-imported', handleImported)
   }, [])
 
   useEffect(() => {
+    load()
+  }, [load])
+
+  useEffect(() => {
+    const handleImported = event => {
+      if (!['sewa', 'kendaraan'].includes(event.detail?.context)) return
+      load()
+      if (['pembayaran', 'repair', 'historis'].includes(tab)) loadRentalTabData(tab, true)
+    }
+    window.addEventListener('transport:data-imported', handleImported)
+    return () => window.removeEventListener('transport:data-imported', handleImported)
+  }, [load, loadRentalTabData, tab])
+
+  useEffect(() => {
     if (['pembayaran', 'repair', 'historis'].includes(tab)) loadRentalTabData(tab)
-  }, [tab])
+  }, [tab, loadRentalTabData])
 
   const clearMessages = () => { setError(''); setSuccess('') }
 
