@@ -4,6 +4,7 @@ import { humanizeError } from '../utils/feedback.js'
 import './MasterKendaraanExcelAlignedPage.css'
 import PageBreadcrumb from './PageBreadcrumb.jsx'
 import { formatDateSafe } from '../utils/dateSafe'
+import { IMAGE_UPLOAD_ACCEPT, validateStorageUploadFile } from '../utils/storageUpload.js'
 
 const OWNERSHIP = { ASET: 'Aset', SEWA: 'Sewa' }
 const VEHICLE_TYPES = ['Pickup', 'Minibus', 'Dump Truck']
@@ -131,9 +132,10 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
 
   const uploadStnkPhoto = async (vehicleId, file) => {
     if (!file) return null
+    const contentType = validateStorageUploadFile(file, { imagesOnly: true })
     const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
     const path = `foto-stnk/${vehicleId}/stnk-${Date.now()}-${safe}`
-    const { error: uploadError } = await supabase.storage.from('kendaraan').upload(path, file, { upsert: true, contentType: file.type || undefined })
+    const { error: uploadError } = await supabase.storage.from('kendaraan').upload(path, file, { upsert: true, contentType })
     if (uploadError) throw uploadError
     return path
   }
@@ -325,7 +327,7 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
       <label className="full">Keterangan<textarea name="keterangan" value={form.keterangan ?? ''} onChange={change}/></label>
       <label className="full">Catatan Hutang<textarea name="catatan_hutang" value={form.catatan_hutang ?? ''} onChange={change}/></label>
     </div>
-    <div className="mep-photo-section"><div><b>Foto STNK (opsional)</b><span>Hanya Administrator yang dapat mengunggah atau mengganti foto STNK kendaraan.</span></div><div className="mep-photo-grid mep-photo-grid-stnk"><label className="mep-photo"><span>{STNK_PHOTO[1]}</span>{photoUrls.stnk ? <img src={photoUrls.stnk} alt="Foto STNK kendaraan"/> : <div className="mep-photo-empty">Belum ada foto STNK</div>}{canPhoto && <input type="file" accept="image/*" onChange={e => setPhotoFiles(current => ({ ...current, stnk: e.target.files?.[0] || null }))}/>} {!canPhoto && <small>Upload khusus Admin</small>}{editing?.foto_stnk_path && <small>Foto STNK tersimpan</small>}</label></div></div>
+    <div className="mep-photo-section"><div><b>Foto STNK (opsional)</b><span>Hanya Administrator yang dapat mengunggah atau mengganti foto STNK kendaraan.</span></div><div className="mep-photo-grid mep-photo-grid-stnk"><label className="mep-photo"><span>{STNK_PHOTO[1]}</span>{photoUrls.stnk ? <img src={photoUrls.stnk} alt="Foto STNK kendaraan"/> : <div className="mep-photo-empty">Belum ada foto STNK</div>}{canPhoto && <input type="file" accept={IMAGE_UPLOAD_ACCEPT} onChange={e => setPhotoFiles(current => ({ ...current, stnk: e.target.files?.[0] || null }))}/>} {!canPhoto && <small>Upload khusus Admin</small>}{editing?.foto_stnk_path && <small>Foto STNK tersimpan</small>}</label></div></div>
     <div className="mep-form-actions"><button type="button" className="mep-secondary" onClick={resetModal}>Batal</button><button type="submit" className="mep-primary" disabled={saving}>{saving ? 'Menyimpan...' : 'Simpan Kendaraan'}</button></div></form></section></div>}
 
     {detail && <div className="mep-overlay"><section className="mep-modal small"><header><div><span className="eyebrow">DETAIL KENDARAAN</span><h3>{detail.nomor_polisi}</h3></div><button type="button" onClick={() => setDetail(null)}>×</button></header><div className="mep-detail"><div><span>Merk / Type</span><b>{detail.merk} {detail.tipe || ''}</b></div><div><span>Jenis</span><b>{detail.jenis_kendaraan || '-'}</b></div><div><span>Kepemilikan</span><b>{OWNERSHIP[normalizeOwnership(detail.kepemilikan)] || '-'}</b></div><div><span>Harga Perolehan</span><b>{detail.harga_perolehan == null ? '-' : `Rp ${Number(detail.harga_perolehan).toLocaleString('id-ID')}`}</b></div><div><span>Jenis Sewa</span><b>{detail.kepemilikan === 'SEWA' ? (rentalTypeLabel(normalizeRentalType(detail.jenis_sewa))) : '-'}</b></div><div><span>Pemilik</span><b>{detail.pemilik || '-'}</b></div><div><span>Tahun</span><b>{detail.tahun || '-'}</b></div><div><span>No. Mesin</span><b>{detail.nomor_mesin || '-'}</b></div><div><span>No. Rangka</span><b>{detail.nomor_rangka || '-'}</b></div><div><span>Masa Berlaku Pajak</span><b>{formatDate(detail.masa_berlaku_pajak)}</b></div><div><span>Status Pajak</span><b>{detail.status_pajak || '-'}</b></div><div><span>Unit Kerja</span><b>{detail.unit_kerja || '-'}</b></div><div><span>Driver</span><b>{driverMap[detail.driver_id]?.nama_lengkap || '-'}</b></div><div><span>Lokasi Kerja</span><b>{detail.lokasi || '-'}</b></div><div className="full"><span>Keterangan</span><b>{detail.keterangan || '-'}</b></div><div className="full"><span>Catatan Hutang</span><b>{detail.catatan_hutang || '-'}</b></div></div><div className="mep-detail-photos mep-detail-photos-stnk"><div><span>Foto STNK</span>{photoUrls.stnk ? <img src={photoUrls.stnk} alt="Foto STNK kendaraan"/> : <div className="mep-photo-empty">Belum ada foto STNK</div>}</div></div><div className="mep-form-actions"><button type="button" className="mep-secondary" onClick={() => setDetail(null)}>Tutup</button>{canEdit && <button type="button" className="mep-primary" onClick={() => { const current = detail; setDetail(null); openEdit(current) }}>Edit Kendaraan</button>}</div></section></div>}
