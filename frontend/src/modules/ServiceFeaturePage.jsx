@@ -328,7 +328,7 @@ export default function ServiceFeaturePage({ profile }) {
       setItems(current => editingItemId ? current.map(row => row.id === result.data.id ? result.data : row) : [result.data, ...current])
       setSuccess(editingItemId ? 'Item service diperbarui.' : 'Item service tersimpan.')
       setEditingItemId(null); setItemForm(emptyItem)
-    } catch (err) { setError(err.message) } finally { setSaving(false) }
+    } catch (err) { setError(humanizeError(err)) } finally { setSaving(false) }
   }
   const deleteItem = async item => {
     if (!canProcess) return
@@ -340,7 +340,7 @@ export default function ServiceFeaturePage({ profile }) {
       if (!result.data) throw new Error('Item service tidak berhasil dihapus.')
       setItems(current => current.filter(row => row.id !== item.id))
       setSuccess('Item service dihapus.')
-    } catch (err) { setError(err.message) } finally { setSaving(false) }
+    } catch (err) { setError(humanizeError(err)) } finally { setSaving(false) }
   }
   const editItem = item => { setEditingItemId(item.id); setItemForm({ service_id: item.service_id, nama_item: item.nama_item || '', kategori: item.kategori || 'SPAREPART', jumlah: item.jumlah ?? 1, satuan: item.satuan || 'pcs', harga_satuan: item.harga_satuan ?? '', keterangan: item.keterangan || '' }); setTab('item') }
   const saveProof = async e => {
@@ -364,7 +364,7 @@ export default function ServiceFeaturePage({ profile }) {
       emitServiceStateUpdate({ kind: 'proof', proof: result.data })
       setSuccess(editingProofId ? 'Bukti service diperbarui.' : 'Bukti service berhasil diunggah.')
       setFile(null); setEditingProofId(null); setProofForm(emptyProof)
-    } catch (err) { if (path) await supabase.storage.from('service-bukti').remove([path]); setError(err.message) } finally { setSaving(false) }
+    } catch (err) { if (path) await supabase.storage.from('service-bukti').remove([path]); setError(humanizeError(err)) } finally { setSaving(false) }
   }
   const editProof = proof => { setEditingProofId(proof.id); setProofForm({ service_id: proof.service_id, jenis_bukti: proof.jenis_bukti || 'BON_INVOICE', keterangan: proof.keterangan || '' }); setFile(null); setTab('bukti') }
   const deleteProof = async proof => {
@@ -378,7 +378,7 @@ export default function ServiceFeaturePage({ profile }) {
       if (proof.file_path) await supabase.storage.from('service-bukti').remove([proof.file_path])
       setProofs(current => current.filter(row => row.id !== proof.id))
       setSuccess('Bukti service dihapus.')
-    } catch (err) { setError(err.message) } finally { setSaving(false) }
+    } catch (err) { setError(humanizeError(err)) } finally { setSaving(false) }
   }
   const savePart = async e => {
     e.preventDefault(); clearMessages()
@@ -405,7 +405,7 @@ export default function ServiceFeaturePage({ profile }) {
       else setAkis(current => editingPartId ? current.map(row => row.id === result.data.id ? result.data : row) : [result.data, ...current])
       setSuccess(editingPartId ? 'Riwayat penggantian diperbarui.' : 'Riwayat penggantian tersimpan.')
       setFile(null); setEditingPartId(null); setPartForm({ ...emptyPart, _type: partForm._type })
-    } catch (err) { if (uploadedPath) await supabase.storage.from('service-bukti').remove([uploadedPath]); setError(err.message) } finally { setSaving(false) }
+    } catch (err) { if (uploadedPath) await supabase.storage.from('service-bukti').remove([uploadedPath]); setError(humanizeError(err)) } finally { setSaving(false) }
   }
   const editPart = row => {
     const type = tab === 'ban' ? 'BAN' : 'AKI'
@@ -423,7 +423,7 @@ export default function ServiceFeaturePage({ profile }) {
       if (row.foto_sebelum_path) await supabase.storage.from('service-bukti').remove([row.foto_sebelum_path])
       if (tab === 'ban') setBans(current => current.filter(x => x.id !== row.id)); else setAkis(current => current.filter(x => x.id !== row.id))
       setSuccess('Riwayat penggantian dihapus.')
-    } catch (err) { setError(err.message) } finally { setSaving(false) }
+    } catch (err) { setError(humanizeError(err)) } finally { setSaving(false) }
   }
   const saveKm = async e => {
     e.preventDefault(); clearMessages()
@@ -445,7 +445,7 @@ export default function ServiceFeaturePage({ profile }) {
       setKms(currentRows => editingKmId ? currentRows.map(row => row.id === result.data.id ? result.data : row) : [result.data, ...currentRows])
       setSuccess(editingKmId ? 'Riwayat KM diperbarui.' : 'Riwayat KM tersimpan.')
       setEditingKmId(null); setKmForm({ ...emptyKm, tanggal: new Date().toISOString().slice(0, 10) })
-    } catch (err) { setError(err.message) } finally { setSaving(false) }
+    } catch (err) { setError(humanizeError(err)) } finally { setSaving(false) }
   }
   const editKm = row => { setEditingKmId(row.id); setKmForm({ kendaraan_id: row.kendaraan_id, tanggal: row.tanggal, kilometer: row.kilometer, sumber: row.sumber || 'MANUAL', keterangan: row.keterangan || '' }); setTab('km') }
   const deleteKm = async row => {
@@ -458,7 +458,7 @@ export default function ServiceFeaturePage({ profile }) {
       if (!result.data) throw new Error('Riwayat KM tidak berhasil dihapus.')
       setKms(currentRows => currentRows.filter(x => x.id !== row.id))
       setSuccess('Riwayat KM dihapus. KM terakhir kendaraan perlu dicek kembali jika data paling baru ikut terhapus.')
-    } catch (err) { setError(err.message) } finally { setSaving(false) }
+    } catch (err) { setError(humanizeError(err)) } finally { setSaving(false) }
   }
   const openDetail = async s => { setSelected(s); setDetailEdit({ biaya_aktual: s.biaya_aktual ?? s.estimasi_biaya ?? '' }); await ensureServiceDetailData(s.id) }
   const openServiceEdit = s => { setEditingServiceId(s.id); setForm({ ...emptyService, permintaan_service_id: s.permintaan_service_id ?? '', kendaraan_id: s.kendaraan_id ?? '', tanggal_service: s.tanggal_service || new Date().toISOString().slice(0, 10), kilometer: s.kilometer ?? '', bengkel: s.bengkel || '', jenis_service: s.jenis_service || 'SERVICE', keluhan: s.keluhan || '', estimasi_biaya: s.estimasi_biaya ?? '', biaya_aktual: s.biaya_aktual ?? '', nilai_dpp: s.nilai_dpp ?? '', ppn: s.ppn ?? '', total: s.total ?? '', catatan: s.catatan || '' }); setTab('pekerjaan'); setSelected(null) }
