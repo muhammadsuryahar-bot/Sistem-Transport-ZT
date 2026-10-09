@@ -269,6 +269,7 @@ function ensureRowSelection(context, table) {
   if (table.closest('.dpt-preview')) return
   // Native-selection pages own their row click/double-click events.
   if (hasNativeBulkSelection(table)) return
+  table.dataset.dptRowSelection = 'true'
 
   const buildInlineActions = (row, sourceMark, detailTarget, editTarget, deleteTarget) => {
     const old = row.nextElementSibling
