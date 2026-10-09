@@ -122,7 +122,7 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
     if (!vehicle) return
     localStorage.removeItem('transport_vehicle_focus_id')
     openEdit(vehicle)
-  }, [loading, vehicles, canEdit, openEdit]
+  }, [loading, vehicles, canEdit, openEdit])
 
   const change = event => {
     const { name, value } = event.target
