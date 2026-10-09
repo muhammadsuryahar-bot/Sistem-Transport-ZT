@@ -166,7 +166,7 @@ export default function DocumentsFeaturePage({profile}){
    ])
    setSuccess(`Rekap STNK Excel berhasil diunduh: ${filteredMonitorRows.length} kendaraan.`)
   } catch (e) {
-   setError(e?.message || 'Rekap STNK gagal dibuat.')
+   setError(humanizeError(e, 'Rekap STNK gagal dibuat.'))
   }
  }
 
