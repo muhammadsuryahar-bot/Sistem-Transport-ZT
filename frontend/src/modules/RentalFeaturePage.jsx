@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { humanizeError } from '../utils/feedback.js'
 import './TransportOperationsFixed.css'
@@ -34,7 +34,7 @@ async function signedRentalFile(path) {
   return data?.signedUrl || null
 }
 
-export default function RentalFeaturePage({ profile }) {
+export default function RentalFeaturePage({ profile, onNavigate }) {
   const [tab, setTab] = useState('kontrak')
   const [owners, setOwners] = useState([])
   const [contracts, setContracts] = useState([])
@@ -57,6 +57,17 @@ export default function RentalFeaturePage({ profile }) {
   const [openedFiles, setOpenedFiles] = useState({})
   const [rentalSearch, setRentalSearch] = useState('')
   const [rentalTypeFilter, setRentalTypeFilter] = useState('SEMUA')
+  const [rentalContractStatusFilter, setRentalContractStatusFilter] = useState('SEMUA')
+  const [contractSearch, setContractSearch] = useState('')
+  const [contractStatusFilter, setContractStatusFilter] = useState('SEMUA')
+  const [contractVehicleFilter, setContractVehicleFilter] = useState('SEMUA')
+  const [contractOwnerFilter, setContractOwnerFilter] = useState('SEMUA')
+  const [ownerSearch, setOwnerSearch] = useState('')
+  const [ownerTypeFilter, setOwnerTypeFilter] = useState('SEMUA')
+  const [ownerStatusFilter, setOwnerStatusFilter] = useState('SEMUA')
+  const [repairSearch, setRepairSearch] = useState('')
+  const [repairStatusFilter, setRepairStatusFilter] = useState('SEMUA')
+  const [repairVehicleFilter, setRepairVehicleFilter] = useState('SEMUA')
   const [paymentSearch, setPaymentSearch] = useState('')
   const [paymentStatus, setPaymentStatus] = useState('SEMUA')
   const [editingPaymentId, setEditingPaymentId] = useState(null)
@@ -64,6 +75,9 @@ export default function RentalFeaturePage({ profile }) {
   const [historySearch, setHistorySearch] = useState('')
   const [historyYear, setHistoryYear] = useState('SEMUA')
   const [historySupplier, setHistorySupplier] = useState('SEMUA')
+  const [historyPeriod, setHistoryPeriod] = useState('SEMUA')
+  const [historyMinInvoice, setHistoryMinInvoice] = useState('')
+  const [historyMaxInvoice, setHistoryMaxInvoice] = useState('')
   const [historyForm, setHistoryForm] = useState({ id: null, source_no: '', tahun: new Date().getFullYear(), supplier: '', uraian: '', periode_tagihan: '', nilai_invoice: '' })
   const [editingHistory, setEditingHistory] = useState(null)
   const [historyDetail, setHistoryDetail] = useState(null)
@@ -74,15 +88,25 @@ export default function RentalFeaturePage({ profile }) {
   const editable = ['ADMIN', 'TRANSPORT', 'AKUNTANSI'].includes(profile?.role)
   const historyEditable = ['ADMIN', 'TRANSPORT'].includes(profile?.role)
   const repairEditable = ['ADMIN', 'TRANSPORT'].includes(profile?.role)
+  const vehicleMasterEditable = ['ADMIN', 'TRANSPORT'].includes(profile?.role)
   const vehicleMap = useMemo(() => Object.fromEntries(vehicles.map(v => [v.id, v])), [vehicles])
   const repairMap = useMemo(() => Object.fromEntries(repairs.map(r => [r.id, r])), [repairs])
   const filteredRentalVehicles = useMemo(() => {
     const q = rentalSearch.trim().toLowerCase()
     return vehicles.filter(v => {
-      const hay = [v.nomor_polisi, v.merk, v.tipe, v.pemilik, v.lokasi, v.unit_kerja].filter(Boolean).join(' ').toLowerCase()
-      return (!q || hay.includes(q)) && (rentalTypeFilter === 'SEMUA' || v.jenis_sewa === rentalTypeFilter)
+      const contractRow = contracts.find(c => Number(c.kendaraan_id) === Number(v.id) && c.status === 'AKTIF')
+        || contracts.find(c => Number(c.kendaraan_id) === Number(v.id))
+      const contractStatus = contractRow?.status || 'BELUM_ADA'
+      const hay = [v.nomor_polisi, v.merk, v.tipe, v.pemilik, v.lokasi, v.unit_kerja, contractRow?.nomor_kontrak].filter(Boolean).join(' ').toLowerCase()
+      return (!q || hay.includes(q))
+        && (rentalTypeFilter === 'SEMUA' || v.jenis_sewa === rentalTypeFilter)
+        && (rentalContractStatusFilter === 'SEMUA' || contractStatus === rentalContractStatusFilter)
     })
-  }, [vehicles, rentalSearch, rentalTypeFilter])
+  }, [vehicles, contracts, rentalSearch, rentalTypeFilter, rentalContractStatusFilter])
+  const filteredContracts = useMemo(() => { const q=contractSearch.trim().toLowerCase(); return contracts.filter(c => { const v=vehicleMap[c.kendaraan_id], o=owners.find(x=>Number(x.id)===Number(c.pemilik_sewa_id)); const hay=[c.nomor_kontrak,v?.nomor_polisi,v?.merk,v?.tipe,o?.nama_pemilik,o?.nama_perusahaan].filter(Boolean).join(' ').toLowerCase(); return (!q||hay.includes(q))&&(contractStatusFilter==='SEMUA'||c.status===contractStatusFilter)&&(contractVehicleFilter==='SEMUA'||String(c.kendaraan_id)===String(contractVehicleFilter))&&(contractOwnerFilter==='SEMUA'||String(c.pemilik_sewa_id)===String(contractOwnerFilter)) }) },[contracts,owners,vehicleMap,contractSearch,contractStatusFilter,contractVehicleFilter,contractOwnerFilter])
+  const filteredOwners = useMemo(() => { const q=ownerSearch.trim().toLowerCase(); return owners.filter(o=>{const hay=[o.nama_pemilik,o.nama_perusahaan,o.nomor_identitas,o.nomor_hp,o.email,o.alamat].filter(Boolean).join(' ').toLowerCase(); return (!q||hay.includes(q))&&(ownerTypeFilter==='SEMUA'||o.jenis_pemilik===ownerTypeFilter)&&(ownerStatusFilter==='SEMUA'||String(Boolean(o.aktif))===ownerStatusFilter)}) },[owners,ownerSearch,ownerTypeFilter,ownerStatusFilter])
+  const filteredRepairs = useMemo(() => { const q=repairSearch.trim().toLowerCase(); return repairs.filter(r=>{const v=vehicleMap[r.kendaraan_id],hay=[r.nomor_perbaikan,r.jenis_kerusakan,r.deskripsi_kerusakan,r.penyebab,r.metode_penanganan,v?.nomor_polisi,v?.merk,v?.tipe].filter(Boolean).join(' ').toLowerCase();return (!q||hay.includes(q))&&(repairStatusFilter==='SEMUA'||r.status===repairStatusFilter)&&(repairVehicleFilter==='SEMUA'||String(r.kendaraan_id)===String(repairVehicleFilter))}) },[repairs,vehicleMap,repairSearch,repairStatusFilter,repairVehicleFilter])
+
   const historicalRows = useMemo(() => rentalHistoryExcel.map(row => ({
     no_excel: Number(row.source_no) || row.excel_row,
     excel_row: row.excel_row,
@@ -95,7 +119,7 @@ export default function RentalFeaturePage({ profile }) {
 
   const rentalTabLoadedRef = useRef({ pembayaran: false, repair: false, historis: false })
 
-  const loadRentalTabData = async (targetTab, force = false) => {
+  const loadRentalTabData = useCallback(async (targetTab, force = false) => {
     if (!['pembayaran', 'repair', 'historis'].includes(targetTab)) return
     if (!force && rentalTabLoadedRef.current[targetTab]) return
     try {
@@ -121,9 +145,9 @@ export default function RentalFeaturePage({ profile }) {
     } finally {
       // Tab data is cached in-memory until the module refreshes.
     }
-  }
+  }, [])
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true)
     setError('')
     rentalTabLoadedRef.current.pembayaran = false
@@ -140,19 +164,25 @@ export default function RentalFeaturePage({ profile }) {
     setContracts(rs[1].data || [])
     setVehicles(rs[2].data || [])
     setLoading(false)
-    await loadRentalTabData(tab, true)
-  }
-
-  useEffect(() => {
-    load()
-    const handleImported = (event) => { if (['sewa', 'kendaraan'].includes(event.detail?.context)) load() }
-    window.addEventListener('transport:data-imported', handleImported)
-    return () => window.removeEventListener('transport:data-imported', handleImported)
   }, [])
 
   useEffect(() => {
+    load()
+  }, [load])
+
+  useEffect(() => {
+    const handleImported = event => {
+      if (!['sewa', 'kendaraan'].includes(event.detail?.context)) return
+      load()
+      if (['pembayaran', 'repair', 'historis'].includes(tab)) loadRentalTabData(tab, true)
+    }
+    window.addEventListener('transport:data-imported', handleImported)
+    return () => window.removeEventListener('transport:data-imported', handleImported)
+  }, [load, loadRentalTabData, tab])
+
+  useEffect(() => {
     if (['pembayaran', 'repair', 'historis'].includes(tab)) loadRentalTabData(tab)
-  }, [tab])
+  }, [tab, loadRentalTabData])
 
   const clearMessages = () => { setError(''); setSuccess('') }
 
@@ -196,7 +226,6 @@ export default function RentalFeaturePage({ profile }) {
     if (actualEnd.getTime() !== expectedEnd.getTime()) return setError('Kontrak sewa harus tepat 6 bulan. Tanggal selesai otomatis harus 1 hari sebelum tanggal yang sama pada bulan ke-6.')
     setSaving(true); let contractPath = null
     try {
-      if (!editingContractId && !contractFile) throw new Error('Dokumen kontrak wajib diunggah.')
       contractPath = contractFile ? await uploadRentalFile(contractFile, `kontrak/${contract.kendaraan_id}`) : null
       const payload = { ...contract, kendaraan_id: Number(contract.kendaraan_id), pemilik_sewa_id: Number(contract.pemilik_sewa_id), periode_bulan: 6, nilai_sewa_bulanan: Number(contract.nilai_sewa_bulanan), tanggal_jatuh_tempo_bulanan: Number(contract.tanggal_jatuh_tempo_bulanan || 0) || null, dokumen_kontrak_path: contractPath || (editingContractId ? contracts.find(x => x.id === editingContractId)?.dokumen_kontrak_path || null : null) }
       const result = editingContractId ? await supabase.from('kontrak_sewa').update(payload).eq('id', editingContractId).select('*').single() : await supabase.from('kontrak_sewa').insert(payload).select('*').single()
@@ -306,13 +335,22 @@ export default function RentalFeaturePage({ profile }) {
   }, [payments, contracts, owners, vehicleMap, paymentSearch, paymentStatus])
   const historySuppliers = useMemo(() => Array.from(new Set(rentalHistoryExcel.map(r => String(r.supplier || '').trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'id')), [rentalHistoryExcel])
   const historyYears = useMemo(() => Array.from(new Set(rentalHistoryExcel.map(r => Number(r.tahun)).filter(Number.isFinite))).sort((a,b)=>b-a), [rentalHistoryExcel])
+  const historyPeriods = useMemo(() => Array.from(new Set(rentalHistoryExcel.map(r => String(r.periode_tagihan || '').trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'id')), [rentalHistoryExcel])
   const filteredHistory = useMemo(() => {
     const q = historySearch.trim().toLowerCase()
+    const minInvoice = historyMinInvoice === '' ? null : Number(historyMinInvoice)
+    const maxInvoice = historyMaxInvoice === '' ? null : Number(historyMaxInvoice)
     return historicalRows.filter(row => {
+      const invoice = Number(row.nilai_invoice || 0)
       const hay = [row.no_excel, row.tahun, row.supplier, row.uraian, row.periode_tagihan].join(' ').toLowerCase()
-      return (!q || hay.includes(q)) && (historyYear === 'SEMUA' || Number(row.tahun) === Number(historyYear)) && (historySupplier === 'SEMUA' || row.supplier === historySupplier)
+      return (!q || hay.includes(q))
+        && (historyYear === 'SEMUA' || Number(row.tahun) === Number(historyYear))
+        && (historySupplier === 'SEMUA' || row.supplier === historySupplier)
+        && (historyPeriod === 'SEMUA' || row.periode_tagihan === historyPeriod)
+        && (minInvoice === null || invoice >= minInvoice)
+        && (maxInvoice === null || invoice <= maxInvoice)
     })
-  }, [historicalRows, historySearch, historyYear, historySupplier])
+  }, [historicalRows, historySearch, historyYear, historySupplier, historyPeriod, historyMinInvoice, historyMaxInvoice])
   const historyTotal = useMemo(() => filteredHistory.reduce((sum,row)=>sum+Number(row.nilai_invoice||0),0), [filteredHistory])
   const resetHistoryForm = () => { setHistoryForm({ id:null, source_no:'', tahun:new Date().getFullYear(), supplier:'', uraian:'', periode_tagihan:'', nilai_invoice:'' }); setEditingHistory(null) }
   const editHistory = row => { setEditingHistory(row); setHistoryForm({ id:row.id, source_no:row.no_excel, tahun:row.tahun, supplier:row.supplier === '-' ? '' : row.supplier, uraian:row.uraian === '-' ? '' : row.uraian, periode_tagihan:row.periode_tagihan === '-' ? '' : row.periode_tagihan, nilai_invoice:row.nilai_invoice }); setTab('historis') }
@@ -339,7 +377,7 @@ export default function RentalFeaturePage({ profile }) {
   }
 
 
-  const rentalTabs = [['kendaraan', 'Daftar Sewa'], ['kontrak', 'Kontrak'], ['pemilik', 'Pemilik'], ['pembayaran', 'Pembayaran'], ['historis', 'Summary Rental'], ...(repairEditable ? [['repair', 'Perbaikan']] : [])]
+  const rentalTabs = [['kendaraan', 'Daftar Sewa'], ['kontrak', 'Kontrak'], ['pemilik', 'Pemilik'], ['pembayaran', 'Pembayaran'], ['historis', 'Summary Rental'], ['repair', 'Perbaikan']]
 
   return <div className="x-page">
     <Header breadcrumb={rentalTabs.find(([v]) => v === tab)?.[1]} title="Administrasi Kendaraan Sewa" text="Master kendaraan tetap berada di menu Kendaraan. Halaman ini khusus untuk administrasi kendaraan Sewa: pemilik, kontrak 6 bulan, pembayaran, bukti, perbaikan, dan potongan." action={<button className="x-btn secondary" onClick={load}>↻ Refresh</button>} />
@@ -349,8 +387,8 @@ export default function RentalFeaturePage({ profile }) {
 
     {tab === 'kendaraan' && <section className="x-card">
       <div className="x-card-title"><div><h3>Daftar Kendaraan Sewa</h3><p>Data kendaraan diambil dari Master Kendaraan dengan kepemilikan <b>Sewa</b>. Identitas kendaraan tetap dikelola di menu Kendaraan agar tidak ada data kendaraan ganda.</p></div></div>
-      <div className="x-toolbar-inline"><input value={rentalSearch} onChange={e=>setRentalSearch(e.target.value)} placeholder="Cari BM, nomor polisi, merk, pemilik, lokasi..."/><select value={rentalTypeFilter} onChange={e=>setRentalTypeFilter(e.target.value)}><option value="SEMUA">Semua jenis sewa</option><option value="SEWA_PERORANGAN">Sewa Perorangan</option><option value="SEWA_PERUSAHAAN">Sewa Perusahaan</option></select><button className="x-btn secondary" type="button" onClick={()=>{setRentalSearch('');setRentalTypeFilter('SEMUA')}}>Reset</button></div>
-      <div className="x-table-wrap"><table className="x-table"><thead><tr><th>No. Polisi</th><th>Merk / Type</th><th>Jenis Sewa</th><th>Pemilik</th><th>Kontrak</th><th>Periode</th><th>Nilai Sewa</th><th>Status</th><th>Aksi</th></tr></thead><tbody>{filteredRentalVehicles.length ? filteredRentalVehicles.map(v => { const contractRow = contracts.find(c => Number(c.kendaraan_id) === Number(v.id) && c.status === 'AKTIF') || contracts.find(c => Number(c.kendaraan_id) === Number(v.id)); const ownerRow = owners.find(o => Number(o.id) === Number(contractRow?.pemilik_sewa_id)); return <tr key={v.id}><td><b>{v.nomor_polisi}</b></td><td>{v.merk} {v.tipe || ''}</td><td>{rentalTypeLabel(v.jenis_sewa)}</td><td>{ownerRow?.nama_pemilik || v.pemilik || '-' }<small>{ownerRow?.nama_perusahaan || ''}</small></td><td>{contractRow?.nomor_kontrak || '-'}</td><td>{contractRow ? `${dateText(contractRow.tanggal_mulai)} s/d ${dateText(contractRow.tanggal_selesai)}` : '-'}</td><td>{contractRow ? money(contractRow.nilai_sewa_bulanan) : '-'}</td><td>{contractRow?.status || 'BELUM ADA KONTRAK'}</td><td className="x-action-compact">{contractRow ? <button className="x-link" onClick={()=>setContractDetail(contractRow)}>Detail</button> : <button className="x-link" onClick={()=>setTab('kontrak')}>Tambah Kontrak</button>}<button className="x-link" onClick={()=>setTab('kontrak')}>Kelola</button></td></tr> }) : <tr><td colSpan="9"><Empty /></td></tr>}</tbody></table></div>
+      <div className="x-toolbar-inline"><input value={rentalSearch} onChange={e=>setRentalSearch(e.target.value)} placeholder="Cari BM, nomor polisi, merk, pemilik, lokasi..."/><select value={rentalTypeFilter} onChange={e=>setRentalTypeFilter(e.target.value)}><option value="SEMUA">Semua jenis sewa</option><option value="SEWA_PERORANGAN">Sewa Perorangan</option><option value="SEWA_PERUSAHAAN">Sewa Perusahaan</option></select><select value={rentalContractStatusFilter} onChange={e=>setRentalContractStatusFilter(e.target.value)}><option value="SEMUA">Semua status kontrak</option><option value="AKTIF">Kontrak Aktif</option><option value="SELESAI">Kontrak Selesai</option><option value="DIBATALKAN">Kontrak Dibatalkan</option><option value="BELUM_ADA">Belum Ada Kontrak</option></select><button className="x-btn secondary" type="button" onClick={()=>{setRentalSearch('');setRentalTypeFilter('SEMUA');setRentalContractStatusFilter('SEMUA')}}>Reset Filter</button></div>
+      <div className="x-table-wrap"><table className="x-table"><thead><tr><th>No. Polisi</th><th>Merk / Type</th><th>Jenis Sewa</th><th>Pemilik</th><th>Kontrak</th><th>Periode</th><th>Nilai Sewa</th><th>Status</th><th>Aksi</th></tr></thead><tbody>{filteredRentalVehicles.length ? filteredRentalVehicles.map(v => { const contractRow = contracts.find(c => Number(c.kendaraan_id) === Number(v.id) && c.status === 'AKTIF') || contracts.find(c => Number(c.kendaraan_id) === Number(v.id)); const ownerRow = owners.find(o => Number(o.id) === Number(contractRow?.pemilik_sewa_id)); return <tr key={v.id}><td><b>{v.nomor_polisi}</b></td><td>{v.merk} {v.tipe || ''}</td><td>{rentalTypeLabel(v.jenis_sewa)}</td><td>{ownerRow?.nama_pemilik || v.pemilik || '-' }<small>{ownerRow?.nama_perusahaan || ''}</small></td><td>{contractRow?.nomor_kontrak || '-'}</td><td>{contractRow ? `${dateText(contractRow.tanggal_mulai)} s/d ${dateText(contractRow.tanggal_selesai)}` : '-'}</td><td>{contractRow ? money(contractRow.nilai_sewa_bulanan) : '-'}</td><td>{contractRow?.status || 'BELUM ADA KONTRAK'}</td><td className="x-action-compact">{contractRow ? <><button className="x-link" onClick={()=>setContractDetail(contractRow)}>Detail Kontrak</button>{editable&&<button className="x-link" onClick={()=>editContract(contractRow)}>Edit Kontrak</button>}{vehicleMasterEditable&&<button className="x-link" onClick={()=>{localStorage.setItem('transport_vehicle_focus_id',String(v.id));onNavigate?.('kendaraan')}}>Edit Kendaraan</button>}{editable&&<button className="x-link danger" onClick={()=>deleteContract(contractRow)} disabled={saving}>Hapus Kontrak</button>}</> : <><button className="x-link" onClick={()=>setTab('kontrak')}>Tambah Kontrak</button>{vehicleMasterEditable&&<button className="x-link" onClick={()=>{localStorage.setItem('transport_vehicle_focus_id',String(v.id));onNavigate?.('kendaraan')}}>Edit Kendaraan</button>}</>}</td></tr> }) : <tr><td colSpan="9"><Empty /></td></tr>}</tbody></table></div>
     </section>}
 
     {tab === 'pemilik' && <section className="x-card">
@@ -368,7 +406,7 @@ export default function RentalFeaturePage({ profile }) {
         <label className="full">Keterangan<textarea value={owner.keterangan} onChange={e => setOwner({ ...owner, keterangan: e.target.value })} /></label>
         <div className="full x-actions"><button type="button" className="x-btn secondary" onClick={resetOwnerForm}>Bersihkan</button><button className="x-btn primary" disabled={saving}>{saving ? 'Menyimpan…' : editingOwnerId ? 'Perbarui Pemilik' : 'Simpan Pemilik'}</button></div>
       </form>}
-      <div className="x-table-wrap"><table className="x-table"><thead><tr><th>Nama</th><th>Jenis</th><th>Kontak</th><th>Bank</th><th>Status</th><th>Aksi</th></tr></thead><tbody>{owners.length ? owners.map(o => <tr key={o.id}><td><b>{o.nama_pemilik}</b><small>{o.nama_perusahaan || o.nomor_identitas || '-'}</small></td><td>{o.jenis_pemilik === 'PERUSAHAAN_RENTAL' ? 'Perusahaan' : 'Perorangan'}</td><td>{o.nomor_hp || o.email || '-'}</td><td>{o.nama_bank || '-'}<small>{o.nomor_rekening || '-'}</small></td><td>{o.aktif ? 'Aktif' : 'Nonaktif'}</td><td className="x-action-compact"><button className="x-link" onClick={()=>setOwnerDetail(o)}>Detail</button>{editable&&<button className="x-link" onClick={()=>editOwner(o)}>Edit</button>}{editable&&<button className="x-link danger" onClick={()=>deleteOwner(o)} disabled={saving}>Hapus</button>}</td></tr>) : <tr><td colSpan="6"><Empty /></td></tr>}</tbody></table></div>
+      <div className="x-toolbar-inline"><input value={ownerSearch} onChange={e=>setOwnerSearch(e.target.value)} placeholder="Cari nama, perusahaan, identitas, kontak..."/><select value={ownerTypeFilter} onChange={e=>setOwnerTypeFilter(e.target.value)}><option value="SEMUA">Semua jenis</option><option value="PERORANGAN">Perorangan</option><option value="PERUSAHAAN_RENTAL">Perusahaan</option></select><select value={ownerStatusFilter} onChange={e=>setOwnerStatusFilter(e.target.value)}><option value="SEMUA">Semua status</option><option value="true">Aktif</option><option value="false">Nonaktif</option></select><button className="x-btn secondary" type="button" onClick={()=>{setOwnerSearch("");setOwnerTypeFilter("SEMUA");setOwnerStatusFilter("SEMUA")}}>Reset Filter</button></div><div className="x-table-wrap"><table className="x-table"><thead><tr><th>Nama</th><th>Jenis</th><th>Kontak</th><th>Bank</th><th>Status</th><th>Aksi</th></tr></thead><tbody>{filteredOwners.length ? filteredOwners.map(o => <tr key={o.id}><td><b>{o.nama_pemilik}</b><small>{o.nama_perusahaan || o.nomor_identitas || '-'}</small></td><td>{o.jenis_pemilik === 'PERUSAHAAN_RENTAL' ? 'Perusahaan' : 'Perorangan'}</td><td>{o.nomor_hp || o.email || '-'}</td><td>{o.nama_bank || '-'}<small>{o.nomor_rekening || '-'}</small></td><td>{o.aktif ? 'Aktif' : 'Nonaktif'}</td><td className="x-action-compact"><button className="x-link" onClick={()=>setOwnerDetail(o)}>Detail</button>{editable&&<button className="x-link" onClick={()=>editOwner(o)}>Edit</button>}{editable&&<button className="x-link danger" onClick={()=>deleteOwner(o)} disabled={saving}>Hapus</button>}</td></tr>) : <tr><td colSpan="6"><Empty /></td></tr>}</tbody></table></div>
     </section>}
 
     {tab === 'kontrak' && <section className="x-card">
@@ -385,11 +423,11 @@ export default function RentalFeaturePage({ profile }) {
         <label>Waktu Mulai<input type="time" value={contract.waktu_mulai} onChange={e => setContract({ ...contract, waktu_mulai: e.target.value })} /></label>
         <label>Waktu Selesai<input type="time" value={contract.waktu_selesai} onChange={e => setContract({ ...contract, waktu_selesai: e.target.value })} /></label>
         <label>Status<select value={contract.status} onChange={e => setContract({ ...contract, status: e.target.value })}><option>AKTIF</option><option>SELESAI</option><option>DIBATALKAN</option></select></label>
-        <label className="full">Dokumen Kontrak<input type="file" accept=".pdf,image/*" onChange={e => setContractFile(e.target.files?.[0] || null)} /><small>{contractFile ? contractFile.name : editingContractId ? 'Biarkan kosong untuk mempertahankan file lama.' : 'Wajib untuk arsip kontrak.'}</small></label>
+        <label className="full">Dokumen Kontrak<input type="file" accept=".pdf,image/*" onChange={e => setContractFile(e.target.files?.[0] || null)} /><small>{contractFile ? contractFile.name : editingContractId ? 'Biarkan kosong untuk mempertahankan file lama.' : 'Opsional; unggah jika dokumen sudah tersedia.'}</small></label>
         <label className="full">Catatan<textarea value={contract.catatan} onChange={e => setContract({ ...contract, catatan: e.target.value })} /></label>
         <div className="full x-actions"><button type="button" className="x-btn secondary" onClick={resetContractForm}>Bersihkan</button><button className="x-btn primary" disabled={saving}>{saving ? 'Menyimpan…' : editingContractId ? 'Perbarui Kontrak' : 'Simpan Kontrak'}</button></div>
       </form>}
-      <div className="x-table-wrap"><table className="x-table"><thead><tr><th>Kontrak</th><th>Kendaraan</th><th>Pemilik</th><th>Periode</th><th>Nilai</th><th>Dokumen</th><th>Status</th><th>Aksi</th></tr></thead><tbody>{contracts.length ? contracts.map(c => { const o = owners.find(x => x.id === c.pemilik_sewa_id); const key = `contract-${c.id}`; return <tr key={c.id}><td><b>{c.nomor_kontrak || `#${c.id}`}</b></td><td>{vehicleMap[c.kendaraan_id]?.nomor_polisi || '-'}</td><td>{o?.nama_pemilik || '-'}<small>{o?.nama_perusahaan || ''}</small></td><td>{dateText(c.tanggal_mulai)} s/d {dateText(c.tanggal_selesai)}<small>{c.periode_bulan} bulan</small></td><td>{money(c.nilai_sewa_bulanan)}</td><td>{c.dokumen_kontrak_path ? <button className="x-btn secondary" onClick={() => openFile(key, 'dokumen-sewa', c.dokumen_kontrak_path)}>{openedFiles[key] === 'loading' ? '…' : 'Lihat'}</button> : '-'}</td><td>{c.status}</td><td className="x-action-compact"><button className="x-link" onClick={()=>setContractDetail(c)}>Detail</button>{editable&&<button className="x-link" onClick={()=>editContract(c)}>Edit</button>}{editable&&<button className="x-link danger" onClick={()=>deleteContract(c)} disabled={saving}>Hapus</button>}</td></tr> }) : <tr><td colSpan="8"><Empty /></td></tr>}</tbody></table></div>
+      <div className="x-toolbar-inline"><input value={contractSearch} onChange={e=>setContractSearch(e.target.value)} placeholder="Cari kontrak, BM, merk, type, pemilik..."/><select value={contractStatusFilter} onChange={e=>setContractStatusFilter(e.target.value)}><option value="SEMUA">Semua status</option><option value="AKTIF">Aktif</option><option value="SELESAI">Selesai</option><option value="DIBATALKAN">Dibatalkan</option></select><select value={contractVehicleFilter} onChange={e=>setContractVehicleFilter(e.target.value)}><option value="SEMUA">Semua kendaraan</option>{vehicles.map(v=><option key={v.id} value={v.id}>{v.nomor_polisi}</option>)}</select><select value={contractOwnerFilter} onChange={e=>setContractOwnerFilter(e.target.value)}><option value="SEMUA">Semua pemilik</option>{owners.map(o=><option key={o.id} value={o.id}>{o.nama_pemilik}</option>)}</select><button className="x-btn secondary" type="button" onClick={()=>{setContractSearch("");setContractStatusFilter("SEMUA");setContractVehicleFilter("SEMUA");setContractOwnerFilter("SEMUA")}}>Reset Filter</button></div><div className="x-table-wrap"><table className="x-table"><thead><tr><th>Kontrak</th><th>Kendaraan</th><th>Pemilik</th><th>Periode</th><th>Nilai</th><th>Dokumen</th><th>Status</th><th>Aksi</th></tr></thead><tbody>{filteredContracts.length ? filteredContracts.map(c => { const o = owners.find(x => x.id === c.pemilik_sewa_id); const key = `contract-${c.id}`; return <tr key={c.id}><td><b>{c.nomor_kontrak || `#${c.id}`}</b></td><td>{vehicleMap[c.kendaraan_id]?.nomor_polisi || '-'}</td><td>{o?.nama_pemilik || '-'}<small>{o?.nama_perusahaan || ''}</small></td><td>{dateText(c.tanggal_mulai)} s/d {dateText(c.tanggal_selesai)}<small>{c.periode_bulan} bulan</small></td><td>{money(c.nilai_sewa_bulanan)}</td><td>{c.dokumen_kontrak_path ? <button className="x-btn secondary" onClick={() => openFile(key, 'dokumen-sewa', c.dokumen_kontrak_path)}>{openedFiles[key] === 'loading' ? '…' : 'Lihat'}</button> : '-'}</td><td>{c.status}</td><td className="x-action-compact"><button className="x-link" onClick={()=>setContractDetail(c)}>Detail</button>{editable&&<button className="x-link" onClick={()=>editContract(c)}>Edit</button>}{editable&&<button className="x-link danger" onClick={()=>deleteContract(c)} disabled={saving}>Hapus</button>}</td></tr> }) : <tr><td colSpan="8"><Empty /></td></tr>}</tbody></table></div>
       {Object.entries(openedFiles).filter(([k, v]) => k.startsWith('contract-') && v && v !== 'loading').map(([k, v]) => <div key={k} className="x-alert"><a href={v} target="_blank" rel="noreferrer">Buka dokumen kontrak</a></div>)}
     </section>}
 
@@ -422,7 +460,8 @@ export default function RentalFeaturePage({ profile }) {
       <div className="x-card-title"><div><h3>Summary Rental — Penagihan</h3><p>Fokus halaman ini adalah memeriksa tagihan rental secara jelas: supplier, uraian, periode, tahun, dan nilai invoice. No. rangka tidak diperlukan.</p></div>{historyEditable&&<button className="x-btn primary" type="button" onClick={resetHistoryForm}>+ Tambah Data</button>}</div>
       <div className="x-summary-grid rental-summary-grid"><button type="button" className="x-summary-clickable" onClick={() => requestAnimationFrame(() => document.querySelector('.rental-history-table')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))}><span>Baris tampil</span><b>{filteredHistory.length}</b><i aria-hidden="true">›</i></button><button type="button" className="x-summary-clickable" onClick={() => requestAnimationFrame(() => document.querySelector('.rental-history-table')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))}><span>Total Invoice</span><b>{money(historyTotal)}</b><i aria-hidden="true">›</i></button><button type="button" className="x-summary-clickable" onClick={() => document.querySelector('.rental-history-year-filter')?.focus()}><span>Tahun aktif</span><b>{historyYear === 'SEMUA' ? 'Semua' : historyYear}</b><i aria-hidden="true">›</i></button><button type="button" className="x-summary-clickable" onClick={() => document.querySelector('.rental-history-supplier-filter')?.focus()}><span>Supplier</span><b>{historySupplier === 'SEMUA' ? 'Semua' : historySupplier}</b><i aria-hidden="true">›</i></button></div>
       {historyEditable&&<form className="x-grid rental-history-form" onSubmit={saveHistory}><label>Tahun<input type="number" min="2000" max="2100" value={historyForm.tahun} onChange={e=>setHistoryForm({...historyForm,tahun:e.target.value})}/></label><label>Supplier<input value={historyForm.supplier} onChange={e=>setHistoryForm({...historyForm,supplier:e.target.value})} placeholder="Nama perusahaan rental"/></label><label>Uraian<input value={historyForm.uraian} onChange={e=>setHistoryForm({...historyForm,uraian:e.target.value})} placeholder="Uraian tagihan"/></label><label>Periode Tagihan<input value={historyForm.periode_tagihan} onChange={e=>setHistoryForm({...historyForm,periode_tagihan:e.target.value})} placeholder="Januari / 01-2026"/></label><label>Nilai Invoice<input type="number" min="0" value={historyForm.nilai_invoice} onChange={e=>setHistoryForm({...historyForm,nilai_invoice:e.target.value})}/></label><label>No. Sumber (opsional)<input value={historyForm.source_no} onChange={e=>setHistoryForm({...historyForm,source_no:e.target.value})}/></label><div className="full x-actions"><button type="button" className="x-btn secondary" onClick={resetHistoryForm}>Bersihkan</button><button className="x-btn primary" disabled={saving}>{editingHistory?'Perbarui Data':'Simpan Data'}</button></div></form>}
-      <div className="x-toolbar-inline"><input value={historySearch} onChange={e=>setHistorySearch(e.target.value)} placeholder="Cari supplier, uraian, periode, nomor..." /><select className="rental-history-year-filter" value={historyYear} onChange={e=>setHistoryYear(e.target.value)}><option value="SEMUA">Semua tahun</option>{historyYears.map(y=><option key={y} value={y}>{y}</option>)}</select><select className="rental-history-supplier-filter" value={historySupplier} onChange={e=>setHistorySupplier(e.target.value)}><option value="SEMUA">Semua supplier</option>{historySuppliers.map(x=><option key={x} value={x}>{x}</option>)}</select><button className="x-btn secondary" type="button" onClick={()=>{setHistorySearch('');setHistoryYear('SEMUA');setHistorySupplier('SEMUA')}}>Reset Filter</button></div>
+      <div className="x-toolbar-inline"><input value={historySearch} onChange={e=>setHistorySearch(e.target.value)} placeholder="Cari supplier, uraian, periode, nomor..." /><select className="rental-history-year-filter" value={historyYear} onChange={e=>setHistoryYear(e.target.value)}><option value="SEMUA">Semua tahun</option>{historyYears.map(y=><option key={y} value={y}>{y}</option>)}</select><select className="rental-history-supplier-filter" value={historySupplier} onChange={e=>setHistorySupplier(e.target.value)}><option value="SEMUA">Semua supplier</option>{historySuppliers.map(x=><option key={x} value={x}>{x}</option>)}</select><select value={historyPeriod} onChange={e=>setHistoryPeriod(e.target.value)}><option value="SEMUA">Semua periode</option>{historyPeriods.map(x=><option key={x} value={x}>{x}</option>)}</select><input type="number" min="0" value={historyMinInvoice} onChange={e=>setHistoryMinInvoice(e.target.value)} placeholder="Invoice min" aria-label="Nilai invoice minimum" /><input type="number" min="0" value={historyMaxInvoice} onChange={e=>setHistoryMaxInvoice(e.target.value)} placeholder="Invoice max" aria-label="Nilai invoice maksimum" /><button className="x-btn secondary" type="button" onClick={()=>{setHistorySearch('');setHistoryYear('SEMUA');setHistorySupplier('SEMUA');setHistoryPeriod('SEMUA');setHistoryMinInvoice('');setHistoryMaxInvoice('')}}>Reset Filter</button>
+      </div>
       <div className="x-table-wrap"><table className="x-table rental-history-table"><thead><tr><th>No</th><th>Tahun</th><th>Supplier</th><th>Uraian</th><th>Periode Tagihan</th><th>Nilai Invoice</th><th>Aksi</th></tr></thead><tbody>{filteredHistory.length ? filteredHistory.map(row=><tr key={row.excel_row}><td><b>{row.no_excel}</b></td><td>{row.tahun}</td><td>{row.supplier}</td><td>{row.uraian}</td><td>{row.periode_tagihan}</td><td><b>{money(row.nilai_invoice)}</b></td><td className="x-action-compact"><button className="x-link" onClick={()=>setHistoryDetail(row)}>Detail</button>{historyEditable&&<><button className="x-link" onClick={()=>editHistory(row)}>Edit</button><button className="x-link danger" onClick={()=>deleteHistory(row)} disabled={saving}>Hapus</button></>}</td></tr>) : <tr><td colSpan="7"><Empty /></td></tr>}</tbody></table></div>
     </section>}
     {historyDetail && <div className="x-overlay"><section className="x-modal"><div className="x-modal-head"><div><span className="eyebrow">DETAIL TAGIHAN RENTAL</span><h3>{historyDetail.supplier}</h3></div><button onClick={()=>setHistoryDetail(null)}>×</button></div><div className="x-detail"><p><b>No:</b> {historyDetail.no_excel}</p><p><b>Tahun:</b> {historyDetail.tahun}</p><p><b>Supplier:</b> {historyDetail.supplier}</p><p><b>Uraian:</b> {historyDetail.uraian}</p><p><b>Periode:</b> {historyDetail.periode_tagihan}</p><p><b>Nilai Invoice:</b> {money(historyDetail.nilai_invoice)}</p><p><b>Sumber:</b> {historyDetail.source_file || '-'}</p></div><div className="x-actions"><button className="x-btn secondary" onClick={()=>setHistoryDetail(null)}>Tutup</button>{historyEditable&&<button className="x-btn primary" onClick={()=>{setHistoryDetail(null);editHistory(historyDetail)}}>Edit Data</button>}</div></section></div>}
@@ -450,7 +489,7 @@ export default function RentalFeaturePage({ profile }) {
         <label className="full">Catatan<textarea value={repair.catatan} onChange={e => setRepair({ ...repair, catatan: e.target.value })} /></label>
         <div className="full x-actions"><button type="button" className="x-btn secondary" onClick={resetRepairForm}>Bersihkan</button><button className="x-btn primary" disabled={saving}>{saving ? 'Menyimpan…' : editingRepairId ? 'Perbarui Perbaikan' : 'Simpan Perbaikan'}</button></div>
       </form>}
-      <div className="x-table-wrap"><table className="x-table"><thead><tr><th>Kendaraan</th><th>Tanggal</th><th>Kerusakan</th><th>Biaya</th><th>Potongan</th><th>Bukti</th><th>Status</th></tr></thead><tbody>{repairs.length ? repairs.map(r => { const key1 = `repair-photo-${r.id}`, key2 = `repair-proof-${r.id}`; return <tr key={r.id}><td>{vehicleMap[r.kendaraan_id]?.nomor_polisi || '-'}</td><td>{dateText(r.tanggal_kejadian)}</td><td><b>{r.jenis_kerusakan}</b><small>{r.deskripsi_kerusakan || '-'}</small></td><td>{money(r.biaya_aktual)}<small>Estimasi {money(r.estimasi_biaya)}</small></td><td>{r.dapat_dipotong ? money(r.jumlah_dipotong) : 'Tidak'}</td><td>{r.foto_kerusakan_path && <button className="x-btn secondary" onClick={() => openFile(key1, 'dokumen-sewa', r.foto_kerusakan_path)}>{openedFiles[key1] === 'loading' ? '…' : 'Foto'}</button>} {r.bukti_perbaikan_path && <button className="x-btn secondary" onClick={() => openFile(key2, 'dokumen-sewa', r.bukti_perbaikan_path)}>{openedFiles[key2] === 'loading' ? '…' : 'Bukti'}</button>}</td><td>{r.status}<small>{r.dibayar_kantor ? 'Dibayar kantor' : ''}</small></td><td className="x-action-compact"><button className="x-link" onClick={()=>setRepairDetail(r)}>Detail</button>{repairEditable&&<button className="x-link" onClick={()=>editRepair(r)}>Edit</button>}{repairEditable&&<button className="x-link danger" onClick={()=>deleteRepair(r)} disabled={saving}>Hapus</button>}</td></tr> }) : <tr><td colSpan="8"><Empty /></td></tr>}</tbody></table></div>
+      <div className="x-toolbar-inline"><input value={repairSearch} onChange={e=>setRepairSearch(e.target.value)} placeholder="Cari BM, kerusakan, penyebab, deskripsi..."/><select value={repairStatusFilter} onChange={e=>setRepairStatusFilter(e.target.value)}><option value="SEMUA">Semua status</option><option value="DILAPORKAN">Dilaporkan</option><option value="DIPERIKSA">Diperiksa</option><option value="DALAM_PERBAIKAN">Dalam Perbaikan</option><option value="SELESAI">Selesai</option><option value="DIBATALKAN">Dibatalkan</option></select><select value={repairVehicleFilter} onChange={e=>setRepairVehicleFilter(e.target.value)}><option value="SEMUA">Semua kendaraan</option>{vehicles.map(v=><option key={v.id} value={v.id}>{v.nomor_polisi}</option>)}</select><button className="x-btn secondary" type="button" onClick={()=>{setRepairSearch("");setRepairStatusFilter("SEMUA");setRepairVehicleFilter("SEMUA")}}>Reset Filter</button></div><div className="x-table-wrap"><table className="x-table"><thead><tr><th>Kendaraan</th><th>Tanggal</th><th>Kerusakan</th><th>Biaya</th><th>Potongan</th><th>Bukti</th><th>Status</th><th>Aksi</th></tr></thead><tbody>{filteredRepairs.length ? filteredRepairs.map(r => { const key1 = `repair-photo-${r.id}`, key2 = `repair-proof-${r.id}`; return <tr key={r.id}><td>{vehicleMap[r.kendaraan_id]?.nomor_polisi || '-'}</td><td>{dateText(r.tanggal_kejadian)}</td><td><b>{r.jenis_kerusakan}</b><small>{r.deskripsi_kerusakan || '-'}</small></td><td>{money(r.biaya_aktual)}<small>Estimasi {money(r.estimasi_biaya)}</small></td><td>{r.dapat_dipotong ? money(r.jumlah_dipotong) : 'Tidak'}</td><td>{r.foto_kerusakan_path && <button className="x-btn secondary" onClick={() => openFile(key1, 'dokumen-sewa', r.foto_kerusakan_path)}>{openedFiles[key1] === 'loading' ? '…' : 'Foto'}</button>} {r.bukti_perbaikan_path && <button className="x-btn secondary" onClick={() => openFile(key2, 'dokumen-sewa', r.bukti_perbaikan_path)}>{openedFiles[key2] === 'loading' ? '…' : 'Bukti'}</button>}</td><td>{r.status}<small>{r.dibayar_kantor ? 'Dibayar kantor' : ''}</small></td><td className="x-action-compact"><button className="x-link" onClick={()=>setRepairDetail(r)}>Detail</button>{repairEditable&&<button className="x-link" onClick={()=>editRepair(r)}>Edit</button>}{repairEditable&&<button className="x-link danger" onClick={()=>deleteRepair(r)} disabled={saving}>Hapus</button>}</td></tr> }) : <tr><td colSpan="8"><Empty /></td></tr>}</tbody></table></div>
       {Object.entries(openedFiles).filter(([k, v]) => k.startsWith('repair-') && v && v !== 'loading').map(([k, v]) => <div key={k} className="x-alert"><a href={v} target="_blank" rel="noreferrer">Buka file perbaikan</a></div>)}
     </section>}
     {ownerDetail && <div className="x-overlay"><section className="x-modal"><div className="x-modal-head"><div><span className="eyebrow">DETAIL PEMILIK SEWA</span><h3>{ownerDetail.nama_pemilik}</h3></div><button onClick={()=>setOwnerDetail(null)}>×</button></div><div className="x-detail"><p><b>Jenis:</b> {ownerDetail.jenis_pemilik === 'PERUSAHAAN_RENTAL' ? 'Perusahaan' : 'Perorangan'}</p><p><b>Perusahaan:</b> {ownerDetail.nama_perusahaan || '-'}</p><p><b>No. Identitas:</b> {ownerDetail.nomor_identitas || '-'}</p><p><b>No. HP:</b> {ownerDetail.nomor_hp || '-'}</p><p><b>Email:</b> {ownerDetail.email || '-'}</p><p><b>Bank:</b> {ownerDetail.nama_bank || '-'} / {ownerDetail.nomor_rekening || '-'}</p><p><b>Alamat:</b> {ownerDetail.alamat || '-'}</p><p><b>Keterangan:</b> {ownerDetail.keterangan || '-'}</p></div><div className="x-actions"><button className="x-btn secondary" onClick={()=>setOwnerDetail(null)}>Tutup</button>{editable&&<button className="x-btn primary" onClick={()=>{setOwnerDetail(null);editOwner(ownerDetail)}}>Edit</button>}</div></section></div>}

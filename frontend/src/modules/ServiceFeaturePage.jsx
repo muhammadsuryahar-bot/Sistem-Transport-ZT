@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { humanizeError } from '../utils/feedback.js'
 import './TransportOperationsFixed.css'
@@ -42,7 +42,7 @@ export default function ServiceFeaturePage({ profile }) {
   const tabLoadRef = useRef({ bukti: false, ban: false, aki: false, km: false })
   const relatedLoadRef = useRef(new Set())
 
-  const loadTabData = async (targetTab, force = false) => {
+  const loadTabData = useCallback(async (targetTab, force = false) => {
     const target = ['bukti', 'ban', 'aki', 'km'].includes(targetTab) ? targetTab : null
     if (!target) return
     if (!force && tabLoadRef.current[target]) return
@@ -68,7 +68,7 @@ export default function ServiceFeaturePage({ profile }) {
     } catch (e) {
       setError(humanizeError(e))
     }
-  }
+  }, [])
 
   const ensureServiceDetailData = async serviceId => {
     const key = String(serviceId)
@@ -88,7 +88,7 @@ export default function ServiceFeaturePage({ profile }) {
     }
   }
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true)
     setError('')
     tabLoadRef.current = { bukti: false, ban: false, aki: false, km: false }
@@ -110,13 +110,17 @@ export default function ServiceFeaturePage({ profile }) {
     setDrivers(rs[4].data || [])
     setApprovals(rs[5].data || [])
     setLoading(false)
-    await loadTabData(tab, true)
-  }
+  }, [canApprove])
 
   useEffect(() => {
     load()
-    const handleImported = (event) => {
-      if (['service', 'pengajuan', 'kendaraan'].includes(event.detail?.context)) load()
+  }, [load])
+
+  useEffect(() => {
+    const handleImported = event => {
+      if (!['service', 'pengajuan', 'kendaraan'].includes(event.detail?.context)) return
+      load()
+      if (['bukti', 'ban', 'aki', 'km'].includes(tab)) loadTabData(tab, true)
     }
     const handleServiceStateUpdated = event => {
       const detail = event.detail || {}
@@ -136,11 +140,11 @@ export default function ServiceFeaturePage({ profile }) {
       window.removeEventListener('transport:data-imported', handleImported)
       window.removeEventListener('transport:service-state-updated', handleServiceStateUpdated)
     }
-  }, [])
+  }, [load, loadTabData, tab])
 
   useEffect(() => {
     if (['bukti', 'ban', 'aki', 'km'].includes(tab)) loadTabData(tab)
-  }, [tab])
+  }, [tab, loadTabData])
 
   const clearMessages = () => { setError(''); setSuccess('') }
   const emitServiceStateUpdate = detail => window.dispatchEvent(new CustomEvent('transport:service-state-updated', { detail }))
@@ -223,13 +227,14 @@ export default function ServiceFeaturePage({ profile }) {
         ? await supabase.from('service').update(payload).eq('id', editingServiceId).select('*').single()
         : await supabase.from('service').insert({ ...payload, nomor_service: `SRV-${Date.now()}` }).select('*').single()
       if (result.error) throw result.error
-      if (form.permintaan_service_id) {
-        const requestUpdate = await supabase.from('permintaan_service').update({ status: needsApproval ? 'MENUNGGU_APPROVAL' : 'DALAM_PROSES', diproses_oleh: profile.id, diproses_at: new Date().toISOString() }).eq('id', form.permintaan_service_id)
-        if (requestUpdate.error) throw new Error(`Service tersimpan tetapi status pengajuan gagal: ${requestUpdate.error.message}`)
-      }
       setForm({ ...emptyService, tanggal_service: new Date().toISOString().slice(0, 10) }); setEditingServiceId(null)
       setServices(current => editingServiceId ? current.map(row => row.id === result.data.id ? result.data : row) : [result.data, ...current])
-      setRequests(current => form.permintaan_service_id ? current.map(row => row.id === Number(form.permintaan_service_id) ? { ...row, status: needsApproval ? 'MENUNGGU_APPROVAL' : 'DALAM_PROSES', diproses_oleh: profile.id, diproses_at: new Date().toISOString() } : row) : current)
+      if (form.permintaan_service_id) {
+        setRequests(current => current.map(row => row.id === Number(form.permintaan_service_id)
+          ? { ...row, status: needsApproval ? 'MENUNGGU_APPROVAL' : 'DALAM_PROSES', diproses_oleh: profile.id, diproses_at: new Date().toISOString() }
+          : row
+        ))
+      }
       emitServiceStateUpdate({ kind: 'service', service: result.data })
       setSuccess(editingServiceId ? `Service ${result.data.nomor_service || result.data.id} diperbarui.` : `Service ${result.data.nomor_service} berhasil dibuat.${form.permintaan_service_id ? '' : ' Service dibuat langsung tanpa pengajuan.'}`)
     } catch (e2) { setError(humanizeError(e2)) } finally { setSaving(false) }

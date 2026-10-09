@@ -175,7 +175,13 @@ export default function DashboardFeaturePage({ profile, onNavigate }) {
       if (canReadFleet) {
         pushCount('total kendaraan', supabase.from('kendaraan').select('id', { count: 'exact', head: true }), 'totalVehicles')
         pushCount('kendaraan aktif', supabase.from('kendaraan').select('id', { count: 'exact', head: true }).eq('status', 'ACTIVE'), 'activeVehicles')
-        pushCount('kendaraan service', supabase.from('kendaraan').select('id', { count: 'exact', head: true }).eq('status', 'SERVICE'), 'serviceVehicles')
+        countTasks.push(
+          supabase.from('service').select('kendaraan_id').eq('status', 'DALAM_PENGERJAAN')
+            .then(({ data, error }) => {
+              if (error) failures.push('kendaraan sedang service')
+              else result.serviceVehicles = new Set((data || []).map(row => row.kendaraan_id).filter(Boolean)).size
+            }),
+        )
       }
 
       if (role === 'OPERASIONAL') {
