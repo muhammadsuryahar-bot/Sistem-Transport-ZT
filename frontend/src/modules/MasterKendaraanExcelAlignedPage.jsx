@@ -64,8 +64,8 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
       supabase.from('kendaraan').select('id,kode_kendaraan,nomor_polisi,merk,tipe,jenis_kendaraan,tahun,nomor_mesin,nomor_rangka,kepemilikan,jenis_sewa,harga_perolehan,pemilik,driver_id,lokasi,unit_kerja,masa_berlaku_pajak,status_pajak,keterangan,catatan_hutang,status,foto_stnk_path,foto_depan_path,foto_belakang_path,foto_kiri_path,foto_kanan_path').order('nomor_polisi'),
       supabase.from('driver').select('id,nama_lengkap,status').order('nama_lengkap'),
     ])
-    if (v.error) setError(`Data kendaraan: ${v.error.message}`); else setVehicles((v.data || []).map(row => ({ ...row, kepemilikan: normalizeOwnership(row.kepemilikan) })))
-    if (d.error) setError(prev => prev || `Data driver: ${d.error.message}`); else setDrivers(d.data || [])
+    if (v.error) setError(`Data kendaraan: ${humanizeError(v.error)}`); else setVehicles((v.data || []).map(row => ({ ...row, kepemilikan: normalizeOwnership(row.kepemilikan) })))
+    if (d.error) setError(prev => prev || `Data driver: ${humanizeError(d.error)}`); else setDrivers(d.data || [])
     setSelected([])
     setSelectionMode(false)
     setActiveRowId(null)
