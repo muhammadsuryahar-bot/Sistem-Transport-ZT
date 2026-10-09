@@ -33,20 +33,27 @@ export default function LoginPage({ message = '' }) {
     }
 
     setLoading(true)
-    const { error: loginError } = await supabase.auth.signInWithPassword({
-      email: normalizedEmail,
-      password,
-    })
+    try {
+      const { error: loginError } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password,
+      })
 
-    if (loginError) {
-      setError('Email atau password tidak sesuai. Silakan periksa kembali.')
-    } else if (rememberEmail) {
-      localStorage.setItem(REMEMBER_EMAIL_KEY, normalizedEmail)
-    } else {
-      localStorage.removeItem(REMEMBER_EMAIL_KEY)
+      if (loginError) {
+        setError('Email atau password tidak sesuai. Silakan periksa kembali.')
+        return
+      }
+
+      if (rememberEmail) {
+        localStorage.setItem(REMEMBER_EMAIL_KEY, normalizedEmail)
+      } else {
+        localStorage.removeItem(REMEMBER_EMAIL_KEY)
+      }
+    } catch {
+      setError('Tidak dapat terhubung ke layanan login. Periksa koneksi internet, lalu coba lagi.')
+    } finally {
+      setLoading(false)
     }
-
-    setLoading(false)
   }
 
   return (

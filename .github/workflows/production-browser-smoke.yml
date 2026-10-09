@@ -11,6 +11,7 @@ permissions:
 jobs:
   browser-smoke:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -42,9 +43,13 @@ jobs:
             ]) {
               const page = await browser.newPage({ viewport: { width: viewport.width, height: viewport.height } })
               const pageErrors = []
+              const consoleErrors = []
               const sameOriginFailures = []
               const sameOriginBadResponses = []
               page.on('pageerror', error => pageErrors.push(error.message))
+              page.on('console', message => {
+                if (message.type() === 'error') consoleErrors.push(message.text())
+              })
               page.on('response', response => {
                 if (response.url().startsWith('https://sistem-transport-zt.vercel.app/') && response.status() >= 400) {
                   sameOriginBadResponses.push({ url: response.url(), status: response.status() })
@@ -70,6 +75,20 @@ jobs:
                   rootChildCount: root?.children.length ?? 0,
                   rootHtmlLength: root?.innerHTML.length ?? 0,
                   bodyText: (document.body?.innerText || '').slice(0, 250),
+                  welcomeHeadingVisible: Array.from(document.querySelectorAll('h1')).some(node => node.innerText.trim() === 'Selamat datang'),
+                  emailFieldValid: Boolean(document.querySelector('input[type="email"][autocomplete="username"][required]')),
+                  passwordFieldValid: Boolean(document.querySelector('input[autocomplete="current-password"][required]')),
+                  loginSubmitVisible: Array.from(document.querySelectorAll('button')).some(node => node.innerText.includes('Masuk ke Sistem')),
+                  logoLoaded: (() => {
+                    const logo = document.querySelector('img[alt="PT Zaman Teknindo"]')
+                    return Boolean(logo && logo.complete && logo.naturalWidth > 0)
+                  })(),
+                  loginCardBounds: (() => {
+                    const card = document.querySelector('.login-card')
+                    if (!card) return null
+                    const rect = card.getBoundingClientRect()
+                    return { left: rect.left, right: rect.right, width: rect.width }
+                  })(),
                   viewportWidth: window.innerWidth,
                   documentWidth: document.documentElement.scrollWidth,
                 }
@@ -78,13 +97,42 @@ jobs:
               if (!result.rootFound || result.rootHtmlLength < 30) {
                 failures.push(viewport.name + ': React root did not render meaningful content: ' + JSON.stringify(result))
               }
+              if (!result.welcomeHeadingVisible || !result.emailFieldValid || !result.passwordFieldValid || !result.loginSubmitVisible) {
+                failures.push(viewport.name + ': required login controls are missing or inaccessible: ' + JSON.stringify(result))
+              }
+              if (!result.logoLoaded) failures.push(viewport.name + ': company logo did not load')
+              if (!result.loginCardBounds || result.loginCardBounds.left < -1 || result.loginCardBounds.right > result.viewportWidth + 1) {
+                failures.push(viewport.name + ': login card overflows the viewport: ' + JSON.stringify(result.loginCardBounds))
+              }
               if (pageErrors.length) failures.push(viewport.name + ': JavaScript page errors: ' + JSON.stringify(pageErrors))
+              if (consoleErrors.length) failures.push(viewport.name + ': browser console errors: ' + JSON.stringify(consoleErrors))
               if (sameOriginFailures.length) failures.push(viewport.name + ': failed same-origin requests: ' + JSON.stringify(sameOriginFailures))
               if (sameOriginBadResponses.length) failures.push(viewport.name + ': same-origin HTTP errors: ' + JSON.stringify(sameOriginBadResponses))
               if (result.documentWidth > result.viewportWidth + 2) {
+                failures.push(viewport.name + ': horizontal overflow detected')
                 summaries.push({ viewport: viewport.name, horizontalOverflow: true, details: result })
               } else {
                 summaries.push({ viewport: viewport.name, horizontalOverflow: false, details: result })
+              }
+
+              const passwordField = page.locator('input[autocomplete="current-password"]')
+              const showPasswordButton = page.getByRole('button', { name: 'Tampilkan password' })
+              if (await passwordField.count() === 1 && await showPasswordButton.count() === 1) {
+                await showPasswordButton.click()
+                if (await passwordField.getAttribute('type') !== 'text') {
+                  failures.push(viewport.name + ': password visibility toggle did not reveal the field')
+                }
+                const hidePasswordButton = page.getByRole('button', { name: 'Sembunyikan password' })
+                if (await hidePasswordButton.count() === 1) {
+                  await hidePasswordButton.click()
+                  if (await passwordField.getAttribute('type') !== 'password') {
+                    failures.push(viewport.name + ': password visibility toggle did not hide the field')
+                  }
+                } else {
+                  failures.push(viewport.name + ': password hide control is missing after reveal')
+                }
+              } else {
+                failures.push(viewport.name + ': password visibility control is missing')
               }
               await page.close()
             }

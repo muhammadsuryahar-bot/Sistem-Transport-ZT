@@ -10,9 +10,7 @@ import DataPageTools from './modules/DataPageTools'
 import './App.css'
 import { decodeExcelMeta } from './utils/excelSourceMeta.js'
 import { formatMonthSafe } from './utils/dateSafe'
-
-const LOGO_BASE_URL = 'https://raw.githubusercontent.com/muhammadsuryahar-bot/Sistem-Transport-ZT/main/frontend/src/assets'
-const LOGO_MARK_URL = `${LOGO_BASE_URL}/logo.png`
+import logoMark from './assets/logo.png'
 
 const ROLE_LABELS = { ADMIN: 'Administrator', TRANSPORT: 'Transport', OPERASIONAL: 'Operasional', ATASAN_TRANSPORT: 'Atasan Transport', DIREKTUR: 'Direktur', AKUNTANSI: 'Akuntansi' }
 const ROLE_ACCESS = {
@@ -54,21 +52,39 @@ function AppTransport() {
 
   const loadProfile = async (userId) => {
     const requestId = ++profileRequestRef.current
-    const { data, error } = await supabase.from('profiles').select('id,nama_lengkap,email,nomor_hp,role,aktif').eq('id', userId).single()
+    let result
+    try {
+      result = await supabase.from('profiles').select('id,nama_lengkap,email,nomor_hp,role,aktif').eq('id', userId).single()
+    } catch (requestError) {
+      if (requestId !== profileRequestRef.current) return
+      console.error('Profile request failed:', requestError)
+      setProfile(null)
+      setErrorMessage('Profil pengguna tidak dapat dimuat. Periksa koneksi lalu coba lagi.')
+      return
+    }
+
+    const { data, error } = result
     if (requestId !== profileRequestRef.current) return
     if (error || !data) {
       console.error('Profile error:', error)
       setProfile(null)
-      setErrorMessage('Profil pengguna tidak dapat dimuat.')
+      setErrorMessage('Profil pengguna tidak dapat dimuat. Silakan coba lagi.')
       return
     }
     if (!data.aktif) {
-      await supabase.auth.signOut()
+      // Set the user-facing message before signOut: the auth listener may
+      // invalidate this request while the sign-out promise is still pending.
+      setErrorMessage('Akun ini sedang dinonaktifkan. Hubungi administrator.')
+      try {
+        const { error: signOutError } = await supabase.auth.signOut()
+        if (signOutError) console.error('Disabled account sign-out failed:', signOutError)
+      } catch (signOutError) {
+        console.error('Disabled account sign-out failed:', signOutError)
+      }
       if (requestId !== profileRequestRef.current) return
       profileRequestRef.current += 1
       setSession(null)
       setProfile(null)
-      setErrorMessage('Akun ini sedang dinonaktifkan. Hubungi administrator.')
       return
     }
     setProfile(data)
@@ -77,12 +93,20 @@ function AppTransport() {
   useEffect(() => {
     let mounted = true
     const initialize = async () => {
-      const { data, error } = await supabase.auth.getSession()
-      if (!mounted) return
-      if (error) setErrorMessage('Sesi login tidak dapat diperiksa. Silakan coba lagi.')
-      setSession(data.session)
-      if (data.session?.user) await loadProfile(data.session.user.id)
-      if (mounted) setAuthLoading(false)
+      try {
+        const { data, error } = await supabase.auth.getSession()
+        if (!mounted) return
+        if (error) setErrorMessage('Sesi login tidak dapat diperiksa. Silakan coba lagi.')
+        setSession(data.session)
+        if (data.session?.user) await loadProfile(data.session.user.id)
+      } catch (sessionError) {
+        if (mounted) {
+          console.error('Session initialization failed:', sessionError)
+          setErrorMessage('Sesi login tidak dapat diperiksa. Periksa koneksi lalu coba lagi.')
+        }
+      } finally {
+        if (mounted) setAuthLoading(false)
+      }
     }
     initialize()
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
@@ -110,7 +134,23 @@ function AppTransport() {
     const savedPage = localStorage.getItem('transport_active_page')
     if (savedPage && allowedPages.includes(savedPage) && savedPage !== activePage) setActivePage(savedPage)
   }, [session, profile, allowedPages, activePage])
-  const handleLogout = async () => { setSubmitting(true); await supabase.auth.signOut(); setSession(null); setProfile(null); localStorage.removeItem('transport_active_page'); setActivePage('dashboard'); setSubmitting(false) }
+  const handleLogout = async () => {
+    setSubmitting(true)
+    setErrorMessage('')
+    try {
+      const { error } = await supabase.auth.signOut()
+      if (error) throw error
+      setSession(null)
+      setProfile(null)
+      localStorage.removeItem('transport_active_page')
+      setActivePage('dashboard')
+    } catch (logoutError) {
+      console.error('Logout failed:', logoutError)
+      setErrorMessage('Tidak dapat keluar dari sistem. Periksa koneksi, lalu coba lagi.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   const exportCurrentPage = async () => {
     if (!profile || activePage === 'dashboard' || activePage === 'pengguna') return
@@ -224,7 +264,7 @@ function AppTransport() {
       }
     } catch (error) {
       console.error('Export error:', error)
-      setErrorMessage(`Export gagal: ${error?.message || 'Data tidak dapat diekspor.'}`)
+      setErrorMessage('Ekspor gagal. Periksa koneksi dan hak akses data, lalu coba lagi. Jika masalah berlanjut, hubungi administrator.')
     } finally {
       setExportingPage(false)
     }
@@ -236,7 +276,7 @@ function AppTransport() {
   if (!profile) return <div className="app-loading-screen"><div className="app-loading-card"><strong>PT ZAMAN TEKNINDO</strong><span>Memuat profil pengguna…</span></div></div>
 
   const pageContent = { dashboard: <DashboardFeaturePage profile={profile} onNavigate={navigateToPage}/>, kendaraan: <KendaraanPage profile={profile} onNavigate={navigateToPage}/>, pengajuan: <PermintaanServicePage profile={profile}/>, service: <ServicePage profile={profile}/>, sewa: <RentalPage profile={profile} onNavigate={navigateToPage}/>, dokumen: <DocumentsPage profile={profile}/>, laporan: <ReportsPage profile={profile} onNavigate={navigateToPage} />, pengguna: <UsersPage profile={profile} /> }
-  return <div className="dashboard-layout">{sidebarOpen && <button className="sidebar-overlay" onClick={() => setSidebarOpen(false)} aria-label="Tutup menu"/>}<aside className={`sidebar ${sidebarOpen ? 'sidebar-open' : ''}`}><div className="sidebar-brand"><div className="sidebar-brand-mark"><img src={LOGO_MARK_URL} alt=""/></div><div className="sidebar-brand-copy"><strong>PT ZAMAN TEKNINDO</strong><span>Sistem Transport</span></div></div><div className="nav-section-label">MENU UTAMA</div><nav className="sidebar-nav" aria-label="Navigasi utama">{visibleNavItems.map((item) => <button key={item.id} className={`nav-item ${activePage === item.id ? 'active' : ''}`} onClick={() => { navigateToPage(item.id); setSidebarOpen(false) }}><span className="nav-icon" data-icon={item.icon} aria-hidden="true"/><span>{item.label}</span></button>)}</nav><div className="sidebar-bottom"><div className="user-mini"><div className="avatar">{(profile?.nama_lengkap || profile?.email || 'U').charAt(0).toUpperCase()}</div><div className="user-mini-text"><strong>{profile?.nama_lengkap || 'Pengguna'}</strong><span>{ROLE_LABELS[profile?.role] || profile?.role}</span></div></div><button className="logout-button" onClick={handleLogout} disabled={submitting}>Keluar</button></div></aside><main className="main-content"><header className="topbar"><button className="menu-button" onClick={() => setSidebarOpen(true)} aria-label="Buka menu">☰</button><div><span className="topbar-label">SISTEM TRANSPORT</span><h1>{NAV_ITEMS.find((item) => item.id === activePage)?.label || 'Dashboard'}</h1></div><div className="topbar-user"><div className="avatar">{(profile?.nama_lengkap || profile?.email || 'U').charAt(0).toUpperCase()}</div><div><strong>{profile?.nama_lengkap || profile?.email}</strong><span>{ROLE_LABELS[profile?.role] || profile?.role}</span></div></div></header><div className={`content-container ${navigationPending ? "page-navigation-pending" : ""}`}><DataPageTools context={activePage} profile={profile} onExport={exportCurrentPage}/>{navigationPending && <div className="page-navigation-indicator" role="status" aria-live="polite">Memuat menu…</div>}{pageContent[activePage] || pageContent.dashboard}</div></main></div>
+  return <div className="dashboard-layout">{sidebarOpen && <button className="sidebar-overlay" onClick={() => setSidebarOpen(false)} aria-label="Tutup menu"/>}<aside className={`sidebar ${sidebarOpen ? 'sidebar-open' : ''}`}><div className="sidebar-brand"><div className="sidebar-brand-mark"><img src={logoMark} alt=""/></div><div className="sidebar-brand-copy"><strong>PT ZAMAN TEKNINDO</strong><span>Sistem Transport</span></div></div><div className="nav-section-label">MENU UTAMA</div><nav className="sidebar-nav" aria-label="Navigasi utama">{visibleNavItems.map((item) => <button key={item.id} className={`nav-item ${activePage === item.id ? 'active' : ''}`} onClick={() => { navigateToPage(item.id); setSidebarOpen(false) }}><span className="nav-icon" data-icon={item.icon} aria-hidden="true"/><span>{item.label}</span></button>)}</nav><div className="sidebar-bottom"><div className="user-mini"><div className="avatar">{(profile?.nama_lengkap || profile?.email || 'U').charAt(0).toUpperCase()}</div><div className="user-mini-text"><strong>{profile?.nama_lengkap || 'Pengguna'}</strong><span>{ROLE_LABELS[profile?.role] || profile?.role}</span></div></div><button className="logout-button" onClick={handleLogout} disabled={submitting}>Keluar</button></div></aside><main className="main-content"><header className="topbar"><button className="menu-button" onClick={() => setSidebarOpen(true)} aria-label="Buka menu">☰</button><div><span className="topbar-label">SISTEM TRANSPORT</span><h1>{NAV_ITEMS.find((item) => item.id === activePage)?.label || 'Dashboard'}</h1></div><div className="topbar-user"><div className="avatar">{(profile?.nama_lengkap || profile?.email || 'U').charAt(0).toUpperCase()}</div><div><strong>{profile?.nama_lengkap || profile?.email}</strong><span>{ROLE_LABELS[profile?.role] || profile?.role}</span></div></div></header><div className={`content-container ${navigationPending ? "page-navigation-pending" : ""}`}><DataPageTools context={activePage} profile={profile} onExport={exportCurrentPage}/>{errorMessage && <div className="app-global-error" role="alert"><span>{errorMessage}</span><button type="button" aria-label="Tutup pesan" onClick={() => setErrorMessage('')}>Tutup</button></div>}{navigationPending && <div className="page-navigation-indicator" role="status" aria-live="polite">Memuat menu…</div>}{pageContent[activePage] || pageContent.dashboard}</div></main></div>
 }
 
 export default AppTransport
