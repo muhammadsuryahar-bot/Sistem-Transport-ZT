@@ -223,13 +223,14 @@ export default function ServiceFeaturePage({ profile }) {
         ? await supabase.from('service').update(payload).eq('id', editingServiceId).select('*').single()
         : await supabase.from('service').insert({ ...payload, nomor_service: `SRV-${Date.now()}` }).select('*').single()
       if (result.error) throw result.error
-      if (form.permintaan_service_id) {
-        const requestUpdate = await supabase.from('permintaan_service').update({ status: needsApproval ? 'MENUNGGU_APPROVAL' : 'DALAM_PROSES', diproses_oleh: profile.id, diproses_at: new Date().toISOString() }).eq('id', form.permintaan_service_id)
-        if (requestUpdate.error) throw new Error(`Service tersimpan tetapi status pengajuan gagal: ${requestUpdate.error.message}`)
-      }
       setForm({ ...emptyService, tanggal_service: new Date().toISOString().slice(0, 10) }); setEditingServiceId(null)
       setServices(current => editingServiceId ? current.map(row => row.id === result.data.id ? result.data : row) : [result.data, ...current])
-      setRequests(current => form.permintaan_service_id ? current.map(row => row.id === Number(form.permintaan_service_id) ? { ...row, status: needsApproval ? 'MENUNGGU_APPROVAL' : 'DALAM_PROSES', diproses_oleh: profile.id, diproses_at: new Date().toISOString() } : row) : current)
+      if (form.permintaan_service_id) {
+        setRequests(current => current.map(row => row.id === Number(form.permintaan_service_id)
+          ? { ...row, status: needsApproval ? 'MENUNGGU_APPROVAL' : 'DALAM_PROSES', diproses_oleh: profile.id, diproses_at: new Date().toISOString() }
+          : row
+        ))
+      }
       emitServiceStateUpdate({ kind: 'service', service: result.data })
       setSuccess(editingServiceId ? `Service ${result.data.nomor_service || result.data.id} diperbarui.` : `Service ${result.data.nomor_service} berhasil dibuat.${form.permintaan_service_id ? '' : ' Service dibuat langsung tanpa pengajuan.'}`)
     } catch (e2) { setError(humanizeError(e2)) } finally { setSaving(false) }
@@ -256,7 +257,61 @@ export default function ServiceFeaturePage({ profile }) {
   }
   const confirmApproval = async approved => { if (!approvalModal) return; const s = approvalModal.service; setSaving(true); clearMessages(); try { const required = approvalModal.required; const currentApproved = approvedCount(s); const next = Math.max(0, ...approvalList(s).map(a => Number(a.urutan) || 0)) + 1; const estimate = Number(s.estimasi_biaya || 0); const actual = Number(s.biaya_aktual ?? estimate); const approvalComplete = approved && (currentApproved >= 1 || actual <= estimate); const { data: approval, error: e1 } = await supabase.from('service_approval').insert({ service_id: s.id, urutan: next, jenis_approval: required === 'DIREKTUR' ? 'DIREKTUR' : 'KEPALA_BAGIAN', pemberi_approval: profile.id, status: approved ? 'DISETUJUI' : 'DITOLAK', waktu_approval: new Date().toISOString(), catatan: approvalNote.trim() || null }).select('*').single(); if (e1) throw e1; const { error: e2 } = await supabase.from('service').update({ status: approved ? (approvalComplete ? 'DISETUJUI' : 'MENUNGGU_APPROVAL') : 'DITOLAK' }).eq('id', s.id); if (e2) throw e2; setApprovals(current => [approval, ...current]); setServices(current => current.map(row => row.id === s.id ? { ...row, status: approved ? (approvalComplete ? 'DISETUJUI' : 'MENUNGGU_APPROVAL') : 'DITOLAK' } : row)); emitServiceStateUpdate({ kind: 'approval', approval }); emitServiceStateUpdate({ kind: 'service', service: { ...s, status: approved ? (approvalComplete ? 'DISETUJUI' : 'MENUNGGU_APPROVAL') : 'DITOLAK' } }); setSuccess(approved ? (approvalComplete ? `Approval ke-${next} service disetujui dan approval telah lengkap.` : `Approval ke-${next} service disetujui. Masih menunggu approval berikutnya.`) : 'Service ditolak.'); setApprovalModal(null); setApprovalNote('') } catch (e3) { setError(humanizeError(e3)) } finally { setSaving(false) } }
   const updateActual = async () => { if (!selected) return; const value = Number(detailEdit.biaya_aktual); if (!Number.isFinite(value) || value < 0) { setError('Biaya aktual tidak valid.'); return } const estimate = Number(selected.estimasi_biaya || 0); const count = approvedCount(selected); const directorApproved = hasDirectorApproval(selected); const requiredCount = estimate > 5000000 ? (value > estimate ? 2 : 1) : ((value > estimate || value > 5000000) ? 1 : 0); const needsApproval = count < requiredCount || (value > 5000000 && !directorApproved); setSaving(true); clearMessages(); const { error: e } = await supabase.from('service').update({ biaya_aktual: value, status: needsApproval ? 'MENUNGGU_APPROVAL' : selected.status }).eq('id', selected.id); setSaving(false); if (e) setError(humanizeError(e)); else { const nextStatus = needsApproval ? 'MENUNGGU_APPROVAL' : selected.status; setSelected({ ...selected, biaya_aktual: value, status: nextStatus }); setServices(current => current.map(row => row.id === selected.id ? { ...row, biaya_aktual: value, status: nextStatus } : row)); emitServiceStateUpdate({ kind: 'service', service: { ...selected, biaya_aktual: value, status: nextStatus } }); setSuccess('Biaya aktual diperbarui. Sistem akan meminta approval sesuai perubahan nilai biaya.') } }
-  const finish = async s => { clearMessages(); const actual = s.biaya_aktual === null || s.biaya_aktual === '' ? Number(s.estimasi_biaya || 0) : Number(s.biaya_aktual); const estimate = Number(s.estimasi_biaya || 0); const count = approvedCount(s); const requiredCount = estimate > 5000000 ? (actual > estimate ? 2 : 1) : ((actual > estimate || actual > 5000000) ? 1 : 0); if (!Number.isFinite(actual) || actual < 0 || !Number.isFinite(estimate) || estimate < 0) { setError('Nilai biaya service tidak valid.'); return } if (actual > 5000000 && !hasDirectorApproval(s)) { setError('Biaya aktual di atas Rp5.000.000 memerlukan approval Direktur.'); return } if (count < requiredCount) { setError('Approval yang diwajibkan belum lengkap untuk nilai service saat ini.'); return } setSaving(true); try { const now = new Date().toISOString(); const { error: e1 } = await supabase.from('service').update({ status: 'SELESAI', biaya_aktual: actual, selesai_at: now }).eq('id', s.id); if (e1) throw e1; const { error: e2 } = await supabase.from('permintaan_service').update({ status: 'SELESAI', diproses_oleh: profile.id, diproses_at: now }).eq('id', s.permintaan_service_id); if (e2) throw e2; const { data: k } = await supabase.from('riwayat_kilometer').select('kilometer').eq('kendaraan_id', s.kendaraan_id).order('kilometer', { ascending: false }).limit(1); if (Number(s.kilometer || 0) >= Number(k?.[0]?.kilometer || 0)) { await supabase.from('kendaraan').update({ kilometer_terakhir: Number(s.kilometer || 0) }).eq('id', s.kendaraan_id); setVehicles(current => current.map(row => row.id === s.kendaraan_id ? { ...row, kilometer_terakhir: Number(s.kilometer || 0) } : row)) }; setServices(current => current.map(row => row.id === s.id ? { ...row, status: 'SELESAI', biaya_aktual: actual, selesai_at: now } : row)); setRequests(current => current.map(row => row.id === s.permintaan_service_id ? { ...row, status: 'SELESAI', diproses_oleh: profile.id, diproses_at: now } : row)); emitServiceStateUpdate({ kind: 'service', service: { ...s, status: 'SELESAI', biaya_aktual: actual, selesai_at: now }, request: { id: s.permintaan_service_id, status: 'SELESAI', diproses_oleh: profile.id, diproses_at: now } }); setSelected(null); setSuccess('Service selesai, status pengajuan ditutup, dan KM kendaraan diperbarui.') } catch (e3) { setError(humanizeError(e3)) } finally { setSaving(false) } }
+  const finish = async s => {
+    clearMessages()
+    const actual = s.biaya_aktual === null || s.biaya_aktual === '' ? Number(s.estimasi_biaya || 0) : Number(s.biaya_aktual)
+    const estimate = Number(s.estimasi_biaya || 0)
+    const count = approvedCount(s)
+    const requiredCount = estimate > 5000000
+      ? (actual > estimate ? 2 : 1)
+      : ((actual > estimate || actual > 5000000) ? 1 : 0)
+    if (!Number.isFinite(actual) || actual < 0 || !Number.isFinite(estimate) || estimate < 0) {
+      setError('Nilai biaya service tidak valid.')
+      return
+    }
+    if (actual > 5000000 && !hasDirectorApproval(s)) {
+      setError('Biaya aktual di atas Rp5.000.000 memerlukan approval Direktur.')
+      return
+    }
+    if (count < requiredCount) {
+      setError('Approval yang diwajibkan belum lengkap untuk nilai service saat ini.')
+      return
+    }
+    setSaving(true)
+    try {
+      const now = new Date().toISOString()
+      const { error: e1 } = await supabase.from('service').update({
+        status: 'SELESAI',
+        biaya_aktual: actual,
+        selesai_at: now,
+      }).eq('id', s.id)
+      if (e1) throw e1
+
+      setVehicles(current => current.map(row => row.id === s.kendaraan_id
+        ? { ...row, kilometer_terakhir: Math.max(Number(row.kilometer_terakhir || 0), Number(s.kilometer || 0)) }
+        : row
+      ))
+      setServices(current => current.map(row => row.id === s.id
+        ? { ...row, status: 'SELESAI', biaya_aktual: actual, selesai_at: now }
+        : row
+      ))
+      setRequests(current => current.map(row => row.id === s.permintaan_service_id
+        ? { ...row, status: 'SELESAI', diproses_oleh: profile.id, diproses_at: now }
+        : row
+      ))
+      emitServiceStateUpdate({
+        kind: 'service',
+        service: { ...s, status: 'SELESAI', biaya_aktual: actual, selesai_at: now },
+        request: { id: s.permintaan_service_id, status: 'SELESAI', diproses_oleh: profile.id, diproses_at: now },
+      })
+      setSelected(null)
+      setSuccess('Service selesai, status pengajuan ditutup, dan KM kendaraan diperbarui.')
+    } catch (e3) {
+      setError(humanizeError(e3))
+    } finally {
+      setSaving(false)
+    }
+  }
   const saveItem = async e => {
     e.preventDefault(); clearMessages()
     const jumlah = Number(itemForm.jumlah || 0), harga = Number(itemForm.harga_satuan || 0)
@@ -273,7 +328,7 @@ export default function ServiceFeaturePage({ profile }) {
       setItems(current => editingItemId ? current.map(row => row.id === result.data.id ? result.data : row) : [result.data, ...current])
       setSuccess(editingItemId ? 'Item service diperbarui.' : 'Item service tersimpan.')
       setEditingItemId(null); setItemForm(emptyItem)
-    } catch (err) { setError(humanizeError(err)) } finally { setSaving(false) }
+    } catch (err) { setError(err.message) } finally { setSaving(false) }
   }
   const deleteItem = async item => {
     if (!canProcess) return
@@ -285,7 +340,7 @@ export default function ServiceFeaturePage({ profile }) {
       if (!result.data) throw new Error('Item service tidak berhasil dihapus.')
       setItems(current => current.filter(row => row.id !== item.id))
       setSuccess('Item service dihapus.')
-    } catch (err) { setError(humanizeError(err)) } finally { setSaving(false) }
+    } catch (err) { setError(err.message) } finally { setSaving(false) }
   }
   const editItem = item => { setEditingItemId(item.id); setItemForm({ service_id: item.service_id, nama_item: item.nama_item || '', kategori: item.kategori || 'SPAREPART', jumlah: item.jumlah ?? 1, satuan: item.satuan || 'pcs', harga_satuan: item.harga_satuan ?? '', keterangan: item.keterangan || '' }); setTab('item') }
   const saveProof = async e => {
@@ -309,7 +364,7 @@ export default function ServiceFeaturePage({ profile }) {
       emitServiceStateUpdate({ kind: 'proof', proof: result.data })
       setSuccess(editingProofId ? 'Bukti service diperbarui.' : 'Bukti service berhasil diunggah.')
       setFile(null); setEditingProofId(null); setProofForm(emptyProof)
-    } catch (err) { if (path) await supabase.storage.from('service-bukti').remove([path]); setError(humanizeError(err)) } finally { setSaving(false) }
+    } catch (err) { if (path) await supabase.storage.from('service-bukti').remove([path]); setError(err.message) } finally { setSaving(false) }
   }
   const editProof = proof => { setEditingProofId(proof.id); setProofForm({ service_id: proof.service_id, jenis_bukti: proof.jenis_bukti || 'BON_INVOICE', keterangan: proof.keterangan || '' }); setFile(null); setTab('bukti') }
   const deleteProof = async proof => {
@@ -323,7 +378,7 @@ export default function ServiceFeaturePage({ profile }) {
       if (proof.file_path) await supabase.storage.from('service-bukti').remove([proof.file_path])
       setProofs(current => current.filter(row => row.id !== proof.id))
       setSuccess('Bukti service dihapus.')
-    } catch (err) { setError(humanizeError(err)) } finally { setSaving(false) }
+    } catch (err) { setError(err.message) } finally { setSaving(false) }
   }
   const savePart = async e => {
     e.preventDefault(); clearMessages()
@@ -350,7 +405,7 @@ export default function ServiceFeaturePage({ profile }) {
       else setAkis(current => editingPartId ? current.map(row => row.id === result.data.id ? result.data : row) : [result.data, ...current])
       setSuccess(editingPartId ? 'Riwayat penggantian diperbarui.' : 'Riwayat penggantian tersimpan.')
       setFile(null); setEditingPartId(null); setPartForm({ ...emptyPart, _type: partForm._type })
-    } catch (err) { if (uploadedPath) await supabase.storage.from('service-bukti').remove([uploadedPath]); setError(humanizeError(err)) } finally { setSaving(false) }
+    } catch (err) { if (uploadedPath) await supabase.storage.from('service-bukti').remove([uploadedPath]); setError(err.message) } finally { setSaving(false) }
   }
   const editPart = row => {
     const type = tab === 'ban' ? 'BAN' : 'AKI'
@@ -368,7 +423,7 @@ export default function ServiceFeaturePage({ profile }) {
       if (row.foto_sebelum_path) await supabase.storage.from('service-bukti').remove([row.foto_sebelum_path])
       if (tab === 'ban') setBans(current => current.filter(x => x.id !== row.id)); else setAkis(current => current.filter(x => x.id !== row.id))
       setSuccess('Riwayat penggantian dihapus.')
-    } catch (err) { setError(humanizeError(err)) } finally { setSaving(false) }
+    } catch (err) { setError(err.message) } finally { setSaving(false) }
   }
   const saveKm = async e => {
     e.preventDefault(); clearMessages()
@@ -390,7 +445,7 @@ export default function ServiceFeaturePage({ profile }) {
       setKms(currentRows => editingKmId ? currentRows.map(row => row.id === result.data.id ? result.data : row) : [result.data, ...currentRows])
       setSuccess(editingKmId ? 'Riwayat KM diperbarui.' : 'Riwayat KM tersimpan.')
       setEditingKmId(null); setKmForm({ ...emptyKm, tanggal: new Date().toISOString().slice(0, 10) })
-    } catch (err) { setError(humanizeError(err)) } finally { setSaving(false) }
+    } catch (err) { setError(err.message) } finally { setSaving(false) }
   }
   const editKm = row => { setEditingKmId(row.id); setKmForm({ kendaraan_id: row.kendaraan_id, tanggal: row.tanggal, kilometer: row.kilometer, sumber: row.sumber || 'MANUAL', keterangan: row.keterangan || '' }); setTab('km') }
   const deleteKm = async row => {
@@ -403,7 +458,7 @@ export default function ServiceFeaturePage({ profile }) {
       if (!result.data) throw new Error('Riwayat KM tidak berhasil dihapus.')
       setKms(currentRows => currentRows.filter(x => x.id !== row.id))
       setSuccess('Riwayat KM dihapus. KM terakhir kendaraan perlu dicek kembali jika data paling baru ikut terhapus.')
-    } catch (err) { setError(humanizeError(err)) } finally { setSaving(false) }
+    } catch (err) { setError(err.message) } finally { setSaving(false) }
   }
   const openDetail = async s => { setSelected(s); setDetailEdit({ biaya_aktual: s.biaya_aktual ?? s.estimasi_biaya ?? '' }); await ensureServiceDetailData(s.id) }
   const openServiceEdit = s => { setEditingServiceId(s.id); setForm({ ...emptyService, permintaan_service_id: s.permintaan_service_id ?? '', kendaraan_id: s.kendaraan_id ?? '', tanggal_service: s.tanggal_service || new Date().toISOString().slice(0, 10), kilometer: s.kilometer ?? '', bengkel: s.bengkel || '', jenis_service: s.jenis_service || 'SERVICE', keluhan: s.keluhan || '', estimasi_biaya: s.estimasi_biaya ?? '', biaya_aktual: s.biaya_aktual ?? '', nilai_dpp: s.nilai_dpp ?? '', ppn: s.ppn ?? '', total: s.total ?? '', catatan: s.catatan || '' }); setTab('pekerjaan'); setSelected(null) }
