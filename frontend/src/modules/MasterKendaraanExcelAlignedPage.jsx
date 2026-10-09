@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { humanizeError } from '../utils/feedback.js'
 import './MasterKendaraanExcelAlignedPage.css'
@@ -79,15 +79,6 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
     return () => window.removeEventListener('transport:data-imported', onImported)
   }, [])
 
-  useEffect(() => {
-    if (loading || !canEdit || !vehicles.length) return
-    const focusId = localStorage.getItem('transport_vehicle_focus_id')
-    if (!focusId) return
-    const vehicle = vehicles.find(row => String(row.id) === String(focusId))
-    if (!vehicle) return
-    localStorage.removeItem('transport_vehicle_focus_id')
-    openEdit(vehicle)
-  }, [loading, vehicles, canEdit])
 
   const driverMap = useMemo(() => Object.fromEntries(drivers.map(d => [d.id, d])), [drivers])
   const ownerOptions = useMemo(() => Array.from(new Set(vehicles.map(v => clean(v.pemilik)).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'id')), [vehicles])
@@ -111,7 +102,7 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
 
   const resetModal = () => { setEditing(null); setForm({ ...EMPTY }); setPhotoFiles({}); setPhotoUrls({}); setModal(false); setError('') }
   const openNew = () => { setEditing(null); setForm({ ...EMPTY, kode_kendaraan: `KND-${Date.now()}` }); setPhotoFiles({}); setPhotoUrls({}); setError(''); setModal(true) }
-  const openEdit = async vehicle => {
+  const openEdit = useCallback(async vehicle => {
     setEditing(vehicle)
     setForm({ ...EMPTY, ...vehicle, kepemilikan: normalizeOwnership(vehicle.kepemilikan), jenis_sewa: normalizeRentalType(vehicle.jenis_sewa), harga_perolehan: vehicle.harga_perolehan ?? '', driver_id: vehicle.driver_id ?? '' })
     setPhotoFiles({})
@@ -122,7 +113,17 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
       const { data } = await supabase.storage.from('kendaraan').createSignedUrl(vehicle.foto_stnk_path, 3600)
       if (data?.signedUrl) setPhotoUrls({ stnk: data.signedUrl })
     }
-  }
+  }, [])
+  useEffect(() => {
+    if (loading || !canEdit || !vehicles.length) return
+    const focusId = localStorage.getItem('transport_vehicle_focus_id')
+    if (!focusId) return
+    const vehicle = vehicles.find(row => String(row.id) === String(focusId))
+    if (!vehicle) return
+    localStorage.removeItem('transport_vehicle_focus_id')
+    openEdit(vehicle)
+  }, [loading, vehicles, canEdit, openEdit]
+
   const change = event => {
     const { name, value } = event.target
     setForm(current => ({ ...current, [name]: value,  }))
