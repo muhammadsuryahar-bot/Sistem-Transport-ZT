@@ -1,10 +1,9 @@
-name: Temporary production browser smoke test
+name: Production browser smoke test
 
 on:
-  pull_request:
+  push:
     branches: [main]
-    paths:
-      - '.github/workflows/temporary-production-browser-smoke.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -44,7 +43,13 @@ jobs:
               const page = await browser.newPage({ viewport: { width: viewport.width, height: viewport.height } })
               const pageErrors = []
               const sameOriginFailures = []
+              const sameOriginBadResponses = []
               page.on('pageerror', error => pageErrors.push(error.message))
+              page.on('response', response => {
+                if (response.url().startsWith('https://sistem-transport-zt.vercel.app/') && response.status() >= 400) {
+                  sameOriginBadResponses.push({ url: response.url(), status: response.status() })
+                }
+              })
               page.on('requestfailed', request => {
                 if (request.url().startsWith('https://sistem-transport-zt.vercel.app/')) {
                   sameOriginFailures.push({ url: request.url(), error: request.failure()?.errorText || 'request failed' })
@@ -75,6 +80,7 @@ jobs:
               }
               if (pageErrors.length) failures.push(viewport.name + ': JavaScript page errors: ' + JSON.stringify(pageErrors))
               if (sameOriginFailures.length) failures.push(viewport.name + ': failed same-origin requests: ' + JSON.stringify(sameOriginFailures))
+              if (sameOriginBadResponses.length) failures.push(viewport.name + ': same-origin HTTP errors: ' + JSON.stringify(sameOriginBadResponses))
               if (result.documentWidth > result.viewportWidth + 2) {
                 summaries.push({ viewport: viewport.name, horizontalOverflow: true, details: result })
               } else {
