@@ -32,3 +32,10 @@ jobs:
         run: |
           npm audit --json > npm-audit-report.json || true
           node --input-type=commonjs -e 'const r=require("./npm-audit-report.json"); console.log("summary", JSON.stringify(r.metadata?.vulnerabilities || {})); for (const [name,v] of Object.entries(r.vulnerabilities || {})) console.log(JSON.stringify({name,severity:v.severity,range:v.range,via:(v.via||[]).map(x=>typeof x==="string"?x:{name:x.name,title:x.title,url:x.url,range:x.range}),nodes:v.nodes,fixAvailable:v.fixAvailable}));'
+
+      - name: Preview compatible audit fixes
+        working-directory: frontend
+        shell: bash
+        run: |
+          npm audit fix --package-lock-only
+          git diff -- package-lock.json
