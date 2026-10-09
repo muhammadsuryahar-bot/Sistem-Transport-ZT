@@ -198,6 +198,50 @@ button {
   text-align: center;
 }
 
+.app-global-error {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border: 1px solid #efcfca;
+  border-radius: 11px;
+  background: #fff3f1;
+  color: #953b33;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.app-global-error button {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding: 5px 10px;
+  border: 1px solid #e3b9b3;
+  border-radius: 8px;
+  background: #fff;
+  color: #8d342d;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.app-global-error button:hover {
+  background: #ffe9e6;
+}
+
+@media (max-width: 560px) {
+  .app-global-error {
+    gap: 8px;
+    padding: 10px 11px;
+    font-size: 11px;
+  }
+
+  .app-global-error button {
+    min-height: 34px;
+  }
+}
+
 .loading-card {
   display: grid;
   place-items: center;
