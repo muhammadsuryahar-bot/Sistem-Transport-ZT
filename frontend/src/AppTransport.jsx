@@ -54,16 +54,32 @@ function AppTransport() {
 
   const loadProfile = async (userId) => {
     const requestId = ++profileRequestRef.current
-    const { data, error } = await supabase.from('profiles').select('id,nama_lengkap,email,nomor_hp,role,aktif').eq('id', userId).single()
+    let result
+    try {
+      result = await supabase.from('profiles').select('id,nama_lengkap,email,nomor_hp,role,aktif').eq('id', userId).single()
+    } catch (requestError) {
+      if (requestId !== profileRequestRef.current) return
+      console.error('Profile request failed:', requestError)
+      setProfile(null)
+      setErrorMessage('Profil pengguna tidak dapat dimuat. Periksa koneksi lalu coba lagi.')
+      return
+    }
+
+    const { data, error } = result
     if (requestId !== profileRequestRef.current) return
     if (error || !data) {
       console.error('Profile error:', error)
       setProfile(null)
-      setErrorMessage('Profil pengguna tidak dapat dimuat.')
+      setErrorMessage('Profil pengguna tidak dapat dimuat. Silakan coba lagi.')
       return
     }
     if (!data.aktif) {
-      await supabase.auth.signOut()
+      try {
+        const { error: signOutError } = await supabase.auth.signOut()
+        if (signOutError) console.error('Disabled account sign-out failed:', signOutError)
+      } catch (signOutError) {
+        console.error('Disabled account sign-out failed:', signOutError)
+      }
       if (requestId !== profileRequestRef.current) return
       profileRequestRef.current += 1
       setSession(null)
@@ -77,12 +93,20 @@ function AppTransport() {
   useEffect(() => {
     let mounted = true
     const initialize = async () => {
-      const { data, error } = await supabase.auth.getSession()
-      if (!mounted) return
-      if (error) setErrorMessage('Sesi login tidak dapat diperiksa. Silakan coba lagi.')
-      setSession(data.session)
-      if (data.session?.user) await loadProfile(data.session.user.id)
-      if (mounted) setAuthLoading(false)
+      try {
+        const { data, error } = await supabase.auth.getSession()
+        if (!mounted) return
+        if (error) setErrorMessage('Sesi login tidak dapat diperiksa. Silakan coba lagi.')
+        setSession(data.session)
+        if (data.session?.user) await loadProfile(data.session.user.id)
+      } catch (sessionError) {
+        if (mounted) {
+          console.error('Session initialization failed:', sessionError)
+          setErrorMessage('Sesi login tidak dapat diperiksa. Periksa koneksi lalu coba lagi.')
+        }
+      } finally {
+        if (mounted) setAuthLoading(false)
+      }
     }
     initialize()
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
@@ -110,7 +134,23 @@ function AppTransport() {
     const savedPage = localStorage.getItem('transport_active_page')
     if (savedPage && allowedPages.includes(savedPage) && savedPage !== activePage) setActivePage(savedPage)
   }, [session, profile, allowedPages, activePage])
-  const handleLogout = async () => { setSubmitting(true); await supabase.auth.signOut(); setSession(null); setProfile(null); localStorage.removeItem('transport_active_page'); setActivePage('dashboard'); setSubmitting(false) }
+  const handleLogout = async () => {
+    setSubmitting(true)
+    setErrorMessage('')
+    try {
+      const { error } = await supabase.auth.signOut()
+      if (error) throw error
+      setSession(null)
+      setProfile(null)
+      localStorage.removeItem('transport_active_page')
+      setActivePage('dashboard')
+    } catch (logoutError) {
+      console.error('Logout failed:', logoutError)
+      setErrorMessage('Tidak dapat keluar dari sistem. Periksa koneksi, lalu coba lagi.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   const exportCurrentPage = async () => {
     if (!profile || activePage === 'dashboard' || activePage === 'pengguna') return
