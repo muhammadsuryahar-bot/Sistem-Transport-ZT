@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { humanizeError } from '../utils/feedback.js'
 import './TransportOperationsFixed.css'
@@ -42,7 +42,7 @@ export default function ServiceFeaturePage({ profile }) {
   const tabLoadRef = useRef({ bukti: false, ban: false, aki: false, km: false })
   const relatedLoadRef = useRef(new Set())
 
-  const loadTabData = async (targetTab, force = false) => {
+  const loadTabData = useCallback(async (targetTab, force = false) => {
     const target = ['bukti', 'ban', 'aki', 'km'].includes(targetTab) ? targetTab : null
     if (!target) return
     if (!force && tabLoadRef.current[target]) return
@@ -68,7 +68,7 @@ export default function ServiceFeaturePage({ profile }) {
     } catch (e) {
       setError(humanizeError(e))
     }
-  }
+  }, [])
 
   const ensureServiceDetailData = async serviceId => {
     const key = String(serviceId)
@@ -88,7 +88,7 @@ export default function ServiceFeaturePage({ profile }) {
     }
   }
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true)
     setError('')
     tabLoadRef.current = { bukti: false, ban: false, aki: false, km: false }
@@ -110,13 +110,17 @@ export default function ServiceFeaturePage({ profile }) {
     setDrivers(rs[4].data || [])
     setApprovals(rs[5].data || [])
     setLoading(false)
-    await loadTabData(tab, true)
-  }
+  }, [canApprove])
 
   useEffect(() => {
     load()
-    const handleImported = (event) => {
-      if (['service', 'pengajuan', 'kendaraan'].includes(event.detail?.context)) load()
+  }, [load])
+
+  useEffect(() => {
+    const handleImported = event => {
+      if (!['service', 'pengajuan', 'kendaraan'].includes(event.detail?.context)) return
+      load()
+      if (['bukti', 'ban', 'aki', 'km'].includes(tab)) loadTabData(tab, true)
     }
     const handleServiceStateUpdated = event => {
       const detail = event.detail || {}
@@ -136,11 +140,11 @@ export default function ServiceFeaturePage({ profile }) {
       window.removeEventListener('transport:data-imported', handleImported)
       window.removeEventListener('transport:service-state-updated', handleServiceStateUpdated)
     }
-  }, [])
+  }, [load, loadTabData, tab])
 
   useEffect(() => {
     if (['bukti', 'ban', 'aki', 'km'].includes(tab)) loadTabData(tab)
-  }, [tab])
+  }, [tab, loadTabData])
 
   const clearMessages = () => { setError(''); setSuccess('') }
   const emitServiceStateUpdate = detail => window.dispatchEvent(new CustomEvent('transport:service-state-updated', { detail }))
