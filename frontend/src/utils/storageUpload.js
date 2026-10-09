@@ -14,6 +14,7 @@ const MIME_BY_EXTENSION = {
   '.pdf': 'application/pdf',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
+  '.jfif': 'image/jpeg',
   '.jpe': 'image/jpeg',
   '.png': 'image/png',
   '.webp': 'image/webp',
@@ -28,6 +29,7 @@ const MIME_BY_EXTENSION = {
 
 const DOCUMENT_MIME_TYPES = new Set(['application/pdf', ...IMAGE_MIME_TYPES])
 const IMAGE_MIME_TYPE_SET = new Set(IMAGE_MIME_TYPES)
+const GENERIC_MIME_TYPES = new Set(['', 'application/octet-stream', 'binary/octet-stream'])
 
 export const MAX_STORAGE_UPLOAD_BYTES = 50 * 1024 * 1024
 export const IMAGE_UPLOAD_ACCEPT = IMAGE_MIME_TYPES.join(',')
@@ -48,13 +50,18 @@ export function validateStorageUploadFile(file, { imagesOnly = false } = {}) {
   const extensionMime = MIME_BY_EXTENSION[extension]
   const detectedMime = String(file.type || '').toLowerCase()
   const allowedTypes = imagesOnly ? IMAGE_MIME_TYPE_SET : DOCUMENT_MIME_TYPES
-  const contentType = allowedTypes.has(detectedMime)
-    ? detectedMime
-    : allowedTypes.has(extensionMime)
-      ? extensionMime
-      : null
 
-  if (!contentType) {
+  if (extension && !extensionMime) {
+    throw new Error('Ekstensi file tidak didukung. Pilih PDF atau format gambar yang diizinkan.')
+  }
+
+  if (extensionMime && !GENERIC_MIME_TYPES.has(detectedMime) && detectedMime !== extensionMime) {
+    throw new Error('Tipe file tidak cocok dengan ekstensinya. Pilih file yang benar lalu coba lagi.')
+  }
+
+  const contentType = extensionMime || detectedMime
+
+  if (!allowedTypes.has(contentType)) {
     const expected = imagesOnly
       ? 'JPG, PNG, WEBP, GIF, AVIF, HEIC, HEIF, BMP, atau TIFF'
       : 'PDF atau gambar JPG, PNG, WEBP, GIF, AVIF, HEIC, HEIF, BMP, atau TIFF'
