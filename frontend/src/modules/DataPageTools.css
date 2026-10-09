@@ -607,6 +607,28 @@
 }
 
 
+/* Row action visibility: one-click selection controls when native tables expose actions.
+   Generic DataPageTools tables use the inline action row; native tables keep actions
+   visible only for the selected record so pages do not become button-heavy. */
+.mep-table[data-native-row-selection="true"] tbody tr:not(.dpt-row-selected) .mep-actions > button,
+.request-table[data-native-row-selection="true"] tbody tr:not(.dpt-row-selected) .request-actions > button,
+.x-table[data-native-row-selection="true"] tbody tr:not(.dpt-row-selected) .x-action-compact > button {
+  visibility: hidden;
+  pointer-events: none;
+}
+.mep-table[data-dpt-row-selection="true"] tbody tr .mep-actions > button,
+.request-table[data-dpt-row-selection="true"] tbody tr .request-actions > button,
+.x-table[data-dpt-row-selection="true"] tbody tr .x-action-compact > button {
+  visibility: hidden;
+  pointer-events: none;
+}
+.mep-table[data-native-row-selection="true"] tbody tr.dpt-row-selected .mep-actions > button,
+.request-table[data-native-row-selection="true"] tbody tr.dpt-row-selected .request-actions > button,
+.x-table[data-native-row-selection="true"] tbody tr.dpt-row-selected .x-action-compact > button {
+  visibility: visible;
+  pointer-events: auto;
+}
+
 /* Selected row actions: action controls stay attached to the selected record. */
 .dpt-inline-row-actions > td {
   padding: 0 !important;
@@ -889,4 +911,84 @@
 .dpt-inline-mark-wrap {
   border-color:#cbdcd2 !important;
   color:#426053 !important;
+}
+/* Native row interaction: in Data Bersih, the selected row must still expose
+   its actionable controls (Aksi + Penanda). Unselected rows remain clean. */
+.mep-table[data-native-row-selection="true"]:has(tbody tr.dpt-row-selected) thead th:last-child,
+.request-table[data-native-row-selection="true"]:has(tbody tr.dpt-row-selected) thead th:last-child,
+.x-table[data-native-row-selection="true"]:has(tbody tr.dpt-row-selected) thead th:last-child {
+  display: table-cell !important;
+  visibility: visible !important;
+}
+.mep-table[data-native-row-selection="true"] tbody tr.dpt-row-selected .mep-actions,
+.request-table[data-native-row-selection="true"] tbody tr.dpt-row-selected .request-actions,
+.x-table[data-native-row-selection="true"] tbody tr.dpt-row-selected .x-action-compact {
+  display: table-cell !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+.mep-table[data-native-row-selection="true"]:has(tbody tr.dpt-row-selected) thead .dpt-row-mark-head,
+.request-table[data-native-row-selection="true"]:has(tbody tr.dpt-row-selected) thead .dpt-row-mark-head,
+.x-table[data-native-row-selection="true"]:has(tbody tr.dpt-row-selected) thead .dpt-row-mark-head {
+  display: table-cell !important;
+  visibility: visible !important;
+}
+.mep-table[data-native-row-selection="true"] tbody tr.dpt-row-selected .dpt-row-mark-cell,
+.request-table[data-native-row-selection="true"] tbody tr.dpt-row-selected .dpt-row-mark-cell,
+.x-table[data-native-row-selection="true"] tbody tr.dpt-row-selected .dpt-row-mark-cell {
+  display: table-cell !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
+
+/* Final Excel/Data Bersih contract:
+   every operational table gets the same local horizontal-scroll behavior,
+   data cells stay readable without clipping, and the utility columns remain hidden. */
+.dpt-clean-data-wrap {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.dpt-clean-data-table {
+  width: max-content !important;
+  min-width: 100% !important;
+  max-width: none !important;
+  table-layout: auto !important;
+  border-collapse: collapse;
+}
+.dpt-clean-data-table thead th:not([data-dpt-column-kind="mark"]):not([data-dpt-column-kind="action"]),
+.dpt-clean-data-table tbody td:not([data-dpt-column-kind="mark"]):not([data-dpt-column-kind="action"]) {
+  white-space: nowrap !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+}
+.dpt-clean-data-table tbody td:not([data-dpt-column-kind="mark"]):not([data-dpt-column-kind="action"]) {
+  font-size: 15px !important;
+  line-height: 1.5 !important;
+}
+.dpt-clean-data-table tbody td:not([data-dpt-column-kind="mark"]):not([data-dpt-column-kind="action"]) b,
+.dpt-clean-data-table tbody td:not([data-dpt-column-kind="mark"]):not([data-dpt-column-kind="action"]) strong {
+  font-size: 15.5px !important;
+}
+.dpt-clean-data-table tbody td:not([data-dpt-column-kind="mark"]):not([data-dpt-column-kind="action"]) small {
+  font-size: 12px !important;
+  white-space: nowrap !important;
+}
+@media (max-width: 600px) {
+  .dpt-clean-data-table thead th:not([data-dpt-column-kind="mark"]):not([data-dpt-column-kind="action"]) {
+    font-size: 11px !important;
+  }
+  .dpt-clean-data-table tbody td:not([data-dpt-column-kind="mark"]):not([data-dpt-column-kind="action"]) {
+    font-size: 14px !important;
+  }
+  .dpt-clean-data-table tbody td:not([data-dpt-column-kind="mark"]):not([data-dpt-column-kind="action"]) b,
+  .dpt-clean-data-table tbody td:not([data-dpt-column-kind="mark"]):not([data-dpt-column-kind="action"]) strong {
+    font-size: 14.5px !important;
+  }
 }
