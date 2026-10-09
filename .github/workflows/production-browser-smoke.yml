@@ -1,0 +1,101 @@
+name: Production browser smoke test
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install Playwright and Chromium
+        run: |
+          npm install --no-save --package-lock=false playwright
+          npx playwright install --with-deps chromium
+        working-directory: frontend
+      - name: Test production root at desktop and mobile sizes
+        working-directory: frontend
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { chromium } from 'playwright'
+
+          const target = 'https://sistem-transport-zt.vercel.app/'
+          const browser = await chromium.launch({ headless: true })
+          const failures = []
+          const summaries = []
+
+          try {
+            for (const viewport of [
+              { name: 'mobile-375', width: 375, height: 812 },
+              { name: 'desktop-1365', width: 1365, height: 900 },
+            ]) {
+              const page = await browser.newPage({ viewport: { width: viewport.width, height: viewport.height } })
+              const pageErrors = []
+              const sameOriginFailures = []
+              const sameOriginBadResponses = []
+              page.on('pageerror', error => pageErrors.push(error.message))
+              page.on('response', response => {
+                if (response.url().startsWith('https://sistem-transport-zt.vercel.app/') && response.status() >= 400) {
+                  sameOriginBadResponses.push({ url: response.url(), status: response.status() })
+                }
+              })
+              page.on('requestfailed', request => {
+                if (request.url().startsWith('https://sistem-transport-zt.vercel.app/')) {
+                  sameOriginFailures.push({ url: request.url(), error: request.failure()?.errorText || 'request failed' })
+                }
+              })
+
+              const response = await page.goto(target, { waitUntil: 'domcontentloaded', timeout: 45000 })
+              if (!response) failures.push(viewport.name + ': no HTTP response')
+              else if (response.status() >= 400) failures.push(viewport.name + ': HTTP ' + response.status())
+
+              await page.waitForTimeout(2000)
+              const result = await page.evaluate(() => {
+                const root = document.querySelector('#root, #app, [data-reactroot]')
+                return {
+                  title: document.title,
+                  url: location.href,
+                  rootFound: Boolean(root),
+                  rootChildCount: root?.children.length ?? 0,
+                  rootHtmlLength: root?.innerHTML.length ?? 0,
+                  bodyText: (document.body?.innerText || '').slice(0, 250),
+                  viewportWidth: window.innerWidth,
+                  documentWidth: document.documentElement.scrollWidth,
+                }
+              })
+
+              if (!result.rootFound || result.rootHtmlLength < 30) {
+                failures.push(viewport.name + ': React root did not render meaningful content: ' + JSON.stringify(result))
+              }
+              if (pageErrors.length) failures.push(viewport.name + ': JavaScript page errors: ' + JSON.stringify(pageErrors))
+              if (sameOriginFailures.length) failures.push(viewport.name + ': failed same-origin requests: ' + JSON.stringify(sameOriginFailures))
+              if (sameOriginBadResponses.length) failures.push(viewport.name + ': same-origin HTTP errors: ' + JSON.stringify(sameOriginBadResponses))
+              if (result.documentWidth > result.viewportWidth + 2) {
+                summaries.push({ viewport: viewport.name, horizontalOverflow: true, details: result })
+              } else {
+                summaries.push({ viewport: viewport.name, horizontalOverflow: false, details: result })
+              }
+              await page.close()
+            }
+            console.log('PRODUCTION_BROWSER_SMOKE=' + JSON.stringify(summaries))
+            if (failures.length) {
+              console.error('PRODUCTION_BROWSER_SMOKE_FAILURES=' + JSON.stringify(failures))
+              process.exitCode = 1
+            } else {
+              console.log('PRODUCTION_BROWSER_SMOKE_RESULT=PASS')
+            }
+          } finally {
+            await browser.close()
+          }
+          NODE
