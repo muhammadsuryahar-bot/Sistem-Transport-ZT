@@ -43,7 +43,18 @@ function numberValue(value) {
 }
 
 function isRentalHistoryRowValid(row) {
-  return Boolean(row.tahun && row.supplier && row.uraian && row.periode && row.nilai_invoice)
+  const yearText = clean(row.tahun)
+  const year = Number(yearText)
+  const invoice = numberValue(row.nilai_invoice)
+  return /^\\d{4}$/.test(yearText)
+    && Number.isInteger(year)
+    && year >= 1900
+    && year <= new Date().getFullYear() + 1
+    && Boolean(clean(row.supplier))
+    && Boolean(clean(row.uraian))
+    && Boolean(clean(row.periode))
+    && invoice !== null
+    && invoice >= 0
 }
 
 function parseRows(sheet) {
@@ -141,6 +152,8 @@ export default function RentalHistoryImportModalV2({ profile, onClose, onDone })
 
   const pageCount = Math.max(1, Math.ceil(rows.length / pageSize))
   const pageRows = useMemo(() => rows.slice((page - 1) * pageSize, page * pageSize), [rows, page, pageSize])
+  const activeRows = filterDeletedExcelRows('sewa', rows)
+  const invalidRows = activeRows.filter(row => !isRentalHistoryRowValid(row))
 
   const updateRow = (id, field, value) => {
     setRows(current => current.map(row => row.id === id ? { ...row, [field]: value } : row))
@@ -224,7 +237,7 @@ export default function RentalHistoryImportModalV2({ profile, onClose, onDone })
       </header>
       {error && <div className="dpt-alert error">{error}</div>}
       {message && <div className="dpt-alert success">{message}</div>}
-      {rows.length ? <div className="service-import-stats"><div><b>{rows.length}</b><span>baris sumber</span></div><div><b>{rows.filter(isRentalHistoryRowValid).length}</b><span>valid</span></div><div><b>{rows.filter(row => !isRentalHistoryRowValid(row)).length}</b><span>error</span></div><div><b>{filterDeletedExcelRows('sewa', rows).length}</b><span>siap import</span></div></div> : null}
+      {rows.length ? <div className="service-import-stats"><div><b>{rows.length}</b><span>baris sumber</span></div><div><b>{activeRows.length - invalidRows.length}</b><span>valid aktif</span></div><div><b>{invalidRows.length}</b><span>error aktif</span></div><div><b>{activeRows.length}</b><span>siap import</span></div></div> : null}
       <div className="dpt-upload">
         <input ref={inputRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={event => scan(event.target.files?.[0])} />
         <button type="button" className="dpt-upload-button" onClick={() => inputRef.current?.click()} disabled={loading || saving}>{loading ? 'Membaca Excel…' : file ? 'Ganti File' : 'Pilih File Excel'}</button>
@@ -252,8 +265,8 @@ export default function RentalHistoryImportModalV2({ profile, onClose, onDone })
           <div className="dpt-pagination"><label>Baris/halaman <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1) }}>{PAGE_OPTIONS.map(size => <option key={size} value={size}>{size}</option>)}</select></label><button type="button" className="dpt-button" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}>‹</button><span>Halaman {page} / {pageCount}</span><button type="button" className="dpt-button" onClick={() => setPage(p => Math.min(pageCount, p + 1))} disabled={page >= pageCount}>›</button></div>
         </div>
       </>}
-      {rows.filter(row => !isRentalHistoryRowValid(row)).length > 0 && <div className="dpt-alert error">Ada {rows.filter(row => !isRentalHistoryRowValid(row)).length} baris yang belum lengkap. Perbaiki Tahun, Supplier, Uraian, Periode Tagihan, atau Nilai Invoice langsung di tabel sebelum import. Nomor baris Excel: {rows.filter(row => !isRentalHistoryRowValid(row)).slice(0, 20).map(row => row.excelRow).join(', ')}{rows.filter(row => !isRentalHistoryRowValid(row)).length > 20 ? ' …' : ''}</div>}
-      <div className="dpt-actions"><button type="button" className="dpt-button" onClick={onClose} disabled={saving}>Batal</button><button type="button" className="dpt-button primary" onClick={start} disabled={!rows.length || rows.some(row => !isRentalHistoryRowValid(row)) || saving || !canImport}>{saving ? 'Mengimport…' : `Import ${rows.length || ''} Baris`}</button></div>
+      {invalidRows.length > 0 && <div className="dpt-alert error">Ada {invalidRows.length} baris aktif yang belum valid. Perbaiki Tahun (4 digit), Supplier, Uraian, Periode Tagihan, dan Nilai Invoice angka 0 atau lebih; atau keluarkan baris tersebut dari import. Nomor baris Excel: {invalidRows.slice(0, 20).map(row => row.excelRow).join(', ')}{invalidRows.length > 20 ? ' …' : ''}</div>}
+      <div className="dpt-actions"><button type="button" className="dpt-button" onClick={onClose} disabled={saving}>Batal</button><button type="button" className="dpt-button primary" onClick={start} disabled={!rows.length || invalidRows.length > 0 || saving || !canImport}>{saving ? 'Mengimport…' : `Import ${rows.length || ''} Baris`}</button></div>
     </section>
   </div>
 }
