@@ -5,6 +5,7 @@ import { formatDateSafe } from '../utils/dateSafe'
 import { clearDeletedExcelRows, filterDeletedExcelRows } from '../utils/excelPreviewControls.js'
 import './DataPageTools.css'
 import './VehicleDocumentsImportModal.css'
+import { excelDate } from '../utils/excelDate.js'
 
 const ALIASES = {
   nomor_polisi: ['no_polisi', 'nomor_polisi', 'no_pol', 'plat'],
@@ -64,7 +65,6 @@ function findHeader(sheet, required = ['source_no', 'merk', 'tipe', 'nomor_polis
   return best
 }
 function valueOf(row, headers, key) { const aliases = ALIASES[key] || [key]; const i = headers.findIndex((h) => aliases.includes(norm(h))); return i >= 0 ? clean(row.values[i]) : '' }
-function excelDate(value) { const v = clean(value); if (!v) return null; if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v; if (/^\d{1,2}[/-]\d{1,2}[/-]\d{4}$/.test(v)) { const [d, m, y] = v.split(/[/-]/); return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}` }; const serial = Number(v); if (Number.isFinite(serial) && serial > 20000 && serial < 80000) return new Date(Date.UTC(1899, 11, 30) + serial * 86400000).toISOString().slice(0, 10); const d = new Date(v); return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10) }
 function formatDate(v) { return formatDateSafe(v, { day: '2-digit', month: '2-digit', year: 'numeric' }) }
 function chooseDocumentSheet(sheets) {
   return sheets.map((sheet) => {
