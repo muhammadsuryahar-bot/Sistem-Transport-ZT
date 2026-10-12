@@ -7,6 +7,7 @@ import './DataPageTools.css'
 import { encodeExcelMeta } from '../utils/excelSourceMeta.js'
 import './EditableServiceExcelImportModal.css'
 import { excelDate } from '../utils/excelDate.js'
+import { isBlankSourceAmount } from '../utils/serviceHistorySourceMoney.js'
 
 const MAX_FILE_SIZE = 25 * 1024 * 1024
 const PAGE_OPTIONS = [25, 50, 100]
@@ -159,6 +160,7 @@ function normalizeServiceMoney({ qty, harga, dpp, ppn, total }) {
     ppn: finalPpn,
     total: finalTotal,
     ppn_source: clean(ppn) || '-',
+    total_source_blank: isBlankSourceAmount(total),
   }
 }
 
@@ -173,7 +175,7 @@ function displayValueForRow(row, header, key, index) {
   if (key === 'harga_satuan') return formatNumberId(row.harga_satuan)
   if (key === 'nilai_dpp') return formatNumberId(row.nilai_dpp)
   if (key === 'ppn') return row.ppn_source === '-' ? '-' : formatNumberId(row.ppn)
-  if (key === 'total') return formatNumberId(row.total)
+  if (key === 'total') return row.total_source_blank ? '-' : formatNumberId(row.total)
   if (key === 'kilometer') return formatNumberId(row.kilometer)
   return formatDisplay(row.values[index], header)
 }
@@ -216,6 +218,7 @@ function parseRow(row, headers) {
     ppn: money.ppn,
     ppn_source: money.ppn_source,
     total: money.total,
+    total_source_blank: money.total_source_blank,
     kilometer: numberValue(get('kilometer')) ?? 0,
     bengkel: get('bengkel') || null,
     keterangan: get('keterangan') || null,
@@ -358,6 +361,7 @@ async function importHistory(rows, sheetName, onProgress = () => {}) {
           ppn: row.ppn,
           ppn_source: row.ppn_source,
           total: row.total,
+          total_source_blank: row.total_source_blank,
           kilometer: row.kilometer,
           bengkel: row.bengkel,
           keterangan: row.keterangan || '',
