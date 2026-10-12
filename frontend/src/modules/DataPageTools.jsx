@@ -8,9 +8,10 @@ import RentalHistoryImportModalV2 from './RentalHistoryImportModalV2.jsx'
 import { resolveCleanTableView } from '../utils/tableViewSettings.js'
 import './DataPageTools.css'
 
-const CONTEXT_LABEL = { kendaraan: 'Kendaraan', pengajuan: 'Data Service', service: 'Service & Perbaikan', sewa: 'Administrasi Sewa', dokumen: 'Dokumen Kendaraan', laporan: 'Laporan', pengguna: 'Pengguna' }
+const CONTEXT_LABEL = { kendaraan: 'Kendaraan', genset: 'Data Genset', pengajuan: 'Data Service', service: 'Service & Perbaikan', sewa: 'Administrasi Sewa', dokumen: 'Dokumen Kendaraan', laporan: 'Laporan', pengguna: 'Pengguna' }
 const DATA_TABLE_SELECTOR = {
   kendaraan: '.mep-table',
+  genset: '.x-table',
   pengajuan: '.request-table',
   service: '.x-table',
   sewa: '.x-table',
@@ -731,7 +732,7 @@ export default function DataPageTools({ context, profile, onExport }) {
   const columnMenuRef = useRef(null)
   const primaryTableRef = useRef(null)
   const canImport = ['kendaraan', 'pengajuan', 'service', 'sewa', 'dokumen'].includes(context) && ['ADMIN', 'TRANSPORT'].includes(profile?.role)
-  const canExport = ['kendaraan', 'pengajuan', 'service', 'sewa', 'dokumen'].includes(context)
+  const canExport = ['kendaraan', 'genset', 'pengajuan', 'service', 'sewa', 'dokumen'].includes(context)
 
   useEffect(() => {
     const clean = readCleanTableView(context)
