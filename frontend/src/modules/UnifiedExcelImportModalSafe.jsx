@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { formatDateSafe } from '../utils/dateSafe'
+import { excelDate } from '../utils/excelDate.js'
 
 const LABELS = { pengajuan: 'Pengajuan Service', sewa: 'Kendaraan Sewa' }
 const ALIASES = {
@@ -70,7 +71,6 @@ function dataRows(sheet) { return sheet.rows.slice(sheet.headerIndex + 1).filter
 function hasHeader(headers, key) { return headers.some((header) => (ALIASES[key] || []).includes(norm(header))) }
 function valueOf(row, headers, key) { const aliases = ALIASES[key] || [key]; const index = headers.findIndex((header) => aliases.includes(norm(header))); return index >= 0 ? clean(row[index]) : '' }
 function numberValue(value) { const v = clean(value); if (!v) return null; if (/^\d{1,3}(?:\.\d{3})+(?:,\d+)?$/.test(v)) return Number(v.replace(/\./g, '').replace(',', '.')); const n = Number(v.replace(/,/g, '')); return Number.isFinite(n) ? n : null }
-function excelDate(value) { const v = clean(value); if (!v) return null; if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v; if (/^\d{1,2}[/-]\d{1,2}[/-]\d{4}$/.test(v)) { const [d, m, y] = v.split(/[/-]/); return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}` }; const serial = Number(v); if (Number.isFinite(serial) && serial > 20000 && serial < 80000) return new Date(Date.UTC(1899, 11, 30) + serial * 86400000).toISOString().slice(0, 10); const date = new Date(v); return Number.isNaN(date.getTime()) ? null : date.toISOString().slice(0, 10) }
 function addMonths(dateText, months) { const d = new Date(`${dateText}T00:00:00`); const day = d.getDate(); d.setMonth(d.getMonth() + months); if (d.getDate() !== day) d.setDate(0); return d.toISOString().slice(0, 10) }
 function sixMonthEnd(start) { const end = addMonths(start, 6); const d = new Date(`${end}T00:00:00`); d.setDate(d.getDate() - 1); return d.toISOString().slice(0, 10) }
 function importFingerprint(item) { return [item.vehicle.id, item.date, upper(item.jenis), upper(item.complaint), item.km ?? ''].join('|') }
