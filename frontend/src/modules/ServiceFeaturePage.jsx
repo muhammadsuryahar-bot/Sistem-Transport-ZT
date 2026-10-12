@@ -37,7 +37,7 @@ const historyDateInput = value => {
   const raw = String(value ?? '').trim()
   const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(raw)
   if (iso) return raw.slice(0, 10)
-  const local = /^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/.exec(raw)
+  const local = /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/.exec(raw)
   return local ? local[3] + '-' + local[2].padStart(2, '0') + '-' + local[1].padStart(2, '0') : ''
 }
 function Alert({ type = 'success', children }) { return <div className={`x-alert ${type}`}>{children}</div> }
