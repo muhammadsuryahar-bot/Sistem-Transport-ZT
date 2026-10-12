@@ -45,6 +45,9 @@ export default function PermintaanServicePage({ profile }) {
   const [requests, setRequests] = useState([])
   const [loading, setLoading] = useState(true)
   const rowClickTimer = useRef(null)
+  const summaryTopScrollRef = useRef(null)
+  const summaryTableWrapRef = useRef(null)
+  const [summaryScrollWidth, setSummaryScrollWidth] = useState(0)
   const [saving, setSaving] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [detail, setDetail] = useState(null)
@@ -222,6 +225,35 @@ export default function PermintaanServicePage({ profile }) {
     spareCost: summaryFiltered.reduce((sum,row)=>sum+row.totalSpare,0),
     expense: summaryFiltered.reduce((sum,row)=>sum+row.totalPengeluaran,0),
   }), [summaryFiltered])
+
+  const syncSummaryScrollFromTop = event => {
+    const wrap = summaryTableWrapRef.current
+    if (wrap && Math.abs(wrap.scrollLeft - event.currentTarget.scrollLeft) > 1) {
+      wrap.scrollLeft = event.currentTarget.scrollLeft
+    }
+  }
+  const syncSummaryScrollFromTable = event => {
+    const top = summaryTopScrollRef.current
+    if (top && Math.abs(top.scrollLeft - event.currentTarget.scrollLeft) > 1) {
+      top.scrollLeft = event.currentTarget.scrollLeft
+    }
+  }
+  useEffect(() => {
+    if (viewMode !== 'ringkasan') return undefined
+    const wrap = summaryTableWrapRef.current
+    const table = wrap?.querySelector('.service-summary-table')
+    if (!wrap || !table) return undefined
+    const refreshWidth = () => setSummaryScrollWidth(Math.max(table.scrollWidth, wrap.clientWidth))
+    refreshWidth()
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(refreshWidth) : null
+    observer?.observe(wrap)
+    observer?.observe(table)
+    window.addEventListener('resize', refreshWidth)
+    return () => {
+      observer?.disconnect()
+      window.removeEventListener('resize', refreshWidth)
+    }
+  }, [viewMode, summaryFiltered.length])
   const totalSummaryExpense = useMemo(() => summaryRows.reduce((sum, row) => sum + row.totalPengeluaran, 0), [summaryRows])
   const overPriceCount = useMemo(() => summaryRows.filter(r => r.costFlag === 'MELEWATI_HARGA').length, [summaryRows])
 
@@ -593,7 +625,7 @@ export default function PermintaanServicePage({ profile }) {
         <button className="request-light-button" onClick={loadData} disabled={loading}>↻ Refresh</button>
       </div>
       <div className="request-summary-strip service-filter-summary"><div><span>Kendaraan tampil</span><strong>{filteredSummaryStats.vehicles}</strong></div><div><span>Transaksi service</span><strong>{filteredSummaryStats.transactions}</strong></div><div><span>Total jasa</span><strong>{money(filteredSummaryStats.jasaCost)}</strong></div><div><span>Total sparepart</span><strong>{money(filteredSummaryStats.spareCost)}</strong></div><div><span>Total pengeluaran</span><strong>{money(filteredSummaryStats.expense)}</strong></div></div>
-      <div className="request-table-wrap service-summary-table-wrap"><table className="request-table service-summary-table"><thead><tr><th>No Polisi</th><th>Kendaraan</th><th>Service</th><th>Jasa</th><th>Sparepart</th><th>Total Jasa</th><th>Total Sparepart</th><th>Total Pengeluaran</th><th>Harga Perolehan</th><th>% Harga</th><th>KM/Jarak</th><th>Service/Jasa Terakhir</th><th>Sparepart Terakhir</th><th>Patokan / Rekomendasi</th><th>Aksi</th></tr></thead><tbody>{summaryFiltered.length ? summaryFiltered.map(row => <tr key={row.vehicle.id}><td><strong>{row.vehicle.nomor_polisi}</strong></td><td><strong>{row.vehicle.merk}</strong><small>{row.vehicle.tipe || '-'} • {row.vehicle.jenis_kendaraan || '-'}</small></td><td><strong>{row.totalTransaksi} kali</strong></td><td>{row.jasaKali} kali</td><td>{row.spareKali} kali</td><td>{money(row.totalJasa)}</td><td>{money(row.totalSpare)}</td><td><strong>{money(row.totalPengeluaran)}</strong></td><td>{row.vehiclePrice ? money(row.vehiclePrice) : 'Belum diisi'}</td><td>{row.ratio == null ? '—' : (row.ratio * 100).toFixed(1) + '%'}</td><td>{number(row.kmAkhir)} km<small>Jarak terpantau: {number(row.jarak)} km</small></td><td>{fmtDate(row.lastJasa)}</td><td>{fmtDate(row.lastSpare)}</td><td><span className={`request-status request-cost-flag ${row.costFlag.toLowerCase()}`}>{row.costFlag === 'MELEWATI_HARGA' ? 'Melewati harga' : row.costFlag === 'MENDEKATI_HARGA' ? 'Mendekati 80%' : row.costFlag === 'DI_BAWAH_HARGA' ? 'Di bawah harga' : 'Harga belum diisi'}</span><small>{row.costFlag === 'MELEWATI_HARGA' ? 'Evaluasi kelayakan / opsi jual' : row.costFlag === 'MENDEKATI_HARGA' ? 'Pantau pengeluaran' : row.costFlag === 'HARGA_BELUM_DIISI' ? 'Isi harga perolehan' : 'Normal'}</small></td><td className="request-actions"><button className="request-detail-button" onClick={() => setDetail({ type: 'vehicle', row })}>Detail</button>{canManageService && (row.serviceHistory.length > 0
+      <div className="service-summary-scroll-top" ref={summaryTopScrollRef} onScroll={syncSummaryScrollFromTop} role="region" aria-label="Geser kolom Data Service secara horizontal"><div style={{ width: `${summaryScrollWidth}px`, height: '1px' }} /></div><div className="request-table-wrap service-summary-table-wrap" ref={summaryTableWrapRef} onScroll={syncSummaryScrollFromTable}><table className="request-table service-summary-table"><thead><tr><th>No Polisi</th><th>Kendaraan</th><th>Service</th><th>Jasa</th><th>Sparepart</th><th>Total Jasa</th><th>Total Sparepart</th><th>Total Pengeluaran</th><th>Harga Perolehan</th><th>% Harga</th><th>KM/Jarak</th><th>Service/Jasa Terakhir</th><th>Sparepart Terakhir</th><th>Patokan / Rekomendasi</th><th>Aksi</th></tr></thead><tbody>{summaryFiltered.length ? summaryFiltered.map(row => <tr key={row.vehicle.id}><td><strong>{row.vehicle.nomor_polisi}</strong></td><td><strong>{row.vehicle.merk}</strong><small>{row.vehicle.tipe || '-'} • {row.vehicle.jenis_kendaraan || '-'}</small></td><td><strong>{row.totalTransaksi} kali</strong></td><td>{row.jasaKali} kali</td><td>{row.spareKali} kali</td><td>{money(row.totalJasa)}</td><td>{money(row.totalSpare)}</td><td><strong>{money(row.totalPengeluaran)}</strong></td><td>{row.vehiclePrice ? money(row.vehiclePrice) : 'Belum diisi'}</td><td>{row.ratio == null ? '—' : (row.ratio * 100).toFixed(1) + '%'}</td><td>{number(row.kmAkhir)} km<small>Jarak terpantau: {number(row.jarak)} km</small></td><td>{fmtDate(row.lastJasa)}</td><td>{fmtDate(row.lastSpare)}</td><td><span className={`request-status request-cost-flag ${row.costFlag.toLowerCase()}`}>{row.costFlag === 'MELEWATI_HARGA' ? 'Melewati harga' : row.costFlag === 'MENDEKATI_HARGA' ? 'Mendekati 80%' : row.costFlag === 'DI_BAWAH_HARGA' ? 'Di bawah harga' : 'Harga belum diisi'}</span><small>{row.costFlag === 'MELEWATI_HARGA' ? 'Evaluasi kelayakan / opsi jual' : row.costFlag === 'MENDEKATI_HARGA' ? 'Pantau pengeluaran' : row.costFlag === 'HARGA_BELUM_DIISI' ? 'Isi harga perolehan' : 'Normal'}</small></td><td className="request-actions"><button className="request-detail-button" onClick={() => setDetail({ type: 'vehicle', row })}>Detail</button>{canManageService && (row.serviceHistory.length > 0
                 ? <><button className="request-detail-button" onClick={() => openServiceEdit(row.serviceHistory[0])}>Edit</button><button className="request-detail-button danger" onClick={() => deleteServiceRecord(row.serviceHistory[0])} disabled={saving}>Hapus</button></>
                 : <button className="request-detail-button" disabled title="Belum ada histori service untuk diedit">Edit</button>)}{canCreate && <button className="request-detail-button" onClick={() => { setViewMode('pengajuan'); openCreate(row.vehicle.id) }}>Pengajuan</button>}</td></tr>) : <tr><td colSpan="15"><div className="request-empty">Belum ada kendaraan yang cocok dengan filter. Gunakan “Semua kendaraan” untuk melihat seluruh armada.</div></td></tr>}</tbody></table></div>
     </section>}
