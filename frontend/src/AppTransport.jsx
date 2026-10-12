@@ -10,6 +10,7 @@ import DataPageTools from './modules/DataPageTools'
 import './App.css'
 import { decodeExcelMeta } from './utils/excelSourceMeta.js'
 import { formatMonthSafe } from './utils/dateSafe'
+import { shouldPreserveProfileOnAuthEvent } from './utils/authSessionEvents.js'
 import logoMark from './assets/logo.png'
 
 const ROLE_LABELS = { ADMIN: 'Administrator', TRANSPORT: 'Transport', OPERASIONAL: 'Operasional', ATASAN_TRANSPORT: 'Atasan Transport', DIREKTUR: 'Direktur', AKUNTANSI: 'Akuntansi' }
@@ -42,6 +43,8 @@ function AppTransport() {
   const [authLoading, setAuthLoading] = useState(true)
   const [, setExportingPage] = useState(false)
   const profileRequestRef = useRef(0)
+  const sessionUserIdRef = useRef(null)
+  const profileUserIdRef = useRef(null)
   const allowedPages = useMemo(() => ROLE_ACCESS[profile?.role] || ['dashboard'], [profile?.role])
   const visibleNavItems = useMemo(() => NAV_ITEMS.filter((item) => allowedPages.includes(item.id)), [allowedPages])
   const navigateToPage = (page) => {
@@ -50,7 +53,7 @@ function AppTransport() {
     localStorage.setItem('transport_active_page', page)
   }
 
-  const loadProfile = async (userId) => {
+  const loadProfile = async (userId, { silent = false } = {}) => {
     const requestId = ++profileRequestRef.current
     let result
     try {
@@ -58,6 +61,8 @@ function AppTransport() {
     } catch (requestError) {
       if (requestId !== profileRequestRef.current) return
       console.error('Profile request failed:', requestError)
+      if (silent) return
+      profileUserIdRef.current = null
       setProfile(null)
       setErrorMessage('Profil pengguna tidak dapat dimuat. Periksa koneksi lalu coba lagi.')
       return
@@ -67,6 +72,8 @@ function AppTransport() {
     if (requestId !== profileRequestRef.current) return
     if (error || !data) {
       console.error('Profile error:', error)
+      if (silent) return
+      profileUserIdRef.current = null
       setProfile(null)
       setErrorMessage('Profil pengguna tidak dapat dimuat. Silakan coba lagi.')
       return
@@ -87,7 +94,17 @@ function AppTransport() {
       setProfile(null)
       return
     }
-    setProfile(data)
+    profileUserIdRef.current = data.id
+    setProfile(current => {
+      if (current
+        && current.id === data.id
+        && current.nama_lengkap === data.nama_lengkap
+        && current.email === data.email
+        && current.nomor_hp === data.nomor_hp
+        && current.role === data.role
+        && current.aktif === data.aktif) return current
+      return data
+    })
     setErrorMessage('')
   }
   useEffect(() => {
@@ -97,6 +114,7 @@ function AppTransport() {
         const { data, error } = await supabase.auth.getSession()
         if (!mounted) return
         if (error) setErrorMessage('Sesi login tidak dapat diperiksa. Silakan coba lagi.')
+        sessionUserIdRef.current = data.session?.user?.id || null
         setSession(data.session)
         if (data.session?.user) await loadProfile(data.session.user.id)
       } catch (sessionError) {
@@ -109,8 +127,21 @@ function AppTransport() {
       }
     }
     initialize()
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!mounted) return
+      const nextUserId = nextSession?.user?.id || null
+      if (shouldPreserveProfileOnAuthEvent(event, nextUserId, sessionUserIdRef.current) && profileUserIdRef.current === nextUserId) {
+        // Access-token renewal for the same account is not a page transition.
+        // Keep the current screen rendered and verify the profile in the background.
+        setSession(nextSession)
+        window.setTimeout(async () => {
+          if (!mounted) return
+          await loadProfile(nextUserId, { silent: true })
+        }, 0)
+        return
+      }
+      sessionUserIdRef.current = nextUserId
+      profileUserIdRef.current = null
       profileRequestRef.current += 1
       setSession(nextSession)
       setProfile(null)

@@ -270,3 +270,40 @@ body.transport-service-fullscreen-open{overflow:hidden}
 }
 
 .x-filter-date{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#475569}.x-filter-date input{min-height:42px;border:1px solid #cbd5e1;border-radius:10px;padding:9px 12px;background:#fff;box-sizing:border-box}
+
+
+/* Edit historical Excel-shaped service rows without hiding controls on shorter screens. */
+.history-row-editor{
+  width:min(1180px,100%);
+  max-height:calc(100svh - 24px);
+  overflow:auto;
+}
+.history-row-editor form{padding:0}
+.history-row-editor .x-modal-head{
+  position:sticky;
+  top:0;
+  z-index:3;
+  background:#fff;
+}
+.history-row-editor .history-row-form{
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  padding:18px;
+}
+.history-row-editor .history-row-form label{min-width:0}
+.history-row-editor .x-actions{
+  position:sticky;
+  bottom:0;
+  z-index:2;
+  padding:12px 18px 18px;
+  background:#fff;
+  border-top:1px solid #e7ece9;
+}
+@media(max-width:900px){
+  .history-row-editor .history-row-form{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:560px){
+  .history-row-editor{max-height:calc(100svh - 16px)}
+  .history-row-editor .history-row-form{grid-template-columns:1fr;padding:14px}
+  .history-row-editor .history-row-form label.full{grid-column:1/-1}
+  .history-row-editor .x-actions{padding:10px 14px 14px}
+}
