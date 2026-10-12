@@ -226,3 +226,30 @@
 .service-price-table-wrap .request-table tbody tr:last-child td {
   border-bottom:0 !important;
 }
+
+/* A permanently reachable horizontal control mirrors the wide service table below it. */
+.service-summary-scroll-top{
+  width:100%;
+  height:17px;
+  margin:7px 0 5px;
+  overflow-x:auto;
+  overflow-y:hidden;
+  scrollbar-width:thin;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior-x:contain;
+  touch-action:pan-x;
+  border:1px solid #dce5df;
+  border-radius:8px;
+  background:#f8fbf9;
+}
+.service-summary-scroll-top>div{
+  height:1px;
+  min-width:100%;
+}
+.service-summary-scroll-top:focus-visible{
+  outline:3px solid rgba(29,106,74,.18);
+  outline-offset:2px;
+}
+@media(max-width:700px){
+  .service-summary-scroll-top{height:19px;margin-top:6px}
+}
