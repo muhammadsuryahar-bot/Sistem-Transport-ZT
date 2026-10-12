@@ -460,6 +460,10 @@ export default function ServiceFeaturePage({ profile }) {
     }
     const decoded = decodeExcelMeta(item.keterangan)
     const meta = decoded.meta || {}
+    if (meta.source !== 'DATA_SERVICE') {
+      editItem(item)
+      return
+    }
     setHistoryEditingRow({ row, item, meta })
     setHistoryEditForm({
       no: historyNumberInput(row.no),
@@ -503,6 +507,7 @@ export default function ServiceFeaturePage({ profile }) {
     if (!formValue.uraian.trim() && !formValue.jenis_pekerjaan.trim()) return setError('Uraian atau jenis pekerjaan wajib diisi.')
     if (!Number.isFinite(qty) || qty <= 0) return setError('Qty harus lebih besar dari 0.')
     if (![price, dpp, ppn, total].every(Number.isFinite) || [price, dpp, ppn, total].some(value => value < 0)) return setError('Harga, DPP, PPn, dan total harus bernilai 0 atau lebih.')
+    if (Math.abs(total - (dpp + ppn)) > Math.max(1, (dpp + ppn) * 0.001)) return setError('Total harus sama dengan Nilai DPP ditambah PPn.')
     if (kilometer !== null && (!Number.isFinite(kilometer) || kilometer < 0)) return setError('KM harus berupa angka 0 atau lebih.')
     if (!Number.isFinite(sourceNo) || sourceNo < 1) return setError('Nomor baris harus berupa angka positif.')
     if (!formValue.satuan.trim()) return setError('Satuan wajib diisi.')
@@ -546,13 +551,26 @@ export default function ServiceFeaturePage({ profile }) {
     }
     setSaving(true)
     try {
-      const result = await supabase.from('service_item').update(payload).eq('id', item.id).select('*').single()
+      const result = await supabase.rpc('update_service_history_item', {
+        p_item_id: item.id,
+        p_payload: payload,
+        p_meta: meta,
+      })
       if (result.error) throw result.error
-      if (!result.data) throw new Error('Perubahan baris riwayat service tidak ditemukan setelah disimpan.')
-      setItems(current => current.map(entry => entry.id === result.data.id ? result.data : entry))
+      const saved = result.data
+      if (!saved?.item?.id || !saved?.service?.id || !Array.isArray(saved.items)) {
+        throw new Error('Penyimpanan riwayat tidak mengembalikan data lengkap. Muat ulang untuk memastikan status terkini.')
+      }
+      const refreshedItems = new Map(saved.items.map(entry => [String(entry.id), entry]))
+      setItems(current => current.map(entry => refreshedItems.get(String(entry.id)) || entry))
+      setServices(current => current.map(entry => String(entry.id) === String(saved.service.id) ? saved.service : entry))
+      if (saved.request?.id) {
+        setRequests(current => current.map(entry => String(entry.id) === String(saved.request.id) ? saved.request : entry))
+      }
+      emitServiceStateUpdate({ kind: 'service', service: saved.service, ...(saved.request?.id ? { request: saved.request } : {}) })
       setHistoryEditingRow(null)
       setHistoryEditForm(null)
-      setSuccess('Baris riwayat service berhasil diperbarui.')
+      setSuccess('Riwayat service, rincian transaksi, dan total terkait berhasil diperbarui.')
     } catch (saveError) {
       setError(humanizeError(saveError))
     } finally {
