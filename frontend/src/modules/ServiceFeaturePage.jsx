@@ -516,6 +516,33 @@ export default function ServiceFeaturePage({ profile }) {
     setSuccess('')
   }
 
+  const updateHistoryAmounts = (field, value) => {
+    setHistoryEditForm(current => {
+      const next = { ...current, [field]: value }
+      if (field === 'qty' || field === 'harga_satuan') {
+        if (next.qty !== '' && next.harga_satuan !== '') {
+          const dpp = Number(next.qty) * Number(next.harga_satuan)
+          if (Number.isFinite(dpp) && dpp >= 0) {
+            next.nilai_dpp = String(Number(dpp.toFixed(2)))
+            if (next.ppn !== '') next.total = String(Number((dpp + Number(next.ppn || 0)).toFixed(2)))
+          }
+        }
+      } else if (field === 'nilai_dpp' || field === 'ppn') {
+        if (next.nilai_dpp !== '' && next.ppn !== '') {
+          const dpp = Number(next.nilai_dpp)
+          const ppn = Number(next.ppn || 0)
+          if (Number.isFinite(dpp) && Number.isFinite(ppn) && dpp >= 0 && ppn >= 0) {
+            next.total = String(Number((dpp + ppn).toFixed(2)))
+            if (next.qty !== '' && Number(next.qty) > 0) {
+              next.harga_satuan = String(Number((dpp / Number(next.qty)).toFixed(2)))
+            }
+          }
+        }
+      }
+      return next
+    })
+  }
+
   const saveHistoryEdit = async event => {
     event.preventDefault()
     if (!canProcess || !historyEditingRow?.item || !historyEditForm) return
@@ -657,11 +684,11 @@ export default function ServiceFeaturePage({ profile }) {
           <label>Tanggal<input type="date" value={historyEditForm.tanggal} onChange={e => setHistoryEditForm(f => ({ ...f, tanggal: e.target.value }))} required /></label>
           <label>Jenis pekerjaan<input value={historyEditForm.jenis_pekerjaan} onChange={e => setHistoryEditForm(f => ({ ...f, jenis_pekerjaan: e.target.value }))} /></label>
           <label>Uraian<input value={historyEditForm.uraian} onChange={e => setHistoryEditForm(f => ({ ...f, uraian: e.target.value }))} /></label>
-          <label>Qty<input type="number" min="0.01" step="any" value={historyEditForm.qty} onChange={e => setHistoryEditForm(f => ({ ...f, qty: e.target.value }))} required /></label>
+          <label>Qty<input type="number" min="0.01" step="any" value={historyEditForm.qty} onChange={e => updateHistoryAmounts('qty', e.target.value)} required /></label>
           <label>Satuan<input value={historyEditForm.satuan} onChange={e => setHistoryEditForm(f => ({ ...f, satuan: e.target.value }))} required /></label>
-          <label>Harga satuan (Rp)<input type="number" min="0" step="any" value={historyEditForm.harga_satuan} onChange={e => setHistoryEditForm(f => ({ ...f, harga_satuan: e.target.value }))} required /></label>
-          <label>Nilai DPP (Rp)<input type="number" min="0" step="any" value={historyEditForm.nilai_dpp} onChange={e => setHistoryEditForm(f => ({ ...f, nilai_dpp: e.target.value }))} /></label>
-          <label>PPn (Rp)<input type="number" min="0" step="any" value={historyEditForm.ppn} onChange={e => setHistoryEditForm(f => ({ ...f, ppn: e.target.value }))} /></label>
+          <label>Harga satuan (Rp)<input type="number" min="0" step="any" value={historyEditForm.harga_satuan} onChange={e => updateHistoryAmounts('harga_satuan', e.target.value)} required /></label>
+          <label>Nilai DPP (Rp)<input type="number" min="0" step="any" value={historyEditForm.nilai_dpp} onChange={e => updateHistoryAmounts('nilai_dpp', e.target.value)} /></label>
+          <label>PPn (Rp)<input type="number" min="0" step="any" value={historyEditForm.ppn} onChange={e => updateHistoryAmounts('ppn', e.target.value)} /></label>
           <label>Total (Rp)<input type="number" min="0" step="any" value={historyEditForm.total} onChange={e => setHistoryEditForm(f => ({ ...f, total: e.target.value }))} /></label>
           <label>KM<input type="number" min="0" step="any" value={historyEditForm.kilometer} onChange={e => setHistoryEditForm(f => ({ ...f, kilometer: e.target.value }))} /></label>
           <label>Nama bengkel<input value={historyEditForm.bengkel} onChange={e => setHistoryEditForm(f => ({ ...f, bengkel: e.target.value }))} /></label>
