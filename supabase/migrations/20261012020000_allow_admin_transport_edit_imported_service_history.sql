@@ -163,6 +163,7 @@ DECLARE
   v_updated_item public.service_item%ROWTYPE;
   v_service public.service%ROWTYPE;
   v_updated_service public.service%ROWTYPE;
+  v_updated_request public.permintaan_service%ROWTYPE;
   v_meta_from_payload jsonb;
   v_old_meta jsonb;
   v_qty numeric;
@@ -383,7 +384,8 @@ BEGIN
         kilometer_pengajuan = COALESCE(v_max_km, v_service.kilometer),
         jenis_permintaan = v_service_type,
         keluhan = v_complaint
-    WHERE id = v_service.permintaan_service_id;
+    WHERE id = v_service.permintaan_service_id
+    RETURNING * INTO v_updated_request;
   END IF;
 
   SELECT COALESCE(jsonb_agg(to_jsonb(si) ORDER BY si.id), '[]'::jsonb)
@@ -394,7 +396,8 @@ BEGIN
   RETURN jsonb_build_object(
     'item', to_jsonb(v_updated_item),
     'items', v_items,
-    'service', to_jsonb(v_updated_service)
+    'service', to_jsonb(v_updated_service),
+    'request', to_jsonb(v_updated_request)
   );
 END;
 $function$;
