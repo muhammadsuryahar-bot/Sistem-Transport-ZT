@@ -27,6 +27,12 @@ const historyNumberInput = value => {
   if ((normalized.match(/\./g) || []).length > 1) return normalized.replace(/\./g, '')
   return normalized
 }
+const historyWorkCategory = (work, fallback) => {
+  const source = String(work ?? '').trim().toUpperCase()
+  if (/PENGADAAN BARANG|SPAREPART|SUKU CADANG/.test(source)) return 'SPAREPART'
+  if (/JASA SERVICE|\\bJASA\\b|\\bSERVICE\\b|PEKERJAAN|LABOR/.test(source)) return 'JASA'
+  return fallback || 'LAINNYA'
+}
 const historyDateInput = value => {
   const raw = String(value ?? '').trim()
   const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(raw)
@@ -530,6 +536,7 @@ export default function ServiceFeaturePage({ profile }) {
     }
     const payload = {
       nama_item: formValue.uraian.trim() || formValue.jenis_pekerjaan.trim() || item.nama_item,
+      kategori: historyWorkCategory(formValue.jenis_pekerjaan, item.kategori),
       jumlah: qty,
       satuan: formValue.satuan.trim(),
       harga_satuan: price,
