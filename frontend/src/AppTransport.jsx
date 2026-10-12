@@ -44,6 +44,7 @@ function AppTransport() {
   const [, setExportingPage] = useState(false)
   const profileRequestRef = useRef(0)
   const sessionUserIdRef = useRef(null)
+  const profileUserIdRef = useRef(null)
   const allowedPages = useMemo(() => ROLE_ACCESS[profile?.role] || ['dashboard'], [profile?.role])
   const visibleNavItems = useMemo(() => NAV_ITEMS.filter((item) => allowedPages.includes(item.id)), [allowedPages])
   const navigateToPage = (page) => {
@@ -61,6 +62,7 @@ function AppTransport() {
       if (requestId !== profileRequestRef.current) return
       console.error('Profile request failed:', requestError)
       if (silent) return
+      profileUserIdRef.current = null
       setProfile(null)
       setErrorMessage('Profil pengguna tidak dapat dimuat. Periksa koneksi lalu coba lagi.')
       return
@@ -71,6 +73,7 @@ function AppTransport() {
     if (error || !data) {
       console.error('Profile error:', error)
       if (silent) return
+      profileUserIdRef.current = null
       setProfile(null)
       setErrorMessage('Profil pengguna tidak dapat dimuat. Silakan coba lagi.')
       return
@@ -91,6 +94,7 @@ function AppTransport() {
       setProfile(null)
       return
     }
+    profileUserIdRef.current = data.id
     setProfile(current => {
       if (current
         && current.id === data.id
@@ -126,7 +130,7 @@ function AppTransport() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!mounted) return
       const nextUserId = nextSession?.user?.id || null
-      if (shouldPreserveProfileOnAuthEvent(event, nextUserId, sessionUserIdRef.current)) {
+      if (shouldPreserveProfileOnAuthEvent(event, nextUserId, sessionUserIdRef.current) && profileUserIdRef.current === nextUserId) {
         // Access-token renewal for the same account is not a page transition.
         // Keep the current screen rendered and verify the profile in the background.
         setSession(nextSession)
@@ -137,6 +141,7 @@ function AppTransport() {
         return
       }
       sessionUserIdRef.current = nextUserId
+      profileUserIdRef.current = null
       profileRequestRef.current += 1
       setSession(nextSession)
       setProfile(null)
