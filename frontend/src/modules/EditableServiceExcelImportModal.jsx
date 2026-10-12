@@ -6,6 +6,7 @@ import { parseXlsx } from '../utils/xlsxParser.js'
 import './DataPageTools.css'
 import { encodeExcelMeta } from '../utils/excelSourceMeta.js'
 import './EditableServiceExcelImportModal.css'
+import { excelDate } from '../utils/excelDate.js'
 
 const MAX_FILE_SIZE = 25 * 1024 * 1024
 const PAGE_OPTIONS = [25, 50, 100]
@@ -72,27 +73,7 @@ function currencyValue(value) {
   return Number.isFinite(n) ? n : 0
 }
 
-function excelDate(value) {
-  const v = clean(value)
-  if (!v) return null
-  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v
-  if (/^\d{1,2}[/-]\d{1,2}[/-]\d{4}$/.test(v)) {
-    const [d, m, y] = v.split(/[/-]/)
-    return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
-  }
-  const months = { jan: 1, januari: 1, feb: 2, februari: 2, mar: 3, maret: 3, apr: 4, april: 4, mei: 5, may: 5, jun: 6, juni: 6, jul: 7, juli: 7, agu: 8, agustus: 8, sep: 9, september: 9, okt: 10, oktober: 10, nov: 11, november: 11, des: 12, desember: 12 }
-  const named = v.toLowerCase().replace(/\./g, '').match(/^(\d{1,2})[-\s/]([a-z]+)[-\s/](\d{2,4})$/)
-  if (named) {
-    const month = months[named[2]]
-    let year = Number(named[3])
-    if (year < 100) year += year >= 70 ? 1900 : 2000
-    if (month) return `${year}-${String(month).padStart(2, '0')}-${String(Number(named[1])).padStart(2, '0')}`
-  }
-  const serial = Number(v)
-  if (Number.isFinite(serial) && serial > 20000 && serial < 80000) return new Date(Date.UTC(1899, 11, 30) + serial * 86400000).toISOString().slice(0, 10)
-  const date = new Date(v)
-  return Number.isNaN(date.getTime()) ? null : date.toISOString().slice(0, 10)
-}
+
 
 function formatDisplay(value, header) {
   const raw = clean(value)

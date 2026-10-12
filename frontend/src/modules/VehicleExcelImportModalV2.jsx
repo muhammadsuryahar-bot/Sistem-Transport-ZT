@@ -6,6 +6,7 @@ import { clearDeletedExcelRows, filterDeletedExcelRows } from '../utils/excelPre
 import { parseXlsx } from '../utils/xlsxParser.js'
 import './DataPageTools.css'
 import './VehicleExcelImportModal.css'
+import { excelDate } from '../utils/excelDate.js'
 
 const MAX_FILE_SIZE = 25 * 1024 * 1024
 const PAGE_OPTIONS = [25, 50, 100]
@@ -55,19 +56,7 @@ function valueOf(row, headers, key) {
   const index = headers.findIndex(header => (LABELS[key] || [key]).includes(norm(header)))
   return index >= 0 ? clean(row.values[index]) : ''
 }
-function excelDate(value) {
-  const v = clean(value)
-  if (!v) return null
-  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v
-  if (/^\d{1,2}[-/]\d{1,2}[-/]\d{4}$/.test(v)) {
-    const [d, m, y] = v.split(/[-/]/)
-    return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
-  }
-  const serial = Number(v)
-  if (Number.isFinite(serial) && serial > 20000 && serial < 80000) return new Date(Date.UTC(1899, 11, 30) + serial * 86400000).toISOString().slice(0, 10)
-  const date = new Date(v)
-  return Number.isNaN(date.getTime()) ? null : date.toISOString().slice(0, 10)
-}
+
 function numberValue(value) {
   const v = clean(value)
   if (!v) return null
