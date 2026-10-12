@@ -5,6 +5,7 @@ import EditableServiceExcelImportModal from './EditableServiceExcelImportModal.j
 import VehicleDocumentsImportModal from './VehicleDocumentsImportModal.jsx'
 import PengajuanExcelImportModal from './PengajuanExcelImportModal.jsx'
 import RentalHistoryImportModalV2 from './RentalHistoryImportModalV2.jsx'
+import { resolveCleanTableView } from '../utils/tableViewSettings.js'
 import './DataPageTools.css'
 
 const CONTEXT_LABEL = { kendaraan: 'Kendaraan', pengajuan: 'Data Service', service: 'Service & Perbaikan', sewa: 'Administrasi Sewa', dokumen: 'Dokumen Kendaraan', laporan: 'Laporan', pengguna: 'Pengguna' }
@@ -80,10 +81,10 @@ function writeColumnVisibility(context, columns) {
 }
 function readCleanTableView(context) {
   try {
-    const raw = localStorage.getItem(CLEAN_TABLE_VIEW_STORAGE)
-    const value = raw ? JSON.parse(raw) : {}
-    return value && typeof value === 'object' && value[context] !== undefined ? value[context] !== false : true
-  } catch { return true }
+    return resolveCleanTableView(localStorage.getItem(CLEAN_TABLE_VIEW_STORAGE), context)
+  } catch {
+    return resolveCleanTableView(null, context)
+  }
 }
 function writeCleanTableView(context, enabled) {
   try {
