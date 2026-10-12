@@ -5,6 +5,7 @@ import './TransportOperationsFixed.css'
 import PageBreadcrumb from './PageBreadcrumb.jsx'
 import { formatDateSafe } from '../utils/dateSafe'
 import { decodeExcelMeta, encodeExcelMeta } from '../utils/excelSourceMeta.js'
+import { historyNumberInput, normalizeHistoryPpn } from '../utils/serviceHistoryMoney.js'
 import { DOCUMENT_UPLOAD_ACCEPT, IMAGE_UPLOAD_ACCEPT, validateStorageUploadFile } from '../utils/storageUpload.js'
 
 const money = v => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(v || 0))
@@ -16,17 +17,6 @@ const emptyItem = { service_id: '', nama_item: '', kategori: 'SPAREPART', jumlah
 const emptyProof = { service_id: '', jenis_bukti: 'BON_INVOICE', keterangan: '' }
 const emptyPart = { kendaraan_id: '', tanggal_penggantian: new Date().toISOString().slice(0, 10), kilometer: '', kondisi_sebelum: '', alasan_penggantian: '', biaya: '', keterangan: '', _type: 'BAN' }
 const emptyKm = { kendaraan_id: '', tanggal: new Date().toISOString().slice(0, 10), kilometer: '', sumber: 'SERVICE', keterangan: '' }
-const historyNumberInput = value => {
-  const raw = String(value ?? '').trim()
-  if (!raw || raw === '-') return ''
-  const normalized = raw.replace(/[^\d,.-]/g, '')
-  const comma = normalized.lastIndexOf(',')
-  const dot = normalized.lastIndexOf('.')
-  if (comma >= 0 && dot >= 0) return comma > dot ? normalized.replace(/\./g, '').replace(',', '.') : normalized.replace(/,/g, '')
-  if (comma >= 0) return normalized.replace(/\./g, '').replace(',', '.')
-  if ((normalized.match(/\./g) || []).length > 1) return normalized.replace(/\./g, '')
-  return normalized
-}
 const historyWorkCategory = (work, fallback) => {
   const source = String(work ?? '').trim().toUpperCase()
   if (/PENGADAAN BARANG|SPAREPART|SUKU CADANG/.test(source)) return 'SPAREPART'
@@ -506,7 +496,7 @@ export default function ServiceFeaturePage({ profile }) {
       satuan: row.satuan === '-' ? String(item.satuan || '') : String(row.satuan ?? ''),
       harga_satuan: historyNumberInput(row.harga_satuan === '-' ? item.harga_satuan : row.harga_satuan),
       nilai_dpp: historyNumberInput(row.nilai_dpp === '-' ? item.subtotal : row.nilai_dpp),
-      ppn: historyNumberInput(row.ppn),
+      ppn: String(meta.ppn_source ?? meta.ppn ?? ''),
       total: historyNumberInput(row.total === '-' ? item.subtotal : row.total),
       kilometer: historyNumberInput(row.kilometer),
       bengkel: row.bengkel === '-' ? '' : String(row.bengkel ?? ''),
@@ -522,15 +512,16 @@ export default function ServiceFeaturePage({ profile }) {
       if (field === 'qty' || field === 'harga_satuan') {
         if (next.qty !== '' && next.harga_satuan !== '') {
           const dpp = Number(next.qty) * Number(next.harga_satuan)
+          const ppn = normalizeHistoryPpn(dpp, next.ppn)
           if (Number.isFinite(dpp) && dpp >= 0) {
             next.nilai_dpp = String(Number(dpp.toFixed(2)))
-            if (next.ppn !== '') next.total = String(Number((dpp + Number(next.ppn || 0)).toFixed(2)))
+            if (Number.isFinite(ppn)) next.total = String(Number((dpp + ppn).toFixed(2)))
           }
         }
       } else if (field === 'nilai_dpp' || field === 'ppn') {
-        if (next.nilai_dpp !== '' && next.ppn !== '') {
+        if (next.nilai_dpp !== '') {
           const dpp = Number(next.nilai_dpp)
-          const ppn = Number(next.ppn || 0)
+          const ppn = normalizeHistoryPpn(dpp, next.ppn)
           if (Number.isFinite(dpp) && Number.isFinite(ppn) && dpp >= 0 && ppn >= 0) {
             next.total = String(Number((dpp + ppn).toFixed(2)))
             if (next.qty !== '' && Number(next.qty) > 0) {
@@ -551,7 +542,7 @@ export default function ServiceFeaturePage({ profile }) {
     const qty = Number(formValue.qty)
     const price = Number(formValue.harga_satuan || 0)
     const dpp = formValue.nilai_dpp === '' ? qty * price : Number(formValue.nilai_dpp)
-    const ppn = formValue.ppn === '' ? 0 : Number(formValue.ppn)
+    const ppn = normalizeHistoryPpn(dpp, formValue.ppn)
     const total = formValue.total === '' ? dpp + ppn : Number(formValue.total)
     const kilometer = formValue.kilometer === '' ? null : Number(formValue.kilometer)
     const sourceNo = formValue.no === '' ? Number(historyEditingRow.row.no || 1) : Number(formValue.no)
@@ -585,7 +576,7 @@ export default function ServiceFeaturePage({ profile }) {
       harga_satuan: price,
       nilai_dpp: dpp,
       ppn,
-      ppn_source: formValue.ppn === '' ? '-' : String(ppn),
+      ppn_source: formValue.ppn.trim() === '' ? '-' : formValue.ppn.trim(),
       total,
       kilometer: kilometer ?? '',
       bengkel: formValue.bengkel.trim(),
@@ -688,7 +679,7 @@ export default function ServiceFeaturePage({ profile }) {
           <label>Satuan<input value={historyEditForm.satuan} onChange={e => setHistoryEditForm(f => ({ ...f, satuan: e.target.value }))} required /></label>
           <label>Harga satuan (Rp)<input type="number" min="0" step="any" value={historyEditForm.harga_satuan} onChange={e => updateHistoryAmounts('harga_satuan', e.target.value)} required /></label>
           <label>Nilai DPP (Rp)<input type="number" min="0" step="any" value={historyEditForm.nilai_dpp} onChange={e => updateHistoryAmounts('nilai_dpp', e.target.value)} /></label>
-          <label>PPn (Rp)<input type="number" min="0" step="any" value={historyEditForm.ppn} onChange={e => updateHistoryAmounts('ppn', e.target.value)} /></label>
+          <label>PPn (nilai sumber Excel)<input type="number" min="0" step="any" value={historyEditForm.ppn} onChange={e => updateHistoryAmounts('ppn', e.target.value)} /></label>
           <label>Total (Rp)<input type="number" min="0" step="any" value={historyEditForm.total} onChange={e => setHistoryEditForm(f => ({ ...f, total: e.target.value }))} /></label>
           <label>KM<input type="number" min="0" step="any" value={historyEditForm.kilometer} onChange={e => setHistoryEditForm(f => ({ ...f, kilometer: e.target.value }))} /></label>
           <label>Nama bengkel<input value={historyEditForm.bengkel} onChange={e => setHistoryEditForm(f => ({ ...f, bengkel: e.target.value }))} /></label>
