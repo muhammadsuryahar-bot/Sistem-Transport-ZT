@@ -328,7 +328,19 @@ export default function ServiceFeaturePage({ profile }) {
       setSuccess('Item service dihapus.')
     } catch (err) { setError(humanizeError(err)) } finally { setSaving(false) }
   }
-  const editItem = item => { setEditingItemId(item.id); setItemForm({ service_id: item.service_id, nama_item: item.nama_item || '', kategori: item.kategori || 'SPAREPART', jumlah: item.jumlah ?? 1, satuan: item.satuan || 'pcs', harga_satuan: item.harga_satuan ?? '', keterangan: item.keterangan || '' }); setTab('item') }
+  const editItem = item => {
+    const sourceMeta = decodeExcelMeta(item.keterangan).meta
+    if (sourceMeta?.source === 'DATA_SERVICE') {
+      const historyRow = serviceExcelRows.find(row => String(row.item_id) === String(item.id))
+      if (historyRow) {
+        openHistoryEdit(historyRow)
+        return
+      }
+    }
+    setEditingItemId(item.id)
+    setItemForm({ service_id: item.service_id, nama_item: item.nama_item || '', kategori: item.kategori || 'SPAREPART', jumlah: item.jumlah ?? 1, satuan: item.satuan || 'pcs', harga_satuan: item.harga_satuan ?? '', keterangan: item.keterangan || '' })
+    setTab('item')
+  }
   const saveProof = async e => {
     e.preventDefault(); clearMessages(); setSaving(true)
     let path = null
@@ -447,7 +459,20 @@ export default function ServiceFeaturePage({ profile }) {
     } catch (err) { setError(humanizeError(err)) } finally { setSaving(false) }
   }
   const openDetail = async s => { setSelected(s); setDetailEdit({ biaya_aktual: s.biaya_aktual ?? s.estimasi_biaya ?? '' }); await ensureServiceDetailData(s.id) }
-  const openServiceEdit = s => { setEditingServiceId(s.id); setForm({ ...emptyService, permintaan_service_id: s.permintaan_service_id ?? '', kendaraan_id: s.kendaraan_id ?? '', tanggal_service: s.tanggal_service || new Date().toISOString().slice(0, 10), kilometer: s.kilometer ?? '', bengkel: s.bengkel || '', jenis_service: s.jenis_service || 'SERVICE', keluhan: s.keluhan || '', estimasi_biaya: s.estimasi_biaya ?? '', biaya_aktual: s.biaya_aktual ?? '', nilai_dpp: s.nilai_dpp ?? '', ppn: s.ppn ?? '', total: s.total ?? '', catatan: s.catatan || '' }); setTab('pekerjaan'); setSelected(null) }
+  const openServiceEdit = s => {
+    if (String(s.nomor_service || '').startsWith('IMP-SRV-')) {
+      const historyRow = serviceExcelRows.find(row => String(row.service_id) === String(s.id) && row.item_id)
+      if (historyRow) {
+        openHistoryEdit(historyRow)
+        setSelected(null)
+        return
+      }
+    }
+    setEditingServiceId(s.id)
+    setForm({ ...emptyService, permintaan_service_id: s.permintaan_service_id ?? '', kendaraan_id: s.kendaraan_id ?? '', tanggal_service: s.tanggal_service || new Date().toISOString().slice(0, 10), kilometer: s.kilometer ?? '', bengkel: s.bengkel || '', jenis_service: s.jenis_service || 'SERVICE', keluhan: s.keluhan || '', estimasi_biaya: s.estimasi_biaya ?? '', biaya_aktual: s.biaya_aktual ?? '', nilai_dpp: s.nilai_dpp ?? '', ppn: s.ppn ?? '', total: s.total ?? '', catatan: s.catatan || '' })
+    setTab('pekerjaan')
+    setSelected(null)
+  }
   const deleteService = async s => { if (!canProcess) return; if (!window.confirm(`Hapus service ${s.nomor_service || s.id}? Data ini akan dihapus jika belum memiliki item, bukti, atau approval.`)) return; setSaving(true); try { const [ic,pc,ac] = await Promise.all([supabase.from('service_item').select('id',{count:'exact',head:true}).eq('service_id',s.id),supabase.from('service_bukti').select('id',{count:'exact',head:true}).eq('service_id',s.id),supabase.from('service_approval').select('id',{count:'exact',head:true}).eq('service_id',s.id)]); if(ic.error) throw ic.error; if(pc.error) throw pc.error; if(ac.error) throw ac.error; if((ic.count||0)+(pc.count||0)+(ac.count||0)>0) throw new Error('Service sudah memiliki item, bukti, atau approval. Hapus bagian terkait terlebih dahulu agar histori tidak hilang.'); const result=await supabase.from('service').delete().eq('id',s.id).select('id').maybeSingle(); if(result.error) throw result.error; if(!result.data) throw new Error('Data service tidak berhasil dihapus.'); if(s.permintaan_service_id) await supabase.from('permintaan_service').update({status:'MENUNGGU_TRANSPORT',diproses_oleh:null,diproses_at:null}).eq('id',s.permintaan_service_id); setServices(current=>current.filter(row=>row.id!==s.id)); setSuccess('Data service dihapus.'); } catch(e){setError(humanizeError(e))} finally{setSaving(false)} }
   const openHistoryEdit = row => {
     if (!canProcess) return
