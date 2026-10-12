@@ -30,7 +30,7 @@ const historyNumberInput = value => {
 const historyWorkCategory = (work, fallback) => {
   const source = String(work ?? '').trim().toUpperCase()
   if (/PENGADAAN BARANG|SPAREPART|SUKU CADANG/.test(source)) return 'SPAREPART'
-  if (/JASA SERVICE|\\bJASA\\b|\\bSERVICE\\b|PEKERJAAN|LABOR/.test(source)) return 'JASA'
+  if (/JASA SERVICE|\bJASA\b|\bSERVICE\b|PEKERJAAN|LABOR/.test(source)) return 'JASA'
   return fallback || 'LAINNYA'
 }
 const historyDateInput = value => {
