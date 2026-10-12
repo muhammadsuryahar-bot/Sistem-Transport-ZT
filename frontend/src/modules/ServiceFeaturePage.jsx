@@ -539,8 +539,9 @@ export default function ServiceFeaturePage({ profile }) {
       kategori: historyWorkCategory(formValue.jenis_pekerjaan, item.kategori),
       jumlah: qty,
       satuan: formValue.satuan.trim(),
-      harga_satuan: price,
-      subtotal: qty * price,
+      // Match the normalized row's price to the edited DPP so subtotal arithmetic stays consistent.
+      harga_satuan: qty > 0 ? dpp / qty : price,
+      subtotal: dpp,
       keterangan: encodeExcelMeta(meta, keterangan),
     }
     setSaving(true)
