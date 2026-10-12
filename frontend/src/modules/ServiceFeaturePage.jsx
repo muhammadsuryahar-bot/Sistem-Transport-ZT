@@ -6,6 +6,7 @@ import PageBreadcrumb from './PageBreadcrumb.jsx'
 import { formatDateSafe } from '../utils/dateSafe'
 import { decodeExcelMeta, encodeExcelMeta } from '../utils/excelSourceMeta.js'
 import { historyNumberInput, normalizeHistoryPpn } from '../utils/serviceHistoryMoney.js'
+import { historySourcePpnValue, historySourceTotalValue } from '../utils/serviceHistorySourceMoney.js'
 import { DOCUMENT_UPLOAD_ACCEPT, IMAGE_UPLOAD_ACCEPT, validateStorageUploadFile } from '../utils/storageUpload.js'
 
 const money = v => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(v || 0))
@@ -224,7 +225,7 @@ export default function ServiceFeaturePage({ profile }) {
         bulan: source?.bulan || (parsedDate && !Number.isNaN(parsedDate.getTime()) ? new Intl.DateTimeFormat('id-ID', { month: 'long' }).format(parsedDate) : '-'),
         tanggal: date || '-', jenis_pekerjaan: source?.jenis_pekerjaan || TYPES[s?.jenis_service] || s?.jenis_service || '-', uraian: source?.uraian || item.nama_item || s?.keluhan || '-',
         qty: source?.qty ?? item.jumlah ?? '-', satuan: source?.satuan || item.satuan || '-', harga_satuan: source?.harga_satuan ?? item.harga_satuan ?? '-', nilai_dpp: source?.nilai_dpp ?? item.subtotal ?? '-',
-        ppn: source?.ppn ?? source?.ppn_source ?? '-', total: source?.total ?? item.subtotal ?? '-', kilometer: source?.kilometer ?? s?.kilometer ?? '-', bengkel: source?.bengkel || s?.bengkel || '-', keterangan: note || source?.keterangan || s?.catatan || '-',
+        ppn: historySourcePpnValue(source), total: historySourceTotalValue(source, item.subtotal ?? '-'), kilometer: source?.kilometer ?? s?.kilometer ?? '-', bengkel: source?.bengkel || s?.bengkel || '-', keterangan: note || source?.keterangan || s?.catatan || '-',
       })
     })
     if (!rows.length) services.forEach((s, index) => { const v = vehicleMap[s.kendaraan_id]; const date = s.tanggal_service ? new Date(`${s.tanggal_service}T00:00:00`) : null; rows.push({ service_id: s?.id || null, item_id: null, no: index + 1, merk: v?.merk || '-', type: v?.tipe || '-', jenis: v?.jenis_kendaraan || '-', tahun: v?.tahun || '-', nomor_polisi: v?.nomor_polisi || '-', driver: driverMap[v?.driver_id]?.nama_lengkap || '-', bulan: date && !Number.isNaN(date.getTime()) ? new Intl.DateTimeFormat('id-ID', { month: 'long' }).format(date) : '-', tanggal: s.tanggal_service || '-', jenis_pekerjaan: TYPES[s.jenis_service] || s.jenis_service || '-', uraian: s.keluhan || '-', qty: '-', satuan: '-', harga_satuan: '-', nilai_dpp: s.nilai_dpp ?? '-', ppn: s.ppn ?? '-', total: s.total ?? s.biaya_aktual ?? '-', kilometer: s.kilometer ?? '-', bengkel: s.bengkel || '-', keterangan: s.catatan || '-' }) })
@@ -496,8 +497,9 @@ export default function ServiceFeaturePage({ profile }) {
       satuan: row.satuan === '-' ? String(item.satuan || '') : String(row.satuan ?? ''),
       harga_satuan: historyNumberInput(row.harga_satuan === '-' ? item.harga_satuan : row.harga_satuan),
       nilai_dpp: historyNumberInput(row.nilai_dpp === '-' ? item.subtotal : row.nilai_dpp),
-      ppn: String(meta.ppn_source ?? meta.ppn ?? ''),
-      total: historyNumberInput(row.total === '-' ? item.subtotal : row.total),
+      ppn: meta.ppn_source != null && String(meta.ppn_source).trim() === '-' ? '' : String(meta.ppn_source ?? meta.ppn ?? ''),
+      total: meta.total_source_blank === true ? '' : historyNumberInput(row.total === '-' ? item.subtotal : row.total),
+      total_source_blank: Boolean(meta.total_source_blank),
       kilometer: historyNumberInput(row.kilometer),
       bengkel: row.bengkel === '-' ? '' : String(row.bengkel ?? ''),
       keterangan: decoded.note || meta.keterangan || (row.keterangan === '-' ? '' : String(row.keterangan ?? '')),
@@ -509,6 +511,7 @@ export default function ServiceFeaturePage({ profile }) {
   const updateHistoryAmounts = (field, value) => {
     setHistoryEditForm(current => {
       const next = { ...current, [field]: value }
+      if (['qty', 'harga_satuan', 'nilai_dpp', 'ppn'].includes(field)) next.total_source_blank = false
       if (field === 'qty' || field === 'harga_satuan') {
         if (next.qty !== '' && next.harga_satuan !== '') {
           const dpp = Number(next.qty) * Number(next.harga_satuan)
@@ -578,6 +581,7 @@ export default function ServiceFeaturePage({ profile }) {
       ppn,
       ppn_source: formValue.ppn.trim() === '' ? '-' : formValue.ppn.trim(),
       total,
+      total_source_blank: Boolean(formValue.total_source_blank),
       kilometer: kilometer ?? '',
       bengkel: formValue.bengkel.trim(),
       keterangan,
@@ -680,7 +684,7 @@ export default function ServiceFeaturePage({ profile }) {
           <label>Harga satuan (Rp)<input type="number" min="0" step="any" value={historyEditForm.harga_satuan} onChange={e => updateHistoryAmounts('harga_satuan', e.target.value)} required /></label>
           <label>Nilai DPP (Rp)<input type="number" min="0" step="any" value={historyEditForm.nilai_dpp} onChange={e => updateHistoryAmounts('nilai_dpp', e.target.value)} /></label>
           <label>PPn (nilai sumber Excel)<input type="number" min="0" step="any" value={historyEditForm.ppn} onChange={e => updateHistoryAmounts('ppn', e.target.value)} /></label>
-          <label>Total (Rp)<input type="number" min="0" step="any" value={historyEditForm.total} onChange={e => setHistoryEditForm(f => ({ ...f, total: e.target.value }))} /></label>
+          <label>Total (Rp)<input type="number" min="0" step="any" value={historyEditForm.total} onChange={e => setHistoryEditForm(f => ({ ...f, total: e.target.value, total_source_blank: false }))} /></label>
           <label>KM<input type="number" min="0" step="any" value={historyEditForm.kilometer} onChange={e => setHistoryEditForm(f => ({ ...f, kilometer: e.target.value }))} /></label>
           <label>Nama bengkel<input value={historyEditForm.bengkel} onChange={e => setHistoryEditForm(f => ({ ...f, bengkel: e.target.value }))} /></label>
           <label className="full">Keterangan<textarea value={historyEditForm.keterangan} onChange={e => setHistoryEditForm(f => ({ ...f, keterangan: e.target.value }))} rows="3" /></label>
