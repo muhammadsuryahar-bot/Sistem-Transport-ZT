@@ -31,7 +31,7 @@ function buildDate(yearValue, monthValue, dayValue) {
   if (!year || year < 1900 || year > 2200 || !Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(day) || day < 1 || day > 31) return null
   const date = new Date(Date.UTC(year, month - 1, day))
   if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null
-  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+  return String(year) + '-' + String(month).padStart(2, '0') + '-' + String(day).padStart(2, '0')
 }
 
 /**
@@ -44,15 +44,15 @@ export function excelDate(value) {
   if (!raw) return null
 
   // ISO date or datetime: preserve the explicit calendar date component.
-  const iso = /^(\\d{4})-(\\d{1,2})-(\\d{1,2})(?:$|[T\\s])/.exec(raw)
+  const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})(?:$|[T\s])/.exec(raw)
   if (iso) return buildDate(iso[1], iso[2], iso[3])
 
   // Indonesian day-first numeric dates (d/m/yyyy or d-m-yyyy).
-  const numeric = /^(\\d{1,2})[/-](\\d{1,2})[/-](\\d{2,4})$/.exec(raw)
+  const numeric = /^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/.exec(raw)
   if (numeric) return buildDate(numeric[3], numeric[2], numeric[1])
 
   // Month names in Indonesian or English, e.g. 25-Oct-2025 / 11-Des-25.
-  const named = raw.toLowerCase().replace(/[.,]/g, '').match(/^(\\d{1,2})[-\\s/]+([a-z]+)[-\\s/]+(\\d{2,4})$/)
+  const named = raw.toLowerCase().replace(/[.,]/g, '').match(/^(\d{1,2})[-\s/]+([a-z]+)[-\s/]+(\d{2,4})$/)
   if (named) {
     const month = MONTHS[named[2]]
     if (month) return buildDate(named[3], month, named[1])
