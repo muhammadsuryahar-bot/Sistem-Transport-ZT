@@ -31,7 +31,7 @@ const sourceWorkCategory = (item = {}) => {
   const meta = decodeExcelMeta(item.keterangan).meta || {}
   const source = clean(meta.jenis_pekerjaan).toUpperCase()
   if (/PENGADAAN BARANG|SPAREPART|SUKU CADANG/.test(source)) return 'SPAREPART'
-  if (/JASA SERVICE|\bJASA\b|\bSERVICE\b|PEKERJAAN|LABOR/.test(source)) return 'JASA'
+  if (/JASA SERVICE|\bJASA\b|PEKERJAAN|LABOR/.test(source)) return 'JASA'
   return itemCategory(item.kategori, item.nama_item)
 }
 
