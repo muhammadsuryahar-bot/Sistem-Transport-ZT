@@ -6,7 +6,7 @@ import PageBreadcrumb from './PageBreadcrumb.jsx'
 import { formatDateSafe } from '../utils/dateSafe'
 import { decodeExcelMeta, encodeExcelMeta } from '../utils/excelSourceMeta.js'
 import { historyNumberInput, normalizeHistoryPpn } from '../utils/serviceHistoryMoney.js'
-import { historySourcePpnValue, historySourceTotalValue } from '../utils/serviceHistorySourceMoney.js'
+import { historySourcePpnValue, historySourceTotalIsBlank, historySourceTotalValue } from '../utils/serviceHistorySourceMoney.js'
 import { DOCUMENT_UPLOAD_ACCEPT, IMAGE_UPLOAD_ACCEPT, validateStorageUploadFile } from '../utils/storageUpload.js'
 
 const money = v => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(v || 0))
@@ -498,8 +498,8 @@ export default function ServiceFeaturePage({ profile }) {
       harga_satuan: historyNumberInput(row.harga_satuan === '-' ? item.harga_satuan : row.harga_satuan),
       nilai_dpp: historyNumberInput(row.nilai_dpp === '-' ? item.subtotal : row.nilai_dpp),
       ppn: meta.ppn_source != null && String(meta.ppn_source).trim() === '-' ? '' : String(meta.ppn_source ?? meta.ppn ?? ''),
-      total: meta.total_source_blank === true ? '' : historyNumberInput(row.total === '-' ? item.subtotal : row.total),
-      total_source_blank: Boolean(meta.total_source_blank),
+      total: historySourceTotalIsBlank(meta) ? '' : historyNumberInput(row.total === '-' ? item.subtotal : row.total),
+      total_source_blank: historySourceTotalIsBlank(meta),
       kilometer: historyNumberInput(row.kilometer),
       bengkel: row.bengkel === '-' ? '' : String(row.bengkel ?? ''),
       keterangan: decoded.note || meta.keterangan || (row.keterangan === '-' ? '' : String(row.keterangan ?? '')),
