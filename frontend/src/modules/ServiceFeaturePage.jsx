@@ -4,7 +4,7 @@ import { humanizeError } from '../utils/feedback.js'
 import './TransportOperationsFixed.css'
 import PageBreadcrumb from './PageBreadcrumb.jsx'
 import { formatDateSafe } from '../utils/dateSafe'
-import { decodeExcelMeta } from '../utils/excelSourceMeta.js'
+import { decodeExcelMeta, encodeExcelMeta } from '../utils/excelSourceMeta.js'
 import { DOCUMENT_UPLOAD_ACCEPT, IMAGE_UPLOAD_ACCEPT, validateStorageUploadFile } from '../utils/storageUpload.js'
 
 const money = v => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(v || 0))
@@ -16,6 +16,24 @@ const emptyItem = { service_id: '', nama_item: '', kategori: 'SPAREPART', jumlah
 const emptyProof = { service_id: '', jenis_bukti: 'BON_INVOICE', keterangan: '' }
 const emptyPart = { kendaraan_id: '', tanggal_penggantian: new Date().toISOString().slice(0, 10), kilometer: '', kondisi_sebelum: '', alasan_penggantian: '', biaya: '', keterangan: '', _type: 'BAN' }
 const emptyKm = { kendaraan_id: '', tanggal: new Date().toISOString().slice(0, 10), kilometer: '', sumber: 'SERVICE', keterangan: '' }
+const historyNumberInput = value => {
+  const raw = String(value ?? '').trim()
+  if (!raw || raw === '-') return ''
+  const normalized = raw.replace(/[^\d,.-]/g, '')
+  const comma = normalized.lastIndexOf(',')
+  const dot = normalized.lastIndexOf('.')
+  if (comma >= 0 && dot >= 0) return comma > dot ? normalized.replace(/\./g, '').replace(',', '.') : normalized.replace(/,/g, '')
+  if (comma >= 0) return normalized.replace(/\./g, '').replace(',', '.')
+  if ((normalized.match(/\./g) || []).length > 1) return normalized.replace(/\./g, '')
+  return normalized
+}
+const historyDateInput = value => {
+  const raw = String(value ?? '').trim()
+  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(raw)
+  if (iso) return raw.slice(0, 10)
+  const local = /^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/.exec(raw)
+  return local ? local[3] + '-' + local[2].padStart(2, '0') + '-' + local[1].padStart(2, '0') : ''
+}
 function Alert({ type = 'success', children }) { return <div className={`x-alert ${type}`}>{children}</div> }
 function Header({ eyebrow, title, text, action, breadcrumb }) { return <><PageBreadcrumb items={['Transport', 'Service & Perbaikan', breadcrumb]} /><div className="x-head"><div><span className="eyebrow">{eyebrow}</span><h2>{title}</h2><p>{text}</p></div>{action}</div></> }
 function Empty({ text = 'Belum ada data.' }) { return <div className="x-empty">{text}</div> }
@@ -44,6 +62,8 @@ export default function ServiceFeaturePage({ profile }) {
   const [editingServiceId, setEditingServiceId] = useState(null)
   const [serviceSearch, setServiceSearch] = useState('')
   const [serviceVehicleFilter, setServiceVehicleFilter] = useState('SEMUA')
+  const [historyEditingRow, setHistoryEditingRow] = useState(null)
+  const [historyEditForm, setHistoryEditForm] = useState(null)
   const canProcess = ['ADMIN', 'TRANSPORT'].includes(profile?.role)
   const canApprove = ['ADMIN', 'ATASAN_TRANSPORT', 'DIREKTUR'].includes(profile?.role)
   const vehicleMap = useMemo(() => Object.fromEntries(vehicles.map(v => [v.id, v])), [vehicles])
@@ -201,6 +221,7 @@ export default function ServiceFeaturePage({ profile }) {
       const parsedDate = date ? new Date(`${date}T00:00:00`) : null
       rows.push({
         service_id: s?.id || item.service_id || null,
+        item_id: item.id,
         no: Number.isFinite(Number(source?.source_no)) ? Number(source.source_no) : index + 1,
         merk: source?.merk || v?.merk || '-', type: source?.type || v?.tipe || '-', jenis: source?.jenis || v?.jenis_kendaraan || '-',
         tahun: source?.tahun || v?.tahun || '-', nomor_polisi: source?.nomor_polisi || v?.nomor_polisi || '-', driver: source?.driver || driverMap[v?.driver_id]?.nama_lengkap || '-',
@@ -210,7 +231,7 @@ export default function ServiceFeaturePage({ profile }) {
         ppn: source?.ppn_source ?? source?.ppn ?? '-', total: source?.total ?? item.subtotal ?? '-', kilometer: source?.kilometer ?? s?.kilometer ?? '-', bengkel: source?.bengkel || s?.bengkel || '-', keterangan: note || source?.keterangan || s?.catatan || '-',
       })
     })
-    if (!rows.length) services.forEach((s, index) => { const v = vehicleMap[s.kendaraan_id]; const date = s.tanggal_service ? new Date(`${s.tanggal_service}T00:00:00`) : null; rows.push({ service_id: s?.id || null, no: index + 1, merk: v?.merk || '-', type: v?.tipe || '-', jenis: v?.jenis_kendaraan || '-', tahun: v?.tahun || '-', nomor_polisi: v?.nomor_polisi || '-', driver: driverMap[v?.driver_id]?.nama_lengkap || '-', bulan: date && !Number.isNaN(date.getTime()) ? new Intl.DateTimeFormat('id-ID', { month: 'long' }).format(date) : '-', tanggal: s.tanggal_service || '-', jenis_pekerjaan: TYPES[s.jenis_service] || s.jenis_service || '-', uraian: s.keluhan || '-', qty: '-', satuan: '-', harga_satuan: '-', nilai_dpp: s.nilai_dpp ?? '-', ppn: s.ppn ?? '-', total: s.total ?? s.biaya_aktual ?? '-', kilometer: s.kilometer ?? '-', bengkel: s.bengkel || '-', keterangan: s.catatan || '-' }) })
+    if (!rows.length) services.forEach((s, index) => { const v = vehicleMap[s.kendaraan_id]; const date = s.tanggal_service ? new Date(`${s.tanggal_service}T00:00:00`) : null; rows.push({ service_id: s?.id || null, item_id: null, no: index + 1, merk: v?.merk || '-', type: v?.tipe || '-', jenis: v?.jenis_kendaraan || '-', tahun: v?.tahun || '-', nomor_polisi: v?.nomor_polisi || '-', driver: driverMap[v?.driver_id]?.nama_lengkap || '-', bulan: date && !Number.isNaN(date.getTime()) ? new Intl.DateTimeFormat('id-ID', { month: 'long' }).format(date) : '-', tanggal: s.tanggal_service || '-', jenis_pekerjaan: TYPES[s.jenis_service] || s.jenis_service || '-', uraian: s.keluhan || '-', qty: '-', satuan: '-', harga_satuan: '-', nilai_dpp: s.nilai_dpp ?? '-', ppn: s.ppn ?? '-', total: s.total ?? s.biaya_aktual ?? '-', kilometer: s.kilometer ?? '-', bengkel: s.bengkel || '-', keterangan: s.catatan || '-' }) })
     return rows
   }, [items, services, serviceMap, vehicleMap, driverMap])
   const saveService = async e => {
@@ -422,6 +443,115 @@ export default function ServiceFeaturePage({ profile }) {
   const openDetail = async s => { setSelected(s); setDetailEdit({ biaya_aktual: s.biaya_aktual ?? s.estimasi_biaya ?? '' }); await ensureServiceDetailData(s.id) }
   const openServiceEdit = s => { setEditingServiceId(s.id); setForm({ ...emptyService, permintaan_service_id: s.permintaan_service_id ?? '', kendaraan_id: s.kendaraan_id ?? '', tanggal_service: s.tanggal_service || new Date().toISOString().slice(0, 10), kilometer: s.kilometer ?? '', bengkel: s.bengkel || '', jenis_service: s.jenis_service || 'SERVICE', keluhan: s.keluhan || '', estimasi_biaya: s.estimasi_biaya ?? '', biaya_aktual: s.biaya_aktual ?? '', nilai_dpp: s.nilai_dpp ?? '', ppn: s.ppn ?? '', total: s.total ?? '', catatan: s.catatan || '' }); setTab('pekerjaan'); setSelected(null) }
   const deleteService = async s => { if (!canProcess) return; if (!window.confirm(`Hapus service ${s.nomor_service || s.id}? Data ini akan dihapus jika belum memiliki item, bukti, atau approval.`)) return; setSaving(true); try { const [ic,pc,ac] = await Promise.all([supabase.from('service_item').select('id',{count:'exact',head:true}).eq('service_id',s.id),supabase.from('service_bukti').select('id',{count:'exact',head:true}).eq('service_id',s.id),supabase.from('service_approval').select('id',{count:'exact',head:true}).eq('service_id',s.id)]); if(ic.error) throw ic.error; if(pc.error) throw pc.error; if(ac.error) throw ac.error; if((ic.count||0)+(pc.count||0)+(ac.count||0)>0) throw new Error('Service sudah memiliki item, bukti, atau approval. Hapus bagian terkait terlebih dahulu agar histori tidak hilang.'); const result=await supabase.from('service').delete().eq('id',s.id).select('id').maybeSingle(); if(result.error) throw result.error; if(!result.data) throw new Error('Data service tidak berhasil dihapus.'); if(s.permintaan_service_id) await supabase.from('permintaan_service').update({status:'MENUNGGU_TRANSPORT',diproses_oleh:null,diproses_at:null}).eq('id',s.permintaan_service_id); setServices(current=>current.filter(row=>row.id!==s.id)); setSuccess('Data service dihapus.'); } catch(e){setError(humanizeError(e))} finally{setSaving(false)} }
+  const openHistoryEdit = row => {
+    if (!canProcess) return
+    const item = row.item_id ? items.find(entry => String(entry.id) === String(row.item_id)) : null
+    if (!item) {
+      const service = row.service_id ? services.find(entry => String(entry.id) === String(row.service_id)) : null
+      if (service) openServiceEdit(service)
+      else setError('Data riwayat tidak terhubung ke rincian atau transaksi service yang dapat diedit.')
+      return
+    }
+    const decoded = decodeExcelMeta(item.keterangan)
+    const meta = decoded.meta || {}
+    setHistoryEditingRow({ row, item, meta })
+    setHistoryEditForm({
+      no: historyNumberInput(row.no),
+      merk: row.merk === '-' ? '' : String(row.merk ?? ''),
+      type: row.type === '-' ? '' : String(row.type ?? ''),
+      jenis: row.jenis === '-' ? '' : String(row.jenis ?? ''),
+      tahun: row.tahun === '-' ? '' : String(row.tahun ?? ''),
+      nomor_polisi: row.nomor_polisi === '-' ? '' : String(row.nomor_polisi ?? ''),
+      driver: row.driver === '-' ? '' : String(row.driver ?? ''),
+      bulan: row.bulan === '-' ? '' : String(row.bulan ?? ''),
+      tanggal: historyDateInput(row.tanggal),
+      jenis_pekerjaan: row.jenis_pekerjaan === '-' ? '' : String(row.jenis_pekerjaan ?? ''),
+      uraian: row.uraian === '-' ? String(item.nama_item || '') : String(row.uraian ?? ''),
+      qty: historyNumberInput(row.qty === '-' ? item.jumlah : row.qty),
+      satuan: row.satuan === '-' ? String(item.satuan || '') : String(row.satuan ?? ''),
+      harga_satuan: historyNumberInput(row.harga_satuan === '-' ? item.harga_satuan : row.harga_satuan),
+      nilai_dpp: historyNumberInput(row.nilai_dpp === '-' ? item.subtotal : row.nilai_dpp),
+      ppn: historyNumberInput(row.ppn),
+      total: historyNumberInput(row.total === '-' ? item.subtotal : row.total),
+      kilometer: historyNumberInput(row.kilometer),
+      bengkel: row.bengkel === '-' ? '' : String(row.bengkel ?? ''),
+      keterangan: decoded.note || meta.keterangan || (row.keterangan === '-' ? '' : String(row.keterangan ?? '')),
+    })
+    setError('')
+    setSuccess('')
+  }
+
+  const saveHistoryEdit = async event => {
+    event.preventDefault()
+    if (!canProcess || !historyEditingRow?.item || !historyEditForm) return
+    clearMessages()
+    const formValue = historyEditForm
+    const qty = Number(formValue.qty)
+    const price = Number(formValue.harga_satuan || 0)
+    const dpp = formValue.nilai_dpp === '' ? qty * price : Number(formValue.nilai_dpp)
+    const ppn = formValue.ppn === '' ? 0 : Number(formValue.ppn)
+    const total = formValue.total === '' ? dpp + ppn : Number(formValue.total)
+    const kilometer = formValue.kilometer === '' ? null : Number(formValue.kilometer)
+    const sourceNo = formValue.no === '' ? Number(historyEditingRow.row.no || 1) : Number(formValue.no)
+    if (!formValue.tanggal) return setError('Tanggal pada riwayat service wajib diisi.')
+    if (!formValue.uraian.trim() && !formValue.jenis_pekerjaan.trim()) return setError('Uraian atau jenis pekerjaan wajib diisi.')
+    if (!Number.isFinite(qty) || qty <= 0) return setError('Qty harus lebih besar dari 0.')
+    if (![price, dpp, ppn, total].every(Number.isFinite) || [price, dpp, ppn, total].some(value => value < 0)) return setError('Harga, DPP, PPn, dan total harus bernilai 0 atau lebih.')
+    if (kilometer !== null && (!Number.isFinite(kilometer) || kilometer < 0)) return setError('KM harus berupa angka 0 atau lebih.')
+    if (!Number.isFinite(sourceNo) || sourceNo < 1) return setError('Nomor baris harus berupa angka positif.')
+    if (!formValue.satuan.trim()) return setError('Satuan wajib diisi.')
+
+    const item = historyEditingRow.item
+    const keterangan = formValue.keterangan.trim()
+    const meta = {
+      ...historyEditingRow.meta,
+      source: 'DATA_SERVICE',
+      source_no: sourceNo,
+      merk: formValue.merk.trim(),
+      type: formValue.type.trim(),
+      jenis: formValue.jenis.trim(),
+      tahun: formValue.tahun.trim(),
+      nomor_polisi: formValue.nomor_polisi.trim(),
+      driver: formValue.driver.trim(),
+      bulan: formValue.bulan.trim(),
+      tanggal: formValue.tanggal,
+      jenis_pekerjaan: formValue.jenis_pekerjaan.trim(),
+      uraian: formValue.uraian.trim(),
+      qty,
+      satuan: formValue.satuan.trim(),
+      harga_satuan: price,
+      nilai_dpp: dpp,
+      ppn,
+      ppn_source: formValue.ppn === '' ? '-' : String(ppn),
+      total,
+      kilometer: kilometer ?? '',
+      bengkel: formValue.bengkel.trim(),
+      keterangan,
+    }
+    const payload = {
+      nama_item: formValue.uraian.trim() || formValue.jenis_pekerjaan.trim() || item.nama_item,
+      jumlah: qty,
+      satuan: formValue.satuan.trim(),
+      harga_satuan: price,
+      subtotal: qty * price,
+      keterangan: encodeExcelMeta(meta, keterangan),
+    }
+    setSaving(true)
+    try {
+      const result = await supabase.from('service_item').update(payload).eq('id', item.id).select('*').single()
+      if (result.error) throw result.error
+      if (!result.data) throw new Error('Perubahan baris riwayat service tidak ditemukan setelah disimpan.')
+      setItems(current => current.map(entry => entry.id === result.data.id ? result.data : entry))
+      setHistoryEditingRow(null)
+      setHistoryEditForm(null)
+      setSuccess('Baris riwayat service berhasil diperbarui.')
+    } catch (saveError) {
+      setError(humanizeError(saveError))
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const tabs = canProcess
     ? [['pekerjaan', 'Data Service'], ['excel', 'Riwayat Service'], ['item', 'Item Service'], ['bukti', 'Bukti'], ['ban', 'Riwayat Ban'], ['aki', 'Riwayat Aki'], ['km', 'Riwayat KM']]
     : [['pekerjaan', 'Data Service'], ['excel', 'Riwayat Excel']]
@@ -442,8 +572,8 @@ export default function ServiceFeaturePage({ profile }) {
       </div>
       <div className="x-table-wrap" ref={serviceExcelWrapRef} onScroll={syncServiceExcelFromTable}>
         <table className="x-table service-excel-table">
-          <thead><tr><th>No</th><th>Merk</th><th>Type</th><th>Jenis</th><th>Tahun</th><th>No. Polisi</th><th>Driver/PIC</th><th>Bulan</th><th>Tanggal</th><th>Jenis Pekerjaan</th><th>Uraian</th><th>Qty</th><th>Sat</th><th>Harga Satuan (Rp)</th><th>Nilai DPP</th><th>PPn</th><th className="service-excel-col-total">Total</th><th>KM</th><th>Nama Bengkel</th><th>Keterangan</th></tr></thead>
-          <tbody>{serviceExcelRows.length ? serviceExcelRows.map(row => <tr key={`${row.no}-${row.nomor_polisi}-${row.tanggal}-${row.uraian}`}><td>{row.no}</td><td>{row.merk}</td><td>{row.type}</td><td>{row.jenis}</td><td>{row.tahun}</td><td>{row.nomor_polisi}</td><td>{row.driver}</td><td>{row.bulan}</td><td>{row.tanggal}</td><td>{row.jenis_pekerjaan}</td><td><button type="button" className="table-long-text table-long-text-button" title={row.service_id ? 'Buka detail service' : row.uraian} onClick={() => { const service = row.service_id ? services.find(item => item.id === row.service_id) : null; if (service) openDetail(service) }}>{row.uraian}</button></td><td>{row.qty}</td><td>{row.satuan}</td><td>{money(row.harga_satuan)}</td><td>{money(row.nilai_dpp)}</td><td>{row.ppn === '-' ? '-' : money(row.ppn)}</td><td className="service-excel-col-total">{money(row.total)}</td><td>{row.kilometer}</td><td>{row.bengkel}</td><td>{row.keterangan}</td></tr>) : <tr><td colSpan="20"><Empty text="Belum ada riwayat service." /></td></tr>}</tbody>
+          <thead><tr><th>No</th><th>Merk</th><th>Type</th><th>Jenis</th><th>Tahun</th><th>No. Polisi</th><th>Driver/PIC</th><th>Bulan</th><th>Tanggal</th><th>Jenis Pekerjaan</th><th>Uraian</th><th>Qty</th><th>Sat</th><th>Harga Satuan (Rp)</th><th>Nilai DPP</th><th>PPn</th><th className="service-excel-col-total">Total</th><th>KM</th><th>Nama Bengkel</th><th>Keterangan</th><th>Aksi</th></tr></thead>
+          <tbody>{serviceExcelRows.length ? serviceExcelRows.map(row => <tr key={`${row.no}-${row.nomor_polisi}-${row.tanggal}-${row.uraian}`}><td>{row.no}</td><td>{row.merk}</td><td>{row.type}</td><td>{row.jenis}</td><td>{row.tahun}</td><td>{row.nomor_polisi}</td><td>{row.driver}</td><td>{row.bulan}</td><td>{row.tanggal}</td><td>{row.jenis_pekerjaan}</td><td><button type="button" className="table-long-text table-long-text-button" title={row.service_id ? 'Buka detail service' : row.uraian} onClick={() => { const service = row.service_id ? services.find(item => item.id === row.service_id) : null; if (service) openDetail(service) }}>{row.uraian}</button></td><td>{row.qty}</td><td>{row.satuan}</td><td>{money(row.harga_satuan)}</td><td>{money(row.nilai_dpp)}</td><td>{row.ppn === '-' ? '-' : money(row.ppn)}</td><td className="service-excel-col-total">{money(row.total)}</td><td>{row.kilometer}</td><td>{row.bengkel}</td><td>{row.keterangan}</td><td className="x-action-compact">{canProcess ? <button type="button" className="x-link" onClick={() => openHistoryEdit(row)} disabled={saving}>Edit</button> : <span className="x-note">Lihat saja</span>}</td></tr>) : <tr><td colSpan="21"><Empty text="Belum ada riwayat service." /></td></tr>}</tbody>
         </table>
       </div>
     </div>
@@ -461,6 +591,34 @@ export default function ServiceFeaturePage({ profile }) {
     {selectedItem && <div className="x-overlay"><section className="x-modal"><div className="x-modal-head"><div><span className="eyebrow">DETAIL ITEM</span><h3>{selectedItem.nama_item}</h3></div><button onClick={() => setSelectedItem(null)}>×</button></div><div className="x-detail"><p><b>Service:</b> #{selectedItem.service_id}</p><p><b>Kategori:</b> {selectedItem.kategori || '-'}</p><p><b>Jumlah:</b> {selectedItem.jumlah} {selectedItem.satuan || ''}</p><p><b>Harga Satuan:</b> {money(selectedItem.harga_satuan)}</p><p><b>Subtotal:</b> {money(selectedItem.subtotal)}</p><p><b>Keterangan:</b> {selectedItem.keterangan || '-'}</p></div><div className="x-actions"><button className="x-btn secondary" onClick={() => setSelectedItem(null)}>Tutup</button></div></section></div>}
     {selectedPart && <div className="x-overlay"><section className="x-modal"><div className="x-modal-head"><div><span className="eyebrow">DETAIL PENGGANTIAN</span><h3>{tab === 'ban' ? 'Ban' : 'Aki / Baterai'}</h3></div><button onClick={() => setSelectedPart(null)}>×</button></div><div className="x-detail"><p><b>Kendaraan:</b> {vehicleMap[selectedPart.kendaraan_id]?.nomor_polisi || '-'}</p><p><b>Tanggal:</b> {dateText(selectedPart.tanggal_penggantian)}</p><p><b>KM:</b> {Number(selectedPart.kilometer || 0).toLocaleString('id-ID')} km</p><p><b>Alasan:</b> {selectedPart.alasan_penggantian || '-'}</p><p><b>Biaya:</b> {money(selectedPart.biaya)}</p><p><b>Keterangan:</b> {selectedPart.keterangan || '-'}</p></div><div className="x-actions"><button className="x-btn secondary" onClick={() => setSelectedPart(null)}>Tutup</button><button className="x-btn primary" onClick={() => { setSelectedPart(null); editPart(selectedPart) }}>Edit</button></div></section></div>}
     {selectedKm && <div className="x-overlay"><section className="x-modal"><div className="x-modal-head"><div><span className="eyebrow">DETAIL KILOMETER</span><h3>{vehicleMap[selectedKm.kendaraan_id]?.nomor_polisi || '-'}</h3></div><button onClick={() => setSelectedKm(null)}>×</button></div><div className="x-detail"><p><b>Tanggal:</b> {dateText(selectedKm.tanggal)}</p><p><b>KM:</b> {Number(selectedKm.kilometer || 0).toLocaleString('id-ID')} km</p><p><b>Sumber:</b> {selectedKm.sumber || '-'}</p><p><b>Keterangan:</b> {selectedKm.keterangan || '-'}</p></div><div className="x-actions"><button className="x-btn secondary" onClick={() => setSelectedKm(null)}>Tutup</button><button className="x-btn primary" onClick={() => { setSelectedKm(null); editKm(selectedKm) }}>Edit</button></div></section></div>}
+    {historyEditingRow && historyEditForm && <div className="x-overlay"><section className="x-modal history-row-editor" role="dialog" aria-modal="true" aria-labelledby="history-row-editor-title">
+      <form onSubmit={saveHistoryEdit}>
+        <div className="x-modal-head"><div><span className="eyebrow">EDIT RIWAYAT SERVICE</span><h3 id="history-row-editor-title">Perbarui baris riwayat</h3><small>Perubahan disimpan ke rincian service dan metadata historis baris ini.</small></div><button type="button" onClick={() => { setHistoryEditingRow(null); setHistoryEditForm(null) }} aria-label="Tutup editor riwayat">×</button></div>
+        <div className="x-grid history-row-form">
+          <label>No<input type="number" min="1" step="1" value={historyEditForm.no} onChange={e => setHistoryEditForm(f => ({ ...f, no: e.target.value }))} required /></label>
+          <label>Merk<input value={historyEditForm.merk} onChange={e => setHistoryEditForm(f => ({ ...f, merk: e.target.value }))} /></label>
+          <label>Type<input value={historyEditForm.type} onChange={e => setHistoryEditForm(f => ({ ...f, type: e.target.value }))} /></label>
+          <label>Jenis kendaraan<input value={historyEditForm.jenis} onChange={e => setHistoryEditForm(f => ({ ...f, jenis: e.target.value }))} /></label>
+          <label>Tahun<input value={historyEditForm.tahun} onChange={e => setHistoryEditForm(f => ({ ...f, tahun: e.target.value }))} /></label>
+          <label>No. Polisi<input value={historyEditForm.nomor_polisi} onChange={e => setHistoryEditForm(f => ({ ...f, nomor_polisi: e.target.value }))} /></label>
+          <label>Driver/PIC<input value={historyEditForm.driver} onChange={e => setHistoryEditForm(f => ({ ...f, driver: e.target.value }))} /></label>
+          <label>Bulan<input value={historyEditForm.bulan} onChange={e => setHistoryEditForm(f => ({ ...f, bulan: e.target.value }))} /></label>
+          <label>Tanggal<input type="date" value={historyEditForm.tanggal} onChange={e => setHistoryEditForm(f => ({ ...f, tanggal: e.target.value }))} required /></label>
+          <label>Jenis pekerjaan<input value={historyEditForm.jenis_pekerjaan} onChange={e => setHistoryEditForm(f => ({ ...f, jenis_pekerjaan: e.target.value }))} /></label>
+          <label>Uraian<input value={historyEditForm.uraian} onChange={e => setHistoryEditForm(f => ({ ...f, uraian: e.target.value }))} /></label>
+          <label>Qty<input type="number" min="0.01" step="any" value={historyEditForm.qty} onChange={e => setHistoryEditForm(f => ({ ...f, qty: e.target.value }))} required /></label>
+          <label>Satuan<input value={historyEditForm.satuan} onChange={e => setHistoryEditForm(f => ({ ...f, satuan: e.target.value }))} required /></label>
+          <label>Harga satuan (Rp)<input type="number" min="0" step="any" value={historyEditForm.harga_satuan} onChange={e => setHistoryEditForm(f => ({ ...f, harga_satuan: e.target.value }))} required /></label>
+          <label>Nilai DPP (Rp)<input type="number" min="0" step="any" value={historyEditForm.nilai_dpp} onChange={e => setHistoryEditForm(f => ({ ...f, nilai_dpp: e.target.value }))} /></label>
+          <label>PPn (Rp)<input type="number" min="0" step="any" value={historyEditForm.ppn} onChange={e => setHistoryEditForm(f => ({ ...f, ppn: e.target.value }))} /></label>
+          <label>Total (Rp)<input type="number" min="0" step="any" value={historyEditForm.total} onChange={e => setHistoryEditForm(f => ({ ...f, total: e.target.value }))} /></label>
+          <label>KM<input type="number" min="0" step="any" value={historyEditForm.kilometer} onChange={e => setHistoryEditForm(f => ({ ...f, kilometer: e.target.value }))} /></label>
+          <label>Nama bengkel<input value={historyEditForm.bengkel} onChange={e => setHistoryEditForm(f => ({ ...f, bengkel: e.target.value }))} /></label>
+          <label className="full">Keterangan<textarea value={historyEditForm.keterangan} onChange={e => setHistoryEditForm(f => ({ ...f, keterangan: e.target.value }))} rows="3" /></label>
+        </div>
+        <div className="x-actions"><button type="button" className="x-btn secondary" onClick={() => { setHistoryEditingRow(null); setHistoryEditForm(null) }} disabled={saving}>Batal</button><button type="submit" className="x-btn primary" disabled={saving}>{saving ? 'Menyimpan…' : 'Simpan Perubahan'}</button></div>
+      </form>
+    </section></div>}
     {approvalModal && <div className="x-overlay"><section className="x-modal"><div className="x-modal-head"><div><span className="eyebrow">APPROVAL SERVICE</span><h3>{approvalModal.service.nomor_service || `#${approvalModal.service.id}`}</h3></div><button onClick={() => setApprovalModal(null)}>×</button></div><div className="x-detail"><p><b>Nilai yang dinilai:</b> {money(Number(approvalModal.service.biaya_aktual ?? approvalModal.service.estimasi_biaya ?? 0))}</p><p><b>Approval ke:</b> {approvalList(approvalModal.service).length + 1}</p><p><b>Pemberi approval:</b> {approvalModal.required === 'DIREKTUR' ? 'Direktur' : 'Atasan Transport'}</p><label>Catatan Approval<textarea value={approvalNote} onChange={e => setApprovalNote(e.target.value)} placeholder="Opsional" /></label><div className="x-actions"><button className="x-btn secondary" onClick={() => setApprovalModal(null)}>Batal</button><button className="x-btn danger" onClick={() => confirmApproval(false)} disabled={saving}>Tolak</button><button className="x-btn primary" onClick={() => confirmApproval(true)} disabled={saving}>Setujui</button></div></div></section></div>}
   </div>
 }
