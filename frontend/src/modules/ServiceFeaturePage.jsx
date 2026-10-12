@@ -224,7 +224,7 @@ export default function ServiceFeaturePage({ profile }) {
         bulan: source?.bulan || (parsedDate && !Number.isNaN(parsedDate.getTime()) ? new Intl.DateTimeFormat('id-ID', { month: 'long' }).format(parsedDate) : '-'),
         tanggal: date || '-', jenis_pekerjaan: source?.jenis_pekerjaan || TYPES[s?.jenis_service] || s?.jenis_service || '-', uraian: source?.uraian || item.nama_item || s?.keluhan || '-',
         qty: source?.qty ?? item.jumlah ?? '-', satuan: source?.satuan || item.satuan || '-', harga_satuan: source?.harga_satuan ?? item.harga_satuan ?? '-', nilai_dpp: source?.nilai_dpp ?? item.subtotal ?? '-',
-        ppn: source?.ppn_source ?? source?.ppn ?? '-', total: source?.total ?? item.subtotal ?? '-', kilometer: source?.kilometer ?? s?.kilometer ?? '-', bengkel: source?.bengkel || s?.bengkel || '-', keterangan: note || source?.keterangan || s?.catatan || '-',
+        ppn: source?.ppn ?? source?.ppn_source ?? '-', total: source?.total ?? item.subtotal ?? '-', kilometer: source?.kilometer ?? s?.kilometer ?? '-', bengkel: source?.bengkel || s?.bengkel || '-', keterangan: note || source?.keterangan || s?.catatan || '-',
       })
     })
     if (!rows.length) services.forEach((s, index) => { const v = vehicleMap[s.kendaraan_id]; const date = s.tanggal_service ? new Date(`${s.tanggal_service}T00:00:00`) : null; rows.push({ service_id: s?.id || null, item_id: null, no: index + 1, merk: v?.merk || '-', type: v?.tipe || '-', jenis: v?.jenis_kendaraan || '-', tahun: v?.tahun || '-', nomor_polisi: v?.nomor_polisi || '-', driver: driverMap[v?.driver_id]?.nama_lengkap || '-', bulan: date && !Number.isNaN(date.getTime()) ? new Intl.DateTimeFormat('id-ID', { month: 'long' }).format(date) : '-', tanggal: s.tanggal_service || '-', jenis_pekerjaan: TYPES[s.jenis_service] || s.jenis_service || '-', uraian: s.keluhan || '-', qty: '-', satuan: '-', harga_satuan: '-', nilai_dpp: s.nilai_dpp ?? '-', ppn: s.ppn ?? '-', total: s.total ?? s.biaya_aktual ?? '-', kilometer: s.kilometer ?? '-', bengkel: s.bengkel || '-', keterangan: s.catatan || '-' }) })
@@ -550,7 +550,7 @@ export default function ServiceFeaturePage({ profile }) {
     if (!formValue.uraian.trim() && !formValue.jenis_pekerjaan.trim()) return setError('Uraian atau jenis pekerjaan wajib diisi.')
     if (!Number.isFinite(qty) || qty <= 0) return setError('Qty harus lebih besar dari 0.')
     if (![price, dpp, ppn, total].every(Number.isFinite) || [price, dpp, ppn, total].some(value => value < 0)) return setError('Harga, DPP, PPn, dan total harus bernilai 0 atau lebih.')
-    if (Math.abs(total - (dpp + ppn)) > Math.max(1, (dpp + ppn) * 0.001)) return setError('Total harus sama dengan Nilai DPP ditambah PPn.')
+    // Total pada baris sumber Excel dipertahankan apa adanya. Total header transaksi dihitung terpisah dari DPP + PPn agar Total sumber yang berulang/tidak konsisten tidak menggandakan nilai transaksi.
     if (kilometer !== null && (!Number.isFinite(kilometer) || kilometer < 0)) return setError('KM harus berupa angka 0 atau lebih.')
     if (!Number.isFinite(sourceNo) || sourceNo < 1) return setError('Nomor baris harus berupa angka positif.')
     if (!formValue.satuan.trim()) return setError('Satuan wajib diisi.')
