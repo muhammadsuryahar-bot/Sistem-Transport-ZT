@@ -790,7 +790,8 @@ Release final harus memenuhi:
 
 # 24. Status Audit Terbaru — 13 Oktober 2026
 
-**Kode, CI, dan deployment:** commit main terbaru pada saat audit ialah `860118f56db3cbc610277192b2954a639b454d62`. Status Vercel `SUCCESS`; Verify Transport Build, Verify Transport System, dan Production browser smoke test lulus. Smoke test menutup pemeriksaan halaman login/root di HP 375px dan desktop 1365px, namun tidak melakukan login atau transaksi end-to-end.
+**Rilis aplikasi terbaru yang diverifikasi:** fitur Patokan Harga/Shopping List digabung melalui PR #36 pada commit aplikasi `4c59aa93f72050f576ee96be247a67fe98bbd2bb`. Vercel `SUCCESS`; `Verify Transport Build` dan `Verify Transport System` lulus. Regresi otomatis lulus **44/44 tes** (0 gagal), dengan build dan lint lulus.
+**Production browser smoke test:** PASS pada halaman root/login produksi menggunakan viewport HP 375×812 dan desktop 1365×900. Logo, field login, tombol tampil/sembunyikan password, rendering, error JavaScript/console, same-origin request failures, dan overflow horizontal diperiksa. Test ini tidak mengirim kredensial sehingga tidak membuktikan login sungguhan, UAT role, transaksi, upload/export, atau backup.
 
 **Snapshot database yang diverifikasi langsung:**
 - 75 kendaraan: 31 ASET, 18 SEWA_PERORANGAN, 26 SEWA_PERUSAHAAN; 0 nomor polisi ganda setelah normalisasi.
@@ -825,3 +826,4 @@ Release final harus memenuhi:
 | 1.1 | 13-10-2026 | Audit database dan workbook operasional; update snapshot, anomali sumber, migrasi, warning keamanan, serta status UAT |
 | 1.2 | 13-10-2026 | Status deployment/browser smoke terbaru, hardening RPC Service ke private schema, warning keamanan tersisa, dan blocker release diperbarui |
 | 1.3 | 13-10-2026 | Patokan Harga/Shopping List ditambahkan ke Service & Perbaikan; status akun role, file dokumen kosong, dan batas plan Auth dicatat |
+| 1.4 | 13-10-2026 | Commit fitur Shopping List yang benar-benar rilis, 44/44 tes regresi, build/lint dan production smoke login dicatat; UAT transaksi tetap pending |
