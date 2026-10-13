@@ -2,6 +2,21 @@
 
 Dokumen ini menjadi checklist pengujian manual sebelum sistem Transport dipakai untuk operasional kantor.
 
+## 0. Automated QA dan verifikasi database — 13 Oktober 2026
+
+Item di bagian ini adalah bukti pengujian otomatis/database, bukan pengganti UAT penuh.
+
+- [x] Main commit yang diperiksa: `860118f56db3cbc610277192b2954a639b454d62`.
+- [x] Vercel status check: `SUCCESS`.
+- [x] GitHub Actions `Verify Transport Build`: PASS (install, regression validation test, build, lint).
+- [x] GitHub Actions `Verify Transport System`: PASS (lint + build).
+- [x] `Production browser smoke test`: PASS pada halaman root/login produksi dengan viewport 375px dan 1365px; form, logo, show/hide password, console/runtime errors, same-origin request errors, dan horizontal overflow diperiksa.
+- [x] Database integrity: 75 kendaraan tanpa plat ganda; 388 item Data Service dengan nomor sumber 1–388 unik; 358 baris Rental senilai Rp3.285.788.572; 33 Genset; 86 dokumen; 22/22 tabel public RLS aktif; 32/32 foreign key tervalidasi.
+- [x] RPC edit riwayat Service diuji dalam transaksi rollback setelah pemindahan implementasi SECURITY DEFINER ke schema private; signature publik tetap dan role authenticated dapat menjalankan RPC.
+- [x] Security Advisor: warning SECURITY DEFINER pada fungsi publik sudah hilang.
+- [ ] Leaked password protection masih disabled dan harus ditangani dari Auth settings Supabase.
+- [ ] UAT setelah login, seluruh role/transaksi, upload/download privat, export per modul, dan backup/recovery belum dinyatakan lulus.
+
 ## 1. Login & session
 
 - [ ] Login dengan email + password yang benar.
