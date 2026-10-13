@@ -7,6 +7,7 @@ import { formatDateSafe } from '../utils/dateSafe'
 import { decodeExcelMeta, encodeExcelMeta } from '../utils/excelSourceMeta.js'
 import { historyNumberInput, normalizeHistoryPpn } from '../utils/serviceHistoryMoney.js'
 import { historySourcePpnValue, historySourceTotalIsBlank, historySourceTotalValue } from '../utils/serviceHistorySourceMoney.js'
+import { benchmarkKey, buildServicePriceHistory, classifyBenchmarkCategory, mergeServicePriceBenchmarks } from '../utils/serviceBenchmark.js'
 import { DOCUMENT_UPLOAD_ACCEPT, IMAGE_UPLOAD_ACCEPT, validateStorageUploadFile } from '../utils/storageUpload.js'
 
 const money = v => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(v || 0))
@@ -18,6 +19,7 @@ const emptyItem = { service_id: '', nama_item: '', kategori: 'SPAREPART', jumlah
 const emptyProof = { service_id: '', jenis_bukti: 'BON_INVOICE', keterangan: '' }
 const emptyPart = { kendaraan_id: '', tanggal_penggantian: new Date().toISOString().slice(0, 10), kilometer: '', kondisi_sebelum: '', alasan_penggantian: '', biaya: '', keterangan: '', _type: 'BAN' }
 const emptyKm = { kendaraan_id: '', tanggal: new Date().toISOString().slice(0, 10), kilometer: '', sumber: 'SERVICE', keterangan: '' }
+const emptyBenchmark = { nama_item: '', kategori: 'SPAREPART', satuan: '', harga_patokan: '', berlaku_mulai: new Date().toISOString().slice(0, 10), aktif: true, keterangan: '' }
 const historyWorkCategory = (work, fallback) => {
   const source = String(work ?? '').trim().toUpperCase()
   if (/PENGADAAN BARANG|SPAREPART|SUKU CADANG/.test(source)) return 'SPAREPART'
@@ -61,8 +63,14 @@ export default function ServiceFeaturePage({ profile }) {
   const [serviceVehicleFilter, setServiceVehicleFilter] = useState('SEMUA')
   const [historyEditingRow, setHistoryEditingRow] = useState(null)
   const [historyEditForm, setHistoryEditForm] = useState(null)
+  const [benchmarks, setBenchmarks] = useState([])
+  const [benchmarkForm, setBenchmarkForm] = useState(emptyBenchmark)
+  const [editingBenchmarkId, setEditingBenchmarkId] = useState(null)
+  const [benchmarkSearch, setBenchmarkSearch] = useState('')
+  const [benchmarkCategoryFilter, setBenchmarkCategoryFilter] = useState('SEMUA')
   const canProcess = ['ADMIN', 'TRANSPORT'].includes(profile?.role)
   const canApprove = ['ADMIN', 'ATASAN_TRANSPORT', 'DIREKTUR'].includes(profile?.role)
+  const canViewBenchmarks = ['ADMIN', 'TRANSPORT', 'ATASAN_TRANSPORT', 'DIREKTUR', 'AKUNTANSI'].includes(profile?.role)
   const vehicleMap = useMemo(() => Object.fromEntries(vehicles.map(v => [v.id, v])), [vehicles])
   const driverMap = useMemo(() => Object.fromEntries(drivers.map(d => [d.id, d])), [drivers])
   const tabLoadRef = useRef({ bukti: false, ban: false, aki: false, km: false })
@@ -126,8 +134,9 @@ export default function ServiceFeaturePage({ profile }) {
       supabase.from('service_item').select('*').order('created_at', { ascending: false }),
       supabase.from('driver').select('id,nama_lengkap').order('nama_lengkap'),
       canApprove ? supabase.from('service_approval').select('*').order('urutan', { ascending: true }) : Promise.resolve({ data: [], error: null }),
+      canViewBenchmarks ? supabase.from('patokan_harga_service').select('*').order('nama_item') : Promise.resolve({ data: [], error: null }),
     ])
-    const names = ['Kendaraan', 'Pengajuan', 'Service', 'Item', 'Driver', 'Approval']
+    const names = ['Kendaraan', 'Pengajuan', 'Service', 'Item', 'Driver', 'Approval', 'Patokan Harga']
     rs.forEach((r, i) => { if (r.error) setError(e => e || `${names[i]}: ${humanizeError(r.error)}`) })
     setVehicles(rs[0].data || [])
     setRequests(rs[1].data || [])
@@ -135,8 +144,9 @@ export default function ServiceFeaturePage({ profile }) {
     setItems(rs[3].data || [])
     setDrivers(rs[4].data || [])
     setApprovals(rs[5].data || [])
+    setBenchmarks(rs[6].data || [])
     setLoading(false)
-  }, [canApprove])
+  }, [canApprove, canViewBenchmarks])
 
   useEffect(() => {
     load()
@@ -231,6 +241,31 @@ export default function ServiceFeaturePage({ profile }) {
     if (!rows.length) services.forEach((s, index) => { const v = vehicleMap[s.kendaraan_id]; const date = s.tanggal_service ? new Date(`${s.tanggal_service}T00:00:00`) : null; rows.push({ service_id: s?.id || null, item_id: null, no: index + 1, merk: v?.merk || '-', type: v?.tipe || '-', jenis: v?.jenis_kendaraan || '-', tahun: v?.tahun || '-', nomor_polisi: v?.nomor_polisi || '-', driver: driverMap[v?.driver_id]?.nama_lengkap || '-', bulan: date && !Number.isNaN(date.getTime()) ? new Intl.DateTimeFormat('id-ID', { month: 'long' }).format(date) : '-', tanggal: s.tanggal_service || '-', jenis_pekerjaan: TYPES[s.jenis_service] || s.jenis_service || '-', uraian: s.keluhan || '-', qty: '-', satuan: '-', harga_satuan: '-', nilai_dpp: s.nilai_dpp ?? '-', ppn: s.ppn ?? '-', total: s.total ?? s.biaya_aktual ?? '-', kilometer: s.kilometer ?? '-', bengkel: s.bengkel || '-', keterangan: s.catatan || '-' }) })
     return rows
   }, [items, services, serviceMap, vehicleMap, driverMap])
+  const benchmarkHistory = useMemo(() => buildServicePriceHistory(items.map(item => {
+    const { meta } = decodeExcelMeta(item.keterangan)
+    const source = meta?.source === 'DATA_SERVICE' ? meta : null
+    const service = serviceMap[item.service_id]
+    const vehicle = vehicleMap[service?.kendaraan_id]
+    const name = source?.uraian || item.nama_item || ''
+    return {
+      name,
+      category: classifyBenchmarkCategory(name, source?.jenis_pekerjaan || '', item.kategori || ''),
+      unit: source?.satuan || item.satuan || '',
+      price: source?.harga_satuan ?? item.harga_satuan,
+      vehicle: source?.nomor_polisi || vehicle?.nomor_polisi || '',
+      workshop: source?.bengkel || service?.bengkel || '',
+    }
+  })), [items, serviceMap, vehicleMap])
+
+  const displayedBenchmarkRows = useMemo(() => {
+    const query = benchmarkSearch.trim().toLocaleUpperCase('id-ID')
+    return mergeServicePriceBenchmarks(benchmarkHistory, benchmarks).filter(row => {
+      const matchesQuery = !query || [row.nama_item, row.kategori, row.satuan].some(value => String(value ?? '').toLocaleUpperCase('id-ID').includes(query))
+      const matchesCategory = benchmarkCategoryFilter === 'SEMUA' || row.kategori === benchmarkCategoryFilter
+      return matchesQuery && matchesCategory
+    })
+  }, [benchmarkHistory, benchmarks, benchmarkSearch, benchmarkCategoryFilter])
+
   const saveService = async e => {
     e.preventDefault(); clearMessages(); setSaving(true)
     try {
@@ -625,9 +660,109 @@ export default function ServiceFeaturePage({ profile }) {
     }
   }
 
-  const tabs = canProcess
+  const resetBenchmarkForm = () => {
+    setEditingBenchmarkId(null)
+    setBenchmarkForm({ ...emptyBenchmark, berlaku_mulai: new Date().toISOString().slice(0, 10) })
+  }
+
+  const openBenchmarkEdit = benchmark => {
+    if (!canProcess || !benchmark) return
+    setEditingBenchmarkId(benchmark.id)
+    setBenchmarkForm({
+      nama_item: benchmark.nama_item || '',
+      kategori: benchmark.kategori || 'SPAREPART',
+      satuan: benchmark.satuan || '',
+      harga_patokan: String(benchmark.harga_patokan ?? ''),
+      berlaku_mulai: benchmark.berlaku_mulai || new Date().toISOString().slice(0, 10),
+      aktif: Boolean(benchmark.aktif),
+      keterangan: benchmark.keterangan || '',
+    })
+  }
+
+  const saveBenchmark = async event => {
+    event.preventDefault()
+    clearMessages()
+    if (!canProcess) return setError('Hanya ADMIN dan TRANSPORT yang dapat mengubah patokan harga.')
+    setSaving(true)
+    try {
+      const name = String(benchmarkForm.nama_item || '').trim().replace(/\s+/g, ' ')
+      const category = String(benchmarkForm.kategori || '').trim().toLocaleUpperCase('id-ID')
+      const unit = String(benchmarkForm.satuan || '').trim().replace(/\s+/g, ' ')
+      const price = Number(benchmarkForm.harga_patokan)
+      const validCategories = ['JASA', 'SPAREPART', 'OLI', 'BAN', 'AKI', 'LAINNYA']
+      if (!name) throw new Error('Nama item wajib diisi.')
+      if (!validCategories.includes(category)) throw new Error('Kategori item tidak valid.')
+      if (benchmarkForm.harga_patokan === '' || !Number.isFinite(price) || price <= 0) throw new Error('Harga patokan harus lebih besar dari nol.')
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(benchmarkForm.berlaku_mulai || ''))) throw new Error('Tanggal mulai berlaku wajib diisi dengan benar.')
+      const key = benchmarkKey(name, category, unit)
+      const duplicate = benchmarks.find(row => Number(row.id) !== Number(editingBenchmarkId) && benchmarkKey(row.nama_item, row.kategori, row.satuan) === key)
+      if (duplicate) throw new Error('Patokan dengan nama item, kategori, dan satuan yang sama sudah ada. Edit patokan yang ada agar tidak terjadi data ganda.')
+      const payload = {
+        nama_item: name,
+        kategori: category,
+        satuan: unit || null,
+        harga_patokan: price,
+        berlaku_mulai: benchmarkForm.berlaku_mulai,
+        aktif: Boolean(benchmarkForm.aktif),
+        keterangan: String(benchmarkForm.keterangan || '').trim() || null,
+        updated_at: new Date().toISOString(),
+      }
+      const result = editingBenchmarkId
+        ? await supabase.from('patokan_harga_service').update(payload).eq('id', editingBenchmarkId).select('*').single()
+        : await supabase.from('patokan_harga_service').insert(payload).select('*').single()
+      if (result.error) throw result.error
+      if (!result.data?.id) throw new Error('Patokan harga tidak tersimpan. Periksa akses dan coba kembali.')
+      setBenchmarks(current => editingBenchmarkId
+        ? current.map(row => row.id === result.data.id ? result.data : row)
+        : [...current, result.data])
+      resetBenchmarkForm()
+      setSuccess(editingBenchmarkId ? 'Patokan harga berhasil diperbarui.' : 'Patokan harga berhasil ditambahkan.')
+    } catch (saveError) {
+      setError(humanizeError(saveError))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const deleteBenchmark = async benchmark => {
+    if (!canProcess || !benchmark) return
+    if (!window.confirm('Hapus patokan harga "' + benchmark.nama_item + '" (' + benchmark.kategori + ')?')) return
+    clearMessages()
+    setSaving(true)
+    try {
+      const result = await supabase.from('patokan_harga_service').delete().eq('id', benchmark.id).select('id').maybeSingle()
+      if (result.error) throw result.error
+      if (!result.data?.id) throw new Error('Patokan tidak ditemukan atau hak akses tidak mencukupi.')
+      setBenchmarks(current => current.filter(row => row.id !== benchmark.id))
+      if (editingBenchmarkId === benchmark.id) resetBenchmarkForm()
+      setSuccess('Patokan harga berhasil dihapus.')
+    } catch (deleteError) {
+      setError(humanizeError(deleteError))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const startBenchmarkFromHistory = history => {
+    if (!canProcess || !history) return
+    setEditingBenchmarkId(null)
+    setBenchmarkForm({
+      ...emptyBenchmark,
+      nama_item: history.nama_item || '',
+      kategori: history.kategori || 'SPAREPART',
+      satuan: history.satuan === '-' ? '' : (history.satuan || ''),
+      harga_patokan: '',
+      berlaku_mulai: new Date().toISOString().slice(0, 10),
+      aktif: true,
+      keterangan: 'Isi hanya setelah harga historis, satuan, dan bukti invoice ditinjau. Median historis tidak otomatis menjadi harga resmi.',
+    })
+    setSuccess('Lengkapi harga patokan resmi setelah pemeriksaan sumber; nilai historis tidak disalin otomatis.')
+  }
+
+  const baseTabs = canProcess
     ? [['pekerjaan', 'Data Service'], ['excel', 'Riwayat Service'], ['item', 'Item Service'], ['bukti', 'Bukti'], ['ban', 'Riwayat Ban'], ['aki', 'Riwayat Aki'], ['km', 'Riwayat KM']]
     : [['pekerjaan', 'Data Service'], ['excel', 'Riwayat Excel']]
+  const tabs = canViewBenchmarks ? [...baseTabs, ['harga', 'Patokan Harga']] : baseTabs
   return <div className="x-page"><Header breadcrumb={tabs.find(([v]) => v === tab)?.[1]} eyebrow="SERVICE & MAINTENANCE" title="Service & Perbaikan" text="Kelola data service langsung dari sistem: pekerjaan, biaya, item, bukti, ban, aki, kilometer, dan approval." action={<div className="x-head-actions">{canProcess && <button className="x-btn primary" onClick={() => { setTab('pekerjaan'); setEditingServiceId(null); setForm({ ...emptyService, tanggal_service: new Date().toISOString().slice(0, 10) }) }}>+ Tambah Service</button>}<button className="x-btn secondary" onClick={load}>↻ Refresh</button></div>} />{error && <Alert type="error">{error}</Alert>}{success && <Alert>{success}</Alert>}<div className="x-tabs">{tabs.map(([v, l]) => <button key={v} className={tab === v ? 'active' : ''} onClick={() => { clearMessages(); setTab(v) }}>{l}</button>)}</div>{tab === 'excel' && <section className={`x-card service-excel-card ${serviceExcelFullscreen ? 'service-excel-card-fullscreen' : ''}`}>
     <div className="x-card-title service-excel-card-title">
       <div>
