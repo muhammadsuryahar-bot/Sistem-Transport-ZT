@@ -180,16 +180,16 @@ Menampilkan:
 
 ## Patokan Harga / Shopping List
 
-- Item
-- Kategori
-- Satuan
-- Transaksi
-- Harga terendah
-- Harga tertinggi
-- Median
-- Patokan Admin
-- Selisih rata-rata
-- Keterangan
+- Item, kategori, dan satuan
+- Jumlah transaksi, kendaraan berbeda, dan bengkel berbeda
+- Harga minimum, median, rata-rata, dan maksimum historis
+- Patokan Admin yang aktif beserta tanggal mulai berlaku dan dasar harga
+- Selisih rata-rata historis terhadap patokan Admin aktif
+- Search dan filter kategori
+- Edit/hapus patokan; tambah/nonaktifkan hanya untuk ADMIN/TRANSPORT
+- ATASAN_TRANSPORT, DIREKTUR, dan AKUNTANSI mendapat akses lihat sesuai policy database
+
+**Aturan data:** harga historis menjadi pembanding, bukan harga resmi otomatis. Harga patokan resmi hanya diisi setelah invoice, satuan, bengkel, dan dasar persetujuan diperiksa. Patokan baru tidak disalin otomatis dari median historis.
 - Edit
 - Hapus
 
@@ -718,7 +718,7 @@ Rollback:
 
 ## P1
 
-- isi Patokan Harga Admin;
+- isi Patokan Harga Admin hanya setelah harga disahkan dari invoice/sumber yang benar; UI mendukung pengelolaan, tetapi tabel patokan masih kosong;
 - selesaikan audit ekspor setiap modul dengan workbook operasional yang kini tersedia;
 - verifikasi sheet/header/urutan/jumlah baris/angka/tanggal melalui browser dan buka workbook hasil export.
 
@@ -799,7 +799,10 @@ Release final harus memenuhi:
 - 358 baris Summary Rental; total invoice Rp3.285.788.572,00 sama dengan Grand Total sumber.
 - 86 dokumen: 31 STNK, 31 5 tahunan, 24 pajak. Tidak ditemukan dokumen terhubung ke kendaraan SEWA atau foreign key dokumen tanpa kendaraan.
 - 22 dari 22 tabel `public` mengaktifkan RLS; seluruh 32 foreign key pada schema `public` tervalidasi.
-- Tabel Patokan Harga Service masih memiliki 0 baris; harga patokan resmi belum diisi karena harus ditinjau, bukan diisi otomatis dari harga historis yang mungkin berbeda satuan/bengkel.
+- Tabel Patokan Harga Service masih memiliki 0 baris. Perubahan Patokan Harga/Shopping List pada PR #36 menambahkan agregasi histori, filter kategori, tampilan min/median/rata-rata/maksimum dan CRUD patokan dengan role ADMIN/TRANSPORT; ATASAN_TRANSPORT/DIREKTUR/AKUNTANSI hanya lihat. Tidak ada harga patokan yang di-seed otomatis.
+- Database produksi saat dicek memiliki 1 akun Auth dan 1 profile aktif, keduanya ADMIN. UAT nyata kelima role lainnya belum mungkin dilakukan sampai akun resmi dibuat/diundang.
+- Seluruh 86 record dokumen kendaraan memiliki `file_path` kosong. Workbook menyediakan metadata/tanggal, bukan lampiran fisik; jika operasional membutuhkan file STNK/5 tahunan/pajak di sistem, file asli perlu diunggah dan alur upload/akses privat diuji.
+- Organisasi Supabase terdeteksi di Free plan; leaked-password protection bawaan memerlukan Pro atau lebih tinggi. Warning Auth harus ditutup setelah pemilik memutuskan upgrade dan mengaktifkannya di Supabase Auth.
 
 **Anomali dan batasan yang masih harus dikelola:**
 - Summary Rental pada Excel row 346 memiliki kolom No berisi teks `341+A346:F349`, bukan nomor urut. Nilai invoice dan baris sumber dipertahankan agar dapat ditelusuri.
@@ -810,7 +813,7 @@ Release final harus memenuhi:
 - Supabase Security Advisor sekarang hanya menampilkan warning `auth_leaked_password_protection` (disabled); warning fungsi SECURITY DEFINER publik selesai setelah migrasi RPC.
 - UAT login/logout, keenam role, transaksi Service/approval, upload dan akses file privat, import/export semua modul, tampilan setelah login, dan backup/recovery belum dites menyeluruh.
 
-**Kesimpulan rilis:** integritas database dan pemeriksaan otomatis lulus pada area yang telah diuji, tetapi production-final menunggu UAT end-to-end, pengaturan leaked password protection, audit ekspor tiap modul, bukti fisik untuk konflik identitas, pengisian harga patokan yang disahkan, dan konfirmasi backup/recovery.
+**Kesimpulan rilis:** integritas database dan pemeriksaan otomatis lulus pada area yang telah diuji, tetapi production-final menunggu UAT end-to-end dengan akun resmi seluruh role, upload lampiran yang diperlukan, pengaturan leaked-password protection (upgrade Pro+ diperlukan pada project Free), audit ekspor tiap modul, bukti fisik untuk konflik identitas, pengisian harga patokan yang disahkan, dan konfirmasi backup/recovery.
 
 ---
 
@@ -821,3 +824,4 @@ Release final harus memenuhi:
 | 1.0 | 29-09-2026 | Backup perubahan besar sistem, UI/UX, CRUD, service, rental, dokumen, import/export, security, QA/UAT, backup, dan backlog |
 | 1.1 | 13-10-2026 | Audit database dan workbook operasional; update snapshot, anomali sumber, migrasi, warning keamanan, serta status UAT |
 | 1.2 | 13-10-2026 | Status deployment/browser smoke terbaru, hardening RPC Service ke private schema, warning keamanan tersisa, dan blocker release diperbarui |
+| 1.3 | 13-10-2026 | Patokan Harga/Shopping List ditambahkan ke Service & Perbaikan; status akun role, file dokumen kosong, dan batas plan Auth dicatat |
