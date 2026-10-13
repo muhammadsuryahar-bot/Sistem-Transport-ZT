@@ -792,23 +792,23 @@ export default function ServiceFeaturePage({ profile }) {
     <section className="x-card">
       <div className="x-card-title"><div><h3>Daftar Harga Historis &amp; Patokan Admin</h3><p>Baris tanpa patokan tetap ditampilkan agar dapat ditinjau. Harga pembanding tidak memutuskan otomatis apakah sebuah biaya wajar atau tidak.</p></div></div>
       <div className="x-toolbar-inline"><input className="x-filter" value={benchmarkSearch} onChange={event => setBenchmarkSearch(event.target.value)} placeholder="Cari nama item atau satuan..." /><select className="x-filter" value={benchmarkCategoryFilter} onChange={event => setBenchmarkCategoryFilter(event.target.value)}><option value="SEMUA">Semua kategori</option><option value="JASA">Jasa</option><option value="SPAREPART">Sparepart</option><option value="OLI">Oli</option><option value="BAN">Ban</option><option value="AKI">Aki / Baterai</option><option value="LAINNYA">Lainnya</option></select></div>
-      <div className="x-table-wrap"><table className="x-table"><thead><tr><th>Nama Item</th><th>Kategori</th><th>Satuan</th><th>Transaksi</th><th>Kendaraan</th><th>Bengkel</th><th>Min Historis</th><th>Median Historis</th><th>Max Historis</th><th>Patokan Admin</th><th>Selisih Median</th><th>Aksi</th></tr></thead>
+      <div className="x-table-wrap"><table className="x-table"><thead><tr><th>Nama Item</th><th>Kategori</th><th>Satuan</th><th>Transaksi</th><th>Kendaraan</th><th>Bengkel</th><th>Min Historis</th><th>Median Historis</th><th>Rata-rata Historis</th><th>Max Historis</th><th>Patokan Admin</th><th>Selisih Rata-rata</th><th>Aksi</th></tr></thead>
         <tbody>{displayedBenchmarkRows.length ? displayedBenchmarkRows.map(row => {
           const history = row.history
           const benchmark = row.benchmark
           const adminPrice = benchmark?.aktif ? Number(benchmark.harga_patokan) : null
-          const delta = history && Number.isFinite(adminPrice) ? history.medianPrice - adminPrice : null
+          const delta = history && Number.isFinite(adminPrice) ? history.averagePrice - adminPrice : null
           const deltaPercent = delta !== null && adminPrice > 0 ? (delta / adminPrice) * 100 : null
           return <tr key={row.key}>
             <td><b>{row.nama_item || '-'}</b>{benchmark?.keterangan && <small title={benchmark.keterangan}>{benchmark.keterangan}</small>}</td>
             <td>{row.kategori || '-'}</td><td>{row.satuan || '-'}</td>
             <td>{history?.transactionCount ?? 0}</td><td>{history?.vehicleCount ?? 0}</td><td>{history?.workshopCount ?? 0}</td>
-            <td>{history ? money(history.minPrice) : '-'}</td><td>{history ? money(history.medianPrice) : '-'}</td><td>{history ? money(history.maxPrice) : '-'}</td>
+            <td>{history ? money(history.minPrice) : '-'}</td><td>{history ? money(history.medianPrice) : '-'}</td><td>{history ? money(history.averagePrice) : '-'}</td><td>{history ? money(history.maxPrice) : '-'}</td>
             <td>{benchmark ? benchmark.aktif ? <><b>{money(benchmark.harga_patokan)}</b><small>Berlaku {dateText(benchmark.berlaku_mulai)}</small></> : <span className="x-pill">Nonaktif</span> : <span className="x-note">Belum ditetapkan</span>}</td>
-            <td>{delta === null ? '-' : <><b>{delta > 0 ? '+' : ''}{money(delta)}</b><small>{deltaPercent.toLocaleString('id-ID', { maximumFractionDigits: 1 })}% terhadap patokan</small></>}</td>
+            <td>{delta === null ? '-' : <><b>{delta > 0 ? '+' : ''}{money(delta)}</b><small>{deltaPercent === null ? 'Persentase tidak tersedia' : deltaPercent.toLocaleString('id-ID', { maximumFractionDigits: 1 }) + '% terhadap patokan'}</small></>}</td>
             <td className="x-action-compact">{canProcess ? <>{benchmark ? <button type="button" className="x-link" onClick={() => openBenchmarkEdit(benchmark)} disabled={saving}>Edit</button> : <button type="button" className="x-link" onClick={() => startBenchmarkFromHistory(row)} disabled={saving}>Pasang Patokan</button>}{benchmark && <button type="button" className="x-link danger" onClick={() => deleteBenchmark(benchmark)} disabled={saving}>Hapus</button>}</> : <span className="x-note">Lihat saja</span>}</td>
           </tr>
-        }) : <tr><td colSpan="12"><Empty text={loading ? 'Memuat harga historis…' : 'Belum ada histori harga atau patokan yang cocok.'} /></td></tr>}</tbody></table></div>
+        }) : <tr><td colSpan="13"><Empty text={loading ? 'Memuat harga historis…' : 'Belum ada histori harga atau patokan yang cocok.'} /></td></tr>}</tbody></table></div>
       {canProcess && <p className="x-muted" style={{ marginBottom: 0, marginTop: 12 }}>Patokan admin dibedakan berdasarkan nama item, kategori, dan satuan. Gunakan tombol Pasang Patokan untuk memulai dari histori, tetapi harga harus dimasukkan setelah diverifikasi; sistem tidak mengisi harga resmi dari median secara otomatis.</p>}
     </section>
   </>}{tab === 'excel' && <section className={`x-card service-excel-card ${serviceExcelFullscreen ? 'service-excel-card-fullscreen' : ''}`}>
