@@ -7,6 +7,7 @@ import { formatDateSafe } from '../utils/dateSafe'
 import { decodeExcelMeta, encodeExcelMeta } from '../utils/excelSourceMeta.js'
 import { historyNumberInput, normalizeHistoryPpn } from '../utils/serviceHistoryMoney.js'
 import { historySourcePpnValue, historySourceTotalIsBlank, historySourceTotalValue } from '../utils/serviceHistorySourceMoney.js'
+import { benchmarkKey, buildServicePriceHistory, classifyBenchmarkCategory, mergeServicePriceBenchmarks } from '../utils/serviceBenchmark.js'
 import { DOCUMENT_UPLOAD_ACCEPT, IMAGE_UPLOAD_ACCEPT, validateStorageUploadFile } from '../utils/storageUpload.js'
 
 const money = v => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(v || 0))
@@ -18,6 +19,7 @@ const emptyItem = { service_id: '', nama_item: '', kategori: 'SPAREPART', jumlah
 const emptyProof = { service_id: '', jenis_bukti: 'BON_INVOICE', keterangan: '' }
 const emptyPart = { kendaraan_id: '', tanggal_penggantian: new Date().toISOString().slice(0, 10), kilometer: '', kondisi_sebelum: '', alasan_penggantian: '', biaya: '', keterangan: '', _type: 'BAN' }
 const emptyKm = { kendaraan_id: '', tanggal: new Date().toISOString().slice(0, 10), kilometer: '', sumber: 'SERVICE', keterangan: '' }
+const emptyBenchmark = { nama_item: '', kategori: 'SPAREPART', satuan: '', harga_patokan: '', berlaku_mulai: new Date().toISOString().slice(0, 10), aktif: true, keterangan: '' }
 const historyWorkCategory = (work, fallback) => {
   const source = String(work ?? '').trim().toUpperCase()
   if (/PENGADAAN BARANG|SPAREPART|SUKU CADANG/.test(source)) return 'SPAREPART'
@@ -61,8 +63,15 @@ export default function ServiceFeaturePage({ profile }) {
   const [serviceVehicleFilter, setServiceVehicleFilter] = useState('SEMUA')
   const [historyEditingRow, setHistoryEditingRow] = useState(null)
   const [historyEditForm, setHistoryEditForm] = useState(null)
+  const [benchmarks, setBenchmarks] = useState([])
+  const [benchmarkForm, setBenchmarkForm] = useState(emptyBenchmark)
+  const [editingBenchmarkId, setEditingBenchmarkId] = useState(null)
+  const [selectedBenchmarkHistory, setSelectedBenchmarkHistory] = useState(null)
+  const [benchmarkSearch, setBenchmarkSearch] = useState('')
+  const [benchmarkCategoryFilter, setBenchmarkCategoryFilter] = useState('SEMUA')
   const canProcess = ['ADMIN', 'TRANSPORT'].includes(profile?.role)
   const canApprove = ['ADMIN', 'ATASAN_TRANSPORT', 'DIREKTUR'].includes(profile?.role)
+  const canViewBenchmarks = ['ADMIN', 'TRANSPORT', 'ATASAN_TRANSPORT', 'DIREKTUR', 'AKUNTANSI'].includes(profile?.role)
   const vehicleMap = useMemo(() => Object.fromEntries(vehicles.map(v => [v.id, v])), [vehicles])
   const driverMap = useMemo(() => Object.fromEntries(drivers.map(d => [d.id, d])), [drivers])
   const tabLoadRef = useRef({ bukti: false, ban: false, aki: false, km: false })
@@ -126,8 +135,9 @@ export default function ServiceFeaturePage({ profile }) {
       supabase.from('service_item').select('*').order('created_at', { ascending: false }),
       supabase.from('driver').select('id,nama_lengkap').order('nama_lengkap'),
       canApprove ? supabase.from('service_approval').select('*').order('urutan', { ascending: true }) : Promise.resolve({ data: [], error: null }),
+      canViewBenchmarks ? supabase.from('patokan_harga_service').select('*').order('nama_item') : Promise.resolve({ data: [], error: null }),
     ])
-    const names = ['Kendaraan', 'Pengajuan', 'Service', 'Item', 'Driver', 'Approval']
+    const names = ['Kendaraan', 'Pengajuan', 'Service', 'Item', 'Driver', 'Approval', 'Patokan Harga']
     rs.forEach((r, i) => { if (r.error) setError(e => e || `${names[i]}: ${humanizeError(r.error)}`) })
     setVehicles(rs[0].data || [])
     setRequests(rs[1].data || [])
@@ -135,8 +145,9 @@ export default function ServiceFeaturePage({ profile }) {
     setItems(rs[3].data || [])
     setDrivers(rs[4].data || [])
     setApprovals(rs[5].data || [])
+    setBenchmarks(rs[6].data || [])
     setLoading(false)
-  }, [canApprove])
+  }, [canApprove, canViewBenchmarks])
 
   useEffect(() => {
     load()
@@ -231,6 +242,37 @@ export default function ServiceFeaturePage({ profile }) {
     if (!rows.length) services.forEach((s, index) => { const v = vehicleMap[s.kendaraan_id]; const date = s.tanggal_service ? new Date(`${s.tanggal_service}T00:00:00`) : null; rows.push({ service_id: s?.id || null, item_id: null, no: index + 1, merk: v?.merk || '-', type: v?.tipe || '-', jenis: v?.jenis_kendaraan || '-', tahun: v?.tahun || '-', nomor_polisi: v?.nomor_polisi || '-', driver: driverMap[v?.driver_id]?.nama_lengkap || '-', bulan: date && !Number.isNaN(date.getTime()) ? new Intl.DateTimeFormat('id-ID', { month: 'long' }).format(date) : '-', tanggal: s.tanggal_service || '-', jenis_pekerjaan: TYPES[s.jenis_service] || s.jenis_service || '-', uraian: s.keluhan || '-', qty: '-', satuan: '-', harga_satuan: '-', nilai_dpp: s.nilai_dpp ?? '-', ppn: s.ppn ?? '-', total: s.total ?? s.biaya_aktual ?? '-', kilometer: s.kilometer ?? '-', bengkel: s.bengkel || '-', keterangan: s.catatan || '-' }) })
     return rows
   }, [items, services, serviceMap, vehicleMap, driverMap])
+  const benchmarkHistory = useMemo(() => buildServicePriceHistory(items.map(item => {
+    const { meta } = decodeExcelMeta(item.keterangan)
+    const source = meta?.source === 'DATA_SERVICE' ? meta : null
+    const service = serviceMap[item.service_id]
+    const vehicle = vehicleMap[service?.kendaraan_id]
+    const name = source?.uraian || item.nama_item || ''
+    return {
+      itemId: item.id,
+      serviceId: item.service_id,
+      serviceNo: service?.nomor_service || (service?.id ? '#' + service.id : ''),
+      date: source?.tanggal || service?.tanggal_service || '',
+      name,
+      category: classifyBenchmarkCategory(name, source?.jenis_pekerjaan || '', item.kategori || ''),
+      unit: source?.satuan || item.satuan || '',
+      price: source?.harga_satuan ?? item.harga_satuan,
+      quantity: source?.qty ?? item.jumlah ?? '',
+      workType: source?.jenis_pekerjaan || '',
+      vehicle: source?.nomor_polisi || vehicle?.nomor_polisi || '',
+      workshop: source?.bengkel || service?.bengkel || '',
+    }
+  })), [items, serviceMap, vehicleMap])
+
+  const displayedBenchmarkRows = useMemo(() => {
+    const query = benchmarkSearch.trim().toLocaleUpperCase('id-ID')
+    return mergeServicePriceBenchmarks(benchmarkHistory, benchmarks).filter(row => {
+      const matchesQuery = !query || [row.nama_item, row.kategori, row.satuan].some(value => String(value ?? '').toLocaleUpperCase('id-ID').includes(query))
+      const matchesCategory = benchmarkCategoryFilter === 'SEMUA' || row.kategori === benchmarkCategoryFilter
+      return matchesQuery && matchesCategory
+    })
+  }, [benchmarkHistory, benchmarks, benchmarkSearch, benchmarkCategoryFilter])
+
   const saveService = async e => {
     e.preventDefault(); clearMessages(); setSaving(true)
     try {
@@ -625,10 +667,158 @@ export default function ServiceFeaturePage({ profile }) {
     }
   }
 
-  const tabs = canProcess
+  const resetBenchmarkForm = () => {
+    setEditingBenchmarkId(null)
+    setBenchmarkForm({ ...emptyBenchmark, berlaku_mulai: new Date().toISOString().slice(0, 10) })
+  }
+
+  const openBenchmarkEdit = benchmark => {
+    if (!canProcess || !benchmark) return
+    setEditingBenchmarkId(benchmark.id)
+    setBenchmarkForm({
+      nama_item: benchmark.nama_item || '',
+      kategori: benchmark.kategori || 'SPAREPART',
+      satuan: benchmark.satuan || '',
+      harga_patokan: String(benchmark.harga_patokan ?? ''),
+      berlaku_mulai: benchmark.berlaku_mulai || new Date().toISOString().slice(0, 10),
+      aktif: Boolean(benchmark.aktif),
+      keterangan: benchmark.keterangan || '',
+    })
+  }
+
+  const saveBenchmark = async event => {
+    event.preventDefault()
+    clearMessages()
+    if (!canProcess) return setError('Hanya ADMIN dan TRANSPORT yang dapat mengubah patokan harga.')
+    setSaving(true)
+    try {
+      const name = String(benchmarkForm.nama_item || '').trim().replace(/\s+/g, ' ')
+      const category = String(benchmarkForm.kategori || '').trim().toLocaleUpperCase('id-ID')
+      const unit = String(benchmarkForm.satuan || '').trim().replace(/\s+/g, ' ')
+      const price = Number(benchmarkForm.harga_patokan)
+      const validCategories = ['JASA', 'SPAREPART', 'OLI', 'BAN', 'AKI', 'LAINNYA']
+      if (!name) throw new Error('Nama item wajib diisi.')
+      if (!validCategories.includes(category)) throw new Error('Kategori item tidak valid.')
+      if (benchmarkForm.harga_patokan === '' || !Number.isFinite(price) || price <= 0) throw new Error('Harga patokan harus lebih besar dari nol.')
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(benchmarkForm.berlaku_mulai || ''))) throw new Error('Tanggal mulai berlaku wajib diisi dengan benar.')
+      const key = benchmarkKey(name, category, unit)
+      const duplicate = benchmarks.find(row => Number(row.id) !== Number(editingBenchmarkId) && benchmarkKey(row.nama_item, row.kategori, row.satuan) === key)
+      if (duplicate) throw new Error('Patokan dengan nama item, kategori, dan satuan yang sama sudah ada. Edit patokan yang ada agar tidak terjadi data ganda.')
+      const payload = {
+        nama_item: name,
+        kategori: category,
+        satuan: unit || null,
+        harga_patokan: price,
+        berlaku_mulai: benchmarkForm.berlaku_mulai,
+        aktif: Boolean(benchmarkForm.aktif),
+        keterangan: String(benchmarkForm.keterangan || '').trim() || null,
+        updated_at: new Date().toISOString(),
+      }
+      const result = editingBenchmarkId
+        ? await supabase.from('patokan_harga_service').update(payload).eq('id', editingBenchmarkId).select('*').single()
+        : await supabase.from('patokan_harga_service').insert(payload).select('*').single()
+      if (result.error) throw result.error
+      if (!result.data?.id) throw new Error('Patokan harga tidak tersimpan. Periksa akses dan coba kembali.')
+      setBenchmarks(current => editingBenchmarkId
+        ? current.map(row => row.id === result.data.id ? result.data : row)
+        : [...current, result.data])
+      resetBenchmarkForm()
+      setSuccess(editingBenchmarkId ? 'Patokan harga berhasil diperbarui.' : 'Patokan harga berhasil ditambahkan.')
+    } catch (saveError) {
+      setError(humanizeError(saveError))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const deleteBenchmark = async benchmark => {
+    if (!canProcess || !benchmark) return
+    if (!window.confirm('Hapus patokan harga "' + benchmark.nama_item + '" (' + benchmark.kategori + ')?')) return
+    clearMessages()
+    setSaving(true)
+    try {
+      const result = await supabase.from('patokan_harga_service').delete().eq('id', benchmark.id).select('id').maybeSingle()
+      if (result.error) throw result.error
+      if (!result.data?.id) throw new Error('Patokan tidak ditemukan atau hak akses tidak mencukupi.')
+      setBenchmarks(current => current.filter(row => row.id !== benchmark.id))
+      if (editingBenchmarkId === benchmark.id) resetBenchmarkForm()
+      setSuccess('Patokan harga berhasil dihapus.')
+    } catch (deleteError) {
+      setError(humanizeError(deleteError))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const startBenchmarkFromHistory = history => {
+    if (!canProcess || !history) return
+    setEditingBenchmarkId(null)
+    setBenchmarkForm({
+      ...emptyBenchmark,
+      nama_item: history.nama_item || '',
+      kategori: history.kategori || 'SPAREPART',
+      satuan: history.satuan === '-' ? '' : (history.satuan || ''),
+      harga_patokan: '',
+      berlaku_mulai: new Date().toISOString().slice(0, 10),
+      aktif: true,
+      keterangan: 'Isi hanya setelah harga historis, satuan, dan bukti invoice ditinjau. Median historis tidak otomatis menjadi harga resmi.',
+    })
+    setSuccess('Lengkapi harga patokan resmi setelah pemeriksaan sumber; nilai historis tidak disalin otomatis.')
+  }
+
+  const baseTabs = canProcess
     ? [['pekerjaan', 'Data Service'], ['excel', 'Riwayat Service'], ['item', 'Item Service'], ['bukti', 'Bukti'], ['ban', 'Riwayat Ban'], ['aki', 'Riwayat Aki'], ['km', 'Riwayat KM']]
     : [['pekerjaan', 'Data Service'], ['excel', 'Riwayat Excel']]
-  return <div className="x-page"><Header breadcrumb={tabs.find(([v]) => v === tab)?.[1]} eyebrow="SERVICE & MAINTENANCE" title="Service & Perbaikan" text="Kelola data service langsung dari sistem: pekerjaan, biaya, item, bukti, ban, aki, kilometer, dan approval." action={<div className="x-head-actions">{canProcess && <button className="x-btn primary" onClick={() => { setTab('pekerjaan'); setEditingServiceId(null); setForm({ ...emptyService, tanggal_service: new Date().toISOString().slice(0, 10) }) }}>+ Tambah Service</button>}<button className="x-btn secondary" onClick={load}>↻ Refresh</button></div>} />{error && <Alert type="error">{error}</Alert>}{success && <Alert>{success}</Alert>}<div className="x-tabs">{tabs.map(([v, l]) => <button key={v} className={tab === v ? 'active' : ''} onClick={() => { clearMessages(); setTab(v) }}>{l}</button>)}</div>{tab === 'excel' && <section className={`x-card service-excel-card ${serviceExcelFullscreen ? 'service-excel-card-fullscreen' : ''}`}>
+  const tabs = canViewBenchmarks ? [...baseTabs, ['harga', 'Patokan Harga']] : baseTabs
+  return <div className="x-page"><Header breadcrumb={tabs.find(([v]) => v === tab)?.[1]} eyebrow="SERVICE & MAINTENANCE" title="Service & Perbaikan" text="Kelola data service langsung dari sistem: pekerjaan, biaya, item, bukti, ban, aki, kilometer, dan approval." action={<div className="x-head-actions">{canProcess && <button className="x-btn primary" onClick={() => { setTab('pekerjaan'); setEditingServiceId(null); setForm({ ...emptyService, tanggal_service: new Date().toISOString().slice(0, 10) }) }}>+ Tambah Service</button>}<button className="x-btn secondary" onClick={load}>↻ Refresh</button></div>} />{error && <Alert type="error">{error}</Alert>}{success && <Alert>{success}</Alert>}<div className="x-tabs">{tabs.map(([v, l]) => <button key={v} className={tab === v ? 'active' : ''} onClick={() => { clearMessages(); setTab(v) }}>{l}</button>)}</div>{tab === 'harga' && <>
+    <section className="x-card">
+      <div className="x-card-title">
+        <div><h3>Patokan Harga &amp; Shopping List</h3><p>Bandingkan harga historis per item, kategori, dan satuan. Harga historis adalah referensi; patokan admin harus ditetapkan setelah pemeriksaan invoice, satuan, dan bengkel.</p></div>
+      </div>
+      <div className="x-summary-grid">
+        <div><span>Kelompok item historis</span><b>{benchmarkHistory.length.toLocaleString('id-ID')}</b></div>
+        <div><span>Rincian berharga</span><b>{benchmarkHistory.reduce((sum, row) => sum + row.transactionCount, 0).toLocaleString('id-ID')}</b></div>
+        <div><span>Patokan admin aktif</span><b>{benchmarks.filter(row => row.aktif).length.toLocaleString('id-ID')}</b></div>
+        <div><span>Belum ada patokan aktif</span><b>{displayedBenchmarkRows.filter(row => row.history && !row.benchmark?.aktif).length.toLocaleString('id-ID')}</b></div>
+      </div>
+      <div style={{ marginTop: 14 }}>
+        <Alert type="warning">Harga minimum, median, dan maksimum dihitung dari transaksi tersimpan yang memiliki harga satuan di atas nol. Perbedaan nama item, satuan, kategori, kuantitas, dan bengkel dapat memengaruhi perbandingan. Patokan resmi tidak dibuat otomatis dari median.</Alert>
+      </div>
+      {canProcess && <form className="x-grid" onSubmit={saveBenchmark} style={{ marginTop: 16 }}>
+        <div className="full x-card-title" style={{ marginBottom: 0 }}><div><h3>{editingBenchmarkId ? 'Edit Patokan Harga' : 'Tambah Patokan Harga Admin'}</h3><p>{editingBenchmarkId ? 'Perubahan berlaku pada referensi admin yang dipilih.' : 'Gunakan harga yang telah diperiksa dan disetujui; jangan menyalin median historis sebagai harga resmi tanpa validasi.'}</p></div></div>
+        <label>Nama item<input value={benchmarkForm.nama_item} onChange={event => setBenchmarkForm(current => ({ ...current, nama_item: event.target.value }))} maxLength={200} required placeholder="Contoh: Oli mesin atau kampas rem" /></label>
+        <label>Kategori<select value={benchmarkForm.kategori} onChange={event => setBenchmarkForm(current => ({ ...current, kategori: event.target.value }))} required><option value="SPAREPART">Sparepart</option><option value="JASA">Jasa</option><option value="OLI">Oli</option><option value="BAN">Ban</option><option value="AKI">Aki / Baterai</option><option value="LAINNYA">Lainnya</option></select></label>
+        <label>Satuan<input value={benchmarkForm.satuan} onChange={event => setBenchmarkForm(current => ({ ...current, satuan: event.target.value }))} maxLength={40} placeholder="PCS, LTR, LOT..." /></label>
+        <label>Harga patokan (Rp)<input type="number" min="0.01" step="0.01" value={benchmarkForm.harga_patokan} onChange={event => setBenchmarkForm(current => ({ ...current, harga_patokan: event.target.value }))} required /></label>
+        <label>Berlaku mulai<input type="date" value={benchmarkForm.berlaku_mulai} onChange={event => setBenchmarkForm(current => ({ ...current, berlaku_mulai: event.target.value }))} required /></label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 9 }}><input type="checkbox" checked={Boolean(benchmarkForm.aktif)} onChange={event => setBenchmarkForm(current => ({ ...current, aktif: event.target.checked }))} style={{ width: 17, height: 17 }} /> Aktif sebagai patokan</label>
+        <label className="full">Keterangan / dasar harga<textarea value={benchmarkForm.keterangan} onChange={event => setBenchmarkForm(current => ({ ...current, keterangan: event.target.value }))} rows="2" maxLength={2000} placeholder="Sebutkan sumber invoice, tanggal, bengkel, atau persetujuan." /></label>
+        <div className="full x-actions"><button type="button" className="x-btn secondary" onClick={resetBenchmarkForm} disabled={saving}>Bersihkan</button><button className="x-btn primary" disabled={saving}>{saving ? 'Menyimpan…' : editingBenchmarkId ? 'Perbarui Patokan' : 'Simpan Patokan'}</button></div>
+      </form>}
+    </section>
+    <section className="x-card">
+      <div className="x-card-title"><div><h3>Daftar Harga Historis &amp; Patokan Admin</h3><p>Baris tanpa patokan tetap ditampilkan agar dapat ditinjau. Harga pembanding tidak memutuskan otomatis apakah sebuah biaya wajar atau tidak.</p></div></div>
+      <div className="x-toolbar-inline"><input className="x-filter" value={benchmarkSearch} onChange={event => setBenchmarkSearch(event.target.value)} placeholder="Cari nama item atau satuan..." /><select className="x-filter" value={benchmarkCategoryFilter} onChange={event => setBenchmarkCategoryFilter(event.target.value)}><option value="SEMUA">Semua kategori</option><option value="JASA">Jasa</option><option value="SPAREPART">Sparepart</option><option value="OLI">Oli</option><option value="BAN">Ban</option><option value="AKI">Aki / Baterai</option><option value="LAINNYA">Lainnya</option></select></div>
+      <div className="x-table-wrap"><table className="x-table"><thead><tr><th>Nama Item</th><th>Kategori</th><th>Satuan</th><th>Transaksi</th><th>Kendaraan</th><th>Bengkel</th><th>Min Historis</th><th>Median Historis</th><th>Rata-rata Historis</th><th>Max Historis</th><th>Patokan Admin</th><th>Selisih Rata-rata</th><th>Aksi</th></tr></thead>
+        <tbody>{displayedBenchmarkRows.length ? displayedBenchmarkRows.map(row => {
+          const history = row.history
+          const benchmark = row.benchmark
+          const adminPrice = benchmark?.aktif ? Number(benchmark.harga_patokan) : null
+          const delta = history && Number.isFinite(adminPrice) ? history.averagePrice - adminPrice : null
+          const deltaPercent = delta !== null && adminPrice > 0 ? (delta / adminPrice) * 100 : null
+          return <tr key={row.key}>
+            <td><b>{row.nama_item || '-'}</b>{benchmark?.keterangan && <small title={benchmark.keterangan}>{benchmark.keterangan}</small>}</td>
+            <td>{row.kategori || '-'}</td><td>{row.satuan || '-'}</td>
+            <td>{history?.transactionCount ?? 0}</td><td>{history?.vehicleCount ?? 0}</td><td>{history?.workshopCount ?? 0}</td>
+            <td>{history ? money(history.minPrice) : '-'}</td><td>{history ? money(history.medianPrice) : '-'}</td><td>{history ? money(history.averagePrice) : '-'}</td><td>{history ? money(history.maxPrice) : '-'}</td>
+            <td>{benchmark ? benchmark.aktif ? <><b>{money(benchmark.harga_patokan)}</b><small>Berlaku {dateText(benchmark.berlaku_mulai)}</small></> : <span className="x-pill">Nonaktif</span> : <span className="x-note">Belum ditetapkan</span>}</td>
+            <td>{delta === null ? '-' : <><b>{delta > 0 ? '+' : ''}{money(delta)}</b><small>{deltaPercent === null ? 'Persentase tidak tersedia' : deltaPercent.toLocaleString('id-ID', { maximumFractionDigits: 1 }) + '% terhadap patokan'}</small></>}</td>
+            <td className="x-action-compact">{history && <button type="button" className="x-link" onClick={() => setSelectedBenchmarkHistory(row)}>Riwayat</button>}{canProcess ? <>{benchmark ? <button type="button" className="x-link" onClick={() => openBenchmarkEdit(benchmark)} disabled={saving}>Edit</button> : <button type="button" className="x-link" onClick={() => startBenchmarkFromHistory(row)} disabled={saving}>Pasang Patokan</button>}{benchmark && <button type="button" className="x-link danger" onClick={() => deleteBenchmark(benchmark)} disabled={saving}>Hapus</button>}</> : !history && <span className="x-note">Lihat saja</span>}</td>
+          </tr>
+        }) : <tr><td colSpan="13"><Empty text={loading ? 'Memuat harga historis…' : 'Belum ada histori harga atau patokan yang cocok.'} /></td></tr>}</tbody></table></div>
+      {canProcess && <p className="x-muted" style={{ marginBottom: 0, marginTop: 12 }}>Patokan admin dibedakan berdasarkan nama item, kategori, dan satuan. Gunakan tombol Pasang Patokan untuk memulai dari histori, tetapi harga harus dimasukkan setelah diverifikasi; sistem tidak mengisi harga resmi dari median secara otomatis.</p>}
+    </section>
+  </>}{tab === 'excel' && <section className={`x-card service-excel-card ${serviceExcelFullscreen ? 'service-excel-card-fullscreen' : ''}`}>
     <div className="x-card-title service-excel-card-title">
       <div>
         <h3>Riwayat Service — Format Data Service Excel</h3>
@@ -651,6 +841,12 @@ export default function ServiceFeaturePage({ profile }) {
       </div>
     </div>
   </section>}{tab === 'pekerjaan' && <><section className="x-card">{canProcess && <><div className="x-card-title"><h3>{editingServiceId ? 'Edit Data Service' : 'Tambah Data Service'}</h3><p>Pengajuan opsional. Admin dapat mencatat service langsung tanpa kembali ke Excel.</p></div><form className="x-grid" onSubmit={saveService}><label>Pengajuan (opsional)<select value={form.permintaan_service_id} onChange={e => { const r = requests.find(x => String(x.id) === e.target.value); setForm(f => ({ ...f, permintaan_service_id: e.target.value, kendaraan_id: r?.kendaraan_id || f.kendaraan_id, kilometer: r?.kilometer_pengajuan ?? vehicleMap[r?.kendaraan_id]?.kilometer_terakhir ?? f.kilometer, jenis_service: r?.jenis_permintaan || f.jenis_service || 'SERVICE', keluhan: r?.keluhan || f.keluhan })) }}><option value="">Tanpa Pengajuan</option>{pending.map(r => <option key={r.id} value={r.id}>{r.nomor_pengajuan || `#${r.id}`} — {TYPES[r.jenis_permintaan] || r.jenis_permintaan}</option>)}</select></label><label>Kendaraan<select value={form.kendaraan_id} onChange={e => setForm(f => ({ ...f, kendaraan_id: e.target.value }))}><option value="">Pilih</option>{vehicles.map(v => <option key={v.id} value={v.id}>{v.nomor_polisi} — {v.merk} {v.tipe || ''}</option>)}</select></label><label>Tanggal<input type="date" value={form.tanggal_service} onChange={e => setForm(f => ({ ...f, tanggal_service: e.target.value }))} /></label><label>KM<input type="number" min="0" value={form.kilometer} onChange={e => setForm(f => ({ ...f, kilometer: e.target.value }))} /></label><label>Bengkel<input value={form.bengkel} onChange={e => setForm(f => ({ ...f, bengkel: e.target.value }))} /></label><label>Jenis<select value={form.jenis_service} onChange={e => setForm(f => ({ ...f, jenis_service: e.target.value }))}>{Object.entries(TYPES).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label><label>Estimasi Biaya<input type="number" min="0" value={form.estimasi_biaya} onChange={e => setForm(f => ({ ...f, estimasi_biaya: e.target.value }))} /></label><label>Biaya Aktual<input type="number" min="0" value={form.biaya_aktual} onChange={e => setForm(f => ({ ...f, biaya_aktual: e.target.value }))} /></label><label className="full">Keluhan<input value={form.keluhan} onChange={e => setForm(f => ({ ...f, keluhan: e.target.value }))} /></label><label className="full">Catatan<textarea value={form.catatan} onChange={e => setForm(f => ({ ...f, catatan: e.target.value }))} /></label><div className="full x-actions"><button type="button" className="x-btn secondary" onClick={() => { setEditingServiceId(null); setForm({ ...emptyService, tanggal_service: new Date().toISOString().slice(0, 10) }) }} disabled={saving}>Bersihkan</button><button className="x-btn primary" disabled={saving}>{saving ? 'Menyimpan…' : editingServiceId ? 'Perbarui Service' : 'Simpan Service'}</button></div></form></>}</section><section className="x-card"><div className="x-card-title"><div><h3>Daftar Service</h3><p>Cari berdasarkan BM/nomor polisi, merk, type, bengkel, atau keluhan. Aksi detail, edit, dan hapus dibuat ringkas agar tabel tetap bersih.</p></div></div><div className="x-toolbar-inline"><input value={serviceSearch} onChange={e => setServiceSearch(e.target.value)} placeholder="Cari BM, merk, type, bengkel..." /><select value={serviceVehicleFilter} onChange={e => setServiceVehicleFilter(e.target.value)}><option value="SEMUA">Semua kendaraan</option>{vehicles.map(v => <option key={v.id} value={v.id}>{v.nomor_polisi} — {v.merk}</option>)}</select></div>{loading ? <Empty text="Memuat…" /> : filteredServices.length === 0 ? <Empty text="Belum ada service yang cocok." /> : <div className="x-table-wrap"><table className="x-table"><thead><tr><th>No</th><th>Merk</th><th>Type</th><th>No. Polisi</th><th>Jenis</th><th>Tanggal</th><th>KM</th><th>Bengkel</th><th>Uraian</th><th>Total</th><th>Aksi</th></tr></thead><tbody>{filteredServices.map((s, index) => { const vehicle=vehicleMap[s.kendaraan_id]; const lineItems=items.filter(i=>i.service_id===s.id); const uraian=lineItems.length?lineItems.map(i=>i.nama_item).filter(Boolean).join(' • '):(s.keluhan||'-'); const total=Number(s.total ?? s.biaya_aktual ?? s.estimasi_biaya ?? 0); return <tr key={s.id}><td>{index+1}</td><td><b>{vehicle?.merk||'-'}</b></td><td>{vehicle?.tipe||'-'}</td><td><b>{vehicle?.nomor_polisi||'-'}</b></td><td>{TYPES[s.jenis_service]||s.jenis_service||'-'}</td><td>{dateText(s.tanggal_service)}</td><td>{Number(s.kilometer||0).toLocaleString('id-ID')} km</td><td>{s.bengkel||'-'}</td><td><div className="table-long-text" title={uraian}>{uraian}</div></td><td><b>{money(total)}</b></td><td className="x-action-compact"><button className="x-link" onClick={()=>openDetail(s)}>Detail</button>{canOpenApproval(s)&&<button className="x-link primary" onClick={()=>{ const required=requiredApprovalRole(s); setApprovalNote(''); setApprovalModal({ service:s, required }) }}>Approval</button>}{canProcess&&<button className="x-link" onClick={()=>openServiceEdit(s)}>Edit</button>}{canProcess&&<button className="x-link danger" onClick={()=>deleteService(s)} disabled={saving}>Hapus</button>}</td></tr>})}</tbody></table></div>}</section></>}{tab === 'item' && <><section className="x-card">{canProcess && <><div className="x-card-title"><h3>{editingItemId ? 'Edit Item Service' : 'Tambah Item Service'}</h3><p>Catat jasa, suku cadang, oli, ban, atau aki dengan jumlah dan harga satuan.</p></div><form className="x-grid" onSubmit={saveItem}><label>Service<select value={itemForm.service_id} onChange={e => setItemForm(f => ({ ...f, service_id: e.target.value }))}><option value="">Pilih</option>{services.map(s => <option key={s.id} value={s.id}>{s.nomor_service || `#${s.id}`}</option>)}</select></label><label>Nama Item<input value={itemForm.nama_item} onChange={e => setItemForm(f => ({ ...f, nama_item: e.target.value }))} /></label><label>Kategori<select value={itemForm.kategori} onChange={e => setItemForm(f => ({ ...f, kategori: e.target.value }))}><option value="JASA">Jasa</option><option value="SPAREPART">Sparepart</option><option value="OLI">Oli</option><option value="BAN">Ban</option><option value="AKI">Aki</option><option value="LAINNYA">Lainnya</option></select></label><label>Jumlah<input type="number" min="0" step="0.01" value={itemForm.jumlah} onChange={e => setItemForm(f => ({ ...f, jumlah: e.target.value }))} /></label><label>Satuan<input value={itemForm.satuan} onChange={e => setItemForm(f => ({ ...f, satuan: e.target.value }))} /></label><label>Harga Satuan<input type="number" min="0" value={itemForm.harga_satuan} onChange={e => setItemForm(f => ({ ...f, harga_satuan: e.target.value }))} /></label><label className="full">Keterangan<input value={itemForm.keterangan} onChange={e => setItemForm(f => ({ ...f, keterangan: e.target.value }))} /></label><div className="full x-actions"><button type="button" className="x-btn secondary" onClick={() => { setEditingItemId(null); setItemForm(emptyItem) }}>Bersihkan</button><button className="x-btn primary" disabled={saving}>{editingItemId ? 'Perbarui Item' : 'Simpan Item'}</button></div></form></>}</section><section className="x-card"><div className="x-table-wrap"><table className="x-table"><thead><tr><th>Service</th><th>Item</th><th>Kategori</th><th>Jumlah</th><th>Harga</th><th>Subtotal</th><th>Aksi</th></tr></thead><tbody>{items.length ? items.map(i => <tr key={i.id}><td>#{i.service_id}</td><td>{i.nama_item}</td><td>{i.kategori || '-'}</td><td>{i.jumlah} {i.satuan}</td><td>{money(i.harga_satuan)}</td><td>{money(i.subtotal)}</td><td className="x-action-compact"><button className="x-link" onClick={() => setSelectedItem(i)}>Detail</button>{canProcess && <button className="x-link" onClick={() => editItem(i)}>Edit</button>}{canProcess && <button className="x-link danger" onClick={() => deleteItem(i)} disabled={saving}>Hapus</button>}</td></tr>) : <tr><td colSpan="7"><Empty /></td></tr>}</tbody></table></div></section></>}{tab === 'bukti' && <><section className="x-card">{canProcess && <><div className="x-card-title"><h3>{editingProofId ? 'Edit Bukti Service' : 'Upload Bukti Service'}</h3><p>Gunakan invoice/bon atau foto sebagai dokumentasi pekerjaan.</p></div><form className="x-grid" onSubmit={saveProof}><label>Service<select value={proofForm.service_id} onChange={e => setProofForm(f => ({ ...f, service_id: e.target.value }))}><option value="">Pilih</option>{services.map(s => <option key={s.id} value={s.id}>{s.nomor_service || `#${s.id}`}</option>)}</select></label><label>Jenis Bukti<select value={proofForm.jenis_bukti} onChange={e => setProofForm(f => ({ ...f, jenis_bukti: e.target.value }))}><option value="BON_INVOICE">Invoice / Bon</option><option value="FOTO_SEBELUM">Foto Sebelum</option><option value="FOTO_SESUDAH">Foto Sesudah</option><option value="FOTO_KM">Foto KM</option><option value="DOKUMEN_LAINNYA">Dokumen Lainnya</option></select></label><label>File<input type="file" accept={DOCUMENT_UPLOAD_ACCEPT} onChange={e => setFile(e.target.files?.[0] || null)} /></label><label className="full">Keterangan<input value={proofForm.keterangan} onChange={e => setProofForm(f => ({ ...f, keterangan: e.target.value }))} /></label><div className="full x-actions"><button type="button" className="x-btn secondary" onClick={() => { setEditingProofId(null); setProofForm(emptyProof); setFile(null) }}>Bersihkan</button><button className="x-btn primary" disabled={saving}>{editingProofId ? 'Perbarui Bukti' : 'Upload Bukti'}</button></div></form></>}</section><section className="x-card">{proofs.length === 0 ? <Empty /> : <div className="x-table-wrap"><table className="x-table"><thead><tr><th>Service</th><th>Jenis</th><th>File</th><th>Aksi</th></tr></thead><tbody>{proofs.map(p => <tr key={p.id}><td>#{p.service_id}</td><td>{p.jenis_bukti}</td><td>{p.nama_file}</td><td className="x-action-compact"><button className="x-link" onClick={async () => { try { const u = await signed('service-bukti', p.file_path); if (u) window.open(u, '_blank', 'noopener,noreferrer') } catch (e) { setError(humanizeError(e)) } }}>Lihat</button>{canProcess && <button className="x-link" onClick={() => editProof(p)}>Edit</button>}{canProcess && <button className="x-link danger" onClick={() => deleteProof(p)} disabled={saving}>Hapus</button>}</td></tr>)}</tbody></table></div>}</section></>}{(tab === 'ban' || tab === 'aki') && <><section className="x-card">{canProcess && <><div className="x-card-title"><h3>{editingPartId ? 'Edit Riwayat ' : 'Catat Penggantian '}{tab === 'ban' ? 'Ban' : 'Aki / Baterai'}</h3><p>Foto kondisi sebelum menjadi dokumentasi. Saat edit, foto lama tetap digunakan bila tidak diganti.</p></div><form className="x-grid" onSubmit={savePart}><label>Kendaraan<select value={partForm.kendaraan_id} onChange={e => setPartForm(f => ({ ...f, kendaraan_id: e.target.value, _type: tab.toUpperCase() }))}><option value="">Pilih</option>{vehicles.map(v => <option key={v.id} value={v.id}>{v.nomor_polisi} — {v.merk}</option>)}</select></label><label>Tanggal<input type="date" value={partForm.tanggal_penggantian} onChange={e => setPartForm(f => ({ ...f, tanggal_penggantian: e.target.value, _type: tab.toUpperCase() }))} /></label><label>KM<input type="number" min="0" value={partForm.kilometer} onChange={e => setPartForm(f => ({ ...f, kilometer: e.target.value }))} /></label><label>Alasan<input value={partForm.alasan_penggantian} onChange={e => setPartForm(f => ({ ...f, alasan_penggantian: e.target.value }))} /></label><label>Kondisi Sebelum<input value={partForm.kondisi_sebelum} onChange={e => setPartForm(f => ({ ...f, kondisi_sebelum: e.target.value }))} /></label><label>Biaya<input type="number" min="0" value={partForm.biaya} onChange={e => setPartForm(f => ({ ...f, biaya: e.target.value }))} /></label>{tab === 'ban' ? <><label>Jumlah Ban<input type="number" min="1" value={partForm.jumlah_ban || 1} onChange={e => setPartForm(f => ({ ...f, jumlah_ban: e.target.value, _type: 'BAN' }))} /></label><label>Posisi Ban<input value={partForm.posisi_ban || ''} onChange={e => setPartForm(f => ({ ...f, posisi_ban: e.target.value, _type: 'BAN' }))} /></label><label>Merek Ban<input value={partForm.merek_ban || ''} onChange={e => setPartForm(f => ({ ...f, merek_ban: e.target.value, _type: 'BAN' }))} /></label><label>Ukuran<input value={partForm.ukuran_ban || ''} onChange={e => setPartForm(f => ({ ...f, ukuran_ban: e.target.value, _type: 'BAN' }))} /></label></> : <><label>Merek Aki<input value={partForm.merek_aki || ''} onChange={e => setPartForm(f => ({ ...f, merek_aki: e.target.value, _type: 'AKI' }))} /></label><label>Tipe Aki<input value={partForm.tipe_aki || ''} onChange={e => setPartForm(f => ({ ...f, tipe_aki: e.target.value, _type: 'AKI' }))} /></label><label>Nomor Aki<input value={partForm.nomor_aki || ''} onChange={e => setPartForm(f => ({ ...f, nomor_aki: e.target.value, _type: 'AKI' }))} /></label></>}<label className="full">Foto Kondisi Sebelum<input type="file" accept={IMAGE_UPLOAD_ACCEPT} onChange={e => setFile(e.target.files?.[0] || null)} /></label><label className="full">Keterangan<input value={partForm.keterangan} onChange={e => setPartForm(f => ({ ...f, keterangan: e.target.value }))} /></label><div className="full x-actions"><button type="button" className="x-btn secondary" onClick={() => { setEditingPartId(null); setFile(null); setPartForm({ ...emptyPart, _type: tab.toUpperCase() }) }}>Bersihkan</button><button className="x-btn primary" disabled={saving}>{editingPartId ? 'Perbarui Riwayat' : 'Simpan Riwayat'}</button></div></form></>}</section><section className="x-card"><div className="x-table-wrap"><table className="x-table"><thead><tr><th>Kendaraan</th><th>Tanggal</th><th>KM</th><th>Alasan</th><th>Biaya</th><th>Aksi</th></tr></thead><tbody>{(tab === 'ban' ? bans : akis).map(r => <tr key={r.id}><td>{vehicleMap[r.kendaraan_id]?.nomor_polisi || '-'}</td><td>{dateText(r.tanggal_penggantian)}</td><td>{Number(r.kilometer || 0).toLocaleString('id-ID')} km</td><td>{r.alasan_penggantian || '-'}</td><td>{money(r.biaya)}</td><td className="x-action-compact"><button className="x-link" onClick={() => setSelectedPart(r)}>Detail</button>{canProcess && <button className="x-link" onClick={() => editPart(r)}>Edit</button>}{canProcess && <button className="x-link danger" onClick={() => deletePart(r)} disabled={saving}>Hapus</button>}</td></tr>)}</tbody></table></div></section></>}{tab === 'km' && <><section className="x-card">{canProcess && <><div className="x-card-title"><h3>{editingKmId ? 'Edit Riwayat Kilometer' : 'Catat Kilometer'}</h3><p>KM dipakai untuk menghitung jarak pemakaian kendaraan.</p></div><form className="x-grid" onSubmit={saveKm}><label>Kendaraan<select value={kmForm.kendaraan_id} onChange={e => setKmForm(f => ({ ...f, kendaraan_id: e.target.value }))}><option value="">Pilih</option>{vehicles.map(v => <option key={v.id} value={v.id}>{v.nomor_polisi} — terakhir {Number(v.kilometer_terakhir || 0).toLocaleString('id-ID')} km</option>)}</select></label><label>Tanggal<input type="date" value={kmForm.tanggal} onChange={e => setKmForm(f => ({ ...f, tanggal: e.target.value }))} /></label><label>KM<input type="number" min="0" value={kmForm.kilometer} onChange={e => setKmForm(f => ({ ...f, kilometer: e.target.value }))} /></label><label>Sumber<select value={kmForm.sumber} onChange={e => setKmForm(f => ({ ...f, sumber: e.target.value }))}><option>SERVICE</option><option>PERMINTAAN</option><option>PEMERIKSAAN</option><option>MANUAL</option><option>LAINNYA</option></select></label><label className="full">Keterangan<input value={kmForm.keterangan} onChange={e => setKmForm(f => ({ ...f, keterangan: e.target.value }))} /></label><div className="full x-actions"><button type="button" className="x-btn secondary" onClick={() => { setEditingKmId(null); setKmForm(emptyKm) }}>Bersihkan</button><button className="x-btn primary" disabled={saving}>{editingKmId ? 'Perbarui KM' : 'Simpan KM'}</button></div></form></>}</section><section className="x-card"><div className="x-table-wrap"><table className="x-table"><thead><tr><th>Kendaraan</th><th>Tanggal</th><th>KM</th><th>Sumber</th><th>Keterangan</th><th>Aksi</th></tr></thead><tbody>{kms.map(k => <tr key={k.id}><td>{vehicleMap[k.kendaraan_id]?.nomor_polisi || '-'}</td><td>{dateText(k.tanggal)}</td><td>{Number(k.kilometer || 0).toLocaleString('id-ID')} km</td><td>{k.sumber || '-'}</td><td>{k.keterangan || '-'}</td><td className="x-action-compact"><button className="x-link" onClick={() => setSelectedKm(k)}>Detail</button>{canProcess && <button className="x-link" onClick={() => editKm(k)}>Edit</button>}{canProcess && <button className="x-link danger" onClick={() => deleteKm(k)} disabled={saving}>Hapus</button>}</td></tr>)}</tbody></table></div></section></>}
+    {selectedBenchmarkHistory && <div className="x-overlay"><section className="x-modal x-modal-wide" role="dialog" aria-modal="true" aria-labelledby="benchmark-history-title">
+      <div className="x-modal-head"><div><span className="eyebrow">RIWAYAT HARGA HISTORIS</span><h3 id="benchmark-history-title">{selectedBenchmarkHistory.nama_item}</h3><small>{selectedBenchmarkHistory.kategori || '-'} • Satuan {selectedBenchmarkHistory.satuan || '-'}</small></div><button type="button" onClick={() => setSelectedBenchmarkHistory(null)} aria-label="Tutup riwayat harga">×</button></div>
+      <p className="x-muted">Daftar transaksi yang membentuk statistik harga. Periksa nomor polisi, bengkel, tanggal, jenis pekerjaan, dan satuan sebelum menetapkan harga resmi.</p>
+      <div className="x-table-wrap"><table className="x-table"><thead><tr><th>Tanggal</th><th>No. Polisi</th><th>Bengkel</th><th>Jenis Pekerjaan</th><th>Qty/Satuan</th><th>Harga Satuan</th><th>No. Service</th></tr></thead><tbody>{selectedBenchmarkHistory.history?.transactions?.length ? selectedBenchmarkHistory.history.transactions.map((entry, index) => <tr key={entry.itemId || index}><td>{dateText(entry.date)}</td><td>{entry.vehicle || '-'}</td><td>{entry.workshop || '-'}</td><td>{entry.workType || '-'}</td><td>{entry.quantity === null || entry.quantity === '' ? '-' : Number(entry.quantity).toLocaleString('id-ID')} {entry.unit || ''}</td><td>{money(entry.price)}</td><td>{entry.serviceNo || (entry.serviceId ? '#' + entry.serviceId : '-')}</td></tr>) : <tr><td colSpan="7"><Empty text="Detail transaksi tidak tersedia." /></td></tr>}</tbody></table></div>
+      <div className="x-actions"><button type="button" className="x-btn secondary" onClick={() => setSelectedBenchmarkHistory(null)}>Tutup</button></div>
+    </section></div>}
     {selected && <div className="x-overlay"><section className="x-modal x-modal-wide"><div className="x-modal-head"><div><span className="eyebrow">DETAIL SERVICE</span><h3>{selected.nomor_service || '#' + selected.id}</h3><small>{vehicleMap[selected.kendaraan_id]?.nomor_polisi || '-'} • {vehicleMap[selected.kendaraan_id]?.merk || '-'} {vehicleMap[selected.kendaraan_id]?.tipe || ''}</small></div><button onClick={() => setSelected(null)}>×</button></div>
       <div className="x-detail x-detail-grid">
         <p><b>Tanggal:</b> {dateText(selected.tanggal_service)}</p><p><b>KM:</b> {Number(selected.kilometer || 0).toLocaleString('id-ID')} km</p><p><b>Bengkel:</b> {selected.bengkel || '-'}</p><p><b>Jenis:</b> {TYPES[selected.jenis_service] || selected.jenis_service || '-'}</p>
