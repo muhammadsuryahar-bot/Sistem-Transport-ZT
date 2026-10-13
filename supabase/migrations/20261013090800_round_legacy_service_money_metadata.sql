@@ -1,6 +1,86 @@
--- Normalize IEEE-754 monetary artifacts in imported line metadata.
--- Source cells such as 16.17 x 1000 should be 16170.00, not 16170.000000000002.
--- Keep source text fields (including ppn_source) and all normalized values to 2 decimals.
+-- Normalize IEEE-754 monetary artifacts in imported service-item metadata.
+-- Currency cells such as 16.17 x 1000 should persist as 16170.00, not 16170.000000000002.
+-- A narrow, transaction-local trigger exception permits only this controlled metadata change.
+-- The original trigger definition is restored below in the same migration.
+
+CREATE OR REPLACE FUNCTION public.guard_service_detail_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+DECLARE
+  v_status text;
+  v_service_number text;
+  v_old_meta jsonb;
+  v_new_meta jsonb;
+BEGIN
+  SELECT s.status, s.nomor_service
+    INTO v_status, v_service_number
+  FROM public.service s
+  WHERE s.id = COALESCE(NEW.service_id, OLD.service_id);
+
+  IF v_status IN ('SELESAI', 'DITOLAK', 'DIBATALKAN') THEN
+    -- Migration-only exception: this transaction changes only rounded currency fields
+    -- in EXCEL_META for imported DATA_SERVICE rows; no other row/metadata fields may change.
+    IF current_setting('app.allow_service_money_precision_migration', true) = 'on'
+       AND TG_OP = 'UPDATE'
+       AND COALESCE(v_service_number, '') LIKE 'IMP-SRV-%'
+       AND (to_jsonb(NEW) - 'keterangan') IS NOT DISTINCT FROM (to_jsonb(OLD) - 'keterangan')
+    THEN
+      v_old_meta := private.extract_excel_meta(OLD.keterangan);
+      v_new_meta := private.extract_excel_meta(NEW.keterangan);
+
+      IF v_old_meta->>'source' = 'DATA_SERVICE'
+         AND v_new_meta->>'source' = 'DATA_SERVICE'
+         AND (v_new_meta - ARRAY['harga_satuan','nilai_dpp','ppn','total'])
+             IS NOT DISTINCT FROM
+             (v_old_meta - ARRAY['harga_satuan','nilai_dpp','ppn','total'])
+         AND (
+           CASE WHEN jsonb_typeof(v_old_meta->'harga_satuan') = 'number'
+             THEN jsonb_typeof(v_new_meta->'harga_satuan') = 'number'
+               AND (v_new_meta->>'harga_satuan')::numeric = round((v_old_meta->>'harga_satuan')::numeric, 2)
+             ELSE v_new_meta->'harga_satuan' IS NOT DISTINCT FROM v_old_meta->'harga_satuan' END
+         )
+         AND (
+           CASE WHEN jsonb_typeof(v_old_meta->'nilai_dpp') = 'number'
+             THEN jsonb_typeof(v_new_meta->'nilai_dpp') = 'number'
+               AND (v_new_meta->>'nilai_dpp')::numeric = round((v_old_meta->>'nilai_dpp')::numeric, 2)
+             ELSE v_new_meta->'nilai_dpp' IS NOT DISTINCT FROM v_old_meta->'nilai_dpp' END
+         )
+         AND (
+           CASE WHEN jsonb_typeof(v_old_meta->'ppn') = 'number'
+             THEN jsonb_typeof(v_new_meta->'ppn') = 'number'
+               AND (v_new_meta->>'ppn')::numeric = round((v_old_meta->>'ppn')::numeric, 2)
+             ELSE v_new_meta->'ppn' IS NOT DISTINCT FROM v_old_meta->'ppn' END
+         )
+         AND (
+           CASE WHEN jsonb_typeof(v_old_meta->'total') = 'number'
+             THEN jsonb_typeof(v_new_meta->'total') = 'number'
+               AND (v_new_meta->>'total')::numeric = round((v_old_meta->>'total')::numeric, 2)
+             ELSE v_new_meta->'total' IS NOT DISTINCT FROM v_old_meta->'total' END
+         )
+      THEN
+        RETURN NEW;
+      END IF;
+    END IF;
+
+    IF current_setting('app.allow_imported_service_history_edit', true) = 'on'
+       AND COALESCE(v_service_number, '') LIKE 'IMP-SRV-%'
+       AND private.has_any_role(ARRAY[
+         'ADMIN'::public.user_role,
+         'TRANSPORT'::public.user_role
+       ]) THEN
+      RETURN COALESCE(NEW, OLD);
+    END IF;
+
+    RAISE EXCEPTION 'Detail service tidak dapat diubah setelah service berstatus %.', v_status;
+  END IF;
+
+  RETURN COALESCE(NEW, OLD);
+END;
+$function$;
+
 DO $$
 DECLARE
   rec record;
@@ -16,7 +96,10 @@ DECLARE
   v_key text;
   v_value numeric;
   v_changed boolean;
+  v_updated_count integer := 0;
 BEGIN
+  PERFORM set_config('app.allow_service_money_precision_migration', 'on', true);
+
   FOR rec IN
     SELECT id, keterangan
     FROM public.service_item
@@ -58,6 +141,9 @@ BEGIN
     END IF;
 
     v_meta := substring(rec.keterangan FROM v_start FOR v_end-v_start+1)::jsonb;
+    IF v_meta->>'source' IS DISTINCT FROM 'DATA_SERVICE' THEN
+      CONTINUE;
+    END IF;
     v_tail := substring(rec.keterangan FROM v_end+1);
     v_changed := false;
 
@@ -75,7 +161,43 @@ BEGIN
       UPDATE public.service_item
       SET keterangan = 'EXCEL_META:' || v_meta::text || v_tail
       WHERE id = rec.id;
+      v_updated_count := v_updated_count + 1;
     END IF;
   END LOOP;
+
+  RAISE NOTICE 'Normalized currency precision for % imported service detail row(s).', v_updated_count;
 END;
 $$;
+
+-- Restore the original status/authorization guard after the one-time normalization.
+CREATE OR REPLACE FUNCTION public.guard_service_detail_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+DECLARE
+  v_status text;
+  v_service_number text;
+BEGIN
+  SELECT s.status, s.nomor_service
+    INTO v_status, v_service_number
+  FROM public.service s
+  WHERE s.id = COALESCE(NEW.service_id, OLD.service_id);
+
+  IF v_status IN ('SELESAI', 'DITOLAK', 'DIBATALKAN') THEN
+    IF current_setting('app.allow_imported_service_history_edit', true) = 'on'
+       AND COALESCE(v_service_number, '') LIKE 'IMP-SRV-%'
+       AND private.has_any_role(ARRAY[
+         'ADMIN'::public.user_role,
+         'TRANSPORT'::public.user_role
+       ]) THEN
+      RETURN COALESCE(NEW, OLD);
+    END IF;
+
+    RAISE EXCEPTION 'Detail service tidak dapat diubah setelah service berstatus %.', v_status;
+  END IF;
+
+  RETURN COALESCE(NEW, OLD);
+END;
+$function$;
