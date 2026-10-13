@@ -8,6 +8,7 @@ import { encodeExcelMeta } from '../utils/excelSourceMeta.js'
 import './EditableServiceExcelImportModal.css'
 import { excelDate } from '../utils/excelDate.js'
 import { isBlankSourceAmount } from '../utils/serviceHistorySourceMoney.js'
+import { roundCurrency } from '../utils/serviceMoneyPrecision.js'
 
 const MAX_FILE_SIZE = 25 * 1024 * 1024
 const PAGE_OPTIONS = [25, 50, 100]
@@ -111,18 +112,18 @@ function normalizeMoneyField(value) {
   const raw = clean(value)
   const base = parseMoneyBase(raw)
   if (!raw || raw === '-') return 0
-  if (hasFullRupiahFormat(raw)) return base
-  return Number.isFinite(base) && Math.abs(base) < 1000 ? base * 1000 : base
+  if (hasFullRupiahFormat(raw)) return roundCurrency(base)
+  return roundCurrency(Number.isFinite(base) && Math.abs(base) < 1000 ? base * 1000 : base)
 }
 
 function normalizePpn(dpp, rawPpn) {
   const raw = clean(rawPpn)
   if (!raw || raw === '-') return 0
   const base = parseMoneyBase(raw)
-  const candidates = [base]
-  if (!hasFullRupiahFormat(raw) && Math.abs(base) < 1000) candidates.push(base * 1000)
-  const expected = Number(dpp || 0) * 0.11
-  return candidates.reduce((best, value) => Math.abs(value - expected) < Math.abs(best - expected) ? value : best, candidates[0])
+  const candidates = [roundCurrency(base)]
+  if (!hasFullRupiahFormat(raw) && Math.abs(base) < 1000) candidates.push(roundCurrency(base * 1000))
+  const expected = roundCurrency(Number(dpp || 0) * 0.11)
+  return roundCurrency(candidates.reduce((best, value) => Math.abs(value - expected) < Math.abs(best - expected) ? value : best, candidates[0]))
 }
 
 function financialBreakdownMatches(row) {
@@ -141,19 +142,19 @@ function normalizeServiceMoney({ qty, harga, dpp, ppn, total }) {
   const normalizedTotal = normalizeMoneyField(total)
   const normalizedPpn = normalizePpn(normalizedDpp, ppn)
   const q = Number(qty || 0)
-  const priceFromDpp = q > 0 ? normalizedDpp / q : normalizedHarga
-  const finalHarga = normalizedHarga > 0 && normalizedDpp > 0 && Math.abs((normalizedHarga * q) - normalizedDpp) <= Math.max(1, normalizedDpp * 0.001)
+  const priceFromDpp = q > 0 ? roundCurrency(normalizedDpp / q) : normalizedHarga
+  const finalHarga = roundCurrency(normalizedHarga > 0 && normalizedDpp > 0 && Math.abs((normalizedHarga * q) - normalizedDpp) <= Math.max(1, normalizedDpp * 0.001)
     ? normalizedHarga
-    : (priceFromDpp || normalizedHarga)
-  const finalDpp = normalizedDpp || (q > 0 ? finalHarga * q : 0)
-  const finalPpn = normalizedPpn
-  const derivedTotal = finalDpp + finalPpn
+    : (priceFromDpp || normalizedHarga))
+  const finalDpp = roundCurrency(normalizedDpp || (q > 0 ? finalHarga * q : 0))
+  const finalPpn = roundCurrency(normalizedPpn)
+  const derivedTotal = roundCurrency(finalDpp + finalPpn)
   const rawTotal = clean(total)
   const totalIsShorthand = Boolean(rawTotal && rawTotal !== '-' && !hasFullRupiahFormat(rawTotal) && Math.abs(parseMoneyBase(rawTotal)) < 10000)
   const totalMatchesBreakdown = Math.abs(normalizedTotal - derivedTotal) <= Math.max(1, derivedTotal * 0.001)
-  const finalTotal = normalizedTotal > 0 && (totalMatchesBreakdown || !totalIsShorthand)
+  const finalTotal = roundCurrency(normalizedTotal > 0 && (totalMatchesBreakdown || !totalIsShorthand)
     ? normalizedTotal
-    : derivedTotal
+    : derivedTotal)
   return {
     harga_satuan: finalHarga,
     nilai_dpp: finalDpp,
@@ -322,18 +323,18 @@ async function importHistory(rows, sheetName, onProgress = () => {}) {
 
   const payload = candidates.map(({ group, vehicle }) => {
     const first = group.values[0]
-    const dpp = group.values.reduce((sum, row) => sum + row.nilai_dpp, 0)
-    const ppn = group.values.reduce((sum, row) => sum + row.ppn, 0)
-    const sourceTotal = group.values.reduce((sum, row) => sum + row.total, 0)
-    const total = sourceTotal > 0 ? sourceTotal : dpp + ppn
+    const dpp = roundCurrency(group.values.reduce((sum, row) => sum + row.nilai_dpp, 0))
+    const ppn = roundCurrency(group.values.reduce((sum, row) => sum + row.ppn, 0))
+    const sourceTotal = roundCurrency(group.values.reduce((sum, row) => sum + row.total, 0))
+    const total = sourceTotal > 0 ? sourceTotal : roundCurrency(dpp + ppn)
     const kilometer = Math.max(...group.values.map(row => row.kilometer || 0))
     const jenisService = typeFor(group.values)
     const label = group.values.find(row => row.jenis_pekerjaan)?.jenis_pekerjaan || 'Service'
     const complaint = group.values.find(row => row.uraian)?.uraian || `Riwayat ${label}`
 
     const items = group.values.map(row => {
-      const subtotal = row.nilai_dpp || (row.qty * row.harga_satuan) || row.total
-      const harga = row.qty ? subtotal / row.qty : subtotal
+      const subtotal = roundCurrency(row.nilai_dpp || (row.qty * row.harga_satuan) || row.total)
+      const harga = row.qty ? roundCurrency(subtotal / row.qty) : subtotal
       return {
         nama_item: row.uraian || row.jenis_pekerjaan || 'Item Excel',
         kategori: itemCategory((row.jenis_pekerjaan || '') + ' ' + (row.uraian || '')),
