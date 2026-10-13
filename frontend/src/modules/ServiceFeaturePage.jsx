@@ -763,7 +763,55 @@ export default function ServiceFeaturePage({ profile }) {
     ? [['pekerjaan', 'Data Service'], ['excel', 'Riwayat Service'], ['item', 'Item Service'], ['bukti', 'Bukti'], ['ban', 'Riwayat Ban'], ['aki', 'Riwayat Aki'], ['km', 'Riwayat KM']]
     : [['pekerjaan', 'Data Service'], ['excel', 'Riwayat Excel']]
   const tabs = canViewBenchmarks ? [...baseTabs, ['harga', 'Patokan Harga']] : baseTabs
-  return <div className="x-page"><Header breadcrumb={tabs.find(([v]) => v === tab)?.[1]} eyebrow="SERVICE & MAINTENANCE" title="Service & Perbaikan" text="Kelola data service langsung dari sistem: pekerjaan, biaya, item, bukti, ban, aki, kilometer, dan approval." action={<div className="x-head-actions">{canProcess && <button className="x-btn primary" onClick={() => { setTab('pekerjaan'); setEditingServiceId(null); setForm({ ...emptyService, tanggal_service: new Date().toISOString().slice(0, 10) }) }}>+ Tambah Service</button>}<button className="x-btn secondary" onClick={load}>↻ Refresh</button></div>} />{error && <Alert type="error">{error}</Alert>}{success && <Alert>{success}</Alert>}<div className="x-tabs">{tabs.map(([v, l]) => <button key={v} className={tab === v ? 'active' : ''} onClick={() => { clearMessages(); setTab(v) }}>{l}</button>)}</div>{tab === 'excel' && <section className={`x-card service-excel-card ${serviceExcelFullscreen ? 'service-excel-card-fullscreen' : ''}`}>
+  return <div className="x-page"><Header breadcrumb={tabs.find(([v]) => v === tab)?.[1]} eyebrow="SERVICE & MAINTENANCE" title="Service & Perbaikan" text="Kelola data service langsung dari sistem: pekerjaan, biaya, item, bukti, ban, aki, kilometer, dan approval." action={<div className="x-head-actions">{canProcess && <button className="x-btn primary" onClick={() => { setTab('pekerjaan'); setEditingServiceId(null); setForm({ ...emptyService, tanggal_service: new Date().toISOString().slice(0, 10) }) }}>+ Tambah Service</button>}<button className="x-btn secondary" onClick={load}>↻ Refresh</button></div>} />{error && <Alert type="error">{error}</Alert>}{success && <Alert>{success}</Alert>}<div className="x-tabs">{tabs.map(([v, l]) => <button key={v} className={tab === v ? 'active' : ''} onClick={() => { clearMessages(); setTab(v) }}>{l}</button>)}</div>{tab === 'harga' && <>
+    <section className="x-card">
+      <div className="x-card-title">
+        <div><h3>Patokan Harga &amp; Shopping List</h3><p>Bandingkan harga historis per item, kategori, dan satuan. Harga historis adalah referensi; patokan admin harus ditetapkan setelah pemeriksaan invoice, satuan, dan bengkel.</p></div>
+      </div>
+      <div className="x-summary-grid">
+        <div><span>Kelompok item historis</span><b>{benchmarkHistory.length.toLocaleString('id-ID')}</b></div>
+        <div><span>Rincian berharga</span><b>{benchmarkHistory.reduce((sum, row) => sum + row.transactionCount, 0).toLocaleString('id-ID')}</b></div>
+        <div><span>Patokan admin aktif</span><b>{benchmarks.filter(row => row.aktif).length.toLocaleString('id-ID')}</b></div>
+        <div><span>Belum ada patokan aktif</span><b>{displayedBenchmarkRows.filter(row => row.history && !row.benchmark?.aktif).length.toLocaleString('id-ID')}</b></div>
+      </div>
+      <div style={{ marginTop: 14 }}>
+        <Alert type="warning">Harga minimum, median, dan maksimum dihitung dari transaksi tersimpan yang memiliki harga satuan di atas nol. Perbedaan nama item, satuan, kategori, kuantitas, dan bengkel dapat memengaruhi perbandingan. Patokan resmi tidak dibuat otomatis dari median.</Alert>
+      </div>
+      {canProcess && <form className="x-grid" onSubmit={saveBenchmark} style={{ marginTop: 16 }}>
+        <div className="full x-card-title" style={{ marginBottom: 0 }}><div><h3>{editingBenchmarkId ? 'Edit Patokan Harga' : 'Tambah Patokan Harga Admin'}</h3><p>{editingBenchmarkId ? 'Perubahan berlaku pada referensi admin yang dipilih.' : 'Gunakan harga yang telah diperiksa dan disetujui; jangan menyalin median historis sebagai harga resmi tanpa validasi.'}</p></div></div>
+        <label>Nama item<input value={benchmarkForm.nama_item} onChange={event => setBenchmarkForm(current => ({ ...current, nama_item: event.target.value }))} maxLength={200} required placeholder="Contoh: Oli mesin atau kampas rem" /></label>
+        <label>Kategori<select value={benchmarkForm.kategori} onChange={event => setBenchmarkForm(current => ({ ...current, kategori: event.target.value }))} required><option value="SPAREPART">Sparepart</option><option value="JASA">Jasa</option><option value="OLI">Oli</option><option value="BAN">Ban</option><option value="AKI">Aki / Baterai</option><option value="LAINNYA">Lainnya</option></select></label>
+        <label>Satuan<input value={benchmarkForm.satuan} onChange={event => setBenchmarkForm(current => ({ ...current, satuan: event.target.value }))} maxLength={40} placeholder="PCS, LTR, LOT..." /></label>
+        <label>Harga patokan (Rp)<input type="number" min="0.01" step="0.01" value={benchmarkForm.harga_patokan} onChange={event => setBenchmarkForm(current => ({ ...current, harga_patokan: event.target.value }))} required /></label>
+        <label>Berlaku mulai<input type="date" value={benchmarkForm.berlaku_mulai} onChange={event => setBenchmarkForm(current => ({ ...current, berlaku_mulai: event.target.value }))} required /></label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 9 }}><input type="checkbox" checked={Boolean(benchmarkForm.aktif)} onChange={event => setBenchmarkForm(current => ({ ...current, aktif: event.target.checked }))} style={{ width: 17, height: 17 }} /> Aktif sebagai patokan</label>
+        <label className="full">Keterangan / dasar harga<textarea value={benchmarkForm.keterangan} onChange={event => setBenchmarkForm(current => ({ ...current, keterangan: event.target.value }))} rows="2" maxLength={2000} placeholder="Sebutkan sumber invoice, tanggal, bengkel, atau persetujuan." /></label>
+        <div className="full x-actions"><button type="button" className="x-btn secondary" onClick={resetBenchmarkForm} disabled={saving}>Bersihkan</button><button className="x-btn primary" disabled={saving}>{saving ? 'Menyimpan…' : editingBenchmarkId ? 'Perbarui Patokan' : 'Simpan Patokan'}</button></div>
+      </form>}
+    </section>
+    <section className="x-card">
+      <div className="x-card-title"><div><h3>Daftar Harga Historis &amp; Patokan Admin</h3><p>Baris tanpa patokan tetap ditampilkan agar dapat ditinjau. Harga pembanding tidak memutuskan otomatis apakah sebuah biaya wajar atau tidak.</p></div></div>
+      <div className="x-toolbar-inline"><input className="x-filter" value={benchmarkSearch} onChange={event => setBenchmarkSearch(event.target.value)} placeholder="Cari nama item atau satuan..." /><select className="x-filter" value={benchmarkCategoryFilter} onChange={event => setBenchmarkCategoryFilter(event.target.value)}><option value="SEMUA">Semua kategori</option><option value="JASA">Jasa</option><option value="SPAREPART">Sparepart</option><option value="OLI">Oli</option><option value="BAN">Ban</option><option value="AKI">Aki / Baterai</option><option value="LAINNYA">Lainnya</option></select></div>
+      <div className="x-table-wrap"><table className="x-table"><thead><tr><th>Nama Item</th><th>Kategori</th><th>Satuan</th><th>Transaksi</th><th>Kendaraan</th><th>Bengkel</th><th>Min Historis</th><th>Median Historis</th><th>Max Historis</th><th>Patokan Admin</th><th>Selisih Median</th><th>Aksi</th></tr></thead>
+        <tbody>{displayedBenchmarkRows.length ? displayedBenchmarkRows.map(row => {
+          const history = row.history
+          const benchmark = row.benchmark
+          const adminPrice = benchmark?.aktif ? Number(benchmark.harga_patokan) : null
+          const delta = history && Number.isFinite(adminPrice) ? history.medianPrice - adminPrice : null
+          const deltaPercent = delta !== null && adminPrice > 0 ? (delta / adminPrice) * 100 : null
+          return <tr key={row.key}>
+            <td><b>{row.nama_item || '-'}</b>{benchmark?.keterangan && <small title={benchmark.keterangan}>{benchmark.keterangan}</small>}</td>
+            <td>{row.kategori || '-'}</td><td>{row.satuan || '-'}</td>
+            <td>{history?.transactionCount ?? 0}</td><td>{history?.vehicleCount ?? 0}</td><td>{history?.workshopCount ?? 0}</td>
+            <td>{history ? money(history.minPrice) : '-'}</td><td>{history ? money(history.medianPrice) : '-'}</td><td>{history ? money(history.maxPrice) : '-'}</td>
+            <td>{benchmark ? benchmark.aktif ? <><b>{money(benchmark.harga_patokan)}</b><small>Berlaku {dateText(benchmark.berlaku_mulai)}</small></> : <span className="x-pill">Nonaktif</span> : <span className="x-note">Belum ditetapkan</span>}</td>
+            <td>{delta === null ? '-' : <><b>{delta > 0 ? '+' : ''}{money(delta)}</b><small>{deltaPercent.toLocaleString('id-ID', { maximumFractionDigits: 1 })}% terhadap patokan</small></>}</td>
+            <td className="x-action-compact">{canProcess ? <>{benchmark ? <button type="button" className="x-link" onClick={() => openBenchmarkEdit(benchmark)} disabled={saving}>Edit</button> : <button type="button" className="x-link" onClick={() => startBenchmarkFromHistory(row)} disabled={saving}>Pasang Patokan</button>}{benchmark && <button type="button" className="x-link danger" onClick={() => deleteBenchmark(benchmark)} disabled={saving}>Hapus</button>}</> : <span className="x-note">Lihat saja</span>}</td>
+          </tr>
+        }) : <tr><td colSpan="12"><Empty text={loading ? 'Memuat harga historis…' : 'Belum ada histori harga atau patokan yang cocok.'} /></td></tr>}</tbody></table></div>
+      {canProcess && <p className="x-muted" style={{ marginBottom: 0, marginTop: 12 }}>Patokan admin dibedakan berdasarkan nama item, kategori, dan satuan. Gunakan tombol Pasang Patokan untuk memulai dari histori, tetapi harga harus dimasukkan setelah diverifikasi; sistem tidak mengisi harga resmi dari median secara otomatis.</p>}
+    </section>
+  </>}{tab === 'excel' && <section className={`x-card service-excel-card ${serviceExcelFullscreen ? 'service-excel-card-fullscreen' : ''}`}>
     <div className="x-card-title service-excel-card-title">
       <div>
         <h3>Riwayat Service — Format Data Service Excel</h3>
