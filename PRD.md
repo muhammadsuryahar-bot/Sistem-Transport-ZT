@@ -488,7 +488,7 @@ Snapshot pemeriksaan terakhir:
 | Genset | 33 (7 ASET, 26 SEWA) |
 | Dokumen | 86 (31 STNK, 31 5 tahunan, 24 pajak) |
 | Histori Rental | 358 |
-| Sewa Perorangan | 17 |
+| Sewa Perorangan | 18 |
 | Sewa Perusahaan | 26 |
 | Rental invalid | 0 |
 | Dokumen non-ASET | 0 |
