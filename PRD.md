@@ -518,7 +518,7 @@ Status: disabled.
 
 Ini perlu diaktifkan sebelum production final.
 
-Security Advisor juga memberi peringatan pada `public.update_service_history_item(bigint,jsonb,jsonb)` karena fungsi `SECURITY DEFINER` berada di schema `public` dan dapat dieksekusi role `authenticated`. Pemeriksaan fungsi menunjukkan validasi `auth.uid()` dan pembatasan ADMIN/TRANSPORT; hak EXECUTE tidak diberikan ke `anon` atau `PUBLIC`. Tetap perlakukan ini sebagai warning yang perlu review hardening, dan jangan mengubah mode keamanan sebelum uji regresi RPC/role.
+Warning fungsi `SECURITY DEFINER` sudah ditangani melalui migrasi `20261013031523_harden_service_history_rpc_schema`: implementasi berhak istimewa kini berada di schema internal `private`; nama/signature RPC publik dipertahankan dengan wrapper `SECURITY INVOKER`. Hak EXECUTE di fungsi publik hanya untuk `authenticated` dan `service_role`; `anon` dan `PUBLIC` ditolak. Uji simulasi RPC dengan role `authenticated` lulus dan ditutup dengan `ROLLBACK`. Security Advisor setelah migrasi tidak lagi menampilkan warning fungsi tersebut.
 
 ### Performance
 
@@ -530,11 +530,13 @@ Jangan menghapus index massal tanpa analisis query.
 
 # 16. Verifikasi Source
 
-- Commit main terbaru untuk penyelarasan file migrasi: `327a896b5882afa665ef7e8b80d3dc0399f9f750`.
-- Nama file migrasi lokal sekarang cocok dengan versi yang sudah tercatat di Supabase: `20261013023245_round_legacy_service_money_metadata.sql`; isi SQL tidak diubah.
-- Verify Transport Build dan Verify Transport System lulus pada PR perubahan nama migrasi.
-- Status check Vercel pada commit merge berstatus `SUCCESS`; detail proyek/deployment tidak dapat diinspeksi melalui konektor yang tersedia, sehingga status itu tidak menggantikan UAT di URL production.
-- Build/lint dan CI bukan pengganti UAT browser. Login, role, alur transaksi, upload file, export, dan tampilan mobile masih perlu diuji manual.
+- Commit main saat audit terbaru: `860118f56db3cbc610277192b2954a639b454d62`.
+- File migrasi `20261013023245_round_legacy_service_money_metadata.sql` cocok dengan versi yang sudah diterapkan di Supabase.
+- Migrasi `20261013031523_harden_service_history_rpc_schema` tercatat di Supabase dan file sumber sudah masuk ke repository.
+- `Verify Transport Build`, `Verify Transport System`, dan status Vercel lulus pada commit keamanan tersebut.
+- `Production browser smoke test` lulus di halaman produksi pada viewport HP 375px dan desktop 1365px: kontrol form login, logo, toggle password, tidak ada error JavaScript/console yang terdeteksi, tidak ada request same-origin gagal, dan tidak ada overflow horizontal.
+- Batas smoke test: hanya halaman login/root dan UI responsif; bukan tes login sungguhan, role setelah login, transaksi, upload, export, atau backup.
+- Build/lint/CI bukan pengganti UAT transaksi dan role secara langsung.
 
 ---
 
@@ -788,27 +790,27 @@ Release final harus memenuhi:
 
 # 24. Status Audit Terbaru — 13 Oktober 2026
 
-**Kode dan CI:** perbaikan penyelarasan nama file migrasi sudah di-merge melalui PR #31. Status check Vercel pada commit merge `327a896b5882afa665ef7e8b80d3dc0399f9f750` berstatus SUCCESS. URL production dan seluruh alur belum dapat dinyatakan lulus UAT tanpa pengujian browser setelah login.
+**Kode, CI, dan deployment:** commit main terbaru pada saat audit ialah `860118f56db3cbc610277192b2954a639b454d62`. Status Vercel `SUCCESS`; Verify Transport Build, Verify Transport System, dan Production browser smoke test lulus. Smoke test menutup pemeriksaan halaman login/root di HP 375px dan desktop 1365px, namun tidak melakukan login atau transaksi end-to-end.
 
 **Snapshot database yang diverifikasi langsung:**
-- 75 kendaraan; 0 nomor polisi duplikat setelah normalisasi spasi/huruf.
-- 18 pengajuan service; 18 transaksi service; 388 detail Data Service dengan 388 nomor sumber unik, berurutan 1–388.
+- 75 kendaraan: 31 ASET, 18 SEWA_PERORANGAN, 26 SEWA_PERUSAHAAN; 0 nomor polisi ganda setelah normalisasi.
+- 18 pengajuan service; 18 transaksi service; 388 rincian Data Service dengan 388 nomor sumber unik dari 1–388.
 - 33 genset: 7 ASET dan 26 SEWA.
 - 358 baris Summary Rental; total invoice Rp3.285.788.572,00 sama dengan Grand Total sumber.
-- 86 dokumen: 31 STNK, 31 5 tahunan, 24 pajak. Tidak ditemukan dokumen tertaut ke kendaraan berstatus SEWA atau foreign key dokumen tanpa kendaraan.
+- 86 dokumen: 31 STNK, 31 5 tahunan, 24 pajak. Tidak ditemukan dokumen terhubung ke kendaraan SEWA atau foreign key dokumen tanpa kendaraan.
 - 22 dari 22 tabel `public` mengaktifkan RLS; seluruh 32 foreign key pada schema `public` tervalidasi.
+- Tabel Patokan Harga Service masih memiliki 0 baris; harga patokan resmi belum diisi karena harus ditinjau, bukan diisi otomatis dari harga historis yang mungkin berbeda satuan/bengkel.
 
 **Anomali dan batasan yang masih harus dikelola:**
-- Summary Rental pada Excel row 346 memiliki kolom No berisi teks `341+A346:F349`, bukan nomor urut. Nilai dan baris sumber dipertahankan agar dapat ditelusuri; tidak ada nomor sumber pengganti yang ditebak.
-- Nomor mesin/rangka masih konflik pada enam pasangan kendaraan (12 record): BM 1533 OA/VP; BM 1713 OX/9084 TS; BM 1694 OK/1827 JD; BM 8005 LN/9383 TI; BM 8263 TI/9764 TO; BM 9763 TO/9808 TO. Satu nomor polisi BM 9672 TZ juga mempunyai dua identitas berbeda di dua baris workbook. Jangan mengubah identitas sebelum dokumen fisik diperiksa.
-- BM 8238 TM dan BM 8003 LN mempunyai perbedaan sumber terkait kepemilikan ASET/SEWA. Dokumen kendaraan tetap dibatasi ke ASET sampai status sumber/kontrak dikonfirmasi.
-- Baris Service sumber 327 dan 328 mempunyai nilai Total yang tidak konsisten dengan DPP + PPn. Header transaksi masih memenuhi rumus DPP + PPn, tetapi nilai sumber tidak boleh dinormalisasi tanpa invoice/workbook yang disahkan.
-- Tanggal 5 tahunan BM 9084 TS dan BM 9085 TS adalah 16 April 2031 menurut sheet STNK DAN KIR di FPD OPS 01 September 2026 (serial Excel 47954). Workbook Data Kendaraan 07 Mei 2026 memuat serial lama 11429 (16 April 1931). Database memakai 16 April 2031 dengan catatan perbedaan sumber; verifikasi fisik masih direkomendasikan.
-- Supabase Security Advisor masih memberi warning leaked-password protection disabled dan fungsi SECURITY DEFINER pada schema public yang perlu hardening review.
-- Patokan Harga Admin masih kosong pada snapshot sebelumnya; perlu isi berdasarkan histori invoice/service yang sudah tervalidasi.
-- Status UAT semua role, import/export end-to-end, akses file privat, layout mobile, dan backup/recovery belum boleh ditandai PASS hanya berdasarkan SQL/build/lint.
+- Summary Rental pada Excel row 346 memiliki kolom No berisi teks `341+A346:F349`, bukan nomor urut. Nilai invoice dan baris sumber dipertahankan agar dapat ditelusuri.
+- Nomor mesin/rangka masih konflik pada enam pasangan kendaraan (12 record): BM 1533 OA/VP; BM 1713 OX/9084 TS; BM 1694 OK/1827 JD; BM 8005 LN/9383 TI; BM 8263 TI/9764 TO; BM 9763 TO/9808 TO. BM 9672 TZ juga memiliki dua identitas berbeda di baris sumber. Dokumen fisik harus menjadi dasar perubahan.
+- BM 8238 TM dan BM 8003 LN mempunyai perbedaan sumber kepemilikan ASET/SEWA; BM 8241 TM juga belum selesai dicocokkan statusnya. Dokumen di modul ASET tidak dibuat untuk record yang masih SEWA.
+- Service sumber 327 dan 328 mempunyai Total yang tidak konsisten dengan DPP + PPn. Header transaksi tetap konsisten pada rumus DPP + PPn, tetapi nilai sumber belum dikoreksi tanpa invoice/workbook yang disahkan.
+- Tanggal 5 tahunan BM 9084 TS dan BM 9085 TS memakai tanggal 16 April 2031 dari FPD September, sedangkan workbook Mei menyimpan serial tanggal lama 11429 (16 April 1931). Sistem memakai 16 April 2031 dan mencatat anomali; verifikasi fisik tetap direkomendasikan.
+- Supabase Security Advisor sekarang hanya menampilkan warning `auth_leaked_password_protection` (disabled); warning fungsi SECURITY DEFINER publik selesai setelah migrasi RPC.
+- UAT login/logout, keenam role, transaksi Service/approval, upload dan akses file privat, import/export semua modul, tampilan setelah login, dan backup/recovery belum dites menyeluruh.
 
-**Kesimpulan rilis:** database menunjukkan beberapa pemeriksaan integritas lulus, tetapi sistem belum ditandai production-final. Selesaikan UAT browser, verifikasi keamanan Auth/fungsi, audit seluruh export terhadap workbook, backup, dan konfirmasi bukti fisik untuk konflik identitas.
+**Kesimpulan rilis:** integritas database dan pemeriksaan otomatis lulus pada area yang telah diuji, tetapi production-final menunggu UAT end-to-end, pengaturan leaked password protection, audit ekspor tiap modul, bukti fisik untuk konflik identitas, pengisian harga patokan yang disahkan, dan konfirmasi backup/recovery.
 
 ---
 
@@ -818,3 +820,4 @@ Release final harus memenuhi:
 |---|---|---|
 | 1.0 | 29-09-2026 | Backup perubahan besar sistem, UI/UX, CRUD, service, rental, dokumen, import/export, security, QA/UAT, backup, dan backlog |
 | 1.1 | 13-10-2026 | Audit database dan workbook operasional; update snapshot, anomali sumber, migrasi, warning keamanan, serta status UAT |
+| 1.2 | 13-10-2026 | Status deployment/browser smoke terbaru, hardening RPC Service ke private schema, warning keamanan tersisa, dan blocker release diperbarui |
