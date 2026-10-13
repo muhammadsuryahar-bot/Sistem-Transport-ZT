@@ -62,6 +62,7 @@ export const buildServicePriceHistory = rows => {
         prices: [],
         vehicles: new Set(),
         workshops: new Set(),
+        transactions: [],
       })
     }
 
@@ -71,6 +72,18 @@ export const buildServicePriceHistory = rows => {
     const workshop = String(row?.workshop ?? '').trim().replace(/\s+/g, ' ').toLocaleUpperCase('id-ID')
     if (vehicle) group.vehicles.add(vehicle)
     if (workshop) group.workshops.add(workshop)
+    group.transactions.push({
+      itemId: row?.itemId ?? null,
+      serviceId: row?.serviceId ?? null,
+      serviceNo: String(row?.serviceNo ?? '').trim(),
+      date: String(row?.date ?? '').trim(),
+      vehicle: String(row?.vehicle ?? '').trim(),
+      workshop: String(row?.workshop ?? '').trim(),
+      quantity: row?.quantity ?? null,
+      unit: String(row?.unit ?? '').trim(),
+      workType: String(row?.workType ?? '').trim(),
+      price,
+    })
   }
 
   return [...groups.values()].map(group => {
@@ -88,6 +101,7 @@ export const buildServicePriceHistory = rows => {
       medianPrice: medianOf(prices),
       maxPrice: Math.max(...prices),
       averagePrice: prices.reduce((sum, price) => sum + price, 0) / prices.length,
+      transactions: [...group.transactions].sort((a, b) => String(b.date).localeCompare(String(a.date)) || String(a.vehicle).localeCompare(String(b.vehicle), 'id')),
     }
   }).sort((a, b) => a.normalizedName.localeCompare(b.normalizedName, 'id'))
 }
