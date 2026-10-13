@@ -14,7 +14,11 @@ Item di bagian ini adalah bukti pengujian otomatis/database, bukan pengganti UAT
 - [x] Database integrity: 75 kendaraan tanpa plat ganda; 388 item Data Service dengan nomor sumber 1–388 unik; 358 baris Rental senilai Rp3.285.788.572; 33 Genset; 86 dokumen; 22/22 tabel public RLS aktif; 32/32 foreign key tervalidasi.
 - [x] RPC edit riwayat Service diuji dalam transaksi rollback setelah pemindahan implementasi SECURITY DEFINER ke schema private; signature publik tetap dan role authenticated dapat menjalankan RPC.
 - [x] Security Advisor: warning SECURITY DEFINER pada fungsi publik sudah hilang.
-- [ ] Leaked password protection masih disabled dan harus ditangani dari Auth settings Supabase.
+- [ ] Leaked password protection masih disabled. Organisasi Supabase terdeteksi pada Free plan; fitur bawaan ini membutuhkan Pro atau lebih tinggi dan perlu keputusan pemilik.
+- [x] Helper + unit tests Patokan Harga menguji normalisasi nama, kategori item, pemisahan satuan, statistik min/median/rata-rata/maksimum, serta patokan tanpa histori tanpa mengarang harga.
+- [ ] UAT manual Patokan Harga: Admin/Transport tambah-edit-nonaktifkan-hapus; Atasan Transport/Direktur/Akuntansi hanya lihat; verifikasi selisih rata-rata dan filter pada data nyata. Tabel patokan resmi tetap kosong sampai harga disahkan.
+- [ ] Produksi memiliki 1 akun Auth/profile aktif yang ber-role ADMIN; buat/undang akun resmi role lainnya sebelum UAT role penuh.
+- [ ] 86 dokumen metadata tidak memiliki `file_path`; unggah file asli bila dokumen harus tersedia sebagai lampiran dan uji signed URL/akses privat.
 - [ ] UAT setelah login, seluruh role/transaksi, upload/download privat, export per modul, dan backup/recovery belum dinyatakan lulus.
 
 ## 1. Login & session
