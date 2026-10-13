@@ -6,11 +6,12 @@ Dokumen ini menjadi checklist pengujian manual sebelum sistem Transport dipakai 
 
 Item di bagian ini adalah bukti pengujian otomatis/database, bukan pengganti UAT penuh.
 
-- [x] Main commit yang diperiksa: `860118f56db3cbc610277192b2954a639b454d62`.
-- [x] Vercel status check: `SUCCESS`.
-- [x] GitHub Actions `Verify Transport Build`: PASS (install, regression validation test, build, lint).
+- [x] Commit aplikasi dengan Patokan Harga/Shopping List: `4c59aa93f72050f576ee96be247a67fe98bbd2bb` (PR #36 merged).
+- [x] Status check Vercel untuk commit aplikasi: `SUCCESS`.
+- [x] GitHub Actions `Verify Transport Build`: PASS (install, 44/44 regression tests, build, lint).
 - [x] GitHub Actions `Verify Transport System`: PASS (lint + build).
-- [x] `Production browser smoke test`: PASS pada halaman root/login produksi dengan viewport 375px dan 1365px; form, logo, show/hide password, console/runtime errors, same-origin request errors, dan horizontal overflow diperiksa.
+- [x] `Production browser smoke test`: PASS pada halaman root/login produksi di viewport 375×812 dan 1365×900. Memeriksa form dan logo, toggle password, JavaScript/console errors, same-origin request failures, dan horizontal overflow.
+- [ ] Login sungguhan, keenam role, transaksi, upload/download privat, ekspor semua modul, serta backup/recovery belum teruji end-to-end; smoke test bukan pengganti UAT tersebut.
 - [x] Database integrity: 75 kendaraan tanpa plat ganda; 388 item Data Service dengan nomor sumber 1–388 unik; 358 baris Rental senilai Rp3.285.788.572; 33 Genset; 86 dokumen; 22/22 tabel public RLS aktif; 32/32 foreign key tervalidasi.
 - [x] RPC edit riwayat Service diuji dalam transaksi rollback setelah pemindahan implementasi SECURITY DEFINER ke schema private; signature publik tetap dan role authenticated dapat menjalankan RPC.
 - [x] Security Advisor: warning SECURITY DEFINER pada fungsi publik sudah hilang.
