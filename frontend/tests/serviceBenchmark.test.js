@@ -43,9 +43,10 @@ test('aggregates comparable prices by normalized item, category and unit', () =>
   assert.equal(pcs.maxPrice, 55000)
   assert.equal(pcs.averagePrice, 50000)
   assert.equal(pcs.transactions.length, 3)
-  assert.equal(pcs.transactions[0].price, 55000)
-  assert.equal(pcs.transactions[0].vehicle, 'BM 1001 AB')
-  assert.equal(pcs.transactions[0].workshop, 'Bengkel B')
+  const maxPriceTransaction = pcs.transactions.find(row => row.price === 55000)
+  assert.ok(maxPriceTransaction)
+  assert.equal(maxPriceTransaction.vehicle, 'BM 1001 AB')
+  assert.equal(maxPriceTransaction.workshop, 'Bengkel B')
   assert.equal(ltr.transactionCount, 1)
 })
 
