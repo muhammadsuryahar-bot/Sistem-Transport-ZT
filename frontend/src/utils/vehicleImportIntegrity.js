@@ -114,9 +114,39 @@ export function analyzeVehicleImportAgainstDatabase(rows = [], existingVehicles 
 
   const samePlateDifferences = new Map()
   const crossPlateConflicts = new Map()
+  const masterFieldDifferences = new Map()
+  const compareFields = [
+    ['merk', 'merk'],
+    ['tipe', 'tipe'],
+    ['jenis', 'jenis_kendaraan'],
+    ['tahun', 'tahun'],
+    ['kepemilikan', 'kepemilikan'],
+    ['jenis_sewa', 'jenis_sewa'],
+    ['pemilik', 'pemilik'],
+    ['lokasi', 'lokasi'],
+    ['unit_kerja', 'unit_kerja'],
+    ['masa_pajak', 'masa_berlaku_pajak'],
+    ['status_pajak', 'status_pajak'],
+  ]
+  const labels = {
+    merk: 'merk',
+    tipe: 'tipe/model',
+    jenis: 'jenis kendaraan',
+    tahun: 'tahun',
+    kepemilikan: 'status kepemilikan',
+    jenis_sewa: 'jenis sewa',
+    pemilik: 'pemilik',
+    lokasi: 'lokasi',
+    unit_kerja: 'unit kerja',
+    masa_pajak: 'masa berlaku pajak',
+    status_pajak: 'status pajak',
+    nomor_mesin: 'nomor mesin',
+    nomor_rangka: 'nomor rangka',
+  }
 
   for (const row of sourceRecords) {
     const samePlateRecords = existingByPlate.get(row.__normalizedPlate) || []
+
     for (const field of ['nomor_mesin', 'nomor_rangka']) {
       const sourceIdentifier = normalizeIdentity(row?.[field])
       if (!sourceIdentifier) continue
@@ -155,6 +185,26 @@ export function analyzeVehicleImportAgainstDatabase(rows = [], existingVehicles 
         if (row.excelRow != null) issue.sourceRows.add(row.excelRow)
       }
     }
+
+    for (const existing of samePlateRecords) {
+      for (const [sourceField, databaseField] of compareFields) {
+        const sourceValue = normalizedFieldValue(row?.[sourceField], sourceField)
+        const storedValue = normalizedFieldValue(existing?.[databaseField], sourceField)
+        // Empty cells in a legacy workbook do not override populated DB values,
+        // because the import RPC coalesces empty values with the stored value.
+        if (!sourceValue || !storedValue || sourceValue === storedValue) continue
+        if (!masterFieldDifferences.has(row.__normalizedPlate)) {
+          masterFieldDifferences.set(row.__normalizedPlate, {
+            plate: row.__normalizedPlate,
+            fields: new Set(),
+            sourceRows: new Set(),
+          })
+        }
+        const issue = masterFieldDifferences.get(row.__normalizedPlate)
+        issue.fields.add(sourceField)
+        if (row.excelRow != null) issue.sourceRows.add(row.excelRow)
+      }
+    }
   }
 
   const normalizeIssue = issue => ({
@@ -168,25 +218,52 @@ export function analyzeVehicleImportAgainstDatabase(rows = [], existingVehicles 
   const databaseConflicts = [...crossPlateConflicts.values()]
     .map(normalizeIssue)
     .sort((a, b) => a.sourcePlate.localeCompare(b.sourcePlate) || a.existingPlate.localeCompare(b.existingPlate))
+  const masterFieldConflicts = [...masterFieldDifferences.values()]
+    .map(normalizeIssue)
+    .sort((a, b) => a.plate.localeCompare(b.plate))
 
   return {
     samePlateConflicts,
     databaseConflicts,
-    hasBlockingConflicts: samePlateConflicts.length > 0 || databaseConflicts.length > 0,
+    masterFieldConflicts,
+    hasBlockingConflicts:
+      samePlateConflicts.length > 0 ||
+      databaseConflicts.length > 0 ||
+      masterFieldConflicts.length > 0,
   }
 }
 
 export function describeVehicleDatabaseConflicts(report) {
   const messages = []
+  const labels = {
+    merk: 'merk',
+    tipe: 'tipe/model',
+    jenis: 'jenis kendaraan',
+    tahun: 'tahun',
+    kepemilikan: 'status kepemilikan',
+    jenis_sewa: 'jenis sewa',
+    pemilik: 'pemilik',
+    lokasi: 'lokasi',
+    unit_kerja: 'unit kerja',
+    masa_pajak: 'masa berlaku pajak',
+    status_pajak: 'status pajak',
+    nomor_mesin: 'nomor mesin',
+    nomor_rangka: 'nomor rangka',
+  }
   for (const conflict of report?.samePlateConflicts || []) {
-    const identifiers = conflict.fields.map(field => field === 'nomor_mesin' ? 'nomor mesin' : 'nomor rangka').join(' dan ')
+    const identifiers = conflict.fields.map(field => labels[field] || field).join(', ')
     const rows = conflict.sourceRows.length ? ` (baris Excel ${conflict.sourceRows.join(', ')})` : ''
     messages.push(`${conflict.plate}: ${identifiers} pada Excel berbeda dari nilai kendaraan yang sudah tersimpan${rows}`)
   }
   for (const conflict of report?.databaseConflicts || []) {
-    const identifiers = conflict.fields.map(field => field === 'nomor_mesin' ? 'nomor mesin' : 'nomor rangka').join(' dan ')
+    const identifiers = conflict.fields.map(field => labels[field] || field).join(' dan ')
     const rows = conflict.sourceRows.length ? ` (baris Excel ${conflict.sourceRows.join(', ')})` : ''
     messages.push(`${conflict.sourcePlate} vs kendaraan tersimpan ${conflict.existingPlate}: ${identifiers} sama${rows}`)
+  }
+  for (const conflict of report?.masterFieldConflicts || []) {
+    const fields = conflict.fields.map(field => labels[field] || field).join(', ')
+    const rows = conflict.sourceRows.length ? ` (baris Excel ${conflict.sourceRows.join(', ')})` : ''
+    messages.push(`${conflict.plate}: nilai Excel untuk ${fields} berbeda dari master database; import ditahan agar data tersimpan tidak tertimpa${rows}`)
   }
   return messages
 }
