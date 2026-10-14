@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
+  analyzeVehicleImportAgainstDatabase,
   analyzeVehicleImportIntegrity,
+  describeVehicleDatabaseConflicts,
   describeVehicleImportIntegrity,
 } from '../src/utils/vehicleImportIntegrity.js'
 
@@ -32,4 +34,58 @@ test('does not block ordinary duplicate source rows for the same vehicle', () =>
     { excelRow: 75, nomor_polisi: 'BM 9383 TI', merk: 'Daihatsu', tahun: '2011', nomor_mesin: 'DJ35383', nomor_rangka: 'MHKP3BA1JBK027565' },
   ])
   assert.equal(report.hasBlockingConflicts, false)
+})
+
+test('blocks duplicate rows for one plate when location or other populated operational fields conflict', () => {
+  const report = analyzeVehicleImportIntegrity([
+    { excelRow: 77, nomor_polisi: 'BM 8417 TW', merk: 'Daihatsu', tipe: 'Grandmax', jenis: 'Pickup', tahun: '2014', nomor_mesin: '3SZDGL3324', nomor_rangka: 'MHKP3CA1JHK155863', pemilik: 'PT Elang', kepemilikan: 'SEWA', lokasi: 'Pekanbaru' },
+    { excelRow: 82, nomor_polisi: 'BM 8417 TW', merk: 'Daihatsu', tipe: 'Grandmax', jenis: 'Pickup', tahun: '2014', nomor_mesin: '3SZDGL3324', nomor_rangka: 'MHKP3CA1JHK155863', pemilik: 'PT Elang', kepemilikan: 'SEWA', lokasi: 'Dumai' },
+  ])
+  assert.equal(report.duplicatePlateConflicts.length, 1)
+  assert.equal(report.duplicatePlateConflicts[0].plate, 'BM 8417 TW')
+  assert.deepEqual(report.duplicatePlateConflicts[0].fields, ['lokasi'])
+  assert.deepEqual(report.duplicatePlateConflicts[0].rows, [77, 82])
+  assert.equal(report.hasBlockingConflicts, true)
+})
+
+test('blocks a source-only plate that reuses identifiers belonging to another stored plate', () => {
+  const report = analyzeVehicleImportAgainstDatabase(
+    [{ excelRow: 36, nomor_polisi: 'BM 9960 TM', nomor_mesin: '4G15S76333', nomor_rangka: 'MK2U5TU2EJK011885' }],
+    [{ nomor_polisi: 'BM 9960 TW', nomor_mesin: '4G15S76333', nomor_rangka: 'MK2U5TU2EJK011885' }],
+  )
+  assert.equal(report.hasBlockingConflicts, true)
+  assert.equal(report.databaseConflicts.length, 1)
+  assert.equal(report.databaseConflicts[0].sourcePlate, 'BM 9960 TM')
+  assert.equal(report.databaseConflicts[0].existingPlate, 'BM 9960 TW')
+  assert.deepEqual(report.databaseConflicts[0].fields, ['nomor_mesin', 'nomor_rangka'])
+  assert.match(describeVehicleDatabaseConflicts(report)[0], /BM 9960 TM vs kendaraan tersimpan BM 9960 TW/)
+})
+
+test('does not treat the same stored plate as a cross-vehicle identity conflict', () => {
+  const report = analyzeVehicleImportAgainstDatabase(
+    [{ excelRow: 12, nomor_polisi: 'BM 1533 OA', nomor_mesin: '2NRF754840', nomor_rangka: 'MHKE8FA3JJK016543' }],
+    [{ nomor_polisi: 'BM 1533 OA', nomor_mesin: '2NRF754840', nomor_rangka: 'MHKE8FA3JJK016543' }],
+  )
+  assert.equal(report.hasBlockingConflicts, false)
+  assert.deepEqual(report.databaseConflicts, [])
+})
+
+test('ignores blank identifiers during database preflight', () => {
+  const report = analyzeVehicleImportAgainstDatabase(
+    [{ excelRow: 12, nomor_polisi: 'BM 8241 TM', nomor_mesin: '', nomor_rangka: '' }],
+    [{ nomor_polisi: 'BM 8241 TM', nomor_mesin: null, nomor_rangka: null }],
+  )
+  assert.equal(report.hasBlockingConflicts, false)
+})
+
+test('blocks a source engine/chassis value that would overwrite a different identifier on the same stored plate', () => {
+  const report = analyzeVehicleImportAgainstDatabase(
+    [{ excelRow: 50, nomor_polisi: 'BM 9084 TS', nomor_mesin: 'WRONG-ENGINE', nomor_rangka: 'WRONG-CHASSIS' }],
+    [{ nomor_polisi: 'BM 9084 TS', nomor_mesin: '4G15L88671', nomor_rangka: 'MHMU5TU2EFK172154' }],
+  )
+  assert.equal(report.hasBlockingConflicts, true)
+  assert.deepEqual(report.databaseConflicts, [])
+  assert.equal(report.samePlateConflicts.length, 1)
+  assert.deepEqual(report.samePlateConflicts[0].fields, ['nomor_mesin', 'nomor_rangka'])
+  assert.match(describeVehicleDatabaseConflicts(report)[0], /BM 9084 TS: nomor mesin dan nomor rangka pada Excel berbeda/)
 })

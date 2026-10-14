@@ -7,7 +7,7 @@ import { parseXlsx } from '../utils/xlsxParser.js'
 import './DataPageTools.css'
 import './VehicleExcelImportModal.css'
 import { excelDate } from '../utils/excelDate.js'
-import { analyzeVehicleImportIntegrity, describeVehicleImportIntegrity } from '../utils/vehicleImportIntegrity.js'
+import { analyzeVehicleImportAgainstDatabase, analyzeVehicleImportIntegrity, describeVehicleDatabaseConflicts, describeVehicleImportIntegrity } from '../utils/vehicleImportIntegrity.js'
 
 const MAX_FILE_SIZE = 25 * 1024 * 1024
 const PAGE_OPTIONS = [25, 50, 100]
@@ -141,6 +141,20 @@ async function importVehicleRows(rows) {
     throw new Error(`Import Kendaraan dibatalkan karena identitas sumber bertentangan. Tidak ada perubahan yang dikirim ke database. Perbaiki Excel dulu: ${visibleIssues.join('; ')}${remainder}.`)
   }
 
+  const existing = await supabase
+    .from('kendaraan')
+    .select('nomor_polisi,nomor_mesin,nomor_rangka')
+  if (existing.error) {
+    throw new Error(`Import Kendaraan dibatalkan karena validasi terhadap master database gagal: ${existing.error.message}`)
+  }
+  const databaseIntegrity = analyzeVehicleImportAgainstDatabase(repaired, existing.data || [])
+  if (databaseIntegrity.hasBlockingConflicts) {
+    const issues = describeVehicleDatabaseConflicts(databaseIntegrity)
+    const visibleIssues = issues.slice(0, 8)
+    const remainder = issues.length > visibleIssues.length ? `; dan ${issues.length - visibleIssues.length} konflik lainnya` : ''
+    throw new Error(`Import Kendaraan dibatalkan: nomor mesin/rangka sumber berhubungan dengan plat lain yang sudah tersimpan. Tidak ada perubahan database. Periksa dokumen kendaraan berikut: ${visibleIssues.join('; ')}${remainder}.`)
+  }
+
   const invalid = repaired.filter(row => !row.kepemilikan)
   if (invalid.length) {
     throw new Error(`Ada ${invalid.length} baris dengan Status kepemilikan kosong/tidak valid. Gunakan hanya Aset atau Sewa (baris: ${invalid.map(row => row.excelRow).join(', ')}).`)
@@ -238,13 +252,19 @@ export default function VehicleExcelImportModalV2({ profile, onDone, onClose }) 
         .map(row => ({ ...row, values: row.values.slice(0, width) }))
       const repaired = data.map(row => repairRow(row, header.row))
       const valid = repaired.filter(row => row.nomor_polisi && row.merk)
+      let databaseIntegrity = { databaseConflicts: [], hasBlockingConflicts: false }
+      if (canImport) {
+        const existing = await supabase.from('kendaraan').select('nomor_polisi,nomor_mesin,nomor_rangka')
+        if (existing.error) throw new Error(`Pemeriksaan terhadap database kendaraan gagal; file tidak bisa dinyatakan aman untuk diimport: ${existing.error.message}`)
+        databaseIntegrity = analyzeVehicleImportAgainstDatabase(valid, existing.data || [])
+      }
       const groups = new Map()
       valid.forEach(row => { const key = upper(row.nomor_polisi); if (!groups.has(key)) groups.set(key, []); groups.get(key).push(row) })
       const sourceNumbers = valid.map(row => Number(row.sourceNo)).filter(Number.isFinite).map(number => Math.trunc(number))
       const maxNo = sourceNumbers.length ? Math.max(...sourceNumbers) : 0
       const missingSourceNumbers = []
       for (let n = 1; n <= maxNo; n += 1) if (!sourceNumbers.includes(n)) missingSourceNumbers.push(n)
-      setWorkbook({ sheet: chosen, header: { ...header, row: header.row.slice(0, width) }, data, valid, uniqueCount: groups.size, duplicateCount: valid.length - groups.size, missingSourceNumbers, sourceIntegrity: analyzeVehicleImportIntegrity(valid) })
+      setWorkbook({ sheet: chosen, header: { ...header, row: header.row.slice(0, width) }, data, valid, uniqueCount: groups.size, duplicateCount: valid.length - groups.size, missingSourceNumbers, sourceIntegrity: analyzeVehicleImportIntegrity(valid), databaseIntegrity })
       setMessage(`Pemeriksaan selesai: ${data.length} baris sumber dibaca • ${valid.length} valid • ${groups.size} No. Polisi unik.`)
     } catch (e) { setError(humanizeError(e, 'File Excel tidak dapat dibaca.')) }
     finally { setLoading(false) }
@@ -290,12 +310,13 @@ export default function VehicleExcelImportModalV2({ profile, onDone, onClose }) 
       {selected && <>
         <div className="vehicle-import-stats"><div><b>{workbook.data.length}</b><span>baris sumber</span></div><div><b>{workbook.valid.length}</b><span>baris valid</span></div><div><b>{workbook.uniqueCount}</b><span>kendaraan unik</span></div><div><b>{workbook.duplicateCount}</b><span>duplikat digabung</span></div></div>
         {workbook.missingSourceNumbers.length > 0 && <div className="vehicle-import-warning">Nomor urut sumber yang tidak ada: <b>{workbook.missingSourceNumbers.join(', ')}</b>.</div>}
-        {workbook.sourceIntegrity?.hasBlockingConflicts && <div className="vehicle-import-warning vehicle-import-warning-critical" role="alert"><b>Import ditahan: identitas kendaraan tidak konsisten.</b><span>Belum ada perubahan database. Perbaiki sumber Excel sebelum impor ulang. Baris dengan nomor polisi yang sama tetapi identitas berbeda serta nomor mesin/rangka yang digunakan pada nomor polisi berbeda tidak boleh digabung otomatis.</span><ul>{describeVehicleImportIntegrity(workbook.sourceIntegrity).slice(0, 12).map(issue => <li key={issue}>{issue}</li>)}</ul></div>}
+        {workbook.sourceIntegrity?.hasBlockingConflicts && <div className="vehicle-import-warning vehicle-import-warning-critical" role="alert"><b>Import ditahan: identitas sumber Excel tidak konsisten.</b><span>Belum ada perubahan database. Perbaiki sumber Excel sebelum impor ulang. Baris dengan nomor polisi yang sama tetapi identitas atau data operasional yang berbeda, serta nomor mesin/rangka yang digunakan pada nomor polisi berbeda, tidak boleh digabung otomatis.</span><ul>{describeVehicleImportIntegrity(workbook.sourceIntegrity).slice(0, 12).map(issue => <li key={issue}>{issue}</li>)}</ul></div>}
+        {workbook.databaseIntegrity?.hasBlockingConflicts && <div className="vehicle-import-warning vehicle-import-warning-critical" role="alert"><b>Import ditahan: sumber konflik dengan master database saat ini.</b><span>Belum ada perubahan database. Nomor mesin/rangka dari file yang dipilih sudah dipakai pada nomor polisi lain di database. Cocokkan dokumen fisik dan selesaikan konflik sebelum impor.</span><ul>{describeVehicleDatabaseConflicts(workbook.databaseIntegrity).slice(0, 12).map(issue => <li key={issue}>{issue}</li>)}</ul></div>}
         <div className="vehicle-import-explanation"><b>Rekonsiliasi</b><span>Semua baris Excel tetap tampil di preview. No. Polisi dipakai sebagai identitas unik saat penyimpanan.</span><span>{workbook.data.length} baris sumber → {workbook.valid.length} valid → {workbook.uniqueCount} kendaraan unik → {workbook.duplicateCount} duplikat digabung.</span></div>
         <div className="vehicle-import-map">{EXPECTED_HEADERS.map(([src, target]) => <div key={src}><b>{src}</b><span>→</span><span>{target}</span></div>)}</div>
         <div className="dpt-preview"><div className="dpt-sheet-title"><div><b>Preview Sumber: {selected.name}</b><span className="dpt-preview-note">Semua baris tersedia. Gunakan pagination untuk berpindah halaman.</span></div><span>{pageRows.length} dari {workbook.data.length} ditampilkan</span></div><div className="dpt-preview-wrap"><table><thead><tr>{workbook.header.row.map((header, index) => <th key={`${String(header)}-${index}`}>{header || `Kolom ${index + 1}`}</th>)}</tr></thead><tbody>{pageRows.map(row => <tr data-excel-row={row.excelRow} key={row.excelRow}>{workbook.header.row.map((header, index) => <td key={`${row.excelRow}-${index}`}>{displayCell(row.values[index], header)}</td>)}</tr>)}</tbody></table></div><div className="dpt-pagination"><label>Baris/halaman <select value={pageSize} onChange={event => { setPageSize(Number(event.target.value)); setPage(1) }}>{PAGE_OPTIONS.map(size => <option key={size} value={size}>{size}</option>)}</select></label><button type="button" className="dpt-button" onClick={() => setPage(current => Math.max(1, current - 1))} disabled={page <= 1}>‹</button><span>Halaman {page} / {pageCount}</span><button type="button" className="dpt-button" onClick={() => setPage(current => Math.min(pageCount, current + 1))} disabled={page >= pageCount}>›</button></div></div>
       </>}
-      <div className="dpt-actions"><button type="button" className="dpt-button" onClick={onClose} disabled={saving}>Batal</button><button type="button" className="dpt-button primary" onClick={start} disabled={!workbook || !workbook.valid.length || saving || !canImport}>{saving ? 'Mengimport…' : `Import ${workbook?.valid?.length || ''} Kendaraan`}</button></div>
+      <div className="dpt-actions"><button type="button" className="dpt-button" onClick={onClose} disabled={saving}>Batal</button><button type="button" className="dpt-button primary" onClick={start} disabled={!workbook || !workbook.valid.length || saving || !canImport || workbook.sourceIntegrity?.hasBlockingConflicts || workbook.databaseIntegrity?.hasBlockingConflicts}>{saving ? 'Mengimport…' : (workbook?.sourceIntegrity?.hasBlockingConflicts || workbook?.databaseIntegrity?.hasBlockingConflicts) ? 'Import Ditahan: Perbaiki Konflik' : `Import ${workbook?.valid?.length || ''} Kendaraan`}</button></div>
     </section>
   </div>
 }

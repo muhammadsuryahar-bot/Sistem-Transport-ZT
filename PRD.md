@@ -48,7 +48,8 @@ Sumber yang diperiksa:
 
 Dokumen perancangan juga menyebut workbook operasional seperti **Data Kendaraan 07 Mei 2026** dan **FPD OPS 01 September 2026**, termasuk area Data Service, Sewa Kendaraan, STNK/KIR, BBM, dan permintaan.
 
-**Pembaruan audit 13 Oktober 2026:** workbook sumber operasional kini tersedia dan telah diperiksa untuk rekonsiliasi struktur/data: `Data Kendaraan 07 Mei 2026.xlsx` dan `FPD OPS 01 September 2026.xlsx`. Pemeriksaan mencakup jumlah baris sumber, nomor polisi, duplikasi identitas, Data Service, Genset, Summary Rental, dan dokumen. **Audit ini belum membuktikan semua ekspor UI cocok cell-per-cell dengan workbook referensi**; uji ekspor melalui browser masih harus dilakukan. Anomali workbook dan konflik identitas tetap dicatat, tidak ditutup dengan tebakan.
+**Pembaruan audit 13–14 Oktober 2026:** workbook sumber operasional kini tersedia dan telah diperiksa untuk rekonsiliasi struktur/data: `Data Kendaraan 07 Mei 2026.xlsx` dan `FPD OPS 01 September 2026.xlsx`. Pemeriksaan mencakup jumlah baris sumber, nomor polisi, duplikasi identitas, Data Service, Genset, Summary Rental, dan dokumen. **Audit ini belum membuktikan semua ekspor UI cocok cell-per-cell dengan workbook referensi**; uji ekspor melalui browser masih harus dilakukan. Anomali workbook dan konflik identitas tetap dicatat, tidak ditutup dengan tebakan.
+Hasil rinci tanggal 14 Oktober ada di `docs/VEHICLE_SOURCE_RECONCILIATION.md`; PR #38 menambahkan perlindungan import identitas, dan PR #39 menambahkan pembandingan lebih ketat termasuk terhadap master database sebelum penyimpanan. Import ulang sumber lama ditahan jika bertentangan dengan kendaraan yang sudah tersimpan.
 
 ---
 
@@ -827,3 +828,4 @@ Release final harus memenuhi:
 | 1.2 | 13-10-2026 | Status deployment/browser smoke terbaru, hardening RPC Service ke private schema, warning keamanan tersisa, dan blocker release diperbarui |
 | 1.3 | 13-10-2026 | Patokan Harga/Shopping List ditambahkan ke Service & Perbaikan; status akun role, file dokumen kosong, dan batas plan Auth dicatat |
 | 1.4 | 13-10-2026 | Commit fitur Shopping List yang benar-benar rilis, 44/44 tes regresi, build/lint dan production smoke login dicatat; UAT transaksi tetap pending |
+| 1.5 | 14-10-2026 | Validasi import Kendaraan terhadap konflik identitas dan master database, penanda review data, audit rekonsiliasi workbook, serta koreksi referensi baris audit yang keliru |
