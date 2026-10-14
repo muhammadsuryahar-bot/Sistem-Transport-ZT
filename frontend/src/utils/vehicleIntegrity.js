@@ -3,7 +3,7 @@ const upper = value => clean(value).toUpperCase()
 const normalizedIdentity = value => upper(value).replace(/[^A-Z0-9]/g, '')
 const normalizedPlate = value => upper(value).replace(/\s+/g, ' ')
 
-const REVIEW_MARKERS = /PERLU VERIFIKASI|KONFLIK|DUPLIKASI IDENTITAS|ANOMALI SUMBER|KOSONG DI SUMBER|TAHUN KOSONG|NO MESIN\/RANGKA KOSONG/i
+const REVIEW_MARKERS = /PERLU VERIFIKASI|KONFLIK|DUPLIKASI IDENTITAS|ANOMALI SUMBER|KOSONG DI SUMBER|TAHUN KOSONG|NO MESIN\/RANGKA KOSONG|REKONSILIASI DUPLIKASI SUMBER/i
 
 export function analyzeVehicleIntegrity(vehicles = []) {
   const flagsByVehicle = new Map()
