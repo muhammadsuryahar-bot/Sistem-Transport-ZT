@@ -4,12 +4,12 @@ Dokumen ini menjadi checklist pengujian manual sebelum sistem Transport dipakai 
 
 ## Pembaruan 14 Oktober 2026 — rekonsiliasi kendaraan
 
-- [x] PR #38 merged: validasi import menahan plat berulang dengan identitas/data operasional berbeda, nomor mesin/rangka lintas plat, serta nomor mesin/rangka pada file yang sudah terhubung ke plat berbeda di master database.
+- [x] PR #38 dan PR #39 merged ke `main`; PR #39 memblokir import sebelum RPC jika ada kolom identitas/operasional yang bertentangan atau mesin/rangka konflik dengan master database.
 - [x] Halaman Kendaraan menampilkan ringkasan record dengan catatan konflik/rekonsiliasi dan filter untuk pemeriksaan; layout tabel Kendaraan yang ada tetap dipertahankan.
+- [x] PR #39 CI: **55/55 tes lulus**, build, lint, dan Verify Transport System lulus. Production browser smoke test lulus di commit `995ddebff0a5769fedd4d70bb26eaf92b678357b`.
 - [x] Master sumber Mei: 83 baris berisi plat, 73 plat unik, 9 grup plat berulang (10 baris pengulangan). Satu grup, BM 9672 TZ, memuat dua identitas kendaraan berbeda; grup lain termasuk lokasi berbeda/kosong.
 - [x] Lima pasangan lintas plat pada sumber master Mei memakai nomor mesin/rangka yang sama; master database juga memiliki konflik BM 9763 TO/BM 9808 TO. Nilai mesin/rangka tidak dibetulkan otomatis.
-- [ ] PR #39 menambah pemeriksaan lokasi/unit/driver/tanggal pajak yang bertentangan pada baris duplikat dan preflight terhadap identitas di database; menunggu CI dan deploy.
-- [ ] Migration koreksi referensi nomor baris audit sumber hanya mengubah teks catatan agar menunjuk baris Excel fisik yang tepat; terapkan setelah review dan verifikasi migration.
+- [x] Migration `20261014034757_correct_vehicle_source_audit_row_numbers` diterapkan pada Supabase production dan diregistrasikan dengan version `20261014034757`; query sesudahnya mengonfirmasi referensi baris audit yang diperbaiki.
 - [ ] Import ulang workbook Mei harus ditahan hingga identitas dan lokasi yang bertentangan diselesaikan di sumber. Jangan hapus atau gabung kendaraan berdasarkan dugaan.
 - [ ] Lihat `docs/VEHICLE_SOURCE_RECONCILIATION.md` untuk daftar pasangan identitas, baris duplikat dan keputusan yang masih perlu bukti resmi.
 
