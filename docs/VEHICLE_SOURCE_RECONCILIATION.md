@@ -68,6 +68,8 @@ Database juga memiliki konflik lintas-sumber antara `BM 9763 TO` dan `BM 9808 TO
 
 - PR #38 menambahkan validasi konflik sumber sebelum import dan penanda kendaraan perlu verifikasi pada halaman Kendaraan.
 - PR #39 memperluas validasi ke kolom operasional yang saling bertentangan pada baris berulang dan membandingkan nomor mesin/rangka file dengan master database saat ini. Bila sumber konflik, import ditahan sebelum RPC; tidak ada perubahan parsial.
+- PR #42 membandingkan nilai terisi dari workbook dengan data yang sudah tersimpan untuk plat yang sama: merk, tipe, jenis, tahun, kepemilikan, jenis sewa, pemilik, lokasi, unit kerja, tanggal pajak, dan status pajak. Perbedaan penting menahan import agar buku Excel lama tidak menimpa hasil rekonsiliasi yang lebih baru. Sel sumber yang kosong tetap diabaikan karena prosedur SQL mempertahankan nilai lama pada input kosong.
+- PR #42 memiliki **57/57 tes lulus** dan build/lint/system verification lulus; production browser smoke juga lulus pada commit `e7ccc28db14e08bfc8aaf948f2ab3021a2250f9b`.
 - Tidak ada identitas kendaraan, status kepemilikan atau nomor mesin/rangka yang dikoreksi otomatis.
 
 ## Item yang tetap memerlukan bukti perusahaan
