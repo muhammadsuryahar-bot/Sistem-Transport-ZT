@@ -28,7 +28,7 @@ Sheet `Data Kendaraan` mengandung 9 grup plat berulang:
 | BM 9455 TS | 80 dan 86 | Mesin/rangka sama; satu lokasi kosong, satunya Pasir Pangarayan. |
 | BM 9763 TO | 81 dan 87 | Mesin/rangka sama; satu lokasi kosong, satunya Pakning. |
 
-Catatan yang sebelumnya menyebut nomor baris Excel duplikat tertentu dengan selisih satu baris dikoreksi oleh migration `20261014041000_correct_vehicle_source_audit_row_numbers`. Perubahan ini hanya membetulkan teks audit, bukan nilai kendaraan.
+Catatan yang sebelumnya menyebut nomor baris Excel duplikat tertentu dengan selisih satu baris dikoreksi oleh migration `20261014034757_correct_vehicle_source_audit_row_numbers`, yang tercatat dan diterapkan pada Supabase production tanggal 14 Oktober 2026. Query sesudah migrasi mengonfirmasi semua delapan catatan nomor baris yang diaudit sudah cocok. Perubahan hanya membetulkan teks audit, bukan nilai kendaraan.
 
 ## Konflik nomor mesin/rangka lintas kendaraan
 
@@ -58,7 +58,7 @@ Database juga memiliki konflik lintas-sumber antara `BM 9763 TO` dan `BM 9808 TO
 ## Item yang tetap memerlukan bukti perusahaan
 
 - Konfirmasi STNK/BPKB untuk lima pasangan nomor mesin/rangka di atas dan pasangan `BM 9763 TO/BM 9808 TO`.
-- Konfirmasi identitas `BM 9672 TZ) serta nomor polisi `BM 9960 TM/TW`.
+- Konfirmasi identitas `BM 9672 TZ` serta nomor polisi `BM 9960 TM/TW`.
 - Kontrak/pembuktian kepemilikan untuk kendaraan yang sumber FPD catat sebagai Aset tetapi masih memiliki kontrak sewa terkait.
 - Selesaikan angka Service 327/328 berdasarkan invoice.
 - Berkas dokumen fisik: 86 metadata dokumen masih belum memiliki `file_path`.
