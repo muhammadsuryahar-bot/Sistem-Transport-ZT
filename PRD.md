@@ -73,9 +73,9 @@ Hasil rinci tanggal 14 Oktober ada di `docs/VEHICLE_SOURCE_RECONCILIATION.md`; P
 
 Target frontend: Vercel.
 
-**Status aktual:** source Transport sudah mendapatkan deployment Vercel yang berstatus `SUCCESS` pada commit terbaru yang diverifikasi dari GitHub status. Connector Vercel yang tersedia di ChatGPT tidak dapat membaca detail project/deployment tersebut (mengembalikan 403/404), sehingga konfigurasi project/env tidak diklaim terverifikasi dari connector.
+**Status aktual (14 Oktober 2026):** commit aplikasi `995ddebff0a5769fedd4d70bb26eaf92b678357b` sudah mendapat status deployment Vercel `SUCCESS`; GitHub Actions `Verify Transport Build` dan `Verify Transport System` lulus, dan production browser smoke test lulus pada layar desktop/mobile. Smoke test hanya memeriksa halaman root/login, bukan transaksi setelah login. Connector Vercel di sesi audit ini tidak dapat membaca rincian project/deployment (403/404), jadi konfigurasi project/env tidak diklaim terverifikasi dari connector.
 
-Production tetap harus diverifikasi dengan membuka URL production dan melakukan UAT browser sebelum release final.
+Production tetap memerlukan UAT setelah login untuk keenam role, transaksi, ekspor, akses file privat dan backup/recovery sebelum dinyatakan final.
 
 ---
 
@@ -829,3 +829,4 @@ Release final harus memenuhi:
 | 1.3 | 13-10-2026 | Patokan Harga/Shopping List ditambahkan ke Service & Perbaikan; status akun role, file dokumen kosong, dan batas plan Auth dicatat |
 | 1.4 | 13-10-2026 | Commit fitur Shopping List yang benar-benar rilis, 44/44 tes regresi, build/lint dan production smoke login dicatat; UAT transaksi tetap pending |
 | 1.5 | 14-10-2026 | Validasi import Kendaraan terhadap konflik identitas dan master database, penanda review data, audit rekonsiliasi workbook, serta koreksi referensi baris audit yang keliru |
+| 1.6 | 14-10-2026 | Pembaruan status PR #39 setelah 55/55 tes, build/lint, Verify System dan production smoke lulus; migrasi rekonsiliasi audit yang sudah diterapkan dan diselaraskan namanya dengan versi Supabase |
