@@ -88,3 +88,63 @@ export function describeVehicleImportIntegrity(report) {
   }
   return messages
 }
+
+
+/**
+ * Compare the incoming workbook with current master data before writes.
+ * This prevents an old source plate from being inserted as a second vehicle
+ * when its engine/chassis currently belongs to a differently plated record.
+ */
+export function analyzeVehicleImportAgainstDatabase(rows = [], existingVehicles = []) {
+  const sourceRecords = []
+  const conflicts = new Map()
+
+  for (const row of rows) {
+    const plate = normalizePlate(row?.nomor_polisi)
+    if (!plate) continue
+    sourceRecords.push({ ...row, __normalizedPlate: plate })
+  }
+
+  for (const row of sourceRecords) {
+    for (const field of ['nomor_mesin', 'nomor_rangka']) {
+      const identifier = normalizeIdentity(row?.[field])
+      if (!identifier) continue
+      for (const existing of existingVehicles) {
+        const existingPlate = normalizePlate(existing?.nomor_polisi)
+        if (!existingPlate || existingPlate === row.__normalizedPlate) continue
+        const existingIdentifier = normalizeIdentity(existing?.[field])
+        if (!existingIdentifier || existingIdentifier !== identifier) continue
+        const key = `${row.__normalizedPlate}::${existingPlate}`
+        if (!conflicts.has(key)) {
+          conflicts.set(key, {
+            sourcePlate: row.__normalizedPlate,
+            existingPlate,
+            fields: new Set(),
+            sourceRows: new Set(),
+          })
+        }
+        conflicts.get(key).fields.add(field)
+        if (row.excelRow != null) conflicts.get(key).sourceRows.add(row.excelRow)
+      }
+    }
+  }
+
+  const databaseConflicts = [...conflicts.values()]
+    .map(conflict => ({
+      sourcePlate: conflict.sourcePlate,
+      existingPlate: conflict.existingPlate,
+      fields: [...conflict.fields],
+      sourceRows: [...conflict.sourceRows].sort((a, b) => a - b),
+    }))
+    .sort((a, b) => a.sourcePlate.localeCompare(b.sourcePlate) || a.existingPlate.localeCompare(b.existingPlate))
+
+  return { databaseConflicts, hasBlockingConflicts: databaseConflicts.length > 0 }
+}
+
+export function describeVehicleDatabaseConflicts(report) {
+  return (report?.databaseConflicts || []).map(conflict => {
+    const identifiers = conflict.fields.map(field => field === 'nomor_mesin' ? 'nomor mesin' : 'nomor rangka').join(' dan ')
+    const rows = conflict.sourceRows.length ? ` (baris Excel ${conflict.sourceRows.join(', ')})` : ''
+    return `${conflict.sourcePlate} vs kendaraan tersimpan ${conflict.existingPlate}: ${identifiers} sama${rows}`
+  })
+}
