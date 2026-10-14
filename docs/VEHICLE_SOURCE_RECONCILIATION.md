@@ -30,6 +30,21 @@ Sheet `Data Kendaraan` mengandung 9 grup plat berulang:
 
 Catatan yang sebelumnya menyebut nomor baris Excel duplikat tertentu dengan selisih satu baris dikoreksi oleh migration `20261014034757_correct_vehicle_source_audit_row_numbers`, yang tercatat dan diterapkan pada Supabase production tanggal 14 Oktober 2026. Query sesudah migrasi mengonfirmasi semua delapan catatan nomor baris yang diaudit sudah cocok. Perubahan hanya membetulkan teks audit, bukan nilai kendaraan.
 
+## Anomali Total pada Data Service No. 327–328
+
+Kedua nomor berikut adalah nilai pada kolom `No` di sheet `Data Service`, bukan nomor ID database:
+
+| No sumber | Baris fisik Excel | Kendaraan/tanggal | DPP | PPn | Total sumber | DPP + PPn |
+|---|---:|---|---:|---:|---:|---:|
+| 327 | 332 | BM 9382 TI — 11 Okt 2025; 2. Slasiban national | Rp10.000 | Rp10.000 | Rp1.665.000 | Rp20.000 |
+| 328 | 333 | BM 9382 TI — 11 Okt 2025; 3. Switch A/S Headlamp | Rp275.000 | Rp275.000 | Rp1.665.000 | Rp550.000 |
+
+Total Rp1.665.000 untuk kedua baris itu sama dengan nilai total pada No. 329 milik kendaraan berbeda (BM 9961 TW, item gearbox). Hal itu mengindikasikan kemungkinan kesalahan input/copy pada sel Total sumber, tetapi tidak membuktikan nilai mana yang seharusnya benar tanpa invoice.
+
+Di database, keempat baris kelompok BM 9382 TI mencatat DPP Rp309.000, PPn Rp287.640, dan Total Rp596.640. Nilai header konsisten karena Rp309.000 + Rp287.640 = Rp596.640; subtotal item juga berjumlah Rp309.000. **Ini tidak membuktikan bahwa PPN/Total pada setiap baris sumber sudah benar.**
+
+Migration `20261014035408_annotate_service_327_328_source_total_anomaly` telah diterapkan di Supabase production. Migration hanya menambahkan catatan audit pada header Service agar anomali tampak di keterangan sistem; nilai finansial, subtotal item, dan metadata asli tetap tidak diubah. Selesaikan koreksi angka hanya setelah invoice diserahkan dan diperiksa.
+
 ## Konflik nomor mesin/rangka lintas kendaraan
 
 Lima pasangan lintas plat pada workbook master Mei menggunakan nomor mesin/rangka yang sama. File sumber tidak cukup untuk menentukan nomor mana yang salah:
@@ -60,7 +75,7 @@ Database juga memiliki konflik lintas-sumber antara `BM 9763 TO` dan `BM 9808 TO
 - Konfirmasi STNK/BPKB untuk lima pasangan nomor mesin/rangka di atas dan pasangan `BM 9763 TO/BM 9808 TO`.
 - Konfirmasi identitas `BM 9672 TZ` serta nomor polisi `BM 9960 TM/TW`.
 - Kontrak/pembuktian kepemilikan untuk kendaraan yang sumber FPD catat sebagai Aset tetapi masih memiliki kontrak sewa terkait.
-- Selesaikan angka Service 327/328 berdasarkan invoice.
+- Periksa invoice untuk Service sumber No. 327/328. Anotasi audit sudah terlihat pada catatan Service, tetapi DPP/PPn/Total baris tidak diubah karena invoice belum tersedia.
 - Berkas dokumen fisik: 86 metadata dokumen masih belum memiliki `file_path`.
 - Harga patokan resmi tetap kosong sampai disahkan.
 - UAT login dan alur kerja untuk setiap role, ekspor, akses file privat, dan backup/recovery belum lulus. Hanya satu akun ADMIN aktif tersedia saat audit.
