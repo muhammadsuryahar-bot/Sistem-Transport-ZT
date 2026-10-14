@@ -10,6 +10,7 @@ Dokumen ini menjadi checklist pengujian manual sebelum sistem Transport dipakai 
 - [x] Master sumber Mei: 83 baris berisi plat, 73 plat unik, 9 grup plat berulang (10 baris pengulangan). Satu grup, BM 9672 TZ, memuat dua identitas kendaraan berbeda; grup lain termasuk lokasi berbeda/kosong.
 - [x] Lima pasangan lintas plat pada sumber master Mei memakai nomor mesin/rangka yang sama; master database juga memiliki konflik BM 9763 TO/BM 9808 TO. Nilai mesin/rangka tidak dibetulkan otomatis.
 - [x] Migration `20261014034757_correct_vehicle_source_audit_row_numbers` diterapkan pada Supabase production dan diregistrasikan dengan version `20261014034757`; query sesudahnya mengonfirmasi referensi baris audit yang diperbaiki.
+- [x] Migration `20261014035408_annotate_service_327_328_source_total_anomaly` menambah penanda audit untuk perbedaan DPP+PPn vs Total sumber pada No. 327/328. Tidak ada nilai keuangan yang diubah; verifikasi invoice tetap pending.
 - [ ] Import ulang workbook Mei harus ditahan hingga identitas dan lokasi yang bertentangan diselesaikan di sumber. Jangan hapus atau gabung kendaraan berdasarkan dugaan.
 - [ ] Lihat `docs/VEHICLE_SOURCE_RECONCILIATION.md` untuk daftar pasangan identitas, baris duplikat dan keputusan yang masih perlu bukti resmi.
 
