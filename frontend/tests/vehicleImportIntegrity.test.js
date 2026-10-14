@@ -89,3 +89,84 @@ test('blocks a source engine/chassis value that would overwrite a different iden
   assert.deepEqual(report.samePlateConflicts[0].fields, ['nomor_mesin', 'nomor_rangka'])
   assert.match(describeVehicleDatabaseConflicts(report)[0], /BM 9084 TS: nomor mesin dan nomor rangka pada Excel berbeda/)
 })
+
+
+test('blocks stale ownership, owner, location and tax values from overwriting the stored master', () => {
+  const report = analyzeVehicleImportAgainstDatabase(
+    [{
+      excelRow: 41,
+      nomor_polisi: 'BM 8238 TM',
+      merk: 'Daihatsu',
+      tipe: 'Grandmax/P.U',
+      jenis: 'Pickup',
+      tahun: '2012',
+      kepemilikan: 'ASET',
+      jenis_sewa: '',
+      pemilik: 'PT Zaman Teknindo',
+      lokasi: 'Pekanbaru',
+      unit_kerja: 'Operasional',
+      masa_pajak: '2027-02-10',
+      status_pajak: 'HIDUP',
+    }],
+    [{
+      nomor_polisi: 'BM 8238 TM',
+      nomor_mesin: '',
+      nomor_rangka: '',
+      merk: 'Daihatsu',
+      tipe: 'Grandmax/P.U',
+      jenis_kendaraan: 'Pickup',
+      tahun: 2012,
+      kepemilikan: 'SEWA',
+      jenis_sewa: 'SEWA_PERORANGAN',
+      pemilik: 'Bpk. Hariadi JS',
+      lokasi: 'Bangkinang',
+      unit_kerja: 'Operasional',
+      masa_berlaku_pajak: '2026-02-10',
+      status_pajak: 'HIDUP',
+    }],
+  )
+  assert.equal(report.hasBlockingConflicts, true)
+  assert.equal(report.masterFieldConflicts.length, 1)
+  assert.deepEqual(report.masterFieldConflicts[0].fields, ['kepemilikan', 'pemilik', 'lokasi', 'masa_pajak'])
+  assert.match(describeVehicleDatabaseConflicts(report).join('\n'), /BM 8238 TM: nilai Excel untuk status kepemilikan, pemilik, lokasi, masa berlaku pajak/)
+})
+
+test('allows blank legacy fields and equivalent year formatting without inventing conflicts', () => {
+  const report = analyzeVehicleImportAgainstDatabase(
+    [{
+      excelRow: 50,
+      nomor_polisi: 'BM 9383 TI',
+      merk: 'Daihatsu',
+      tipe: 'Grandmax',
+      jenis: 'Pickup',
+      tahun: '2011.0',
+      kepemilikan: 'ASET',
+      pemilik: 'PT Zaman Teknindo',
+      lokasi: '',
+      unit_kerja: '',
+      masa_pajak: '',
+      status_pajak: '',
+      nomor_mesin: '',
+      nomor_rangka: '',
+    }],
+    [{
+      nomor_polisi: 'BM 9383 TI',
+      merk: 'Daihatsu',
+      tipe: 'Grandmax',
+      jenis_kendaraan: 'Pickup',
+      tahun: 2011,
+      kepemilikan: 'ASET',
+      pemilik: 'PT Zaman Teknindo',
+      lokasi: 'Kandis',
+      unit_kerja: null,
+      masa_berlaku_pajak: '2027-01-01',
+      status_pajak: 'HIDUP',
+      nomor_mesin: 'DJ35383',
+      nomor_rangka: 'MHKP3BA1JBK027565',
+    }],
+  )
+  assert.equal(report.hasBlockingConflicts, false)
+  assert.deepEqual(report.masterFieldConflicts, [])
+  assert.deepEqual(report.databaseConflicts, [])
+  assert.deepEqual(report.samePlateConflicts, [])
+})
