@@ -25,3 +25,13 @@ test('uses source audit notes to flag conflicts and missing fields without inven
   assert.equal(report.isFlagged({ id: 5, nomor_polisi: 'BM 8091 QO' }), true)
   assert.equal(report.isFlagged({ id: 6, nomor_polisi: 'BM 1000 AA' }), false)
 })
+
+test('surfaces source location duplicates already documented in vehicle notes', () => {
+  const report = analyzeVehicleIntegrity([
+    { id: 7, nomor_polisi: 'BM 9681 TZ', keterangan: 'DUPLIKASI SUMBER DENGAN KONFLIK LOKASI: baris 73 Ujung Tanjung dan baris 86 Duri' },
+    { id: 8, nomor_polisi: 'BM 1000 AA', keterangan: 'Data valid' },
+  ])
+  assert.equal(report.reviewCount, 1)
+  assert.equal(report.isFlagged({ id: 7, nomor_polisi: 'BM 9681 TZ' }), true)
+  assert.equal(report.isFlagged({ id: 8, nomor_polisi: 'BM 1000 AA' }), false)
+})
