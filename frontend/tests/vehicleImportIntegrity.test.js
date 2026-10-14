@@ -77,3 +77,15 @@ test('ignores blank identifiers during database preflight', () => {
   )
   assert.equal(report.hasBlockingConflicts, false)
 })
+
+test('blocks a source engine/chassis value that would overwrite a different identifier on the same stored plate', () => {
+  const report = analyzeVehicleImportAgainstDatabase(
+    [{ excelRow: 50, nomor_polisi: 'BM 9084 TS', nomor_mesin: 'WRONG-ENGINE', nomor_rangka: 'WRONG-CHASSIS' }],
+    [{ nomor_polisi: 'BM 9084 TS', nomor_mesin: '4G15L88671', nomor_rangka: 'MHMU5TU2EFK172154' }],
+  )
+  assert.equal(report.hasBlockingConflicts, true)
+  assert.deepEqual(report.databaseConflicts, [])
+  assert.equal(report.samePlateConflicts.length, 1)
+  assert.deepEqual(report.samePlateConflicts[0].fields, ['nomor_mesin', 'nomor_rangka'])
+  assert.match(describeVehicleDatabaseConflicts(report)[0], /BM 9084 TS: nomor mesin dan nomor rangka pada Excel berbeda/)
+})
