@@ -50,6 +50,7 @@ Dokumen perancangan juga menyebut workbook operasional seperti **Data Kendaraan 
 
 **Pembaruan audit 13–14 Oktober 2026:** workbook sumber operasional kini tersedia dan telah diperiksa untuk rekonsiliasi struktur/data: `Data Kendaraan 07 Mei 2026.xlsx` dan `FPD OPS 01 September 2026.xlsx`. Pemeriksaan mencakup jumlah baris sumber, nomor polisi, duplikasi identitas, Data Service, Genset, Summary Rental, dan dokumen. **Audit ini belum membuktikan semua ekspor UI cocok cell-per-cell dengan workbook referensi**; uji ekspor melalui browser masih harus dilakukan. Anomali workbook dan konflik identitas tetap dicatat, tidak ditutup dengan tebakan.
 Hasil rinci tanggal 14 Oktober ada di `docs/VEHICLE_SOURCE_RECONCILIATION.md`; PR #38 menambahkan perlindungan import identitas, dan PR #39 menambahkan pembandingan lebih ketat termasuk terhadap master database sebelum penyimpanan. Import ulang sumber lama ditahan jika bertentangan dengan kendaraan yang sudah tersimpan.
+Audit lanjutan pada Data Service No. 327/328 mendapati kolom Total sumber tidak konsisten dengan DPP+PPn per baris, walaupun header kelompok impor konsisten secara agregat. Migration `20261014035408_annotate_service_327_328_source_total_anomaly` menambahkan catatan transparansi tanpa mengubah angka; pembetulan nominal menunggu invoice.
 
 ---
 
@@ -830,3 +831,4 @@ Release final harus memenuhi:
 | 1.4 | 13-10-2026 | Commit fitur Shopping List yang benar-benar rilis, 44/44 tes regresi, build/lint dan production smoke login dicatat; UAT transaksi tetap pending |
 | 1.5 | 14-10-2026 | Validasi import Kendaraan terhadap konflik identitas dan master database, penanda review data, audit rekonsiliasi workbook, serta koreksi referensi baris audit yang keliru |
 | 1.6 | 14-10-2026 | Pembaruan status PR #39 setelah 55/55 tes, build/lint, Verify System dan production smoke lulus; migrasi rekonsiliasi audit yang sudah diterapkan dan diselaraskan namanya dengan versi Supabase |
+| 1.7 | 14-10-2026 | Anomali total sumber Data Service No. 327/328 didokumentasikan dan dianotasi di catatan Service tanpa mengubah nilai finansial; invoice tetap diminta untuk rekonsiliasi final |
