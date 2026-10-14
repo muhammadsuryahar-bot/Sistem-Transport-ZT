@@ -3,7 +3,7 @@ const upper = value => clean(value).toUpperCase()
 const normalizePlate = value => upper(value).replace(/\s+/g, ' ')
 const normalizeIdentity = value => upper(value).replace(/[^A-Z0-9]/g, '')
 
-const IDENTITY_FIELDS = ['merk', 'tipe', 'tahun', 'nomor_mesin', 'nomor_rangka', 'pemilik', 'kepemilikan']
+const IDENTITY_FIELDS = ['merk', 'tipe', 'jenis', 'tahun', 'nomor_mesin', 'nomor_rangka', 'pemilik', 'kepemilikan', 'driver', 'lokasi', 'unit_kerja', 'masa_pajak', 'status_pajak']
 
 function normalizedFieldValue(value, field) {
   if (field === 'nomor_mesin' || field === 'nomor_rangka') return normalizeIdentity(value)
