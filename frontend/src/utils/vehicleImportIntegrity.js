@@ -128,22 +128,6 @@ export function analyzeVehicleImportAgainstDatabase(rows = [], existingVehicles 
     ['masa_pajak', 'masa_berlaku_pajak'],
     ['status_pajak', 'status_pajak'],
   ]
-  const labels = {
-    merk: 'merk',
-    tipe: 'tipe/model',
-    jenis: 'jenis kendaraan',
-    tahun: 'tahun',
-    kepemilikan: 'status kepemilikan',
-    jenis_sewa: 'jenis sewa',
-    pemilik: 'pemilik',
-    lokasi: 'lokasi',
-    unit_kerja: 'unit kerja',
-    masa_pajak: 'masa berlaku pajak',
-    status_pajak: 'status pajak',
-    nomor_mesin: 'nomor mesin',
-    nomor_rangka: 'nomor rangka',
-  }
-
   for (const row of sourceRecords) {
     const samePlateRecords = existingByPlate.get(row.__normalizedPlate) || []
 
