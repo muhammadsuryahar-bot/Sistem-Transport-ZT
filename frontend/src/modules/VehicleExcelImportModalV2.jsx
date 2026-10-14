@@ -7,6 +7,7 @@ import { parseXlsx } from '../utils/xlsxParser.js'
 import './DataPageTools.css'
 import './VehicleExcelImportModal.css'
 import { excelDate } from '../utils/excelDate.js'
+import { analyzeVehicleImportIntegrity, describeVehicleImportIntegrity } from '../utils/vehicleImportIntegrity.js'
 
 const MAX_FILE_SIZE = 25 * 1024 * 1024
 const PAGE_OPTIONS = [25, 50, 100]
@@ -132,6 +133,14 @@ async function importVehicleRows(rows) {
   const repaired = rows.filter(row => row.nomor_polisi && row.merk)
   if (!repaired.length) throw new Error('Tidak ada baris Kendaraan valid. Pastikan No. Pol dan Merk terisi.')
 
+  const integrity = analyzeVehicleImportIntegrity(repaired)
+  if (integrity.hasBlockingConflicts) {
+    const issues = describeVehicleImportIntegrity(integrity)
+    const visibleIssues = issues.slice(0, 8)
+    const remainder = issues.length > visibleIssues.length ? `; dan ${issues.length - visibleIssues.length} konflik lainnya` : ''
+    throw new Error(`Import Kendaraan dibatalkan karena identitas sumber bertentangan. Tidak ada perubahan yang dikirim ke database. Perbaiki Excel dulu: ${visibleIssues.join('; ')}${remainder}.`)
+  }
+
   const invalid = repaired.filter(row => !row.kepemilikan)
   if (invalid.length) {
     throw new Error(`Ada ${invalid.length} baris dengan Status kepemilikan kosong/tidak valid. Gunakan hanya Aset atau Sewa (baris: ${invalid.map(row => row.excelRow).join(', ')}).`)
@@ -235,7 +244,7 @@ export default function VehicleExcelImportModalV2({ profile, onDone, onClose }) 
       const maxNo = sourceNumbers.length ? Math.max(...sourceNumbers) : 0
       const missingSourceNumbers = []
       for (let n = 1; n <= maxNo; n += 1) if (!sourceNumbers.includes(n)) missingSourceNumbers.push(n)
-      setWorkbook({ sheet: chosen, header: { ...header, row: header.row.slice(0, width) }, data, valid, uniqueCount: groups.size, duplicateCount: valid.length - groups.size, missingSourceNumbers })
+      setWorkbook({ sheet: chosen, header: { ...header, row: header.row.slice(0, width) }, data, valid, uniqueCount: groups.size, duplicateCount: valid.length - groups.size, missingSourceNumbers, sourceIntegrity: analyzeVehicleImportIntegrity(valid) })
       setMessage(`Pemeriksaan selesai: ${data.length} baris sumber dibaca • ${valid.length} valid • ${groups.size} No. Polisi unik.`)
     } catch (e) { setError(humanizeError(e, 'File Excel tidak dapat dibaca.')) }
     finally { setLoading(false) }
@@ -281,6 +290,7 @@ export default function VehicleExcelImportModalV2({ profile, onDone, onClose }) 
       {selected && <>
         <div className="vehicle-import-stats"><div><b>{workbook.data.length}</b><span>baris sumber</span></div><div><b>{workbook.valid.length}</b><span>baris valid</span></div><div><b>{workbook.uniqueCount}</b><span>kendaraan unik</span></div><div><b>{workbook.duplicateCount}</b><span>duplikat digabung</span></div></div>
         {workbook.missingSourceNumbers.length > 0 && <div className="vehicle-import-warning">Nomor urut sumber yang tidak ada: <b>{workbook.missingSourceNumbers.join(', ')}</b>.</div>}
+        {workbook.sourceIntegrity?.hasBlockingConflicts && <div className="vehicle-import-warning vehicle-import-warning-critical" role="alert"><b>Import ditahan: identitas kendaraan tidak konsisten.</b><span>Belum ada perubahan database. Perbaiki sumber Excel sebelum impor ulang. Baris dengan nomor polisi yang sama tetapi identitas berbeda serta nomor mesin/rangka yang digunakan pada nomor polisi berbeda tidak boleh digabung otomatis.</span><ul>{describeVehicleImportIntegrity(workbook.sourceIntegrity).slice(0, 12).map(issue => <li key={issue}>{issue}</li>)}</ul></div>}
         <div className="vehicle-import-explanation"><b>Rekonsiliasi</b><span>Semua baris Excel tetap tampil di preview. No. Polisi dipakai sebagai identitas unik saat penyimpanan.</span><span>{workbook.data.length} baris sumber → {workbook.valid.length} valid → {workbook.uniqueCount} kendaraan unik → {workbook.duplicateCount} duplikat digabung.</span></div>
         <div className="vehicle-import-map">{EXPECTED_HEADERS.map(([src, target]) => <div key={src}><b>{src}</b><span>→</span><span>{target}</span></div>)}</div>
         <div className="dpt-preview"><div className="dpt-sheet-title"><div><b>Preview Sumber: {selected.name}</b><span className="dpt-preview-note">Semua baris tersedia. Gunakan pagination untuk berpindah halaman.</span></div><span>{pageRows.length} dari {workbook.data.length} ditampilkan</span></div><div className="dpt-preview-wrap"><table><thead><tr>{workbook.header.row.map((header, index) => <th key={`${String(header)}-${index}`}>{header || `Kolom ${index + 1}`}</th>)}</tr></thead><tbody>{pageRows.map(row => <tr data-excel-row={row.excelRow} key={row.excelRow}>{workbook.header.row.map((header, index) => <td key={`${row.excelRow}-${index}`}>{displayCell(row.values[index], header)}</td>)}</tr>)}</tbody></table></div><div className="dpt-pagination"><label>Baris/halaman <select value={pageSize} onChange={event => { setPageSize(Number(event.target.value)); setPage(1) }}>{PAGE_OPTIONS.map(size => <option key={size} value={size}>{size}</option>)}</select></label><button type="button" className="dpt-button" onClick={() => setPage(current => Math.max(1, current - 1))} disabled={page <= 1}>‹</button><span>Halaman {page} / {pageCount}</span><button type="button" className="dpt-button" onClick={() => setPage(current => Math.min(pageCount, current + 1))} disabled={page >= pageCount}>›</button></div></div>

@@ -5,6 +5,7 @@ import './MasterKendaraanExcelAlignedPage.css'
 import PageBreadcrumb from './PageBreadcrumb.jsx'
 import { formatDateSafe } from '../utils/dateSafe'
 import { IMAGE_UPLOAD_ACCEPT, validateStorageUploadFile } from '../utils/storageUpload.js'
+import { analyzeVehicleIntegrity } from '../utils/vehicleIntegrity.js'
 
 const OWNERSHIP = { ASET: 'Aset', SEWA: 'Sewa' }
 const VEHICLE_TYPES = ['Pickup', 'Minibus', 'Dump Truck']
@@ -48,6 +49,7 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
   const [query, setQuery] = useState('')
   const [ownershipFilter, setOwnershipFilter] = useState('SEMUA')
   const [typeFilter, setTypeFilter] = useState('SEMUA')
+  const [integrityFilter, setIntegrityFilter] = useState(false)
   const [modal, setModal] = useState(false)
   const [detail, setDetail] = useState(null)
   const [editing, setEditing] = useState(null)
@@ -82,6 +84,7 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
 
 
   const driverMap = useMemo(() => Object.fromEntries(drivers.map(d => [d.id, d])), [drivers])
+  const integrityReport = useMemo(() => analyzeVehicleIntegrity(vehicles), [vehicles])
   const ownerOptions = useMemo(() => Array.from(new Set(vehicles.map(v => clean(v.pemilik)).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'id')), [vehicles])
   const typeOptions = useMemo(() => Array.from(new Set([...VEHICLE_TYPES, ...vehicles.map(v => clean(v.jenis_kendaraan)).filter(Boolean)])), [vehicles])
   const filtered = useMemo(() => {
@@ -89,9 +92,9 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
     return vehicles.filter(v => {
       const driver = driverMap[v.driver_id]
       const haystack = [v.nomor_polisi, v.merk, v.tipe, v.jenis_kendaraan, v.pemilik, v.unit_kerja, v.lokasi, v.status_pajak, v.keterangan, v.catatan_hutang, driver?.nama_lengkap].filter(Boolean).join(' ').toLowerCase()
-      return (!q || haystack.includes(q)) && (ownershipFilter === 'SEMUA' || v.kepemilikan === ownershipFilter) && (typeFilter === 'SEMUA' || v.jenis_kendaraan === typeFilter)
+      return (!q || haystack.includes(q)) && (ownershipFilter === 'SEMUA' || v.kepemilikan === ownershipFilter) && (typeFilter === 'SEMUA' || v.jenis_kendaraan === typeFilter) && (!integrityFilter || integrityReport.isFlagged(v))
     })
-  }, [vehicles, driverMap, query, ownershipFilter, typeFilter])
+  }, [vehicles, driverMap, query, ownershipFilter, typeFilter, integrityFilter, integrityReport])
 
   const cards = useMemo(() => ({
     total: vehicles.length,
@@ -270,6 +273,7 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
     <PageBreadcrumb items={['Transport', 'Kendaraan']} />
     <div className="mep-head"><div><span className="eyebrow">MASTER DATA KENDARAAN</span><h2>Kendaraan</h2><p>Semua kendaraan dicatat di sini, baik Aset maupun Sewa. Kendaraan Sewa selanjutnya dikelola kontrak dan pembayarannya melalui Administrasi Sewa.</p></div>{canEdit && <button className="mep-primary" type="button" onClick={openNew}>+ Kendaraan</button>}</div>
     {success && <div className="mep-alert success">{success}</div>}{error && !modal && <div className="mep-alert error">{error}</div>}
+    {integrityReport.reviewCount > 0 && <div className="mep-integrity-alert" role="status"><div><b>{integrityReport.reviewCount} kendaraan perlu verifikasi data</b><span>{integrityReport.duplicateIdentityPairCount > 0 && <><strong>{integrityReport.duplicateIdentityPairCount} pasangan</strong> nomor polisi memakai nomor mesin/rangka yang sama. </>}Data sumber yang bertentangan ditandai untuk pemeriksaan; sistem tidak mengganti identitas kendaraan secara otomatis.</span></div><div><button type="button" onClick={() => { setIntegrityFilter(true); setQuery(''); setOwnershipFilter('SEMUA'); setTypeFilter('SEMUA') }}>Tampilkan kendaraan</button>{integrityFilter && <button type="button" className="secondary" onClick={() => setIntegrityFilter(false)}>Tampilkan semua</button>}</div></div>}
     <div className="mep-cards">
       <button type="button" className="mep-summary-card" onClick={() => { setQuery(''); setOwnershipFilter('SEMUA'); setTypeFilter('SEMUA'); requestAnimationFrame(() => document.querySelector('.mep-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' })) }}>
         <span>Total Kendaraan</span><b>{cards.total}</b><i aria-hidden="true">›</i>
