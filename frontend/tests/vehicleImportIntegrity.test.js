@@ -33,3 +33,15 @@ test('does not block ordinary duplicate source rows for the same vehicle', () =>
   ])
   assert.equal(report.hasBlockingConflicts, false)
 })
+
+test('blocks duplicate rows for one plate when location or other populated operational fields conflict', () => {
+  const report = analyzeVehicleImportIntegrity([
+    { excelRow: 77, nomor_polisi: 'BM 8417 TW', merk: 'Daihatsu', tipe: 'Grandmax', jenis: 'Pickup', tahun: '2014', nomor_mesin: '3SZDGL3324', nomor_rangka: 'MHKP3CA1JHK155863', pemilik: 'PT Elang', kepemilikan: 'SEWA', lokasi: 'Pekanbaru' },
+    { excelRow: 82, nomor_polisi: 'BM 8417 TW', merk: 'Daihatsu', tipe: 'Grandmax', jenis: 'Pickup', tahun: '2014', nomor_mesin: '3SZDGL3324', nomor_rangka: 'MHKP3CA1JHK155863', pemilik: 'PT Elang', kepemilikan: 'SEWA', lokasi: 'Dumai' },
+  ])
+  assert.equal(report.duplicatePlateConflicts.length, 1)
+  assert.equal(report.duplicatePlateConflicts[0].plate, 'BM 8417 TW')
+  assert.deepEqual(report.duplicatePlateConflicts[0].fields, ['lokasi'])
+  assert.deepEqual(report.duplicatePlateConflicts[0].rows, [77, 82])
+  assert.equal(report.hasBlockingConflicts, true)
+})
