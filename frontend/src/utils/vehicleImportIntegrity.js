@@ -235,7 +235,7 @@ export function describeVehicleDatabaseConflicts(report) {
     nomor_rangka: 'nomor rangka',
   }
   for (const conflict of report?.samePlateConflicts || []) {
-    const identifiers = conflict.fields.map(field => labels[field] || field).join(', ')
+    const identifiers = conflict.fields.map(field => labels[field] || field).join(' dan ')
     const rows = conflict.sourceRows.length ? ` (baris Excel ${conflict.sourceRows.join(', ')})` : ''
     messages.push(`${conflict.plate}: ${identifiers} pada Excel berbeda dari nilai kendaraan yang sudah tersimpan${rows}`)
   }
