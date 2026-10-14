@@ -33,7 +33,7 @@ export function analyzeVehicleIntegrity(vehicles = []) {
       groups.get(identifier).get(plate).push(vehicle)
     }
 
-    for (const [identifier, plates] of groups) {
+    for (const plates of groups.values()) {
       const plateNames = [...plates.keys()].sort()
       if (plateNames.length < 2) continue
       for (const plate of plateNames) for (const vehicle of plates.get(plate)) mark(vehicle, flag)
