@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
+  analyzeVehicleImportAgainstDatabase,
   analyzeVehicleImportIntegrity,
+  describeVehicleDatabaseConflicts,
   describeVehicleImportIntegrity,
 } from '../src/utils/vehicleImportIntegrity.js'
 
@@ -44,4 +46,34 @@ test('blocks duplicate rows for one plate when location or other populated opera
   assert.deepEqual(report.duplicatePlateConflicts[0].fields, ['lokasi'])
   assert.deepEqual(report.duplicatePlateConflicts[0].rows, [77, 82])
   assert.equal(report.hasBlockingConflicts, true)
+})
+
+test('blocks a source-only plate that reuses identifiers belonging to another stored plate', () => {
+  const report = analyzeVehicleImportAgainstDatabase(
+    [{ excelRow: 36, nomor_polisi: 'BM 9960 TM', nomor_mesin: '4G15S76333', nomor_rangka: 'MK2U5TU2EJK011885' }],
+    [{ nomor_polisi: 'BM 9960 TW', nomor_mesin: '4G15S76333', nomor_rangka: 'MK2U5TU2EJK011885' }],
+  )
+  assert.equal(report.hasBlockingConflicts, true)
+  assert.equal(report.databaseConflicts.length, 1)
+  assert.equal(report.databaseConflicts[0].sourcePlate, 'BM 9960 TM')
+  assert.equal(report.databaseConflicts[0].existingPlate, 'BM 9960 TW')
+  assert.deepEqual(report.databaseConflicts[0].fields, ['nomor_mesin', 'nomor_rangka'])
+  assert.match(describeVehicleDatabaseConflicts(report)[0], /BM 9960 TM vs kendaraan tersimpan BM 9960 TW/)
+})
+
+test('does not treat the same stored plate as a cross-vehicle identity conflict', () => {
+  const report = analyzeVehicleImportAgainstDatabase(
+    [{ excelRow: 12, nomor_polisi: 'BM 1533 OA', nomor_mesin: '2NRF754840', nomor_rangka: 'MHKE8FA3JJK016543' }],
+    [{ nomor_polisi: 'BM 1533 OA', nomor_mesin: '2NRF754840', nomor_rangka: 'MHKE8FA3JJK016543' }],
+  )
+  assert.equal(report.hasBlockingConflicts, false)
+  assert.deepEqual(report.databaseConflicts, [])
+})
+
+test('ignores blank identifiers during database preflight', () => {
+  const report = analyzeVehicleImportAgainstDatabase(
+    [{ excelRow: 12, nomor_polisi: 'BM 8241 TM', nomor_mesin: '', nomor_rangka: '' }],
+    [{ nomor_polisi: 'BM 8241 TM', nomor_mesin: null, nomor_rangka: null }],
+  )
+  assert.equal(report.hasBlockingConflicts, false)
 })
