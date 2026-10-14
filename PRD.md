@@ -49,7 +49,7 @@ Sumber yang diperiksa:
 Dokumen perancangan juga menyebut workbook operasional seperti **Data Kendaraan 07 Mei 2026** dan **FPD OPS 01 September 2026**, termasuk area Data Service, Sewa Kendaraan, STNK/KIR, BBM, dan permintaan.
 
 **Pembaruan audit 13–14 Oktober 2026:** workbook sumber operasional kini tersedia dan telah diperiksa untuk rekonsiliasi struktur/data: `Data Kendaraan 07 Mei 2026.xlsx` dan `FPD OPS 01 September 2026.xlsx`. Pemeriksaan mencakup jumlah baris sumber, nomor polisi, duplikasi identitas, Data Service, Genset, Summary Rental, dan dokumen. **Audit ini belum membuktikan semua ekspor UI cocok cell-per-cell dengan workbook referensi**; uji ekspor melalui browser masih harus dilakukan. Anomali workbook dan konflik identitas tetap dicatat, tidak ditutup dengan tebakan.
-Hasil rinci tanggal 14 Oktober ada di `docs/VEHICLE_SOURCE_RECONCILIATION.md`; PR #38 menambahkan perlindungan import identitas, dan PR #39 menambahkan pembandingan lebih ketat termasuk terhadap master database sebelum penyimpanan. Import ulang sumber lama ditahan jika bertentangan dengan kendaraan yang sudah tersimpan.
+Hasil rinci tanggal 14 Oktober ada di `docs/VEHICLE_SOURCE_RECONCILIATION.md`; PR #38/#39 menahan konflik identitas sumber, sedangkan PR #42 membandingkan lebih banyak field yang terisi pada Excel dengan master tersimpan (merk/model, jenis/tahun, status Aset/Sewa, pemilik, lokasi, unit kerja dan pajak) sebelum import. Workbook lama yang berbeda tidak boleh menimpa data hasil rekonsiliasi.
 Audit lanjutan pada Data Service No. 327/328 mendapati kolom Total sumber tidak konsisten dengan DPP+PPn per baris, walaupun header kelompok impor konsisten secara agregat. Migration `20261014035408_annotate_service_327_328_source_total_anomaly` menambahkan catatan transparansi tanpa mengubah angka; pembetulan nominal menunggu invoice.
 
 ---
@@ -74,7 +74,7 @@ Audit lanjutan pada Data Service No. 327/328 mendapati kolom Total sumber tidak 
 
 Target frontend: Vercel.
 
-**Status aktual (14 Oktober 2026):** commit aplikasi `995ddebff0a5769fedd4d70bb26eaf92b678357b` sudah mendapat status deployment Vercel `SUCCESS`; GitHub Actions `Verify Transport Build` dan `Verify Transport System` lulus, dan production browser smoke test lulus pada layar desktop/mobile. Smoke test hanya memeriksa halaman root/login, bukan transaksi setelah login. Connector Vercel di sesi audit ini tidak dapat membaca rincian project/deployment (403/404), jadi konfigurasi project/env tidak diklaim terverifikasi dari connector.
+**Status aktual (14 Oktober 2026):** commit aplikasi terbaru `e7ccc28db14e08bfc8aaf948f2ab3021a2250f9b` sudah mendapat status deployment Vercel `SUCCESS`; GitHub Actions `Verify Transport Build` (57/57 tes, build, lint) dan `Verify Transport System` lulus, dan production browser smoke test lulus pada layar desktop/mobile. Smoke test hanya memeriksa halaman root/login, bukan transaksi setelah login. Connector Vercel di sesi audit ini tidak dapat membaca rincian project/deployment (403/404), jadi konfigurasi project/env tidak diklaim terverifikasi dari connector.
 
 Production tetap memerlukan UAT setelah login untuk keenam role, transaksi, ekspor, akses file privat dan backup/recovery sebelum dinyatakan final.
 
@@ -832,3 +832,4 @@ Release final harus memenuhi:
 | 1.5 | 14-10-2026 | Validasi import Kendaraan terhadap konflik identitas dan master database, penanda review data, audit rekonsiliasi workbook, serta koreksi referensi baris audit yang keliru |
 | 1.6 | 14-10-2026 | Pembaruan status PR #39 setelah 55/55 tes, build/lint, Verify System dan production smoke lulus; migrasi rekonsiliasi audit yang sudah diterapkan dan diselaraskan namanya dengan versi Supabase |
 | 1.7 | 14-10-2026 | Anomali total sumber Data Service No. 327/328 didokumentasikan dan dianotasi di catatan Service tanpa mengubah nilai finansial; invoice tetap diminta untuk rekonsiliasi final |
+| 1.8 | 14-10-2026 | PR #42 mencegah import workbook lama menimpa data master penting yang berbeda; 57/57 tes, build/lint, verifikasi sistem, Vercel deployment dan production browser smoke lulus; UAT bisnis tetap pending |
