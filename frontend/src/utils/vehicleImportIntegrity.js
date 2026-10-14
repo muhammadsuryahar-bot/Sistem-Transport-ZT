@@ -95,56 +95,98 @@ export function describeVehicleImportIntegrity(report) {
  * This prevents an old source plate from being inserted as a second vehicle
  * when its engine/chassis currently belongs to a differently plated record.
  */
+/**
+ * Compare the incoming workbook with current master data before writes.
+ * Prevents cross-plate identifier reuse and overwriting a populated engine/chassis
+ * on an existing plate with a different value.
+ */
 export function analyzeVehicleImportAgainstDatabase(rows = [], existingVehicles = []) {
-  const sourceRecords = []
-  const conflicts = new Map()
-
-  for (const row of rows) {
-    const plate = normalizePlate(row?.nomor_polisi)
+  const sourceRecords = rows
+    .map(row => ({ ...row, __normalizedPlate: normalizePlate(row?.nomor_polisi) }))
+    .filter(row => row.__normalizedPlate)
+  const existingByPlate = new Map()
+  for (const existing of existingVehicles) {
+    const plate = normalizePlate(existing?.nomor_polisi)
     if (!plate) continue
-    sourceRecords.push({ ...row, __normalizedPlate: plate })
+    if (!existingByPlate.has(plate)) existingByPlate.set(plate, [])
+    existingByPlate.get(plate).push(existing)
   }
 
+  const samePlateDifferences = new Map()
+  const crossPlateConflicts = new Map()
+
   for (const row of sourceRecords) {
+    const samePlateRecords = existingByPlate.get(row.__normalizedPlate) || []
     for (const field of ['nomor_mesin', 'nomor_rangka']) {
-      const identifier = normalizeIdentity(row?.[field])
-      if (!identifier) continue
+      const sourceIdentifier = normalizeIdentity(row?.[field])
+      if (!sourceIdentifier) continue
+
+      for (const existing of samePlateRecords) {
+        const storedIdentifier = normalizeIdentity(existing?.[field])
+        if (!storedIdentifier || storedIdentifier === sourceIdentifier) continue
+        if (!samePlateDifferences.has(row.__normalizedPlate)) {
+          samePlateDifferences.set(row.__normalizedPlate, {
+            plate: row.__normalizedPlate,
+            fields: new Set(),
+            sourceRows: new Set(),
+          })
+        }
+        const issue = samePlateDifferences.get(row.__normalizedPlate)
+        issue.fields.add(field)
+        if (row.excelRow != null) issue.sourceRows.add(row.excelRow)
+      }
+
       for (const existing of existingVehicles) {
         const existingPlate = normalizePlate(existing?.nomor_polisi)
         if (!existingPlate || existingPlate === row.__normalizedPlate) continue
         const existingIdentifier = normalizeIdentity(existing?.[field])
-        if (!existingIdentifier || existingIdentifier !== identifier) continue
+        if (!existingIdentifier || existingIdentifier !== sourceIdentifier) continue
         const key = `${row.__normalizedPlate}::${existingPlate}`
-        if (!conflicts.has(key)) {
-          conflicts.set(key, {
+        if (!crossPlateConflicts.has(key)) {
+          crossPlateConflicts.set(key, {
             sourcePlate: row.__normalizedPlate,
             existingPlate,
             fields: new Set(),
             sourceRows: new Set(),
           })
         }
-        conflicts.get(key).fields.add(field)
-        if (row.excelRow != null) conflicts.get(key).sourceRows.add(row.excelRow)
+        const issue = crossPlateConflicts.get(key)
+        issue.fields.add(field)
+        if (row.excelRow != null) issue.sourceRows.add(row.excelRow)
       }
     }
   }
 
-  const databaseConflicts = [...conflicts.values()]
-    .map(conflict => ({
-      sourcePlate: conflict.sourcePlate,
-      existingPlate: conflict.existingPlate,
-      fields: [...conflict.fields],
-      sourceRows: [...conflict.sourceRows].sort((a, b) => a - b),
-    }))
+  const normalizeIssue = issue => ({
+    ...issue,
+    fields: [...issue.fields],
+    sourceRows: [...issue.sourceRows].sort((a, b) => a - b),
+  })
+  const samePlateConflicts = [...samePlateDifferences.values()]
+    .map(normalizeIssue)
+    .sort((a, b) => a.plate.localeCompare(b.plate))
+  const databaseConflicts = [...crossPlateConflicts.values()]
+    .map(normalizeIssue)
     .sort((a, b) => a.sourcePlate.localeCompare(b.sourcePlate) || a.existingPlate.localeCompare(b.existingPlate))
 
-  return { databaseConflicts, hasBlockingConflicts: databaseConflicts.length > 0 }
+  return {
+    samePlateConflicts,
+    databaseConflicts,
+    hasBlockingConflicts: samePlateConflicts.length > 0 || databaseConflicts.length > 0,
+  }
 }
 
 export function describeVehicleDatabaseConflicts(report) {
-  return (report?.databaseConflicts || []).map(conflict => {
+  const messages = []
+  for (const conflict of report?.samePlateConflicts || []) {
     const identifiers = conflict.fields.map(field => field === 'nomor_mesin' ? 'nomor mesin' : 'nomor rangka').join(' dan ')
     const rows = conflict.sourceRows.length ? ` (baris Excel ${conflict.sourceRows.join(', ')})` : ''
-    return `${conflict.sourcePlate} vs kendaraan tersimpan ${conflict.existingPlate}: ${identifiers} sama${rows}`
-  })
+    messages.push(`${conflict.plate}: ${identifiers} pada Excel berbeda dari nilai kendaraan yang sudah tersimpan${rows}`)
+  }
+  for (const conflict of report?.databaseConflicts || []) {
+    const identifiers = conflict.fields.map(field => field === 'nomor_mesin' ? 'nomor mesin' : 'nomor rangka').join(' dan ')
+    const rows = conflict.sourceRows.length ? ` (baris Excel ${conflict.sourceRows.join(', ')})` : ''
+    messages.push(`${conflict.sourcePlate} vs kendaraan tersimpan ${conflict.existingPlate}: ${identifiers} sama${rows}`)
+  }
+  return messages
 }
