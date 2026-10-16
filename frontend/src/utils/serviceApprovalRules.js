@@ -6,8 +6,9 @@ function amountOr(value, fallback = 0) {
   return Number.isFinite(amount) ? amount : fallback
 }
 
-// Mirrors guard_service_approval(): the role is determined by the current
-// effective service amount (actual cost when present, otherwise estimate).
+// Mirrors guard_service_approval(): the first approval is authorized against
+// the estimate; an additional approval (only allowed when actual exceeds the
+// estimate) is authorized against the actual amount.
 export function getRequiredServiceApprovalRole({
   status,
   estimate,
@@ -18,21 +19,29 @@ export function getRequiredServiceApprovalRole({
 
   const estimatedAmount = amountOr(estimate, 0)
   const actualAmount = amountOr(actual, estimatedAmount)
+  const count = Number(approvedCount) || 0
 
-  // The database guard rejects another approval if a required approval has
-  // already been recorded and the actual amount does not exceed the estimate.
-  if (Number(approvedCount) >= 1 && actualAmount <= estimatedAmount) return null
+  if (count >= 1 && actualAmount <= estimatedAmount) return null
 
-  return actualAmount > SERVICE_APPROVAL_LIMIT ? 'DIREKTUR' : 'ATASAN_TRANSPORT'
+  const approvalAmount = count <= 0 ? estimatedAmount : actualAmount
+  return approvalAmount > SERVICE_APPROVAL_LIMIT ? 'DIREKTUR' : 'ATASAN_TRANSPORT'
 }
 
-// Mirrors guard_service_completion(): an amount above its estimate requires
-// two approvals; an estimate/actual above the limit requires at least one.
+// Mirrors guard_service_completion() exactly. A high estimate requires one
+// approval unless actual exceeds the estimate (then two). For lower estimates,
+// a changed/over-limit actual requires one; a separate Director check applies
+// whenever actual itself exceeds Rp5 million.
 export function getRequiredServiceApprovalCount({ estimate, actual } = {}) {
   const estimatedAmount = amountOr(estimate, 0)
   const actualAmount = amountOr(actual, estimatedAmount)
 
-  if (actualAmount > estimatedAmount) return 2
-  if (Math.max(estimatedAmount, actualAmount) > SERVICE_APPROVAL_LIMIT) return 1
+  if (estimatedAmount > SERVICE_APPROVAL_LIMIT) {
+    return actualAmount > estimatedAmount ? 2 : 1
+  }
+
+  if (actualAmount > estimatedAmount || actualAmount > SERVICE_APPROVAL_LIMIT) {
+    return 1
+  }
+
   return 0
 }
