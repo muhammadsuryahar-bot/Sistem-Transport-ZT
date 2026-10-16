@@ -11,36 +11,54 @@ test('does not require approval at or below Rp5 million when actual does not exc
   assert.equal(getRequiredServiceApprovalCount({ estimate: SERVICE_APPROVAL_LIMIT, actual: SERVICE_APPROVAL_LIMIT }), 0)
 })
 
-test('requires one approval when an estimate above Rp5 million is not exceeded', () => {
+test('requires one approval when estimate is above Rp5 million and actual does not exceed it', () => {
   assert.equal(getRequiredServiceApprovalCount({ estimate: 5_000_001, actual: 5_000_001 }), 1)
   assert.equal(getRequiredServiceApprovalCount({ estimate: 6_000_000, actual: 4_000_000 }), 1)
 })
 
-test('requires two approvals whenever actual cost exceeds the estimate', () => {
-  assert.equal(getRequiredServiceApprovalCount({ estimate: 4_000_000, actual: 4_500_000 }), 2)
-  assert.equal(getRequiredServiceApprovalCount({ estimate: 4_000_000, actual: 6_000_000 }), 2)
+test('mirrors the database count for estimates above Rp5 million when actual exceeds estimate', () => {
   assert.equal(getRequiredServiceApprovalCount({ estimate: 6_000_000, actual: 6_500_000 }), 2)
 })
 
-test('uses actual cost for the initial approver role when actual crosses Rp5 million', () => {
+test('mirrors the database count for estimates at or below Rp5 million when actual increases', () => {
+  assert.equal(getRequiredServiceApprovalCount({ estimate: 4_000_000, actual: 4_500_000 }), 1)
+  assert.equal(getRequiredServiceApprovalCount({ estimate: 4_000_000, actual: 6_000_000 }), 1)
+})
+
+test('first approver role is based on estimate even when actual later crosses Rp5 million', () => {
   assert.equal(getRequiredServiceApprovalRole({
     status: 'MENUNGGU_APPROVAL',
     estimate: 4_000_000,
     actual: 6_000_000,
     approvedCount: 0,
-  }), 'DIREKTUR')
+  }), 'ATASAN_TRANSPORT')
 })
 
-test('uses actual cost for the initial approver role when actual is below estimate and below Rp5 million', () => {
+test('additional approver role is based on actual once estimate has an approval', () => {
+  assert.equal(getRequiredServiceApprovalRole({
+    status: 'MENUNGGU_APPROVAL',
+    estimate: 4_000_000,
+    actual: 6_000_000,
+    approvedCount: 1,
+  }), 'DIREKTUR')
+  assert.equal(getRequiredServiceApprovalRole({
+    status: 'MENUNGGU_APPROVAL',
+    estimate: 4_000_000,
+    actual: 4_500_000,
+    approvedCount: 1,
+  }), 'ATASAN_TRANSPORT')
+})
+
+test('an estimate above Rp5 million requires Director for its first approval', () => {
   assert.equal(getRequiredServiceApprovalRole({
     status: 'MENUNGGU_APPROVAL',
     estimate: 6_000_000,
     actual: 4_000_000,
     approvedCount: 0,
-  }), 'ATASAN_TRANSPORT')
+  }), 'DIREKTUR')
 })
 
-test('defaults a missing actual cost to the estimate for approval role/count', () => {
+test('defaults missing actual cost to estimate', () => {
   assert.equal(getRequiredServiceApprovalRole({
     status: 'MENUNGGU_APPROVAL',
     estimate: 6_000_000,
@@ -50,7 +68,7 @@ test('defaults a missing actual cost to the estimate for approval role/count', (
   assert.equal(getRequiredServiceApprovalCount({ estimate: 6_000_000, actual: null }), 1)
 })
 
-test('does not request another approval when the actual does not exceed an already-approved estimate', () => {
+test('does not request another approval when actual does not exceed an already-approved estimate', () => {
   assert.equal(getRequiredServiceApprovalRole({
     status: 'MENUNGGU_APPROVAL',
     estimate: 4_000_000,
@@ -59,26 +77,20 @@ test('does not request another approval when the actual does not exceed an alrea
   }), null)
 })
 
-test('continues to require the current threshold role for an additional approval when actual exceeds estimate', () => {
-  assert.equal(getRequiredServiceApprovalRole({
-    status: 'MENUNGGU_APPROVAL',
-    estimate: 4_000_000,
-    actual: 4_500_000,
-    approvedCount: 1,
-  }), 'ATASAN_TRANSPORT')
-  assert.equal(getRequiredServiceApprovalRole({
-    status: 'MENUNGGU_APPROVAL',
-    estimate: 4_000_000,
-    actual: 6_000_000,
-    approvedCount: 1,
-  }), 'DIREKTUR')
-})
-
 test('does not expose an approval action when service is not waiting for approval', () => {
   assert.equal(getRequiredServiceApprovalRole({
     status: 'DALAM_PENGERJAAN',
     estimate: 6_000_000,
     actual: 6_000_000,
     approvedCount: 0,
+  }), null)
+})
+
+test('does not expose an additional approval after the database limit of two approvals', () => {
+  assert.equal(getRequiredServiceApprovalRole({
+    status: 'MENUNGGU_APPROVAL',
+    estimate: 4_000_000,
+    actual: 6_000_000,
+    approvedCount: 2,
   }), null)
 })
