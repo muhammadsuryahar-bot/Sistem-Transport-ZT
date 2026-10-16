@@ -21,6 +21,8 @@ export function getRequiredServiceApprovalRole({
   const actualAmount = amountOr(actual, estimatedAmount)
   const count = Number(approvedCount) || 0
 
+  // guard_service_approval() rejects any third approval.
+  if (count >= 2) return null
   if (count >= 1 && actualAmount <= estimatedAmount) return null
 
   const approvalAmount = count <= 0 ? estimatedAmount : actualAmount
