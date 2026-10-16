@@ -85,3 +85,12 @@ test('does not expose an approval action when service is not waiting for approva
     approvedCount: 0,
   }), null)
 })
+
+test('does not expose an additional approval after the database limit of two approvals', () => {
+  assert.equal(getRequiredServiceApprovalRole({
+    status: 'MENUNGGU_APPROVAL',
+    estimate: 4_000_000,
+    actual: 6_000_000,
+    approvedCount: 2,
+  }), null)
+})
