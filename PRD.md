@@ -303,12 +303,11 @@ Urutan histori mengikuti `excel_row`.
 
 # 9. Dokumen Kendaraan
 
-Monitoring STNK/KIR/5 tahunan dibatasi untuk **ASET**.
+Monitoring STNK, 5 tahunan, dan pajak dibatasi untuk **ASET**.
 
 Fitur:
 
 - STNK
-- KIR
 - 5 Tahunan
 - Pajak
 - Upload file
@@ -333,7 +332,6 @@ Format monitoring:
 - No Rangka
 - STNK
 - FOTO STNK
-- KIR
 - 5 TAHUN
 - PEMILIK
 
@@ -463,14 +461,14 @@ Master kendaraan menjadi sumber identitas utama untuk mencegah duplikasi.
 
 ## Dokumen
 
-1. STNK DAN KIR
+1. STNK DAN 5 TAHUNAN
 2. DOKUMEN KENDARAAN
 
 ## Aturan Export
 
 - Nomor urut konsisten.
 - Histori rental mengikuti `excel_row`.
-- Export STNK/KIR hanya memakai kendaraan ASET.
+- Export STNK/5 tahunan/pajak hanya memakai kendaraan ASET.
 - Header harus jelas.
 - Jangan ada typo seperti `No Ranka` atau `Jenis Pekerjan`.
 - Jenis sewa menggunakan Sewa Perorangan / Sewa Perusahaan.
@@ -508,7 +506,7 @@ Sudah diverifikasi:
 - signed URL;
 - guard penghapusan service;
 - pengecekan relasi kendaraan;
-- dokumen STNK/KIR/5 tahunan dibatasi ke ASET.
+- dokumen STNK/5 tahunan/pajak dibatasi ke ASET.
 
 ### Warning yang masih ada
 
@@ -602,7 +600,6 @@ Jangan menghapus index massal tanpa analisis query.
 ## Dokumen
 
 - [x] STNK
-- [x] KIR
 - [x] 5 Tahunan
 - [x] Pajak
 - [x] Reminder
@@ -658,7 +655,7 @@ Jangan menghapus index massal tanpa analisis query.
 
 ### Dokumen
 
-- STNK/KIR/5 tahunan ASET
+- STNK/5 tahunan/pajak ASET
 - reminder
 - pajak
 - upload
@@ -783,7 +780,7 @@ Release final harus memenuhi:
 - Preference kolom disimpan per modul.
 - Summary Rental dinormalisasi.
 - Histori rental export mengikuti `excel_row`.
-- Export Dokumen/STNK-KIR dibatasi ke ASET.
+- Export Dokumen/STNK/5 tahunan/pajak dibatasi ke ASET.
 - Header export diperbaiki menjadi `No Rangka` dan `Jenis Pekerjaan`.
 - Jenis sewa runtime menjadi Sewa Perorangan/Sewa Perusahaan.
 - PRD ini menjadi backup perubahan besar.
@@ -792,7 +789,7 @@ Release final harus memenuhi:
 
 # 24. Status Audit Terbaru — 16 Oktober 2026
 
-**Rilis aplikasi terbaru yang diverifikasi (16 Oktober 2026):** commit production `d2e1aaf6e3703ff142f5a866d60a0d4b329b9f59`. PR #44 menyamakan aturan role/jumlah approval UI dengan guard database; PR #45 mencegah KM master turun karena pembacaan service kosong atau lebih rendah; PR #47 memperbaiki export Genset agar memakai kolom `engine_no` dan `generator_no` yang benar. PR #46 menyelaraskan nama file migration delete guard dengan versi yang tercatat di Supabase. Pemeriksaan terakhir: **74/74 tes lulus**, build, lint, `Verify Transport System`, dan production browser smoke lulus; status Vercel `SUCCESS`.
+**Rilis aplikasi terbaru yang diverifikasi (16 Oktober 2026):** PR #45 melindungi KM master dari pembacaan service kosong/lebih rendah; PR #47 memperbaiki mapping export Genset (`engine_no`/`generator_no`); PR #46 menyelaraskan nama file migration delete guard dengan versi production; PR #49 mencocokkan role dan jumlah approval UI dengan trigger database termasuk approver pertama berbasis estimasi, approver tambahan berbasis biaya aktual, dan batas maksimum dua approval. PR #49 lulus **76/76 tes**, build, lint, dan `Verify Transport System`. Production browser smoke test atas commit setelah PR #49 sedang diverifikasi; hasilnya akan diperbarui sebelum dokumen ini digabung.
 **Production browser smoke test:** PASS pada halaman root/login produksi menggunakan viewport HP 375×812 dan desktop 1365×900. Logo, field login, tombol tampil/sembunyikan password, rendering, error JavaScript/console, same-origin request failures, dan overflow horizontal diperiksa. Test ini tidak mengirim kredensial sehingga tidak membuktikan login sungguhan, UAT role, transaksi, upload/export, atau backup.
 
 **Snapshot database yang diverifikasi langsung:**
@@ -833,4 +830,5 @@ Release final harus memenuhi:
 | 1.6 | 14-10-2026 | Pembaruan status PR #39 setelah 55/55 tes, build/lint, Verify System dan production smoke lulus; migrasi rekonsiliasi audit yang sudah diterapkan dan diselaraskan namanya dengan versi Supabase |
 | 1.7 | 14-10-2026 | Anomali total sumber Data Service No. 327/328 didokumentasikan dan dianotasi di catatan Service tanpa mengubah nilai finansial; invoice tetap diminta untuk rekonsiliasi final |
 | 1.8 | 14-10-2026 | PR #42 mencegah import workbook lama menimpa data master penting yang berbeda; 57/57 tes, build/lint, verifikasi sistem, Vercel deployment dan production browser smoke lulus; UAT bisnis tetap pending |
-| 1.9 | 16-10-2026 | PR #44 memperbaiki aturan approval, PR #45 melindungi KM master, PR #46 menyelaraskan histori migration delete guard, PR #47 memperbaiki mapping export Genset; 74/74 tes dan production smoke lulus; UAT end-to-end tetap pending |
+| 1.9 | 16-10-2026 | Perbaikan KM master, mapping export Genset, dan penyelarasan histori migration delete guard; 74/74 tes dan production smoke lulus; UAT end-to-end tetap pending |
+| 2.0 | 16-10-2026 | PR #49 mencocokkan aturan role/jumlah approval frontend dengan trigger database; 76/76 tes, build/lint, dan Verify System lulus; UAT bisnis tetap pending |
