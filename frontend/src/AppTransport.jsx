@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { supabase } from './lib/supabase'
 import LoginPage from './modules/LoginPage.jsx'
 import { exportToExcel } from './utils/exportExcel'
+import { buildGensetExportRows } from './utils/gensetExport.js'
 import KendaraanPage from './modules/KendaraanPage'
 import GensetPage from './modules/GensetPage.jsx'
 import PermintaanServicePage from './modules/PermintaanServicePage'
@@ -196,8 +197,8 @@ function AppTransport() {
         if (error) throw error
         exportToExcel(`Rekap-Genset-ZT-${stamp}.xls`, [{
           title: 'DATA GENSET',
-          columns: columns([['no_export', 'No'], ['merk', 'Merk'], ['kapasitas_kva', 'Kapasitas (KVA)'], ['nomor_mesin', 'Engine No.'], ['nomor_generator', 'Generator No.'], ['lokasi_kerja', 'Lokasi Kerja'], ['pemilik', 'Pemilik'], ['status_kepemilikan', 'Status Kepemilikan'], ['keterangan', 'Keterangan']]),
-          rows: (data || []).map((x, index) => ({ no_export: x.source_no ?? index + 1, merk: x.merk || '-', kapasitas_kva: x.kapasitas_kva, nomor_mesin: x.nomor_mesin || '-', nomor_generator: x.nomor_generator || '-', lokasi_kerja: x.lokasi_kerja || '-', pemilik: x.pemilik || '-', status_kepemilikan: x.status_kepemilikan === 'ASET' ? 'Aset' : 'Sewa', keterangan: x.keterangan || '-' })),
+          columns: columns([['no_export', 'No'], ['merk', 'Merk'], ['kapasitas_kva', 'Kapasitas (KVA)'], ['engine_no', 'Engine No.'], ['generator_no', 'Generator No.'], ['lokasi_kerja', 'Lokasi Kerja'], ['pemilik', 'Pemilik'], ['status_kepemilikan', 'Status Kepemilikan'], ['keterangan', 'Keterangan']]),
+          rows: buildGensetExportRows(data || []),
         }])
       } else if (activePage === 'kendaraan') {
         const [v, d] = await Promise.all([
