@@ -3,6 +3,8 @@ name: Production browser smoke test
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -24,7 +26,7 @@ jobs:
           npm install --no-save --package-lock=false playwright
           npx playwright install --with-deps chromium
         working-directory: frontend
-      - name: Test production root at desktop and mobile sizes
+      - name: Test production root at 320, 375, 430 and desktop sizes
         working-directory: frontend
         shell: bash
         run: |
@@ -38,7 +40,9 @@ jobs:
 
           try {
             for (const viewport of [
+              { name: 'mobile-320', width: 320, height: 720 },
               { name: 'mobile-375', width: 375, height: 812 },
+              { name: 'mobile-430', width: 430, height: 932 },
               { name: 'desktop-1365', width: 1365, height: 900 },
             ]) {
               const page = await browser.newPage({ viewport: { width: viewport.width, height: viewport.height } })
