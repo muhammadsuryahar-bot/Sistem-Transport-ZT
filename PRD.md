@@ -790,21 +790,21 @@ Release final harus memenuhi:
 
 ---
 
-# 24. Status Audit Terbaru — 13 Oktober 2026
+# 24. Status Audit Terbaru — 16 Oktober 2026
 
-**Rilis aplikasi terbaru yang diverifikasi:** fitur Patokan Harga/Shopping List digabung melalui PR #36 pada commit aplikasi `4c59aa93f72050f576ee96be247a67fe98bbd2bb`. Vercel `SUCCESS`; `Verify Transport Build` dan `Verify Transport System` lulus. Regresi otomatis lulus **44/44 tes** (0 gagal), dengan build dan lint lulus.
+**Rilis aplikasi terbaru yang diverifikasi (16 Oktober 2026):** commit production `d2e1aaf6e3703ff142f5a866d60a0d4b329b9f59`. PR #44 menyamakan aturan role/jumlah approval UI dengan guard database; PR #45 mencegah KM master turun karena pembacaan service kosong atau lebih rendah; PR #47 memperbaiki export Genset agar memakai kolom `engine_no` dan `generator_no` yang benar. PR #46 menyelaraskan nama file migration delete guard dengan versi yang tercatat di Supabase. Pemeriksaan terakhir: **74/74 tes lulus**, build, lint, `Verify Transport System`, dan production browser smoke lulus; status Vercel `SUCCESS`.
 **Production browser smoke test:** PASS pada halaman root/login produksi menggunakan viewport HP 375×812 dan desktop 1365×900. Logo, field login, tombol tampil/sembunyikan password, rendering, error JavaScript/console, same-origin request failures, dan overflow horizontal diperiksa. Test ini tidak mengirim kredensial sehingga tidak membuktikan login sungguhan, UAT role, transaksi, upload/export, atau backup.
 
 **Snapshot database yang diverifikasi langsung:**
 - 75 kendaraan: 31 ASET, 18 SEWA_PERORANGAN, 26 SEWA_PERUSAHAAN; 0 nomor polisi ganda setelah normalisasi.
 - 18 pengajuan service; 18 transaksi service; 388 rincian Data Service dengan 388 nomor sumber unik dari 1–388.
-- 33 genset: 7 ASET dan 26 SEWA.
+- 33 genset: 7 ASET dan 26 SEWA, sama dengan 33 baris data pada sheet `Data Genset`. Nomor mesin dan generator tetap kosong karena dua kolom tersebut juga kosong pada seluruh baris data workbook sumber; tidak diisi dengan nilai perkiraan.
 - 358 baris Summary Rental; total invoice Rp3.285.788.572,00 sama dengan Grand Total sumber.
 - 86 dokumen: 31 STNK, 31 5 tahunan, 24 pajak. Tidak ditemukan dokumen terhubung ke kendaraan SEWA atau foreign key dokumen tanpa kendaraan.
 - 22 dari 22 tabel `public` mengaktifkan RLS; seluruh 32 foreign key pada schema `public` tervalidasi.
 - Tabel Patokan Harga Service masih memiliki 0 baris. Perubahan Patokan Harga/Shopping List pada PR #36 menambahkan agregasi histori, filter kategori, tampilan min/median/rata-rata/maksimum dan CRUD patokan dengan role ADMIN/TRANSPORT; ATASAN_TRANSPORT/DIREKTUR/AKUNTANSI hanya lihat. Tidak ada harga patokan yang di-seed otomatis.
 - Database produksi saat dicek memiliki 1 akun Auth dan 1 profile aktif, keduanya ADMIN. UAT nyata kelima role lainnya belum mungkin dilakukan sampai akun resmi dibuat/diundang.
-- Seluruh 86 record dokumen kendaraan memiliki `file_path` kosong. Workbook menyediakan metadata/tanggal, bukan lampiran fisik; jika operasional membutuhkan file STNK/5 tahunan/pajak di sistem, file asli perlu diunggah dan alur upload/akses privat diuji.
+- Seluruh 86 record dokumen kendaraan memiliki `file_path` kosong dan pemeriksaan Storage menemukan 0 objek berkas. Workbook menyediakan metadata/tanggal, bukan lampiran fisik; file asli harus diunggah dan alur upload, signed URL, serta akses privat diuji.
 - Organisasi Supabase terdeteksi di Free plan; leaked-password protection bawaan memerlukan Pro atau lebih tinggi. Warning Auth harus ditutup setelah pemilik memutuskan upgrade dan mengaktifkannya di Supabase Auth.
 
 **Anomali dan batasan yang masih harus dikelola:**
@@ -833,3 +833,4 @@ Release final harus memenuhi:
 | 1.6 | 14-10-2026 | Pembaruan status PR #39 setelah 55/55 tes, build/lint, Verify System dan production smoke lulus; migrasi rekonsiliasi audit yang sudah diterapkan dan diselaraskan namanya dengan versi Supabase |
 | 1.7 | 14-10-2026 | Anomali total sumber Data Service No. 327/328 didokumentasikan dan dianotasi di catatan Service tanpa mengubah nilai finansial; invoice tetap diminta untuk rekonsiliasi final |
 | 1.8 | 14-10-2026 | PR #42 mencegah import workbook lama menimpa data master penting yang berbeda; 57/57 tes, build/lint, verifikasi sistem, Vercel deployment dan production browser smoke lulus; UAT bisnis tetap pending |
+| 1.9 | 16-10-2026 | PR #44 memperbaiki aturan approval, PR #45 melindungi KM master, PR #46 menyelaraskan histori migration delete guard, PR #47 memperbaiki mapping export Genset; 74/74 tes dan production smoke lulus; UAT end-to-end tetap pending |
