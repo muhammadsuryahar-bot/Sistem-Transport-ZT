@@ -1,6 +1,11 @@
 -- Correct kmUpdated summary for import_service_history.
 -- Completion triggers can update kilometer_terakhir before the RPC's old counter ran,
 -- which made the response report zero even when an imported reading advanced master KM.
+
+-- The history RPC below depends on this idempotency key from the history backfill.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_riwayat_kilometer_import_service_reading
+  ON public.riwayat_kilometer (kendaraan_id, tanggal, kilometer)
+  WHERE sumber = 'IMPORT_SERVICE';
 CREATE OR REPLACE FUNCTION public.import_service_history(p_payload jsonb, p_source_sheet text)
 RETURNS jsonb
 LANGUAGE plpgsql
