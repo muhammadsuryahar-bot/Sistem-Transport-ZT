@@ -10,9 +10,21 @@ import './GensetPage.css'
 const emptyForm = { source_no: '', merk: '', kapasitas_kva: '20', engine_no: '', generator_no: '', lokasi_kerja: '', pemilik: '', status_kepemilikan: 'ASET', keterangan: '' }
 const display = value => value == null || String(value).trim() === '' ? '—' : String(value)
 const normalizeSheetName = value => String(value ?? '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
-const GENSET_VALUE_FIELDS = ['merk', 'engine_no', 'generator_no', 'lokasi_kerja', 'pemilik', 'status_kepemilikan', 'keterangan']
-const sameGensetBusinessValues = (left, right) => Number(left?.kapasitas_kva) === Number(right?.kapasitas_kva)
-  && GENSET_VALUE_FIELDS.every(field => String(left?.[field] ?? '').trim() === String(right?.[field] ?? '').trim())
+const GENSET_COMPARE_FIELDS = [
+  ['merk', 'Merk'],
+  ['kapasitas_kva', 'Kapasitas KVA'],
+  ['engine_no', 'No. Mesin'],
+  ['generator_no', 'No. Generator'],
+  ['lokasi_kerja', 'Lokasi'],
+  ['pemilik', 'Pemilik'],
+  ['status_kepemilikan', 'Status kepemilikan'],
+  ['keterangan', 'Keterangan'],
+]
+const sameGensetBusinessValues = (left, right) => GENSET_COMPARE_FIELDS.every(([field]) => (
+  field === 'kapasitas_kva'
+    ? Number(left?.[field]) === Number(right?.[field])
+    : String(left?.[field] ?? '').trim() === String(right?.[field] ?? '').trim()
+))
 
 export default function GensetPage({ profile }) {
   const [rows, setRows] = useState([])
@@ -85,14 +97,27 @@ export default function GensetPage({ profile }) {
     let newCount = 0
     let changedCount = 0
     let unchangedCount = 0
+    const changedRows = []
     const validCount = importPreview.rows.filter(row => row.source_errors.length === 0).length
     for (const row of importPreview.rows) {
       const existing = existingByNo.get(Number(row.source_no))
-      if (!existing) newCount += 1
-      else if (sameGensetBusinessValues(row, existing)) unchangedCount += 1
-      else changedCount += 1
+      if (!existing) {
+        newCount += 1
+        continue
+      }
+      if (sameGensetBusinessValues(row, existing)) {
+        unchangedCount += 1
+        continue
+      }
+      changedCount += 1
+      const changedFields = GENSET_COMPARE_FIELDS
+        .filter(([field]) => field === 'kapasitas_kva'
+          ? Number(row[field]) !== Number(existing[field])
+          : String(row[field] ?? '').trim() !== String(existing[field] ?? '').trim())
+        .map(([field, label]) => ({ label, oldValue: existing[field], newValue: row[field] }))
+      changedRows.push({ source_no: row.source_no, source_row: row.source_row, fields: changedFields })
     }
-    return { newCount, changedCount, unchangedCount, validCount }
+    return { newCount, changedCount, unchangedCount, validCount, changedRows }
   }, [rows, importPreview])
 
   const importGensetRows = async () => {
@@ -217,7 +242,7 @@ export default function GensetPage({ profile }) {
 
   return <div className="genset-page">
     <PageBreadcrumb items={['Transport', 'Data Genset']} />
-    <div className="x-head"><div><span className="eyebrow">DATA ASET & SEWA</span><h2>Data Genset</h2><p>Daftar genset berdasarkan sumber Excel Data Genset, termasuk aset perusahaan dan genset sewa.</p></div>{canManage && <div className="genset-head-actions"><input ref={importInputRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden disabled={importLoading || importSaving} onChange={event => { const selected = event.target.files?.[0]; scanGensetFile(selected) }}/><button type="button" className="x-btn secondary" onClick={() => importInputRef.current?.click()} disabled={importLoading || importSaving}>{importLoading ? 'Membaca Excel…' : 'Import Excel'}</button><button type="button" className="x-btn primary" onClick={beginNew} disabled={importLoading || importSaving}>+ Tambah Genset</button></div>}</div>
+    <div className="x-head"><div><span className="eyebrow">DATA ASET & SEWA</span><h2>Data Genset</h2><p>Daftar genset berdasarkan sumber Excel Data Genset, termasuk aset perusahaan dan genset sewa.</p></div>{canManage && <div className="genset-head-actions"><input ref={importInputRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden disabled={importLoading || importSaving} onChange={event => { const selected = event.target.files?.[0]; event.target.value = ''; if (selected) scanGensetFile(selected) }}/><button type="button" className="x-btn secondary" onClick={() => importInputRef.current?.click()} disabled={importLoading || importSaving}>{importLoading ? 'Membaca Excel…' : 'Import Excel'}</button><button type="button" className="x-btn primary" onClick={beginNew} disabled={importLoading || importSaving}>+ Tambah Genset</button></div>}</div>
     <div className="genset-kpis">
       <div className="genset-kpi"><span>Total Genset</span><strong>{rows.length}</strong></div>
       <div className="genset-kpi"><span>Aset</span><strong>{rows.filter(row => row.status_kepemilikan === 'ASET').length}</strong></div>
@@ -237,6 +262,7 @@ export default function GensetPage({ profile }) {
         <div className="genset-kpi"><span>Data berbeda</span><strong>{importComparison.changedCount}</strong></div>
       </div>
       {importPreview.errors.length > 0 && <div className="x-alert error" role="alert"><b>Import ditahan: {importPreview.errors.length} masalah ditemukan. Tidak ada baris yang akan disimpan.</b><ul>{importPreview.errors.slice(0, 12).map((issue, index) => <li key={`${index}-${issue}`}>{issue}</li>)}</ul>{importPreview.errors.length > 12 && <p>Dan {importPreview.errors.length - 12} masalah lainnya.</p>}</div>}
+      {importComparison.changedRows?.length > 0 && <div className="x-alert" role="note"><b>{importComparison.changedCount} No. sumber memiliki nilai yang berbeda dari master dan akan diperbarui bila impor dilanjutkan.</b><ul>{importComparison.changedRows.slice(0, 12).map(row => <li key={row.source_no}>No. {row.source_no} (baris Excel {row.source_row}): {row.fields.map(field => `${field.label}: ${display(field.oldValue)} → ${display(field.newValue)}`).join('; ')}</li>)}</ul>{importComparison.changedRows.length > 12 && <p>Dan {importComparison.changedRows.length - 12} nomor sumber lainnya memiliki perubahan.</p>}</div>}
       {importPreview.rows.length > 0 && <div className="x-table-wrap"><table className="x-table"><thead><tr><th>No.</th><th>Baris Excel</th><th>Merk</th><th>KVA</th><th>No. Mesin</th><th>No. Generator</th><th>Lokasi</th><th>Pemilik</th><th>Status</th><th>Keterangan / Validasi</th></tr></thead><tbody>{importPreview.rows.map((row, index) => <tr key={`${row.source_row ?? index}-${row.source_no}`}><td>{display(row.source_no_raw)}</td><td>{display(row.source_row)}</td><td>{display(row.merk)}</td><td>{display(row.kapasitas_kva)}</td><td>{display(row.engine_no)}</td><td>{display(row.generator_no)}</td><td>{display(row.lokasi_kerja)}</td><td>{display(row.pemilik)}</td><td>{display(row.status_kepemilikan || row.status_kepemilikan_raw)}</td><td>{row.source_errors.length ? row.source_errors.join(' ') : display(row.keterangan)}</td></tr>)}</tbody></table></div>}
       <div className="genset-form-actions"><button type="button" className="x-btn secondary" onClick={() => { setImportPreview(null); setImportError(''); if (importInputRef.current) importInputRef.current.value = '' }} disabled={importSaving}>Batal</button><button type="button" className="x-btn primary" onClick={importGensetRows} disabled={!importPreview.rows.length || importPreview.errors.length > 0 || importSaving || importLoading || !canManage}>{importSaving ? 'Menyimpan…' : importPreview.errors.length ? 'Import Ditahan: Perbaiki Excel' : `Import ${importPreview.rows.length} Baris Genset`}</button></div>
     </section>}
