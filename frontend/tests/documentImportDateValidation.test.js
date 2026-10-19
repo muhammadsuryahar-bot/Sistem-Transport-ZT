@@ -8,7 +8,10 @@ import {
 function source(kind, sheetName, header, rows) {
   return {
     kind,
-    sheet: { name: sheetName, rows },
+    sheet: {
+      name: sheetName,
+      rows: [{ excelRow: 5, values: header }, ...rows],
+    },
     header: { index: 0, row: header },
   }
 }
