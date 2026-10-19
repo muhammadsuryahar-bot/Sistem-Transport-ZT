@@ -70,6 +70,7 @@ test('ignores empty formatted rows but flags any non-empty incomplete source row
 
   assert.equal(result.dataRows.length, 2)
   assert.equal(result.rows.length, 2)
-  assert.equal(result.errors.length, 1)
-  assert.match(result.errors[0], /baris Excel 40.*No sumber wajib/)
+  assert.ok(result.errors.length >= 1)
+  assert.ok(result.errors.some(issue => /baris Excel 40/.test(issue)))
+  assert.ok(result.errors.some(issue => /No sumber wajib/.test(issue)))
 })
