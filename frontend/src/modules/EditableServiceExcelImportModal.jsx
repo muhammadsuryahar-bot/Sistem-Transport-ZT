@@ -8,6 +8,7 @@ import { encodeExcelMeta } from '../utils/excelSourceMeta.js'
 import './EditableServiceExcelImportModal.css'
 import { excelDate } from '../utils/excelDate.js'
 import { roundCurrency } from '../utils/serviceMoneyPrecision.js'
+import { findServicePpnAnomalies } from '../utils/serviceImportFinancialAnomalies.js'
 import { financialBreakdownMatches, normalizeServiceMoney } from '../utils/serviceImportMoney.js'
 import { selectServiceImportRows } from '../utils/serviceImportRows.js'
 
@@ -293,6 +294,8 @@ async function importHistory(rows, sheetName, onProgress = () => {}) {
           total_source_blank: row.total_source_blank,
           source_amounts_raw: row.source_money_raw || null,
           import_amounts_input: row.money_input || row.source_money_raw || null,
+          ppn_anomaly_review_acknowledged: Boolean(row.ppnAnomalyReviewAcknowledged),
+          ppn_anomaly_review_rate_percent: Number.isFinite(row.ppnAnomalyReviewRatePercent) ? row.ppnAnomalyReviewRatePercent : null,
           kilometer: row.kilometer,
           bengkel: row.bengkel,
           keterangan: row.keterangan || '',
@@ -357,10 +360,12 @@ export default function EditableServiceExcelImportModal({ profile, onDone, onClo
   const [pageSize, setPageSize] = useState(50)
   const [search, setSearch] = useState('')
   const [progress, setProgress] = useState({ completed: 0, total: 0 })
+  const [ppnAnomalyReviewed, setPpnAnomalyReviewed] = useState(false)
   const canImport = ['ADMIN', 'TRANSPORT'].includes(profile?.role)
 
   const scan = async nextFile => {
     clearDeletedExcelRows('service')
+    setPpnAnomalyReviewed(false)
     setFile(nextFile || null); setSheet(null); setHeaders([]); setRows([]); setError(''); setMessage(''); setPage(1); setSearch('')
     if (!nextFile) return
     if (!/\.xlsx$/i.test(nextFile.name)) return setError('Gunakan file Excel .xlsx. Format .xls lama belum didukung.')
@@ -410,11 +415,13 @@ export default function EditableServiceExcelImportModal({ profile, onDone, onClo
   const uniquePlates = useMemo(() => [...new Set(validRows.map(row => row.nomor_polisi))], [validRows])
   const invalidCount = rows.length - validRows.length
   const financialMismatchRows = useMemo(() => validRows.filter(row => !financialBreakdownMatches(row)), [validRows])
+  const highPpnRows = useMemo(() => findServicePpnAnomalies(validRows), [validRows])
   const pageCount = Math.max(1, Math.ceil(filteredRows.length / pageSize))
   const safePage = Math.min(page, pageCount)
   const visibleRows = filteredRows.slice((safePage - 1) * pageSize, safePage * pageSize)
 
   const updateCell = (excelRow, index, rawValue) => {
+    setPpnAnomalyReviewed(false)
     setRows(current => current.map(row => {
       if (row.excelRow !== excelRow) return row
       const next = { ...row, values: [...row.values] }
@@ -471,6 +478,19 @@ export default function EditableServiceExcelImportModal({ profile, onDone, onClo
         const rowLabels = invalidCoreRows.slice(0, 12).map(row => row.source_no || row.excelRow).join(', ')
         throw new Error(`Impor Service ditahan: ${invalidCoreRows.length} baris sumber belum valid karena No. Polisi atau Tanggal kosong/tidak terbaca. Baris sumber: ${rowLabels}${invalidCoreRows.length > 12 ? ' …' : ''}. Perbaiki data sebelum impor; sistem tidak akan menyimpan hanya sebagian baris.`)
       }
+      const highPpnRowsForImport = findServicePpnAnomalies(activeValidRows)
+      if (highPpnRowsForImport.length && !ppnAnomalyReviewed) {
+        const labels = highPpnRowsForImport.slice(0, 12).map(row => {
+          const sourceLabel = row.source_no ? `No. ${row.source_no}` : `Excel baris ${row.excelRow}`
+          const rateLabel = Number.isFinite(row.ratePercent) ? `${row.ratePercent.toFixed(2)}%` : 'DPP kosong/nol'
+          return `${sourceLabel} (PPN Rp ${formatNumberId(row.ppn)}; DPP Rp ${formatNumberId(row.nilai_dpp)}; ${rateLabel})`
+        }).join('; ')
+        throw new Error(`Impor ditahan: ${highPpnRowsForImport.length} baris memiliki PPN di atas 20% dari DPP atau PPN tanpa DPP positif. Cocokkan baris berikut dengan invoice asli lalu centang konfirmasi pemeriksaan sebelum melanjutkan: ${labels}${highPpnRowsForImport.length > 12 ? ' …' : ''}. Sistem tidak mengubah nominal otomatis.`)
+      }
+      const rowsWithPpnReview = activeRows.map(row => {
+        const review = highPpnRowsForImport.find(item => item.excelRow === row.excelRow)
+        return review ? { ...row, ppnAnomalyReviewAcknowledged: true, ppnAnomalyReviewRatePercent: review.ratePercent } : row
+      })
       const invalidFinancialRows = activeValidRows.filter(row => !financialBreakdownMatches(row))
       if (invalidFinancialRows.length) {
         const rowLabels = invalidFinancialRows.slice(0, 12).map(row => row.source_no || row.excelRow).join(', ')
@@ -478,7 +498,7 @@ export default function EditableServiceExcelImportModal({ profile, onDone, onClo
       }
       const activeTransactions = groupRows(activeValidRows)
       setProgress({ completed: 0, total: activeTransactions.length })
-      const result = await importHistory(activeRows, sheet?.name || 'Data Service', ({ completed, total }) => { setProgress({ completed, total }); setMessage(`Memproses import: ${completed}/${total} transaksi...`) })
+      const result = await importHistory(rowsWithPpnReview, sheet?.name || 'Data Service', ({ completed, total }) => { setProgress({ completed, total }); setMessage(`Memproses import: ${completed}/${total} transaksi...`) })
       const deletedCount = rows.length - activeRows.length
       const report = { context: 'service', ...result, sourceRows: rows.length, validRows: activeValidRows.length, addedCount: Number(result.imported || 0), updatedCount: 0, skippedCount: Number(result.duplicateTransactions || 0) + deletedCount, errorCount: Number(result.invalidRows || 0) + Number(result.unknownTransactions || 0), deletedCount, transactions: result.transactions, fileName: file?.name || '', completedAt: new Date().toISOString(), message: `${result.imported} transaksi baru disimpan • ${result.duplicateTransactions} transaksi sudah ada/skip • ${Number(result.invalidRows || 0) + Number(result.unknownTransactions || 0)} baris bermasalah • ${result.items} item tersimpan • ${result.kmUpdated} KM kendaraan diperbarui.` }
       sessionStorage.setItem('transport_import_report', JSON.stringify(report)); setProgress({ completed: transactions.length, total: transactions.length }); setMessage(result.unknownPlates.length ? `${report.message} ${result.unknownPlates.length} plat tidak ada di Master dan tidak dibuat.` : report.message)
@@ -502,6 +522,7 @@ export default function EditableServiceExcelImportModal({ profile, onDone, onClo
         <div className="service-import-stats"><div><b>{rows.length}</b><span>baris data</span></div><div><b>{validRows.length}</b><span>baris valid</span></div><div><b>{transactions.length}</b><span>transaksi service</span></div><div><b>{uniquePlates.length}</b><span>kendaraan</span></div></div>
         {invalidCount > 0 && <div className="service-import-warning">{invalidCount} baris belum valid. Edit No. Polisi/Tanggal langsung di tabel agar ikut terimport.</div>}
         {financialMismatchRows.length > 0 && <div className="service-import-warning">{financialMismatchRows.length} baris memiliki DPP + PPN yang tidak sama dengan Total. Perbaiki nilai keuangan di tabel sebelum import agar data biaya tidak masuk dalam keadaan salah.</div>}
+        {highPpnRows.length > 0 && <div className="service-import-warning" role="alert"><b>Perlu verifikasi PPN dari invoice asli.</b> Sistem tidak menganggap tarif ini otomatis salah dan tidak akan mengubah nominal, tetapi impor memerlukan konfirmasi manual untuk {highPpnRows.length} baris dengan PPN di atas 20% dari DPP atau PPN tanpa DPP positif.<ul>{highPpnRows.slice(0, 10).map(row => <li key={row.excelRow}>Excel baris {row.excelRow}{row.source_no ? ` (No. ${row.source_no})` : ''}: PPN Rp {formatNumberId(row.ppn)} / DPP Rp {formatNumberId(row.nilai_dpp)} ({Number.isFinite(row.ratePercent) ? `${row.ratePercent.toFixed(2)}%` : 'DPP kosong/nol'}).</li>)}</ul>{highPpnRows.length > 10 && <p>Dan {highPpnRows.length - 10} baris lainnya ditahan sampai diverifikasi.</p>}<label><input type="checkbox" checked={ppnAnomalyReviewed} onChange={event => setPpnAnomalyReviewed(event.target.checked)} disabled={saving}/> Saya sudah mencocokkan nominal PPN dan DPP pada baris tersebut dengan invoice sumber asli; nominal tidak saya ubah tanpa bukti.</label></div>}
         <div className="editable-service-toolbar"><div><strong>Baris {pageStart}-{pageEnd} dari {filteredRows.length}{search ? ` (filter dari ${rows.length})` : ''}</strong><span>Setiap sel di bawah ini bisa diedit. Perubahan dipakai saat tombol Import ditekan.</span></div><div className="editable-service-controls"><input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} placeholder="Cari data…" disabled={saving}/><label>Per halaman <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1) }} disabled={saving}>{PAGE_OPTIONS.map(size => <option key={size} value={size}>{size}</option>)}</select></label></div></div>
         <div className="dpt-preview editable-service-preview"><table><thead><tr>{headers.map((header, index) => <th key={`${header}-${index}`}>{header || `Kolom ${index + 1}`}</th>)}</tr></thead><tbody>{visibleRows.map(row => <tr data-excel-row={row.excelRow} key={row.excelRow}>{headers.map((header, index) => { const key = fieldForHeader(header); const value = displayValueForRow(row, header, key, index); const numeric = ['qty','harga_satuan','nilai_dpp','ppn','total','kilometer'].includes(key); const date = key === 'tanggal'; return <td key={`${row.excelRow}-${index}`}><input aria-label={`${header} baris ${row.excelRow}`} title={['harga_satuan', 'nilai_dpp', 'ppn', 'total'].includes(key) ? `Nilai asli Excel: ${row.source_money_raw?.[key] === '' || row.source_money_raw?.[key] === undefined || row.source_money_raw?.[key] === null ? '(kosong)' : row.source_money_raw[key]}` : undefined} type={date ? 'text' : 'text'} inputMode={numeric ? 'decimal' : undefined} value={value} onChange={e => updateCell(row.excelRow, index, e.target.value)} disabled={saving} className={numeric ? 'numeric' : ''}/></td> })}</tr>)}</tbody></table></div>
         <div className="editable-service-pagination"><button type="button" className="dpt-button" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage <= 1 || saving}>← Sebelumnya</button><strong>Halaman {safePage} / {pageCount}</strong><button type="button" className="dpt-button" onClick={() => setPage(p => Math.min(pageCount, p + 1))} disabled={safePage >= pageCount || saving}>Berikutnya →</button></div>
