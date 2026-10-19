@@ -160,3 +160,31 @@ export function parseGensetImportSheet(sheet) {
     errors,
   }
 }
+
+const PRESERVE_IF_SOURCE_BLANK = Object.freeze([
+  'engine_no',
+  'generator_no',
+  'lokasi_kerja',
+  'pemilik',
+  'keterangan',
+])
+
+/**
+ * Import must not erase useful values previously recorded in the master when
+ * the source cell is blank. Non-empty values in the official source remain
+ * authoritative and replace the current value.
+ */
+export function preserveExistingGensetValuesOnBlankSource(importedRow, existingRow) {
+  const row = { ...(importedRow || {}) }
+  const preservedFields = []
+  if (!existingRow) return { row, preservedFields }
+
+  for (const field of PRESERVE_IF_SOURCE_BLANK) {
+    if (!clean(row[field]) && clean(existingRow[field])) {
+      row[field] = existingRow[field]
+      preservedFields.push(field)
+    }
+  }
+
+  return { row, preservedFields }
+}
