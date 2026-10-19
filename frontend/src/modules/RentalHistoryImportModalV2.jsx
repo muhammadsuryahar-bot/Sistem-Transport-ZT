@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { humanizeError } from '../utils/feedback.js'
 import { clearDeletedExcelRows, filterDeletedExcelRows } from '../utils/excelPreviewControls.js'
 import { parseXlsx } from '../utils/xlsxParser.js'
+import { rentalHistorySourceRowKey } from '../utils/rentalHistorySourceKey.js'
 import './DataPageTools.css'
 
 const MAX_FILE_SIZE = 25 * 1024 * 1024
@@ -85,14 +86,21 @@ function parseRows(sheet) {
 }
 
 async function importSummary(rows, profile, sourceFile, sourceSheet) {
+  const sourceFileName = String(sourceFile ?? '').trim()
+  const sourceSheetName = String(sourceSheet ?? '').trim()
+  if (!sourceFileName || !sourceSheetName) {
+    throw new Error('Nama file dan nama sheet sumber wajib tersedia agar histori impor tidak menimpa file lain.')
+  }
+
   const existingRes = await supabase
     .from('rental_historis_excel')
     .select('excel_row,source_no,tahun,supplier,uraian,periode_tagihan,nilai_invoice,source_file,source_sheet')
-    .eq('source_sheet', sourceSheet)
+    .eq('source_file', sourceFileName)
+    .eq('source_sheet', sourceSheetName)
 
   if (existingRes.error) throw new Error(`Tidak bisa membaca histori SUMMERY RENTAL: ${existingRes.error.message}`)
 
-  const existingByRow = new Map((existingRes.data || []).map(item => [Number(item.excel_row), item]))
+  const existingByRow = new Map((existingRes.data || []).map(item => [rentalHistorySourceRowKey(item), item]))
   const payloads = rows.map(row => ({
     source_no: row.source_no || null,
     excel_row: Number(row.excelRow),
@@ -101,8 +109,8 @@ async function importSummary(rows, profile, sourceFile, sourceSheet) {
     uraian: row.uraian || null,
     periode_tagihan: row.periode || null,
     nilai_invoice: numberValue(row.nilai_invoice),
-    source_file: sourceFile || null,
-    source_sheet: sourceSheet,
+    source_file: sourceFileName,
+    source_sheet: sourceSheetName,
     catatan: 'Import Excel: SUMMERY RENTAL',
   }))
 
@@ -115,14 +123,14 @@ async function importSummary(rows, profile, sourceFile, sourceSheet) {
     Number(left?.nilai_invoice ?? 0) === Number(right?.nilai_invoice ?? 0) &&
     String(left?.source_file ?? '') === String(right?.source_file ?? '')
 
-  const newRows = payloads.filter(row => !existingByRow.has(row.excel_row))
-  const existingRows = payloads.filter(row => existingByRow.has(row.excel_row))
-  const updatedRows = existingRows.filter(row => !same(row, existingByRow.get(row.excel_row)))
+  const newRows = payloads.filter(row => !existingByRow.has(rentalHistorySourceRowKey(row)))
+  const existingRows = payloads.filter(row => existingByRow.has(rentalHistorySourceRowKey(row)))
+  const updatedRows = existingRows.filter(row => !same(row, existingByRow.get(rentalHistorySourceRowKey(row))))
   const skippedRows = existingRows.length - updatedRows.length
   const toSave = [...newRows, ...updatedRows]
 
   const result = toSave.length
-    ? await supabase.from('rental_historis_excel').upsert(toSave, { onConflict: 'source_sheet,excel_row', ignoreDuplicates: false })
+    ? await supabase.from('rental_historis_excel').upsert(toSave, { onConflict: 'source_file,source_sheet,excel_row', ignoreDuplicates: false })
     : { error: null }
 
   if (result.error) throw new Error(`Gagal menyimpan histori SUMMERY RENTAL: ${result.error.message}`)
