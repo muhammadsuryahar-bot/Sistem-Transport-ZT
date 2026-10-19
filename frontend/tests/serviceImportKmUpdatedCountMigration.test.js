@@ -24,6 +24,6 @@ test('reports a master odometer change only when imported max is above its origi
 
 test('retains idempotent history writes and never lowers the master odometer', () => {
   assert.ok(migration.includes("and coalesce((value->>'kilometer')::numeric, 0) > 0"))
-  assert.ok(migration.includes('ON CONFLICT (kendaraan_id, tanggal, kilometer)'))
+  assert.ok(migration.toLowerCase().includes('on conflict (kendaraan_id, tanggal, kilometer)'))
   assert.ok(migration.includes("CREATE UNIQUE INDEX IF NOT EXISTS uq_riwayat_kilometer_import_service_reading"))
 })
