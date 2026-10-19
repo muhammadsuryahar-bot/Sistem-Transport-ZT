@@ -4,6 +4,7 @@ import { humanizeError } from '../utils/feedback.js'
 import { clearDeletedExcelRows, filterDeletedExcelRows } from '../utils/excelPreviewControls.js'
 import { parseXlsx } from '../utils/xlsxParser.js'
 import { encodeExcelMeta } from '../utils/excelSourceMeta.js'
+import { assertNoInvalidTransportRows } from '../utils/transportImportBatchValidation.js'
 import './DataPageTools.css'
 
 const clean = (v) => String(v ?? '').replace(/\s+/g, ' ').trim()
@@ -149,17 +150,18 @@ export default function PengajuanExcelImportModal({ profile, onDone, onClose }) 
       const valid = []
       for (const row of activeRows) {
         const vehicle = vehicleMap[row.nomor_polisi]
-        if (!row.nomor_polisi || !row.tanggal || !row.keluhan) { invalid.push({ row: row.excelRow, reason: 'No Polisi/Tanggal/Keterangan belum lengkap' }); continue }
-        if (!vehicle) { invalid.push({ row: row.excelRow, reason: `Plat ${row.nomor_polisi} belum ada di Master Kendaraan` }); continue }
-        if (vehicle.status === 'TIDAK_AKTIF') { invalid.push({ row: row.excelRow, reason: 'Kendaraan tidak aktif' }); continue }
+        if (!row.nomor_polisi || !row.tanggal || !row.keluhan) { invalid.push({ sourceRow: row.excelRow, plate: row.nomor_polisi, reason: 'No Polisi/Tanggal/Keterangan belum lengkap' }); continue }
+        if (!vehicle) { invalid.push({ sourceRow: row.excelRow, plate: row.nomor_polisi, reason: `Plat ${row.nomor_polisi} belum ada di Master Kendaraan` }); continue }
+        if (vehicle.status === 'TIDAK_AKTIF') { invalid.push({ sourceRow: row.excelRow, plate: row.nomor_polisi, reason: 'Kendaraan tidak aktif' }); continue }
         const jenis = ['SERVICE', 'GANTI_BAN', 'GANTI_AKI', 'PEMERIKSAAN'].includes(row.jenis) ? row.jenis : (/BAN/.test(row.jenis) ? 'GANTI_BAN' : /AKI|BATERAI/.test(row.jenis) ? 'GANTI_AKI' : /PEMERIKSAAN/.test(row.jenis) ? 'PEMERIKSAAN' : 'SERVICE')
         const prioritas = row.prioritas === 'MENDESAK' ? 'MENDESAK' : 'NORMAL'
         const km = row.kilometer ?? Number(vehicle.kilometer_terakhir || 0)
         const key = [vehicle.id, row.tanggal, jenis, row.keluhan.toUpperCase(), km].join('|')
-        if (seen.has(key)) { invalid.push({ row: row.excelRow, reason: 'Duplikat di file Excel' }); continue }
+        if (seen.has(key)) { invalid.push({ sourceRow: row.excelRow, plate: row.nomor_polisi, reason: 'Duplikat di file Excel' }); continue }
         seen.add(key)
         valid.push({ ...row, jenis, prioritas, vehicle, km, key })
       }
+      assertNoInvalidTransportRows('pengajuan', invalid)
       if (!valid.length) throw new Error('Tidak ada baris Pengajuan yang valid. Pastikan No Polisi sudah ada di Master Kendaraan dan tanggal/keterangan terisi.')
 
       const existing = await supabase.from('permintaan_service').select('kendaraan_id,tanggal_pengajuan,kilometer_pengajuan,jenis_permintaan,keluhan')
