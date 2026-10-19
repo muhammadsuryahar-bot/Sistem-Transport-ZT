@@ -1,24 +1,24 @@
 import { isBlankSourceAmount } from './serviceHistorySourceMoney.js'
 import { roundCurrency } from './serviceMoneyPrecision.js'
 
-const clean = value => String(value ?? '').replace(/\\s+/g, ' ').trim()
+const clean = value => String(value ?? '').replace(/\s+/g, ' ').trim()
 
 function currencyValue(value) {
   let raw = clean(value)
   if (!raw) return 0
-  raw = raw.replace(/^(rp|idr)\\.?\\s*/i, '').replace(/\\s/g, '').replace(/[^0-9,.-]/g, '')
+  raw = raw.replace(/^(rp|idr)\.?\s*/i, '').replace(/\s/g, '').replace(/[^0-9,.-]/g, '')
   if (!raw) return 0
 
   const comma = raw.lastIndexOf(',')
   const dot = raw.lastIndexOf('.')
   if (comma >= 0 && dot >= 0) {
-    raw = comma > dot ? raw.replace(/\\./g, '').replace(',', '.') : raw.replace(/,/g, '')
+    raw = comma > dot ? raw.replace(/\./g, '').replace(',', '.') : raw.replace(/,/g, '')
   } else if (comma >= 0) {
     const decimals = raw.length - comma - 1
     raw = decimals === 1 || decimals === 2 ? raw.replace(',', '.') : raw.replace(/,/g, '')
   } else if (dot >= 0) {
     const decimals = raw.length - dot - 1
-    if (decimals !== 1 && decimals !== 2) raw = raw.replace(/\\./g, '')
+    if (decimals !== 1 && decimals !== 2) raw = raw.replace(/\./g, '')
   }
 
   const parsed = Number(raw)
@@ -32,7 +32,7 @@ function parseMoneyBase(value) {
 }
 
 function hasFullRupiahFormat(value) {
-  return /^-?\\d{1,3}(?:[.]\\d{3})+(?:[,]\\d+)?$/.test(clean(value))
+  return /^-?\d{1,3}(?:[.]\d{3})+(?:[,]\d+)?$/.test(clean(value))
 }
 
 function normalizeMoneyField(value) {
