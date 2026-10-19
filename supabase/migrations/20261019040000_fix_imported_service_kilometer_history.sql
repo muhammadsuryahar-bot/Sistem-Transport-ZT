@@ -5,7 +5,7 @@
 --
 -- Keep one import-history row per vehicle/date/reading/note and make retries idempotent.
 CREATE UNIQUE INDEX IF NOT EXISTS uq_riwayat_kilometer_import_service_reading
-  ON public.riwayat_kilometer (kendaraan_id, tanggal, kilometer, keterangan)
+  ON public.riwayat_kilometer (kendaraan_id, tanggal, kilometer)
   WHERE sumber = 'IMPORT_SERVICE';
 
 CREATE OR REPLACE FUNCTION public.import_service_history(p_payload jsonb, p_source_sheet text)
@@ -168,9 +168,8 @@ begin
           and rk.tanggal = (grp->>'tanggal')::date
           and rk.kilometer = (grp->>'kilometer')::numeric
           and rk.sumber = 'IMPORT_SERVICE'
-          and coalesce(rk.keterangan, '') = source_note
       )
-      on conflict (kendaraan_id, tanggal, kilometer, keterangan)
+      on conflict (kendaraan_id, tanggal, kilometer)
         where (sumber = 'IMPORT_SERVICE')
       do nothing;
 
@@ -210,11 +209,11 @@ SELECT src.kendaraan_id,
        src.tanggal_service,
        src.kilometer,
        'IMPORT_SERVICE',
-       'Import histori Excel: Data Service',
+       coalesce(nullif(src.catatan, ''), 'Import histori Excel: Data Service'),
        src.diproses_oleh
 FROM (
   SELECT DISTINCT ON (s.kendaraan_id, s.tanggal_service, s.kilometer)
-         s.kendaraan_id, s.tanggal_service, s.kilometer, s.diproses_oleh
+         s.kendaraan_id, s.tanggal_service, s.kilometer, s.diproses_oleh, s.catatan
   FROM public.service s
   WHERE s.nomor_service LIKE 'IMP-SRV-%'
     AND s.status = 'SELESAI'
@@ -224,7 +223,7 @@ FROM (
     AND s.kilometer > 0
   ORDER BY s.kendaraan_id, s.tanggal_service, s.kilometer, s.id
 ) src
-ON CONFLICT (kendaraan_id, tanggal, kilometer, keterangan)
+ON CONFLICT (kendaraan_id, tanggal, kilometer)
   WHERE (sumber = 'IMPORT_SERVICE')
 DO NOTHING;
 
@@ -252,7 +251,6 @@ BEGIN
       AND rk.tanggal = src.tanggal_service
       AND rk.kilometer = src.kilometer
       AND rk.sumber = 'IMPORT_SERVICE'
-      AND rk.keterangan = 'Import histori Excel: Data Service'
   );
 
   IF missing_readings > 0 THEN
