@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import PageBreadcrumb from './PageBreadcrumb.jsx'
 import { normalizeGensetInput, validateGensetInput } from '../utils/gensetData.js'
 import { parseXlsx } from '../utils/xlsxParser.js'
-import { parseGensetImportSheet } from '../utils/gensetExcelImport.js'
+import { parseGensetImportSheet, preserveExistingGensetValuesOnBlankSource } from '../utils/gensetExcelImport.js'
 import './TransportOperationsFixed.css'
 import './GensetPage.css'
 
@@ -89,11 +89,12 @@ export default function GensetPage({ profile }) {
   }
 
   const importComparison = useMemo(() => {
-    if (!importPreview) return { newCount: 0, changedCount: 0, unchangedCount: 0, validCount: 0 }
+    if (!importPreview) return { newCount: 0, changedCount: 0, unchangedCount: 0, validCount: 0, preservedFieldCount: 0 }
     const existingByNo = new Map(rows.map(row => [Number(row.source_no), row]))
     let newCount = 0
     let changedCount = 0
     let unchangedCount = 0
+    let preservedFieldCount = 0
     const changedRows = []
     const validCount = importPreview.rows.filter(row => row.source_errors.length === 0).length
     for (const row of importPreview.rows) {
@@ -102,19 +103,21 @@ export default function GensetPage({ profile }) {
         newCount += 1
         continue
       }
-      if (sameGensetBusinessValues(row, existing)) {
+      const { row: comparableRow, preservedFields } = preserveExistingGensetValuesOnBlankSource(row, existing)
+      preservedFieldCount += preservedFields.length
+      if (sameGensetBusinessValues(comparableRow, existing)) {
         unchangedCount += 1
         continue
       }
       changedCount += 1
       const changedFields = GENSET_COMPARE_FIELDS
         .filter(([field]) => field === 'kapasitas_kva'
-          ? Number(row[field]) !== Number(existing[field])
-          : String(row[field] ?? '').trim() !== String(existing[field] ?? '').trim())
-        .map(([field, label]) => ({ label, oldValue: existing[field], newValue: row[field] }))
+          ? Number(comparableRow[field]) !== Number(existing[field])
+          : String(comparableRow[field] ?? '').trim() !== String(existing[field] ?? '').trim())
+        .map(([field, label]) => ({ label, oldValue: existing[field], newValue: comparableRow[field] }))
       changedRows.push({ source_no: row.source_no, source_row: row.source_row, fields: changedFields })
     }
-    return { newCount, changedCount, unchangedCount, validCount, changedRows }
+    return { newCount, changedCount, unchangedCount, validCount, preservedFieldCount, changedRows }
   }, [rows, importPreview])
 
   const importGensetRows = async () => {
@@ -123,29 +126,43 @@ export default function GensetPage({ profile }) {
     setImportError('')
     setImportSuccess('')
     try {
+      // Re-read the current master before applying source values so fields
+      // entered by another user after this preview are not lost on blank source cells.
+      const { data: currentGensets, error: currentGensetsError } = await supabase
+        .from('genset')
+        .select('source_no, engine_no, generator_no, lokasi_kerja, pemilik, keterangan')
+      if (currentGensetsError) throw currentGensetsError
+
+      const existingByNo = new Map((currentGensets || []).map(row => [Number(row.source_no), row]))
+      let preservedFieldCount = 0
       const now = new Date().toISOString()
-      const payload = importPreview.rows.map(row => ({
-        source_no: row.source_no,
-        merk: row.merk,
-        kapasitas_kva: row.kapasitas_kva,
-        engine_no: row.engine_no,
-        generator_no: row.generator_no,
-        lokasi_kerja: row.lokasi_kerja,
-        pemilik: row.pemilik,
-        status_kepemilikan: row.status_kepemilikan,
-        keterangan: row.keterangan,
-        source_file: importPreview.fileName,
-        source_sheet: importPreview.sheetName,
-        source_row: row.source_row,
-        updated_at: now,
-      }))
+      const payload = importPreview.rows.map(row => {
+        const existing = existingByNo.get(Number(row.source_no))
+        const { row: safeRow, preservedFields } = preserveExistingGensetValuesOnBlankSource(row, existing)
+        preservedFieldCount += preservedFields.length
+        return {
+          source_no: safeRow.source_no,
+          merk: safeRow.merk,
+          kapasitas_kva: safeRow.kapasitas_kva,
+          engine_no: safeRow.engine_no,
+          generator_no: safeRow.generator_no,
+          lokasi_kerja: safeRow.lokasi_kerja,
+          pemilik: safeRow.pemilik,
+          status_kepemilikan: safeRow.status_kepemilikan,
+          keterangan: safeRow.keterangan,
+          source_file: importPreview.fileName,
+          source_sheet: importPreview.sheetName,
+          source_row: safeRow.source_row,
+          updated_at: now,
+        }
+      })
       const { error: saveError } = await supabase
         .from('genset')
         .upsert(payload, { onConflict: 'source_no' })
       if (saveError) throw saveError
 
       setImportSuccess(
-        `Impor Genset selesai: ${payload.length} baris diproses • ${importComparison.newCount} No. sumber baru • ${importComparison.changedCount} data berbeda dari master • ${importComparison.unchangedCount} data lainnya cocok. Tidak ada baris tidak valid yang diimpor.`,
+        `Impor Genset selesai: ${payload.length} baris diproses • ${importComparison.newCount} No. sumber baru • ${importComparison.changedCount} data berbeda dari master • ${importComparison.unchangedCount} data lainnya cocok • ${preservedFieldCount} nilai master dipertahankan karena kolom sumber kosong. Tidak ada baris tidak valid yang diimpor.`,
       )
       setImportPreview(null)
       if (importInputRef.current) importInputRef.current.value = ''
