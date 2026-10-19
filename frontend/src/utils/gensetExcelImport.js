@@ -1,4 +1,4 @@
-import { normalizeGensetInput, validateGensetInput } from './gensetData.js'
+import { normalizeGensetInput } from './gensetData.js'
 
 const clean = value => String(value ?? '').replace(/\\s+/g, ' ').trim()
 const norm = value => clean(value).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
@@ -127,9 +127,6 @@ export function parseGensetImportSheet(sheet) {
     if (!merk) rowErrors.push('Merk wajib diisi.')
     if (capacity == null) rowErrors.push(`Kapasitas KVA tidak valid: “${capacityRaw || '(kosong)'}”.`)
     if (!status) rowErrors.push(`Status kepemilikan tidak dikenal: “${statusRaw || '(kosong)'}”; gunakan Aset atau Sewa.`)
-
-    const formError = validateGensetInput(normalized)
-    if (formError && !rowErrors.some(message => message.includes(formError))) rowErrors.push(formError)
 
     for (const message of rowErrors) {
       errors.push(reportError(row.excelRow ?? '?', message))
