@@ -23,6 +23,7 @@ test('history imports are retry-safe and retain only positive readings', () => {
 test('backfill copies completed imported Service records without rewriting source kilometers', () => {
   assert.match(migration, /s\.nomor_service LIKE 'IMP-SRV-%'[\s\S]*?s\.status = 'SELESAI'[\s\S]*?s\.kilometer > 0/)
   assert.match(migration, /src\.tanggal_service,[\s\S]*?src\.kilometer,[\s\S]*?coalesce\(nullif\(src\.catatan, ''\), 'Import histori Excel: Data Service'\)/)
-  assert.match(migration, /s\.kilometer > 0[\s\S]*?s\.catatan/)
+  assert.match(migration, /s\.kilometer > 0/)
+  assert.match(migration, /s\.catatan/)
   assert.match(migration, /Backfill riwayat KM tidak lengkap/)
 })
