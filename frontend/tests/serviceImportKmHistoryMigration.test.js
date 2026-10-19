@@ -15,12 +15,14 @@ test('historical mileage is not filtered out by a newer master odometer', () => 
 
 test('history imports are retry-safe and retain only positive readings', () => {
   assert.match(migration, /CREATE UNIQUE INDEX IF NOT EXISTS uq_riwayat_kilometer_import_service_reading/)
-  assert.match(migration, /ON CONFLICT \(kendaraan_id, tanggal, kilometer, keterangan\)[\s\S]*?DO NOTHING/)
+  assert.match(migration, /ON CONFLICT \(kendaraan_id, tanggal, kilometer\)[\s\S]*?DO NOTHING/)
+  assert.match(migration, /ON public\.riwayat_kilometer \(kendaraan_id, tanggal, kilometer\)[\s\S]*?WHERE sumber = 'IMPORT_SERVICE'/)
   assert.match(migration, /sumber = 'IMPORT_SERVICE'/)
 })
 
 test('backfill copies completed imported Service records without rewriting source kilometers', () => {
   assert.match(migration, /s\.nomor_service LIKE 'IMP-SRV-%'[\s\S]*?s\.status = 'SELESAI'[\s\S]*?s\.kilometer > 0/)
-  assert.match(migration, /src\.tanggal_service,[\s\S]*?src\.kilometer,[\s\S]*?'Import histori Excel: Data Service'/)
+  assert.match(migration, /src\.tanggal_service,[\s\S]*?src\.kilometer,[\s\S]*?coalesce\(nullif\(src\.catatan, ''\), 'Import histori Excel: Data Service'\)/)
+  assert.match(migration, /s\.kilometer > 0[\s\S]*?s\.catatan/)
   assert.match(migration, /Backfill riwayat KM tidak lengkap/)
 })
