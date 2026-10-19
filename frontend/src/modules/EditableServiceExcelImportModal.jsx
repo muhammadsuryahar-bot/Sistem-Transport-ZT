@@ -9,6 +9,7 @@ import './EditableServiceExcelImportModal.css'
 import { excelDate } from '../utils/excelDate.js'
 import { roundCurrency } from '../utils/serviceMoneyPrecision.js'
 import { financialBreakdownMatches, normalizeServiceMoney } from '../utils/serviceImportMoney.js'
+import { selectServiceImportRows } from '../utils/serviceImportRows.js'
 
 const MAX_FILE_SIZE = 25 * 1024 * 1024
 const PAGE_OPTIONS = [25, 50, 100]
@@ -189,7 +190,12 @@ function chooseServiceSheet(sheets) {
 }
 
 async function importHistory(rows, sheetName, onProgress = () => {}) {
-  const valid = rows.filter(row => row.nomor_polisi && row.tanggal)
+  const invalid = rows.filter(row => !row.nomor_polisi || !row.tanggal)
+  if (invalid.length) {
+    const labels = invalid.slice(0, 12).map(row => row.source_no || row.excelRow).join(', ')
+    throw new Error(`Impor Service dibatalkan seluruhnya: ${invalid.length} baris sumber tidak memiliki No. Polisi atau Tanggal yang valid (No./baris: ${labels}${invalid.length > 12 ? ' …' : ''}). Tidak ada transaksi yang dikirim ke database; perbaiki baris sebelum impor ulang.`)
+  }
+  const valid = rows
   if (!valid.length) throw new Error('Tidak ada baris Service valid. Pastikan No. Polisi dan Tanggal tersedia.')
 
   const groups = groupRows(valid)
@@ -204,6 +210,11 @@ async function importHistory(rows, sheetName, onProgress = () => {}) {
   const vehicleMap = Object.fromEntries((vehicles || []).map(v => [upper(v.nomor_polisi), v]))
   const existingKeys = new Set((existing || []).map(s => `${s.kendaraan_id}|${s.tanggal_service}|${upper(s.bengkel || '-')}`))
   const unknownPlates = [...new Set(plates.filter(plate => !vehicleMap[plate]))]
+  if (unknownPlates.length) {
+    const visible = unknownPlates.slice(0, 12).join(', ')
+    const remainder = unknownPlates.length > 12 ? ` dan ${unknownPlates.length - 12} plat lainnya` : ''
+    throw new Error(`Impor Service dibatalkan seluruhnya: ${unknownPlates.length} nomor polisi belum ada di Master Kendaraan (${visible}${remainder}). Tidak ada transaksi dari file ini yang disimpan. Verifikasi/tambahkan kendaraan pada Master terlebih dahulu, lalu impor ulang.`)
+  }
 
   const candidates = []
   let duplicateTransactions = 0
@@ -359,11 +370,13 @@ export default function EditableServiceExcelImportModal({ profile, onDone, onClo
       const sheets = await parseXlsx(nextFile)
       const chosen = chooseServiceSheet(sheets)
       if (!chosen || chosen.score < 12) throw new Error(`Sheet histori service tidak ditemukan. File terbaca tetapi sheet “Data Service” tidak sesuai.`)
-      const sourceRows = chosen.sheet.rows
+      const parsedSourceRows = chosen.sheet.rows
         .slice(chosen.header.index + 1)
         .filter(row => row.values.some(value => clean(value)))
         .map(row => parseRow(row, chosen.header.row))
-        .filter(row => row.nomor_polisi || row.tanggal)
+      // Keep non-empty source rows that lack required fields so they can be fixed
+      // or rejected before writing. The source TOTAL footer is excluded separately.
+      const sourceRows = selectServiceImportRows(parsedSourceRows)
 
       const mappedFields = new Set(chosen.header.row.map(fieldForHeader).filter(Boolean))
       const requiredFields = [
@@ -453,6 +466,11 @@ export default function EditableServiceExcelImportModal({ profile, onDone, onClo
     try {
       const activeRows = filterDeletedExcelRows('service', rows)
       const activeValidRows = activeRows.filter(row => row.nomor_polisi && row.tanggal)
+      const invalidCoreRows = activeRows.filter(row => !row.nomor_polisi || !row.tanggal)
+      if (invalidCoreRows.length) {
+        const rowLabels = invalidCoreRows.slice(0, 12).map(row => row.source_no || row.excelRow).join(', ')
+        throw new Error(`Impor Service ditahan: ${invalidCoreRows.length} baris sumber belum valid karena No. Polisi atau Tanggal kosong/tidak terbaca. Baris sumber: ${rowLabels}${invalidCoreRows.length > 12 ? ' …' : ''}. Perbaiki data sebelum impor; sistem tidak akan menyimpan hanya sebagian baris.`)
+      }
       const invalidFinancialRows = activeValidRows.filter(row => !financialBreakdownMatches(row))
       if (invalidFinancialRows.length) {
         const rowLabels = invalidFinancialRows.slice(0, 12).map(row => row.source_no || row.excelRow).join(', ')
