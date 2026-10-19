@@ -210,6 +210,11 @@ async function importHistory(rows, sheetName, onProgress = () => {}) {
   const vehicleMap = Object.fromEntries((vehicles || []).map(v => [upper(v.nomor_polisi), v]))
   const existingKeys = new Set((existing || []).map(s => `${s.kendaraan_id}|${s.tanggal_service}|${upper(s.bengkel || '-')}`))
   const unknownPlates = [...new Set(plates.filter(plate => !vehicleMap[plate]))]
+  if (unknownPlates.length) {
+    const visible = unknownPlates.slice(0, 12).join(', ')
+    const remainder = unknownPlates.length > 12 ? ` dan ${unknownPlates.length - 12} plat lainnya` : ''
+    throw new Error(`Impor Service dibatalkan seluruhnya: ${unknownPlates.length} nomor polisi belum ada di Master Kendaraan (${visible}${remainder}). Tidak ada transaksi dari file ini yang disimpan. Verifikasi/tambahkan kendaraan pada Master terlebih dahulu, lalu impor ulang.`)
+  }
 
   const candidates = []
   let duplicateTransactions = 0
