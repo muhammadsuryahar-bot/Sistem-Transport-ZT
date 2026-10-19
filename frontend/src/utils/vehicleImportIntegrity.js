@@ -12,6 +12,28 @@ function normalizedFieldValue(value, field) {
 }
 
 /**
+ * Reject source cells whose contents do not match their declared column.
+ * Do not move arbitrary text from Masa Berlaku Pajak to Unit Kerja or from
+ * Status Pajak to Driver: those repairs can silently change vehicle identity.
+ */
+export function describeVehicleSourceFieldErrors(rows = []) {
+  const errors = []
+  for (const row of rows) {
+    const plate = clean(row?.nomor_polisi) || 'No. Polisi kosong'
+    const rowLabel = row?.excelRow != null ? `baris Excel ${row.excelRow}` : 'baris sumber'
+    const rawTaxDate = clean(row?.masa_pajak_raw)
+    if (rawTaxDate && rawTaxDate !== '-' && !row?.masa_pajak) {
+      errors.push(`${plate} (${rowLabel}): Masa Berlaku Pajak “${rawTaxDate}” bukan tanggal yang dapat dibaca.`)
+    }
+    const statusPajak = upper(row?.status_pajak)
+    if (statusPajak && statusPajak !== '-' && !['HIDUP', 'MATI'].includes(statusPajak)) {
+      errors.push(`${plate} (${rowLabel}): Status Pajak “${statusPajak}” tidak valid; gunakan Hidup/Mati atau kosongkan.`)
+    }
+  }
+  return errors
+}
+
+/**
  * Finds identity conflicts in a vehicle workbook before it is written.
  * Empty source values do not conflict with a populated value; two different
  * populated identity values do. Cross-plate engine/chassis reuse is blocked

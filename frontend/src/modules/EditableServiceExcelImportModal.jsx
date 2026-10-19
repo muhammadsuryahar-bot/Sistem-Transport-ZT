@@ -7,8 +7,8 @@ import './DataPageTools.css'
 import { encodeExcelMeta } from '../utils/excelSourceMeta.js'
 import './EditableServiceExcelImportModal.css'
 import { excelDate } from '../utils/excelDate.js'
-import { isBlankSourceAmount } from '../utils/serviceHistorySourceMoney.js'
 import { roundCurrency } from '../utils/serviceMoneyPrecision.js'
+import { financialBreakdownMatches, normalizeServiceMoney } from '../utils/serviceImportMoney.js'
 
 const MAX_FILE_SIZE = 25 * 1024 * 1024
 const PAGE_OPTIONS = [25, 50, 100]
@@ -55,28 +55,6 @@ function numberValue(value) {
   return Number.isFinite(n) ? n : null
 }
 
-function currencyValue(value) {
-  let v = clean(value)
-  if (!v) return 0
-  v = v.replace(/^(rp|idr)\.?\s*/i, '').replace(/\s/g, '').replace(/[^0-9,.-]/g, '')
-  if (!v) return 0
-  const comma = v.lastIndexOf(',')
-  const dot = v.lastIndexOf('.')
-  if (comma >= 0 && dot >= 0) {
-    v = comma > dot ? v.replace(/\./g, '').replace(',', '.') : v.replace(/,/g, '')
-  } else if (comma >= 0) {
-    const decimals = v.length - comma - 1
-    v = decimals === 1 || decimals === 2 ? v.replace(',', '.') : v.replace(/,/g, '')
-  } else if (dot >= 0) {
-    const decimals = v.length - dot - 1
-    if (decimals !== 1 && decimals !== 2) v = v.replace(/\./g, '')
-  }
-  const n = Number(v)
-  return Number.isFinite(n) ? n : 0
-}
-
-
-
 function formatDisplay(value, header) {
   const raw = clean(value)
   if (!raw) return ''
@@ -96,75 +74,6 @@ function findHeader(sheet) {
   })
   return best
 }
-
-function parseMoneyBase(value) {
-  const raw = clean(value)
-  if (!raw || raw === '-') return 0
-  return currencyValue(raw)
-}
-
-function hasFullRupiahFormat(value) {
-  const raw = clean(value)
-  return /^-?\d{1,3}(?:[.]\d{3})+(?:[,]\d+)?$/.test(raw)
-}
-
-function normalizeMoneyField(value) {
-  const raw = clean(value)
-  const base = parseMoneyBase(raw)
-  if (!raw || raw === '-') return 0
-  if (hasFullRupiahFormat(raw)) return roundCurrency(base)
-  return roundCurrency(Number.isFinite(base) && Math.abs(base) < 1000 ? base * 1000 : base)
-}
-
-function normalizePpn(dpp, rawPpn) {
-  const raw = clean(rawPpn)
-  if (!raw || raw === '-') return 0
-  const base = parseMoneyBase(raw)
-  const candidates = [roundCurrency(base)]
-  if (!hasFullRupiahFormat(raw) && Math.abs(base) < 1000) candidates.push(roundCurrency(base * 1000))
-  const expected = roundCurrency(Number(dpp || 0) * 0.11)
-  return roundCurrency(candidates.reduce((best, value) => Math.abs(value - expected) < Math.abs(best - expected) ? value : best, candidates[0]))
-}
-
-function financialBreakdownMatches(row) {
-  const dpp = Number(row?.nilai_dpp || 0)
-  const ppn = Number(row?.ppn || 0)
-  const total = Number(row?.total || 0)
-  if (dpp < 0 || ppn < 0 || total < 0) return false
-  if (total === 0 && dpp === 0 && ppn === 0) return true
-  const expected = dpp + ppn
-  return Math.abs(total - expected) <= Math.max(1, expected * 0.001)
-}
-
-function normalizeServiceMoney({ qty, harga, dpp, ppn, total }) {
-  const normalizedDpp = normalizeMoneyField(dpp)
-  const normalizedHarga = normalizeMoneyField(harga)
-  const normalizedTotal = normalizeMoneyField(total)
-  const normalizedPpn = normalizePpn(normalizedDpp, ppn)
-  const q = Number(qty || 0)
-  const priceFromDpp = q > 0 ? roundCurrency(normalizedDpp / q) : normalizedHarga
-  const finalHarga = roundCurrency(normalizedHarga > 0 && normalizedDpp > 0 && Math.abs((normalizedHarga * q) - normalizedDpp) <= Math.max(1, normalizedDpp * 0.001)
-    ? normalizedHarga
-    : (priceFromDpp || normalizedHarga))
-  const finalDpp = roundCurrency(normalizedDpp || (q > 0 ? finalHarga * q : 0))
-  const finalPpn = roundCurrency(normalizedPpn)
-  const derivedTotal = roundCurrency(finalDpp + finalPpn)
-  const rawTotal = clean(total)
-  const totalIsShorthand = Boolean(rawTotal && rawTotal !== '-' && !hasFullRupiahFormat(rawTotal) && Math.abs(parseMoneyBase(rawTotal)) < 10000)
-  const totalMatchesBreakdown = Math.abs(normalizedTotal - derivedTotal) <= Math.max(1, derivedTotal * 0.001)
-  const finalTotal = roundCurrency(normalizedTotal > 0 && (totalMatchesBreakdown || !totalIsShorthand)
-    ? normalizedTotal
-    : derivedTotal)
-  return {
-    harga_satuan: finalHarga,
-    nilai_dpp: finalDpp,
-    ppn: finalPpn,
-    total: finalTotal,
-    ppn_source: clean(ppn) || '-',
-    total_source_blank: isBlankSourceAmount(total),
-  }
-}
-
 
 function formatNumberId(value) {
   const numeric = Number(value)
@@ -191,12 +100,18 @@ function parseRow(row, headers) {
     return index >= 0 ? clean(row.values[index]) : ''
   }
   const qty = numberValue(get('qty')) ?? 1
-  const money = normalizeServiceMoney({
-    qty,
-    harga: get('harga_satuan'),
-    dpp: get('nilai_dpp'),
+  const sourceMoneyRaw = {
+    harga_satuan: get('harga_satuan'),
+    nilai_dpp: get('nilai_dpp'),
     ppn: get('ppn'),
     total: get('total'),
+  }
+  const money = normalizeServiceMoney({
+    qty,
+    harga: sourceMoneyRaw.harga_satuan,
+    dpp: sourceMoneyRaw.nilai_dpp,
+    ppn: sourceMoneyRaw.ppn,
+    total: sourceMoneyRaw.total,
   })
   return {
     excelRow: row.excelRow,
@@ -214,6 +129,8 @@ function parseRow(row, headers) {
     uraian: get('uraian'),
     qty,
     satuan: get('satuan') || 'pcs',
+    source_money_raw: sourceMoneyRaw,
+    money_input: { ...sourceMoneyRaw },
     harga_satuan: money.harga_satuan,
     nilai_dpp: money.nilai_dpp,
     ppn: money.ppn,
@@ -363,6 +280,8 @@ async function importHistory(rows, sheetName, onProgress = () => {}) {
           ppn_source: row.ppn_source,
           total: row.total,
           total_source_blank: row.total_source_blank,
+          source_amounts_raw: row.source_money_raw || null,
+          import_amounts_input: row.money_input || row.source_money_raw || null,
           kilometer: row.kilometer,
           bengkel: row.bengkel,
           keterangan: row.keterangan || '',
@@ -489,6 +408,8 @@ export default function EditableServiceExcelImportModal({ profile, onDone, onClo
       const header = headers[index] || ''
       const key = fieldForHeader(header)
       next.values[index] = rawValue
+      const amountKey = ['harga_satuan', 'nilai_dpp', 'ppn', 'total'].includes(key) ? key : null
+      if (amountKey) next.money_input = { ...(next.money_input || next.source_money_raw || {}), [amountKey]: rawValue }
       if (key === 'source_no') next.source_no = rawValue
       else if (key === 'nomor_polisi') next.nomor_polisi = upper(rawValue)
       else if (key === 'merk') next.merk = rawValue
@@ -564,9 +485,9 @@ export default function EditableServiceExcelImportModal({ profile, onDone, onClo
         {invalidCount > 0 && <div className="service-import-warning">{invalidCount} baris belum valid. Edit No. Polisi/Tanggal langsung di tabel agar ikut terimport.</div>}
         {financialMismatchRows.length > 0 && <div className="service-import-warning">{financialMismatchRows.length} baris memiliki DPP + PPN yang tidak sama dengan Total. Perbaiki nilai keuangan di tabel sebelum import agar data biaya tidak masuk dalam keadaan salah.</div>}
         <div className="editable-service-toolbar"><div><strong>Baris {pageStart}-{pageEnd} dari {filteredRows.length}{search ? ` (filter dari ${rows.length})` : ''}</strong><span>Setiap sel di bawah ini bisa diedit. Perubahan dipakai saat tombol Import ditekan.</span></div><div className="editable-service-controls"><input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} placeholder="Cari data…" disabled={saving}/><label>Per halaman <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1) }} disabled={saving}>{PAGE_OPTIONS.map(size => <option key={size} value={size}>{size}</option>)}</select></label></div></div>
-        <div className="dpt-preview editable-service-preview"><table><thead><tr>{headers.map((header, index) => <th key={`${header}-${index}`}>{header || `Kolom ${index + 1}`}</th>)}</tr></thead><tbody>{visibleRows.map(row => <tr data-excel-row={row.excelRow} key={row.excelRow}>{headers.map((header, index) => { const key = fieldForHeader(header); const value = displayValueForRow(row, header, key, index); const numeric = ['qty','harga_satuan','nilai_dpp','ppn','total','kilometer'].includes(key); const date = key === 'tanggal'; return <td key={`${row.excelRow}-${index}`}><input aria-label={`${header} baris ${row.excelRow}`} type={date ? 'text' : 'text'} inputMode={numeric ? 'decimal' : undefined} value={value} onChange={e => updateCell(row.excelRow, index, e.target.value)} disabled={saving} className={numeric ? 'numeric' : ''}/></td> })}</tr>)}</tbody></table></div>
+        <div className="dpt-preview editable-service-preview"><table><thead><tr>{headers.map((header, index) => <th key={`${header}-${index}`}>{header || `Kolom ${index + 1}`}</th>)}</tr></thead><tbody>{visibleRows.map(row => <tr data-excel-row={row.excelRow} key={row.excelRow}>{headers.map((header, index) => { const key = fieldForHeader(header); const value = displayValueForRow(row, header, key, index); const numeric = ['qty','harga_satuan','nilai_dpp','ppn','total','kilometer'].includes(key); const date = key === 'tanggal'; return <td key={`${row.excelRow}-${index}`}><input aria-label={`${header} baris ${row.excelRow}`} title={['harga_satuan', 'nilai_dpp', 'ppn', 'total'].includes(key) ? `Nilai asli Excel: ${row.source_money_raw?.[key] === '' || row.source_money_raw?.[key] === undefined || row.source_money_raw?.[key] === null ? '(kosong)' : row.source_money_raw[key]}` : undefined} type={date ? 'text' : 'text'} inputMode={numeric ? 'decimal' : undefined} value={value} onChange={e => updateCell(row.excelRow, index, e.target.value)} disabled={saving} className={numeric ? 'numeric' : ''}/></td> })}</tr>)}</tbody></table></div>
         <div className="editable-service-pagination"><button type="button" className="dpt-button" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage <= 1 || saving}>← Sebelumnya</button><strong>Halaman {safePage} / {pageCount}</strong><button type="button" className="dpt-button" onClick={() => setPage(p => Math.min(pageCount, p + 1))} disabled={safePage >= pageCount || saving}>Berikutnya →</button></div>
-        <div className="service-import-note"><b>Yang bisa dikerjakan tanpa kembali ke Excel</b><span>Ganti No. Polisi, tanggal, pekerjaan, uraian, Qty, satuan, harga, DPP, PPN, Total, KM, driver, dan kolom lain langsung di tabel.</span><span>{rows.length} baris data valid ditampilkan; baris TOTAL/rekap di bagian bawah Excel tidak dimasukkan sebagai transaksi.</span><span>Setelah diedit, sistem menghitung ulang baris valid, transaksi, kendaraan, dan item berdasarkan data terbaru.</span></div>
+        <div className="service-import-note"><b>Yang bisa dikerjakan tanpa kembali ke Excel</b><span>Ganti No. Polisi, tanggal, pekerjaan, uraian, Qty, satuan, harga, DPP, PPN, Total, KM, driver, dan kolom lain langsung di tabel.</span><span>Nilai nominal ditampilkan dalam format angka yang dinormalisasi. Arahkan kursor ke kolom Harga, DPP, PPN, atau Total untuk melihat teks asli dari Excel.</span><span>Jika DPP + PPN tidak cocok dengan Total, impor ditahan agar nilai sumber dapat diperiksa. Sistem tidak mengganti Total sumber hanya untuk membuat angka terlihat cocok.</span><span>{rows.length} baris data terbaca; baris TOTAL/rekap di bagian bawah Excel tidak dimasukkan sebagai transaksi.</span><span>Nilai mentah nominal dan masukan hasil edit dicatat terpisah pada metadata histori untuk keperluan audit.</span></div>
       </>}
       <div className="dpt-actions"><button type="button" className="dpt-button" onClick={onClose} disabled={saving}>Batal</button><button type="button" className="dpt-button primary" onClick={start} disabled={!rows.length || saving || !canImport || financialMismatchRows.length > 0}>{saving ? `Mengimport ${progress.completed}/${progress.total}…` : `Import ${rows.length} Baris Data`}</button></div>
     </section>
