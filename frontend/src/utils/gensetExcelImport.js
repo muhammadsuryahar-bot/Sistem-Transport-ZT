@@ -1,6 +1,6 @@
 import { normalizeGensetInput } from './gensetData.js'
 
-const clean = value => String(value ?? '').replace(/\\s+/g, ' ').trim()
+const clean = value => String(value ?? '').replace(/\s+/g, ' ').trim()
 const norm = value => clean(value).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
 const upper = value => clean(value).toUpperCase()
 
