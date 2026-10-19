@@ -53,7 +53,7 @@ export default function GensetPage({ profile }) {
     setImportError('')
     setImportSuccess('')
     if (!nextFile) return
-    if (!/\\.xlsx$/i.test(nextFile.name)) {
+    if (!/\.xlsx$/i.test(nextFile.name)) {
       setImportError('Gunakan file Excel .xlsx. Format .xls lama belum didukung.')
       return
     }
