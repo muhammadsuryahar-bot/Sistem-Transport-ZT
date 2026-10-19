@@ -7,7 +7,7 @@
     "dev": "npm --prefix frontend run dev",
     "build": "npm --prefix frontend run build",
     "lint": "npm --prefix frontend run lint",
-    "test": "node --test frontend/tests",
+    "test": "node --test frontend/tests/*.test.js",
     "preview": "npm --prefix frontend run preview"
   },
   "dependencies": {
