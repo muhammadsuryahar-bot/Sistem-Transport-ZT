@@ -81,9 +81,6 @@ export default function GensetPage({ profile }) {
       if (!sourceSheet) throw new Error('Sheet “Data Genset” tidak ditemukan. Pilih file Data Kendaraan yang memuat sheet tersebut.')
       const parsed = parseGensetImportSheet(sourceSheet)
       setImportPreview({ ...parsed, fileName: nextFile.name, fileSize: nextFile.size })
-      if (!parsed.rows.length) {
-        setImportError(parsed.errors[0] || 'Tidak ada data Genset pada sheet sumber.')
-      }
     } catch (scanError) {
       setImportError(scanError?.message || 'File Excel Genset gagal dibaca.')
     } finally {
