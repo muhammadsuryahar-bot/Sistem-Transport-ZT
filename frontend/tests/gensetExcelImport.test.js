@@ -55,6 +55,12 @@ test('blocks duplicate source numbers, not just repeated names', () => {
   assert.match(result.errors[0], /No sumber 1 duplikat/)
 })
 
+test('rejects a valid header with no source rows', () => {
+  const result = parseGensetImportSheet({ name: 'Data Genset', rows: [{ excelRow: 5, values: headers }, { excelRow: 39, values: ['', '', '', '', '', '', '', '', ''] }] })
+  assert.equal(result.rows.length, 0)
+  assert.match(result.errors[0], /tidak berisi baris data/)
+})
+
 test('rejects a non-genset sheet that lacks required columns', () => {
   const result = parseGensetImportSheet({ name: 'Summary Rental', rows: [{ excelRow: 1, values: ['No', 'Supplier', 'Invoice'] }] })
   assert.equal(result.rows.length, 0)
