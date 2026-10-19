@@ -8,6 +8,7 @@ import './DataPageTools.css'
 import './VehicleExcelImportModal.css'
 import { excelDate } from '../utils/excelDate.js'
 import { analyzeVehicleImportAgainstDatabase, analyzeVehicleImportIntegrity, describeVehicleDatabaseConflicts, describeVehicleImportIntegrity, describeVehicleSourceFieldErrors } from '../utils/vehicleImportIntegrity.js'
+import { findInvalidVehicleSourceRows } from '../utils/vehicleSourceRowValidation.js'
 
 const MAX_FILE_SIZE = 25 * 1024 * 1024
 const PAGE_OPTIONS = [25, 50, 100]
@@ -280,7 +281,7 @@ export default function VehicleExcelImportModalV2({ profile, onDone, onClose }) 
       const activeSourceRows = filterDeletedExcelRows('kendaraan', workbook.data)
       const activeSourceRowNumbers = new Set(activeSourceRows.map(row => row.excelRow))
       const activeRows = filterDeletedExcelRows('kendaraan', workbook.valid).filter(row => activeSourceRowNumbers.has(row.excelRow))
-      const invalidSourceRows = activeSourceRows.filter(sourceRow => !workbook.valid.some(row => row.excelRow === sourceRow.excelRow))
+      const invalidSourceRows = findInvalidVehicleSourceRows(activeSourceRows, workbook.valid)
       if (invalidSourceRows.length) {
         const rowNumbers = invalidSourceRows.slice(0, 20).map(row => row.excelRow).join(', ')
         const remainder = invalidSourceRows.length > 20 ? `; dan ${invalidSourceRows.length - 20} baris lainnya` : ''
@@ -321,7 +322,7 @@ export default function VehicleExcelImportModalV2({ profile, onDone, onClose }) 
       {selected && <>
         <div className="vehicle-import-stats"><div><b>{workbook.data.length}</b><span>baris sumber</span></div><div><b>{workbook.valid.length}</b><span>baris valid</span></div><div><b>{workbook.uniqueCount}</b><span>kendaraan unik</span></div><div><b>{workbook.duplicateCount}</b><span>duplikat digabung</span></div></div>
         {workbook.missingSourceNumbers.length > 0 && <div className="vehicle-import-warning">Nomor urut sumber yang tidak ada: <b>{workbook.missingSourceNumbers.join(', ')}</b>.</div>}
-        {workbook.data.length > workbook.valid.length && <div className="vehicle-import-warning vehicle-import-warning-critical" role="alert"><b>Import belum aman: ada {workbook.data.length - workbook.valid.length} baris sumber yang tidak terbaca sebagai kendaraan valid.</b><span>Import Kendaraan akan dibatalkan seluruhnya jika masih ada baris nonkosong yang tidak mempunyai No. Polisi dan Merk. Periksa nomor baris Excel berikut di preview: {workbook.data.filter(sourceRow => !workbook.valid.some(validRow => validRow.excelRow === sourceRow.excelRow)).map(row => row.excelRow).join(', ')}. Ini mencegah sistem menyimpan subset data dan menghilangkan baris sumber.</span></div>}
+        {workbook.data.length > workbook.valid.length && <div className="vehicle-import-warning vehicle-import-warning-critical" role="alert"><b>Import belum aman: ada {workbook.data.length - workbook.valid.length} baris sumber yang tidak terbaca sebagai kendaraan valid.</b><span>Import Kendaraan akan dibatalkan seluruhnya jika masih ada baris nonkosong yang tidak mempunyai No. Polisi dan Merk. Periksa nomor baris Excel berikut di preview: {findInvalidVehicleSourceRows(workbook.data, workbook.valid).map(row => row.excelRow).join(', ')}. Ini mencegah sistem menyimpan subset data dan menghilangkan baris sumber.</span></div>}
         {workbook.sourceFieldErrors?.length > 0 && <div className="vehicle-import-warning vehicle-import-warning-critical" role="alert"><b>Import ditahan: ada nilai yang tidak cocok dengan kolom sumber.</b><span>Sistem tidak memindahkan teks dari Masa Berlaku Pajak ke Unit Kerja atau dari Status Pajak ke Driver secara otomatis. Perbaiki kolom di workbook terlebih dahulu; database belum diubah.</span><ul>{workbook.sourceFieldErrors.slice(0, 12).map(issue => <li key={issue}>{issue}</li>)}</ul></div>}
         {workbook.sourceIntegrity?.hasBlockingConflicts && <div className="vehicle-import-warning vehicle-import-warning-critical" role="alert"><b>Import ditahan: identitas sumber Excel tidak konsisten.</b><span>Belum ada perubahan database. Perbaiki sumber Excel sebelum impor ulang. Baris dengan nomor polisi yang sama tetapi identitas atau data operasional yang berbeda, serta nomor mesin/rangka yang digunakan pada nomor polisi berbeda, tidak boleh digabung otomatis.</span><ul>{describeVehicleImportIntegrity(workbook.sourceIntegrity).slice(0, 12).map(issue => <li key={issue}>{issue}</li>)}</ul></div>}
         {workbook.databaseIntegrity?.hasBlockingConflicts && <div className="vehicle-import-warning vehicle-import-warning-critical" role="alert"><b>Import ditahan: sumber konflik dengan master database saat ini.</b><span>Belum ada perubahan database. File Excel memuat nomor mesin/rangka, model, tahun, status kepemilikan, pemilik, lokasi, unit kerja atau tanggal pajak yang berbeda dari nilai kendaraan tersimpan. Ini bisa terjadi jika workbook lama dipakai untuk memperbarui data yang sudah direkonsiliasi. Tinjau perbedaan dan dokumen pendukung sebelum impor.</span><ul>{describeVehicleDatabaseConflicts(workbook.databaseIntegrity).slice(0, 12).map(issue => <li key={issue}>{issue}</li>)}</ul></div>}
