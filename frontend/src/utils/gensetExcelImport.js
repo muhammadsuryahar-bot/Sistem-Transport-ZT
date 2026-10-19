@@ -95,6 +95,16 @@ export function parseGensetImportSheet(sheet) {
   const dataRows = inputRows.slice(headerIndex + 1)
     .filter(row => (row?.values || []).some(value => clean(value)))
 
+  if (dataRows.length === 0) {
+    return {
+      sheetName: sheet?.name || '',
+      headerRow: inputRows[headerIndex]?.excelRow ?? headerIndex + 1,
+      dataRows,
+      rows: [],
+      errors: ['Sheet Data Genset tidak berisi baris data setelah header.'],
+    }
+  }
+
   const seenSourceNo = new Map()
   const rows = []
   const errors = []
