@@ -5,6 +5,7 @@ import {
   analyzeVehicleImportIntegrity,
   describeVehicleDatabaseConflicts,
   describeVehicleImportIntegrity,
+  describeVehicleSourceFieldErrors,
 } from '../src/utils/vehicleImportIntegrity.js'
 
 test('blocks a repeated plate when its populated identity fields contradict each other', () => {
@@ -169,4 +170,36 @@ test('allows blank legacy fields and equivalent year formatting without inventin
   assert.deepEqual(report.masterFieldConflicts, [])
   assert.deepEqual(report.databaseConflicts, [])
   assert.deepEqual(report.samePlateConflicts, [])
+})
+
+
+test('blocks invalid dates and tax-status strings instead of interpreting them as other fields', () => {
+  const errors = describeVehicleSourceFieldErrors([
+    {
+      excelRow: 82,
+      nomor_polisi: 'BM 8417 TW',
+      masa_pajak_raw: 'Suppor Catu Daya',
+      masa_pajak: null,
+      status_pajak: '',
+    },
+    {
+      excelRow: 84,
+      nomor_polisi: 'BM 9483 TS',
+      masa_pajak_raw: 'Suppor Catu Daya',
+      masa_pajak: null,
+      status_pajak: 'ANDESCER',
+    },
+  ])
+  assert.equal(errors.length, 3)
+  assert.match(errors[0], /BM 8417 TW.*Masa Berlaku Pajak/)
+  assert.match(errors[1], /BM 9483 TS.*Masa Berlaku Pajak/)
+  assert.match(errors[2], /BM 9483 TS.*Status Pajak/)
+})
+
+test('accepts recognised tax dates and Hidup/Mati status, while preserving blank fields', () => {
+  assert.deepEqual(describeVehicleSourceFieldErrors([
+    { excelRow: 7, nomor_polisi: 'BM 1056 NV', masa_pajak_raw: '2025-10-25', masa_pajak: '2025-10-25', status_pajak: 'HIDUP' },
+    { excelRow: 8, nomor_polisi: 'BM 1798 TE', masa_pajak_raw: '-', masa_pajak: null, status_pajak: '-' },
+    { excelRow: 9, nomor_polisi: 'BM 1846 JY', masa_pajak_raw: '', masa_pajak: null, status_pajak: '' },
+  ]), [])
 })
