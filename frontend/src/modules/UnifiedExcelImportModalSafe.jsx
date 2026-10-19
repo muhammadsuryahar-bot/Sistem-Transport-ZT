@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { formatDateSafe } from '../utils/dateSafe'
 import { excelDate } from '../utils/excelDate.js'
+import { assertNoInvalidTransportRows } from '../utils/transportImportBatchValidation.js'
 
 const LABELS = { pengajuan: 'Pengajuan Service', sewa: 'Kendaraan Sewa' }
 const ALIASES = {
@@ -96,7 +97,7 @@ async function importPengajuan(sheet, profile) {
   let duplicateInFile = 0
   const seen = new Set()
 
-  for (const row of rows) {
+  for (const [rowIndex, row] of rows.entries()) {
     const plate = upper(valueOf(row, headers, 'nomor_polisi'))
     const complaint = valueOf(row, headers, 'keluhan')
     const date = excelDate(valueOf(row, headers, 'tanggal'))
@@ -106,6 +107,7 @@ async function importPengajuan(sheet, profile) {
 
     if (!plate || !complaint || !date || !vehicle || vehicle.status === 'TIDAK_AKTIF') {
       invalid.push({
+        sourceRow: rowIndex + 1,
         plate,
         reason: !vehicle
           ? 'Plat belum ada di Master Kendaraan'
@@ -131,6 +133,8 @@ async function importPengajuan(sheet, profile) {
       .map(item => item.plate)
       .filter(Boolean)
   )]
+
+  assertNoInvalidTransportRows('pengajuan', invalid)
 
   if (!valid.length) {
     return {
@@ -218,7 +222,7 @@ async function importSewa(sheet, profile) {
   let duplicateInFile = 0
   const seenContracts = new Set()
 
-  for (const row of rows) {
+  for (const [rowIndex, row] of rows.entries()) {
     const plate = upper(valueOf(row, headers, 'nomor_polisi'))
     const nomorKontrak = valueOf(row, headers, 'nomor_kontrak')
     const ownerName = valueOf(row, headers, 'pemilik')
@@ -229,6 +233,7 @@ async function importSewa(sheet, profile) {
 
     if (!vehicle || !nomorKontrak || !ownerName || !start || !end || !monthly || monthly <= 0) {
       invalid.push({
+        sourceRow: rowIndex + 1,
         plate,
         reason: !vehicle
           ? 'Plat belum ada di Master Kendaraan Sewa'
@@ -281,6 +286,8 @@ async function importSewa(sheet, profile) {
       .map(item => item.plate)
       .filter(Boolean)
   )]
+
+  assertNoInvalidTransportRows('sewa', invalid)
 
   if (!candidates.length) {
     return {
