@@ -9,7 +9,14 @@ DECLARE
 BEGIN
   IF has_function_privilege('anon', 'private.write_transport_audit()'::regprocedure, 'EXECUTE')
      OR has_function_privilege('authenticated', 'private.write_transport_audit()'::regprocedure, 'EXECUTE')
-     OR has_function_privilege('public', 'private.write_transport_audit()'::regprocedure, 'EXECUTE') THEN
+     OR EXISTS (
+       SELECT 1
+       FROM pg_proc f
+       CROSS JOIN LATERAL aclexplode(coalesce(f.proacl, acldefault('f', f.proowner))) privilege
+       WHERE f.oid = 'private.write_transport_audit()'::regprocedure
+         AND privilege.grantee = 0
+         AND privilege.privilege_type = 'EXECUTE'
+     ) THEN
     RAISE EXCEPTION 'Audit trigger function still has direct execute privileges for an API role or PUBLIC.';
   END IF;
 
