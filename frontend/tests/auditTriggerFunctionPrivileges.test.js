@@ -11,7 +11,8 @@ test('revokes direct execution from API login roles and PUBLIC', () => {
   assert.ok(migration.includes('REVOKE ALL ON FUNCTION private.write_transport_audit() FROM PUBLIC, anon, authenticated;'))
   assert.ok(migration.includes("has_function_privilege('anon'"))
   assert.ok(migration.includes("has_function_privilege('authenticated'"))
-  assert.ok(migration.includes("has_function_privilege('public'"))
+  assert.ok(migration.includes('aclexplode(coalesce(f.proacl, acldefault'))
+  assert.ok(migration.includes('privilege.grantee = 0'))
 })
 
 test('fails closed if audit triggers are unexpectedly detached', () => {
