@@ -16,6 +16,6 @@ test('database migration restricts request creation and preserves Transport proc
   assert.match(migration, /ARRAY\['ADMIN'::user_role,\s*'OPERASIONAL'::user_role\]/)
   assert.doesNotMatch(migration, /ARRAY\[[^\]]*'TRANSPORT'::user_role/)
   assert.match(migration, /guard_transport_request_fields/)
-  assert.match(migration, /NEW\.status is distinct from OLD\.status/i) === false
-  assert.match(migration, /NEW\.catatan_transport IS DISTINCT FROM OLD\.catatan_transport/i) === false
+  assert.doesNotMatch(migration, /NEW\\.status\\s+IS DISTINCT FROM OLD\\.status/i)
+  assert.doesNotMatch(migration, /NEW\\.catatan_transport\\s+IS DISTINCT FROM OLD\\.catatan_transport/i)
 })
