@@ -21,7 +21,7 @@ test('rental reports show gross and net amounts separately', async () => {
   assert.match(source, /jumlah_tagihan_bruto \?\? x\.jumlah_tagihan/)
   assert.match(source, /Tagihan Bruto/)
   assert.match(source, /Tagihan Bersih/)
-  assert.match(source, /jumlah_tagihan_bruto: p\\.jumlah_tagihan_bruto \\?\\? p\\.jumlah_tagihan/)
+  assert.ok(source.includes('jumlah_tagihan_bruto: p.jumlah_tagihan_bruto ?? p.jumlah_tagihan'))
 })
 
 test('database protects cumulative repair deductions and gross/net invoice consistency', async () => {
