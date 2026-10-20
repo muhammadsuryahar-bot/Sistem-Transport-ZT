@@ -25,7 +25,7 @@ test('rental reports show gross and net amounts separately', async () => {
 })
 
 test('database protects cumulative repair deductions and gross/net invoice consistency', async () => {
-  const migration = await readFile(new URL('../../supabase/migrations/20261020121500_guard_rental_deduction_totals.sql', import.meta.url), 'utf8')
+  const migration = await readFile(new URL('../../supabase/migrations/20261020083311_guard_rental_deduction_totals.sql', import.meta.url), 'utf8')
   assert.match(migration, /ADD COLUMN IF NOT EXISTS jumlah_tagihan_bruto/)
   assert.match(migration, /FOR UPDATE/)
   assert.match(migration, /r_prior_deductions \+ NEW\.jumlah_potongan > r_limit/)
