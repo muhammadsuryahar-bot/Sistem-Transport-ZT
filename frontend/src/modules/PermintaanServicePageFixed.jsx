@@ -84,9 +84,9 @@ export default function PermintaanServicePage({ profile }) {
   const [success, setSuccess] = useState('')
   const clearMessages = () => { setError(''); setSuccess('') }
 
-  const canCreate = ['ADMIN', 'OPERASIONAL', 'TRANSPORT'].includes(profile?.role)
+  const canCreate = ['ADMIN', 'OPERASIONAL'].includes(profile?.role)
   const canDelete = profile?.role === 'ADMIN'
-  const canEditRequest = ['ADMIN', 'OPERASIONAL', 'TRANSPORT'].includes(profile?.role)
+  const canEditRequest = ['ADMIN', 'OPERASIONAL'].includes(profile?.role)
   const canManageService = ['ADMIN', 'TRANSPORT'].includes(profile?.role)
   const canReadServiceData = ['ADMIN', 'TRANSPORT', 'ATASAN_TRANSPORT', 'DIREKTUR', 'AKUNTANSI'].includes(profile?.role)
   const operationalOnly = profile?.role === 'OPERASIONAL'
