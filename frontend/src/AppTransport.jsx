@@ -2,9 +2,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { supabase } from './lib/supabase'
 import LoginPage from './modules/LoginPage.jsx'
 import { exportToExcel } from './utils/exportExcel'
-import { buildGensetExportRows } from './utils/gensetExport.js'
 import KendaraanPage from './modules/KendaraanPage'
-import GensetPage from './modules/GensetPage.jsx'
 import PermintaanServicePage from './modules/PermintaanServicePage'
 import DashboardFeaturePage from './modules/DashboardFeaturePage'
 import { ServicePage, RentalPage, DocumentsPage, ReportsPage, UsersPage } from './modules/TransportOperationsPage'
@@ -17,8 +15,8 @@ import logoMark from './assets/logo.png'
 
 const ROLE_LABELS = { ADMIN: 'Administrator', TRANSPORT: 'Transport', OPERASIONAL: 'Operasional', ATASAN_TRANSPORT: 'Atasan Transport', DIREKTUR: 'Direktur', AKUNTANSI: 'Akuntansi' }
 const ROLE_ACCESS = {
-  ADMIN: ['dashboard', 'kendaraan', 'genset', 'pengajuan', 'service', 'sewa', 'dokumen', 'laporan', 'pengguna'],
-  TRANSPORT: ['dashboard', 'kendaraan', 'genset', 'pengajuan', 'service', 'sewa', 'dokumen', 'laporan'],
+  ADMIN: ['dashboard', 'kendaraan', 'pengajuan', 'service', 'sewa', 'dokumen', 'laporan', 'pengguna'],
+  TRANSPORT: ['dashboard', 'kendaraan', 'pengajuan', 'service', 'sewa', 'dokumen', 'laporan'],
   OPERASIONAL: ['dashboard', 'pengajuan'],
   ATASAN_TRANSPORT: ['dashboard', 'pengajuan', 'service', 'laporan'],
   DIREKTUR: ['dashboard', 'service', 'laporan'],
@@ -27,7 +25,6 @@ const ROLE_ACCESS = {
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
   { id: 'kendaraan', label: 'Kendaraan', icon: 'vehicle' },
-  { id: 'genset', label: 'Data Genset', icon: 'vehicle' },
   { id: 'pengajuan', label: 'Data Service', icon: 'request' },
   { id: 'service', label: 'Service & Perbaikan', icon: 'service' },
   { id: 'sewa', label: 'Administrasi Sewa', icon: 'rental' },
@@ -192,15 +189,7 @@ function AppTransport() {
     setErrorMessage('')
     try {
       const stamp = new Date().toISOString().slice(0, 10)
-      if (activePage === 'genset') {
-        const { data, error } = await supabase.from('genset').select('*').order('source_no', { ascending: true })
-        if (error) throw error
-        exportToExcel(`Rekap-Genset-ZT-${stamp}.xls`, [{
-          title: 'DATA GENSET',
-          columns: columns([['no_export', 'No'], ['merk', 'Merk'], ['kapasitas_kva', 'Kapasitas (KVA)'], ['engine_no', 'Engine No.'], ['generator_no', 'Generator No.'], ['lokasi_kerja', 'Lokasi Kerja'], ['pemilik', 'Pemilik'], ['status_kepemilikan', 'Status Kepemilikan'], ['keterangan', 'Keterangan']]),
-          rows: buildGensetExportRows(data || []),
-        }])
-      } else if (activePage === 'kendaraan') {
+      if (activePage === 'kendaraan') {
         const [v, d] = await Promise.all([
           supabase.from('kendaraan').select('*').order('id', { ascending: true }),
           supabase.from('driver').select('*').order('nama_lengkap'),
@@ -317,7 +306,7 @@ function AppTransport() {
   if (!profile && errorMessage) return <LoginPage message={errorMessage} />
   if (!profile) return <div className="app-loading-screen"><div className="app-loading-card"><strong>PT ZAMAN TEKNINDO</strong><span>Memuat profil pengguna…</span></div></div>
 
-  const pageContent = { dashboard: <DashboardFeaturePage profile={profile} onNavigate={navigateToPage}/>, kendaraan: <KendaraanPage profile={profile} onNavigate={navigateToPage}/>, genset: <GensetPage profile={profile}/>, pengajuan: <PermintaanServicePage profile={profile}/>, service: <ServicePage profile={profile}/>, sewa: <RentalPage profile={profile} onNavigate={navigateToPage}/>, dokumen: <DocumentsPage profile={profile}/>, laporan: <ReportsPage profile={profile} onNavigate={navigateToPage} />, pengguna: <UsersPage profile={profile} /> }
+  const pageContent = { dashboard: <DashboardFeaturePage profile={profile} onNavigate={navigateToPage}/>, kendaraan: <KendaraanPage profile={profile} onNavigate={navigateToPage}/>, pengajuan: <PermintaanServicePage profile={profile}/>, service: <ServicePage profile={profile}/>, sewa: <RentalPage profile={profile} onNavigate={navigateToPage}/>, dokumen: <DocumentsPage profile={profile}/>, laporan: <ReportsPage profile={profile} onNavigate={navigateToPage} />, pengguna: <UsersPage profile={profile} /> }
   return <div className="dashboard-layout">{sidebarOpen && <button className="sidebar-overlay" onClick={() => setSidebarOpen(false)} aria-label="Tutup menu"/>}<aside className={`sidebar ${sidebarOpen ? 'sidebar-open' : ''}`}><div className="sidebar-brand"><div className="sidebar-brand-mark"><img src={logoMark} alt=""/></div><div className="sidebar-brand-copy"><strong>PT ZAMAN TEKNINDO</strong><span>Sistem Transport</span></div></div><div className="nav-section-label">MENU UTAMA</div><nav className="sidebar-nav" aria-label="Navigasi utama">{visibleNavItems.map((item) => <button key={item.id} className={`nav-item ${activePage === item.id ? 'active' : ''}`} onClick={() => { navigateToPage(item.id); setSidebarOpen(false) }}><span className="nav-icon" data-icon={item.icon} aria-hidden="true"/><span>{item.label}</span></button>)}</nav><div className="sidebar-bottom"><div className="user-mini"><div className="avatar">{(profile?.nama_lengkap || profile?.email || 'U').charAt(0).toUpperCase()}</div><div className="user-mini-text"><strong>{profile?.nama_lengkap || 'Pengguna'}</strong><span>{ROLE_LABELS[profile?.role] || profile?.role}</span></div></div><button className="logout-button" onClick={handleLogout} disabled={submitting}>Keluar</button></div></aside><main className="main-content"><header className="topbar"><button className="menu-button" onClick={() => setSidebarOpen(true)} aria-label="Buka menu">☰</button><div><span className="topbar-label">SISTEM TRANSPORT</span><h1>{NAV_ITEMS.find((item) => item.id === activePage)?.label || 'Dashboard'}</h1></div><div className="topbar-user"><div className="avatar">{(profile?.nama_lengkap || profile?.email || 'U').charAt(0).toUpperCase()}</div><div><strong>{profile?.nama_lengkap || profile?.email}</strong><span>{ROLE_LABELS[profile?.role] || profile?.role}</span></div></div></header><div className={`content-container ${navigationPending ? "page-navigation-pending" : ""}`}><DataPageTools context={activePage} profile={profile} onExport={exportCurrentPage}/>{errorMessage && <div className="app-global-error" role="alert"><span>{errorMessage}</span><button type="button" aria-label="Tutup pesan" onClick={() => setErrorMessage('')}>Tutup</button></div>}{navigationPending && <div className="page-navigation-indicator" role="status" aria-live="polite">Memuat menu…</div>}{pageContent[activePage] || pageContent.dashboard}</div></main></div>
 }
 
