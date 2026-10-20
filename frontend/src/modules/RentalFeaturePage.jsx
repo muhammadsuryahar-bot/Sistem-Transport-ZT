@@ -41,6 +41,7 @@ export default function RentalFeaturePage({ profile, onNavigate }) {
   const [owners, setOwners] = useState([])
   const [contracts, setContracts] = useState([])
   const [payments, setPayments] = useState([])
+  const [deductions, setDeductions] = useState([])
   const [rentalHistoryExcel, setRentalHistoryExcel] = useState([])
   const [repairs, setRepairs] = useState([])
   const [vehicles, setVehicles] = useState([])
@@ -126,14 +127,17 @@ export default function RentalFeaturePage({ profile, onNavigate }) {
     if (!force && rentalTabLoadedRef.current[targetTab]) return
     try {
       if (targetTab === 'pembayaran' || targetTab === 'repair') {
-        const [paymentResult, repairResult] = await Promise.all([
+        const [paymentResult, repairResult, deductionResult] = await Promise.all([
           supabase.from('pembayaran_sewa').select('*').order('bulan_pembayaran', { ascending: false }),
           supabase.from('perbaikan_sewa').select('*').order('tanggal_kejadian', { ascending: false }),
+          supabase.from('potongan_pembayaran_sewa').select('id,pembayaran_sewa_id,perbaikan_sewa_id,jumlah_potongan').order('created_at', { ascending: false }),
         ])
         if (paymentResult.error) throw paymentResult.error
         if (repairResult.error) throw repairResult.error
+        if (deductionResult.error) throw deductionResult.error
         setPayments(paymentResult.data || [])
         setRepairs(repairResult.data || [])
+        setDeductions(deductionResult.data || [])
         rentalTabLoadedRef.current.pembayaran = true
         rentalTabLoadedRef.current.repair = true
       } else if (targetTab === 'historis') {
@@ -242,7 +246,7 @@ export default function RentalFeaturePage({ profile, onNavigate }) {
   const editPayment = async row => {
     const rel = await supabase.from('potongan_pembayaran_sewa').select('id').eq('pembayaran_sewa_id', row.id).limit(1)
     if (rel.data?.length) return setError('Pembayaran yang sudah memiliki potongan repair tidak diedit dari form ini. Gunakan detail sebagai arsip agar riwayat potongan tetap konsisten.')
-    setEditingPaymentId(row.id); setPayment({ kontrak_sewa_id: row.kontrak_sewa_id, periode_ke: row.periode_ke ?? '', bulan_pembayaran: row.bulan_pembayaran || '', tanggal_jatuh_tempo: row.tanggal_jatuh_tempo || '', tanggal_pembayaran: row.tanggal_pembayaran || '', jumlah_tagihan: row.jumlah_tagihan ?? '', jumlah_dibayar: row.jumlah_dibayar ?? '', metode_pembayaran: row.metode_pembayaran || '', nomor_referensi: row.nomor_referensi || '', catatan: row.catatan || '', perbaikan_sewa_id: '', jumlah_potongan: '' }); setPaymentFile(null); setTab('pembayaran')
+    setEditingPaymentId(row.id); setPayment({ kontrak_sewa_id: row.kontrak_sewa_id, periode_ke: row.periode_ke ?? '', bulan_pembayaran: row.bulan_pembayaran || '', tanggal_jatuh_tempo: row.tanggal_jatuh_tempo || '', tanggal_pembayaran: row.tanggal_pembayaran || '', jumlah_tagihan: row.jumlah_tagihan_bruto ?? row.jumlah_tagihan ?? '', jumlah_dibayar: row.jumlah_dibayar ?? '', metode_pembayaran: row.metode_pembayaran || '', nomor_referensi: row.nomor_referensi || '', catatan: row.catatan || '', perbaikan_sewa_id: '', jumlah_potongan: '' }); setPaymentFile(null); setTab('pembayaran')
   }
   const deletePayment = async row => {
     if (!editable) return
@@ -253,18 +257,29 @@ export default function RentalFeaturePage({ profile, onNavigate }) {
   }
   const savePayment = async e => {
     e.preventDefault(); clearMessages()
-    if (!payment.kontrak_sewa_id || !payment.periode_ke || !payment.bulan_pembayaran || !payment.tanggal_jatuh_tempo || !payment.jumlah_tagihan) return setError('Kontrak, periode, bulan, jatuh tempo, dan tagihan wajib diisi.')
+    if (!payment.kontrak_sewa_id || !payment.periode_ke || !payment.bulan_pembayaran || !payment.tanggal_jatuh_tempo || payment.jumlah_tagihan === '') return setError('Kontrak, periode, bulan, jatuh tempo, dan tagihan wajib diisi.')
     if (Number(payment.periode_ke) < 1 || Number(payment.periode_ke) > 6) return setError('Periode pembayaran hanya 1 sampai 6.')
-    const gross = Number(payment.jumlah_tagihan || 0), requestedDeduction = Number(payment.jumlah_potongan || 0), selectedRepair = payment.perbaikan_sewa_id ? repairMap[payment.perbaikan_sewa_id] : null
-    if (requestedDeduction > 0) { if (!selectedRepair) return setError('Pilih perbaikan yang menjadi dasar potongan.'); if (!selectedRepair.dapat_dipotong || !selectedRepair.dibayar_kantor) return setError('Hanya perbaikan yang dibayar kantor dan ditandai dapat dipotong yang boleh dipotong dari rental.'); if (Number(selectedRepair.jumlah_dipotong || 0) < requestedDeduction) return setError('Potongan melebihi nilai potongan yang dicatat untuk perbaikan.'); if (selectedRepair.kontrak_sewa_id && Number(selectedRepair.kontrak_sewa_id) !== Number(payment.kontrak_sewa_id)) return setError('Perbaikan dan kontrak rental harus berasal dari kontrak yang sama.') }
-    const netBill = Math.max(0, gross - requestedDeduction), paid = Number(payment.jumlah_dibayar || 0), status = payment.tanggal_pembayaran && paid >= netBill ? 'SUDAH_DIBAYAR' : (paid > 0 ? 'SEBAGIAN_DIBAYAR' : (payment.tanggal_jatuh_tempo && new Date(payment.tanggal_jatuh_tempo) < new Date() ? 'TERLAMBAT' : 'BELUM_DIBAYAR'))
+    const gross = Number(payment.jumlah_tagihan), requestedDeduction = Number(payment.jumlah_potongan || 0), paid = Number(payment.jumlah_dibayar || 0)
+    const selectedRepair = payment.perbaikan_sewa_id ? repairMap[payment.perbaikan_sewa_id] : null
+    if (!Number.isFinite(gross) || gross <= 0) return setError('Tagihan sewa sebelum potongan harus berupa angka lebih dari 0.')
+    if (!Number.isFinite(requestedDeduction) || requestedDeduction < 0) return setError('Jumlah potongan tidak valid.')
+    if (requestedDeduction > gross) return setError('Jumlah potongan tidak boleh melebihi tagihan sewa sebelum potongan.')
+    if (!Number.isFinite(paid) || paid < 0) return setError('Jumlah dibayar tidak valid.')
+    if (requestedDeduction > 0) {
+      if (!selectedRepair) return setError('Pilih perbaikan yang menjadi dasar potongan.')
+      if (!selectedRepair.dapat_dipotong || !selectedRepair.dibayar_kantor) return setError('Hanya perbaikan yang dibayar kantor dan ditandai dapat dipotong yang boleh dipotong dari rental.')
+      if (requestedDeduction > getRepairAvailableAmount(selectedRepair)) return setError('Potongan melebihi sisa biaya perbaikan yang belum dipotong.')
+      if (selectedRepair.kontrak_sewa_id && Number(selectedRepair.kontrak_sewa_id) !== Number(payment.kontrak_sewa_id)) return setError('Perbaikan dan kontrak rental harus berasal dari kontrak yang sama.')
+    }
+    const netBill = gross - requestedDeduction
+    const status = payment.tanggal_pembayaran && paid >= netBill ? 'SUDAH_DIBAYAR' : (paid > 0 ? 'SEBAGIAN_DIBAYAR' : (payment.tanggal_jatuh_tempo && new Date(payment.tanggal_jatuh_tempo) < new Date() ? 'TERLAMBAT' : 'BELUM_DIBAYAR'))
     if (paid > netBill) return setError('Jumlah dibayar tidak boleh melebihi tagihan bersih setelah potongan.')
     setSaving(true); let proofPath = null; let createdPaymentId = null
     try {
       const previous = editingPaymentId ? payments.find(x => x.id === editingPaymentId) : null
       proofPath = paymentFile ? await uploadRentalFile(paymentFile, `pembayaran/${payment.kontrak_sewa_id}`) : previous?.bukti_pembayaran_path || null
       const notePrefix = requestedDeduction > 0 ? `Tagihan bruto ${gross}; potongan repair ${requestedDeduction}; tagihan bersih ${netBill}.` : `Tagihan rental ${gross}.`
-      const payload = { kontrak_sewa_id: Number(payment.kontrak_sewa_id), periode_ke: Number(payment.periode_ke), bulan_pembayaran: payment.bulan_pembayaran, tanggal_jatuh_tempo: payment.tanggal_jatuh_tempo || null, tanggal_pembayaran: payment.tanggal_pembayaran || null, jumlah_tagihan: netBill, jumlah_dibayar: paid, status, metode_pembayaran: payment.metode_pembayaran.trim() || null, nomor_referensi: payment.nomor_referensi.trim() || null, bukti_pembayaran_path: proofPath, catatan: [notePrefix, payment.catatan.trim()].filter(Boolean).join(' ') || null, diproses_oleh: profile?.id || null }
+      const payload = { kontrak_sewa_id: Number(payment.kontrak_sewa_id), periode_ke: Number(payment.periode_ke), bulan_pembayaran: payment.bulan_pembayaran, tanggal_jatuh_tempo: payment.tanggal_jatuh_tempo || null, tanggal_pembayaran: payment.tanggal_pembayaran || null, jumlah_tagihan_bruto: gross, jumlah_tagihan: netBill, jumlah_dibayar: paid, status, metode_pembayaran: payment.metode_pembayaran.trim() || null, nomor_referensi: payment.nomor_referensi.trim() || null, bukti_pembayaran_path: proofPath, catatan: [notePrefix, payment.catatan.trim()].filter(Boolean).join(' ') || null, diproses_oleh: profile?.id || null }
       const result = editingPaymentId ? await supabase.from('pembayaran_sewa').update(payload).eq('id', editingPaymentId).select('*').single() : await supabase.from('pembayaran_sewa').insert(payload).select('*').single()
       if (result.error) throw result.error
       if (!editingPaymentId) createdPaymentId = result.data?.id || null
@@ -323,7 +338,14 @@ export default function RentalFeaturePage({ profile, onNavigate }) {
     } catch (e) { setError(humanizeError(e)); setOpenedFiles(v => ({ ...v, [key]: null })) }
   }
 
-  const getRepairAvailableAmount = r => r.dapat_dipotong && r.dibayar_kantor ? Number(r.jumlah_dipotong || 0) : 0
+  const getRepairAvailableAmount = r => {
+    if (!r?.dapat_dipotong || !r?.dibayar_kantor) return 0
+    const approvedAmount = Math.min(Number(r.jumlah_dipotong || 0), Number(r.biaya_aktual ?? r.estimasi_biaya ?? 0))
+    const usedAmount = deductions
+      .filter(row => Number(row.perbaikan_sewa_id) === Number(r.id))
+      .reduce((sum, row) => sum + Number(row.jumlah_potongan || 0), 0)
+    return Math.max(0, approvedAmount - usedAmount)
+  }
 
   const filteredPayments = useMemo(() => {
     const q = paymentSearch.trim().toLowerCase()
@@ -441,7 +463,7 @@ export default function RentalFeaturePage({ profile, onNavigate }) {
         <label>Bulan Pembayaran<input type="date" value={payment.bulan_pembayaran} onChange={e => setPayment({ ...payment, bulan_pembayaran: e.target.value })} /></label>
         <label>Jatuh Tempo<input type="date" value={payment.tanggal_jatuh_tempo} onChange={e => setPayment({ ...payment, tanggal_jatuh_tempo: e.target.value })} /></label>
         <label>Tagihan Sewa (sebelum potongan)<input type="number" min="0" value={payment.jumlah_tagihan} onChange={e => setPayment({ ...payment, jumlah_tagihan: e.target.value })} /></label>
-        <label>Perbaikan untuk Potongan<select value={payment.perbaikan_sewa_id} onChange={e => { const r = repairMap[e.target.value]; setPayment({ ...payment, perbaikan_sewa_id: e.target.value, jumlah_potongan: r ? String(getRepairAvailableAmount(r)) : '' }) }}><option value="">Tidak ada potongan</option>{repairs.filter(r => r.dapat_dipotong && r.dibayar_kantor && getRepairAvailableAmount(r) > 0).map(r => <option key={r.id} value={r.id}>{vehicleMap[r.kendaraan_id]?.nomor_polisi || '-'} — {r.jenis_kerusakan} — {money(r.jumlah_dipotong)}</option>)}</select></label>
+        <label>Perbaikan untuk Potongan<select value={payment.perbaikan_sewa_id} onChange={e => { const r = repairMap[e.target.value]; setPayment({ ...payment, perbaikan_sewa_id: e.target.value, jumlah_potongan: r ? String(getRepairAvailableAmount(r)) : '' }) }}><option value="">Tidak ada potongan</option>{repairs.filter(r => r.dapat_dipotong && r.dibayar_kantor && getRepairAvailableAmount(r) > 0).map(r => <option key={r.id} value={r.id}>{vehicleMap[r.kendaraan_id]?.nomor_polisi || '-'} — {r.jenis_kerusakan} — Sisa {money(getRepairAvailableAmount(r))}</option>)}</select></label>
         <label>Jumlah Potongan<input type="number" min="0" value={payment.jumlah_potongan} onChange={e => setPayment({ ...payment, jumlah_potongan: e.target.value })} /></label>
         <label>Tagihan Bersih<input type="number" value={Math.max(0, Number(payment.jumlah_tagihan || 0) - Number(payment.jumlah_potongan || 0))} readOnly /></label>
         <label>Jumlah Dibayar<input type="number" min="0" value={payment.jumlah_dibayar} onChange={e => setPayment({ ...payment, jumlah_dibayar: e.target.value })} /></label>
@@ -453,8 +475,8 @@ export default function RentalFeaturePage({ profile, onNavigate }) {
         <div className="full x-actions"><button type="button" className="x-btn secondary" onClick={resetPaymentForm}>Bersihkan</button><button className="x-btn primary" disabled={saving}>{saving ? 'Menyimpan…' : editingPaymentId ? 'Perbarui Pembayaran' : 'Simpan Pembayaran'}</button></div>
       </form>}
       <div className="x-toolbar-inline"><input value={paymentSearch} onChange={e => setPaymentSearch(e.target.value)} placeholder="Cari BM, kontrak, pemilik, referensi..." /><select value={paymentStatus} onChange={e => setPaymentStatus(e.target.value)}><option value="SEMUA">Semua status</option><option value="DATA_HISTORIS">Data Historis</option><option value="BELUM_DIBAYAR">Belum Dibayar</option><option value="SEBAGIAN_DIBAYAR">Sebagian Dibayar</option><option value="SUDAH_DIBAYAR">Sudah Dibayar</option><option value="TERLAMBAT">Terlambat</option></select><button className="x-btn secondary" type="button" onClick={() => { setPaymentSearch(''); setPaymentStatus('SEMUA') }}>Reset Filter</button></div>
-      <div className="x-table-wrap"><table className="x-table"><thead><tr><th>No Kontrak</th><th>No. Polisi</th><th>Pemilik</th><th>Periode Ke</th><th>Jatuh Tempo</th><th>Tagihan</th><th>Dibayar</th><th>Status</th><th>Bukti</th><th>Aksi</th></tr></thead><tbody>{filteredPayments.length ? filteredPayments.map(p => { const key = 'payment-' + p.id; const contractRow = contracts.find(c => c.id === p.kontrak_sewa_id); const ownerRow = owners.find(o => o.id === contractRow?.pemilik_sewa_id); const plate = vehicleMap[contractRow?.kendaraan_id]?.nomor_polisi || '-'; return <tr key={p.id}><td><b>{contractRow?.nomor_kontrak || '-'}</b><small>{formatMonthSafe(p.bulan_pembayaran)}</small></td><td>{plate}</td><td>{ownerRow?.nama_pemilik || '-'}<small>{ownerRow?.nama_perusahaan || ''}</small></td><td>{p.periode_ke} / 6</td><td>{dateText(p.tanggal_jatuh_tempo)}</td><td>{money(p.jumlah_tagihan)}</td><td>{money(p.jumlah_dibayar)}</td><td><span className="x-pill">{paymentStatusLabel(p.status)}</span></td><td>{p.bukti_pembayaran_path ? <button className="x-btn secondary" onClick={() => openFile(key, 'dokumen-sewa', p.bukti_pembayaran_path)}>{openedFiles[key] === 'loading' ? '…' : 'Lihat'}</button> : '-'}</td><td className="x-action-compact"><button className="x-link" onClick={() => setPaymentDetail(p)}>Detail</button>{editable&&<button className="x-link" onClick={()=>editPayment(p)}>Edit</button>}{editable&&<button className="x-link danger" onClick={()=>deletePayment(p)} disabled={saving}>Hapus</button>}</td></tr> }) : <tr><td colSpan="10"><Empty /></td></tr>}</tbody></table></div>
-      {paymentDetail && <div className="x-overlay"><section className="x-modal"><div className="x-modal-head"><div><span className="eyebrow">DETAIL PEMBAYARAN RENTAL</span><h3>{contracts.find(c => c.id === paymentDetail.kontrak_sewa_id)?.nomor_kontrak || '-'}</h3></div><button onClick={() => setPaymentDetail(null)}>×</button></div><div className="x-detail"><p><b>No. Polisi:</b> {vehicleMap[contracts.find(c => c.id === paymentDetail.kontrak_sewa_id)?.kendaraan_id]?.nomor_polisi || '-'}</p><p><b>Periode:</b> {paymentDetail.periode_ke} / 6</p><p><b>Bulan:</b> {formatMonthSafe(paymentDetail.bulan_pembayaran)}</p><p><b>Jatuh Tempo:</b> {dateText(paymentDetail.tanggal_jatuh_tempo)}</p><p><b>Tagihan:</b> {money(paymentDetail.jumlah_tagihan)}</p><p><b>Dibayar:</b> {money(paymentDetail.jumlah_dibayar)}</p><p><b>Status:</b> {paymentStatusLabel(paymentDetail.status)}</p><p><b>Metode:</b> {paymentDetail.metode_pembayaran || '-'}</p><p><b>Referensi:</b> {paymentDetail.nomor_referensi || '-'}</p><p><b>Catatan:</b> {paymentDetail.catatan || '-'}</p></div><div className="x-actions"><button className="x-btn secondary" onClick={() => setPaymentDetail(null)}>Tutup</button></div></section></div>}
+      <div className="x-table-wrap"><table className="x-table"><thead><tr><th>No Kontrak</th><th>No. Polisi</th><th>Pemilik</th><th>Periode Ke</th><th>Jatuh Tempo</th><th>Tagihan Bruto / Bersih</th><th>Dibayar</th><th>Status</th><th>Bukti</th><th>Aksi</th></tr></thead><tbody>{filteredPayments.length ? filteredPayments.map(p => { const key = 'payment-' + p.id; const contractRow = contracts.find(c => c.id === p.kontrak_sewa_id); const ownerRow = owners.find(o => o.id === contractRow?.pemilik_sewa_id); const plate = vehicleMap[contractRow?.kendaraan_id]?.nomor_polisi || '-'; return <tr key={p.id}><td><b>{contractRow?.nomor_kontrak || '-'}</b><small>{formatMonthSafe(p.bulan_pembayaran)}</small></td><td>{plate}</td><td>{ownerRow?.nama_pemilik || '-'}<small>{ownerRow?.nama_perusahaan || ''}</small></td><td>{p.periode_ke} / 6</td><td>{dateText(p.tanggal_jatuh_tempo)}</td><td><b>{money(p.jumlah_tagihan_bruto ?? p.jumlah_tagihan)}</b><small>Bersih: {money(p.jumlah_tagihan)}</small></td><td>{money(p.jumlah_dibayar)}</td><td><span className="x-pill">{paymentStatusLabel(p.status)}</span></td><td>{p.bukti_pembayaran_path ? <button className="x-btn secondary" onClick={() => openFile(key, 'dokumen-sewa', p.bukti_pembayaran_path)}>{openedFiles[key] === 'loading' ? '…' : 'Lihat'}</button> : '-'}</td><td className="x-action-compact"><button className="x-link" onClick={() => setPaymentDetail(p)}>Detail</button>{editable&&<button className="x-link" onClick={()=>editPayment(p)}>Edit</button>}{editable&&<button className="x-link danger" onClick={()=>deletePayment(p)} disabled={saving}>Hapus</button>}</td></tr> }) : <tr><td colSpan="10"><Empty /></td></tr>}</tbody></table></div>
+      {paymentDetail && <div className="x-overlay"><section className="x-modal"><div className="x-modal-head"><div><span className="eyebrow">DETAIL PEMBAYARAN RENTAL</span><h3>{contracts.find(c => c.id === paymentDetail.kontrak_sewa_id)?.nomor_kontrak || '-'}</h3></div><button onClick={() => setPaymentDetail(null)}>×</button></div><div className="x-detail"><p><b>No. Polisi:</b> {vehicleMap[contracts.find(c => c.id === paymentDetail.kontrak_sewa_id)?.kendaraan_id]?.nomor_polisi || '-'}</p><p><b>Periode:</b> {paymentDetail.periode_ke} / 6</p><p><b>Bulan:</b> {formatMonthSafe(paymentDetail.bulan_pembayaran)}</p><p><b>Jatuh Tempo:</b> {dateText(paymentDetail.tanggal_jatuh_tempo)}</p><p><b>Tagihan bruto:</b> {money(paymentDetail.jumlah_tagihan_bruto ?? paymentDetail.jumlah_tagihan)}</p><p><b>Tagihan bersih:</b> {money(paymentDetail.jumlah_tagihan)}</p><p><b>Dibayar:</b> {money(paymentDetail.jumlah_dibayar)}</p><p><b>Status:</b> {paymentStatusLabel(paymentDetail.status)}</p><p><b>Metode:</b> {paymentDetail.metode_pembayaran || '-'}</p><p><b>Referensi:</b> {paymentDetail.nomor_referensi || '-'}</p><p><b>Catatan:</b> {paymentDetail.catatan || '-'}</p></div><div className="x-actions"><button className="x-btn secondary" onClick={() => setPaymentDetail(null)}>Tutup</button></div></section></div>}
       {Object.entries(openedFiles).filter(([k, v]) => k.startsWith('payment-') && v && v !== 'loading').map(([k, v]) => <div key={k} className="x-alert"><a href={v} target="_blank" rel="noreferrer">Buka bukti pembayaran</a></div>)}
     </section>}
 
