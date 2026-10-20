@@ -163,6 +163,11 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
     event.preventDefault()
     if (!canEdit || saving) return
     setSaving(true); setError(''); setSuccess('')
+    const uploadedPaths = []
+    const pendingPhotos = canPhoto ? PHOTO_ITEMS.filter(photo => photoFiles[photo.key]) : []
+    let latestVehicle = null
+    let createdVehicleId = null
+    let photoPathsCommitted = false
     try {
       const ownership = normalizeOwnership(form.kepemilikan)
       const owner = clean(form.pemilik)
@@ -185,47 +190,48 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
         keterangan: clean(form.keterangan) || null, catatan_hutang: clean(form.catatan_hutang) || null,
         status: editing?.status || 'ACTIVE',
       }
-      let result
-      if (editing) result = await supabase.from('kendaraan').update(payload).eq('id', editing.id).select().single()
-      else result = await supabase.from('kendaraan').insert(payload).select().single()
-      if (result.error) throw result.error
-      let latestVehicle = {
-        ...result.data,
-        kepemilikan: normalizeOwnership(result.data.kepemilikan),
-      }
-      const uploadedPaths = []
+
+      // For existing vehicles upload first; DB metadata changes only after all selected photos upload.
       const photoUpdates = {}
-      try {
-        if (canPhoto) {
-          for (const photo of PHOTO_ITEMS) {
-            const file = photoFiles[photo.key]
-            if (!file) continue
-            const uploadedPath = await uploadVehiclePhoto(latestVehicle.id, photo, file)
+      if (editing && pendingPhotos.length) {
+        for (const photo of pendingPhotos) {
+          const uploadedPath = await uploadVehiclePhoto(editing.id, photo, photoFiles[photo.key])
+          uploadedPaths.push(uploadedPath)
+          photoUpdates[photo.field] = uploadedPath
+        }
+      }
+
+      const result = editing
+        ? await supabase.from('kendaraan').update({ ...payload, ...photoUpdates }).eq('id', editing.id).select().single()
+        : await supabase.from('kendaraan').insert(payload).select().single()
+      if (result.error) throw result.error
+      latestVehicle = { ...result.data, kepemilikan: normalizeOwnership(result.data.kepemilikan) }
+
+      if (editing) {
+        photoPathsCommitted = true
+      } else {
+        createdVehicleId = latestVehicle.id
+        if (pendingPhotos.length) {
+          for (const photo of pendingPhotos) {
+            const uploadedPath = await uploadVehiclePhoto(latestVehicle.id, photo, photoFiles[photo.key])
             uploadedPaths.push(uploadedPath)
             photoUpdates[photo.field] = uploadedPath
           }
+          const photoResult = await supabase.from('kendaraan').update(photoUpdates).eq('id', latestVehicle.id).select().single()
+          if (photoResult.error) throw photoResult.error
+          latestVehicle = { ...latestVehicle, ...photoResult.data }
         }
-        if (Object.keys(photoUpdates).length) {
-          const { data: photoUpdatedVehicle, error: photoUpdateError } = await supabase
-            .from('kendaraan')
-            .update(photoUpdates)
-            .eq('id', latestVehicle.id)
-            .select()
-            .single()
-          if (photoUpdateError) throw photoUpdateError
-          latestVehicle = { ...latestVehicle, ...photoUpdatedVehicle }
-          const oldPaths = PHOTO_ITEMS
-            .filter(photo => photoUpdates[photo.field] && editing?.[photo.field])
-            .map(photo => editing[photo.field])
-          if (oldPaths.length) {
-            const { error: cleanupError } = await supabase.storage.from('kendaraan').remove(oldPaths)
-            if (cleanupError) console.warn('Foto kendaraan lama gagal dibersihkan:', cleanupError.message)
-          }
+        photoPathsCommitted = true
+      }
+
+      if (editing && pendingPhotos.length) {
+        const oldPaths = PHOTO_ITEMS
+          .filter(photo => photoUpdates[photo.field] && editing[photo.field])
+          .map(photo => editing[photo.field])
+        if (oldPaths.length) {
+          const { error: cleanupError } = await supabase.storage.from('kendaraan').remove(oldPaths)
+          if (cleanupError) console.warn('Foto kendaraan lama gagal dibersihkan:', cleanupError.message)
         }
-      } catch (photoError) {
-        if (uploadedPaths.length) await supabase.storage.from('kendaraan').remove(uploadedPaths)
-        if (!editing) await supabase.from('kendaraan').delete().eq('id', latestVehicle.id)
-        throw photoError
       }
 
       setVehicles(current => {
@@ -237,6 +243,14 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
       setSuccess(editing ? 'Data kendaraan diperbarui.' : 'Kendaraan baru berhasil ditambahkan.')
       resetModal()
     } catch (saveError) {
+      if (uploadedPaths.length && !photoPathsCommitted) {
+        const { error: cleanupError } = await supabase.storage.from('kendaraan').remove(uploadedPaths)
+        if (cleanupError) console.warn('Foto baru gagal dibersihkan setelah proses simpan gagal:', cleanupError.message)
+      }
+      if (createdVehicleId && !photoPathsCommitted) {
+        const { error: rollbackError } = await supabase.from('kendaraan').delete().eq('id', createdVehicleId)
+        if (rollbackError) console.error('Kendaraan baru gagal di-rollback setelah unggah foto:', rollbackError.message)
+      }
       setError(humanizeError(saveError, 'Gagal menyimpan kendaraan.'))
     } finally { setSaving(false) }
   }
