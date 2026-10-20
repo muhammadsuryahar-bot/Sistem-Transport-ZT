@@ -6,6 +6,7 @@ import PageBreadcrumb from './PageBreadcrumb.jsx'
 import { formatDateSafe } from '../utils/dateSafe'
 import { IMAGE_UPLOAD_ACCEPT, validateStorageUploadFile } from '../utils/storageUpload.js'
 import { analyzeVehicleIntegrity } from '../utils/vehicleIntegrity.js'
+import { inferRentalTypeFromOwner } from '../utils/vehicleOwnership.js'
 
 const OWNERSHIP = { ASET: 'Aset', SEWA: 'Sewa' }
 const VEHICLE_TYPES = ['Pickup', 'Minibus', 'Dump Truck']
@@ -26,11 +27,6 @@ const EMPTY = {
 const clean = value => String(value ?? '').trim()
 const normalizeRentalType = value => { const v = clean(value).toUpperCase().replace(/\s+/g, '_'); if (v === 'SEWA_PERUSAHAAN' || v === 'PERUSAHAAN') return 'SEWA_PERUSAHAAN'; if (v === 'SEWA_PERORANGAN' || v === 'PERORANGAN') return 'SEWA_PERORANGAN'; return '' }
 const rentalTypeLabel = value => value === 'SEWA_PERORANGAN' ? 'Sewa Perorangan' : value === 'SEWA_PERUSAHAAN' ? 'Sewa Perusahaan' : 'Belum ditentukan'
-const inferRentalTypeFromOwner = owner => {
-  const value = clean(owner)
-  if (!value) return ''
-  return /^(PT|CV|UD|YAYASAN|KOPERASI)(\\.|\\s|$)/i.test(value) ? 'SEWA_PERUSAHAAN' : 'SEWA_PERORANGAN'
-}
 const rentalTypeForVehicle = vehicle => normalizeRentalType(vehicle?.jenis_sewa) || inferRentalTypeFromOwner(vehicle?.pemilik)
 const normalizeOwnership = value => {
   const v = clean(value).toUpperCase().replace(/\s+/g, '_')
