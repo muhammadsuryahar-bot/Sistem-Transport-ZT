@@ -7,7 +7,8 @@ SET search_path TO 'pg_catalog', 'public', 'private'
 AS $function$
 BEGIN
   IF private.get_my_role() = 'TRANSPORT'::public.user_role THEN
-    IF NEW.nomor_pengajuan IS DISTINCT FROM OLD.nomor_pengajuan
+    IF NEW.id IS DISTINCT FROM OLD.id
+      OR NEW.nomor_pengajuan IS DISTINCT FROM OLD.nomor_pengajuan
       OR NEW.pemohon_id IS DISTINCT FROM OLD.pemohon_id
       OR NEW.kendaraan_id IS DISTINCT FROM OLD.kendaraan_id
       OR NEW.tanggal_pengajuan IS DISTINCT FROM OLD.tanggal_pengajuan
@@ -16,6 +17,11 @@ BEGIN
       OR NEW.keluhan IS DISTINCT FROM OLD.keluhan
       OR NEW.prioritas IS DISTINCT FROM OLD.prioritas
       OR NEW.created_at IS DISTINCT FROM OLD.created_at
+      OR (
+        NEW.diproses_oleh IS DISTINCT FROM OLD.diproses_oleh
+        AND NEW.diproses_oleh IS NOT NULL
+        AND NEW.diproses_oleh IS DISTINCT FROM auth.uid()
+      )
     THEN
       RAISE EXCEPTION USING
         errcode = '42501',
