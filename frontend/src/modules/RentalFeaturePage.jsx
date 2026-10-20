@@ -309,7 +309,7 @@ export default function RentalFeaturePage({ profile, onNavigate }) {
     if (!repairEditable) return
     const dataReady = await loadRentalTabData('pembayaran')
     if (dataReady === false) return
-    if (payments.some(p => Number(p.perbaikan_sewa_id) === Number(row.id))) return setError('Perbaikan sudah dipakai sebagai dasar potongan pembayaran. Jangan hapus data ini.')
+    if (deductions.some(d => Number(d.perbaikan_sewa_id) === Number(row.id))) return setError('Perbaikan sudah dipakai sebagai dasar potongan pembayaran. Jangan hapus data ini.')
     if (!window.confirm('Hapus perbaikan ' + (row.jenis_kerusakan || row.id) + '?')) return
     setSaving(true); try { const result = await supabase.from('perbaikan_sewa').delete().eq('id', row.id); if (result.error) throw result.error; const paths=[row.foto_kerusakan_path,row.bukti_perbaikan_path].filter(Boolean); if(paths.length) await supabase.storage.from('dokumen-sewa').remove(paths); setRepairs(current=>current.filter(x=>x.id!==row.id)); setSuccess('Data perbaikan dihapus.') } catch(e){setError(humanizeError(e))} finally{setSaving(false)}
   }
@@ -319,6 +319,13 @@ export default function RentalFeaturePage({ profile, onNavigate }) {
     if (repair.dibayar_kantor && !repair.tanggal_dibayar) return setError('Tanggal pembayaran perbaikan wajib diisi jika dibayar kantor.')
     if (repair.dapat_dipotong && !repair.dibayar_kantor) return setError('Perbaikan baru boleh ditandai dapat dipotong setelah dibayar kantor.')
     if (repair.dapat_dipotong && Number(repair.jumlah_dipotong || 0) <= 0) return setError('Jumlah potongan wajib diisi jika perbaikan dapat dipotong.')
+    const existingDeductionTotal = editingRepairId
+      ? deductions.filter(d => Number(d.perbaikan_sewa_id) === Number(editingRepairId)).reduce((sum, d) => sum + Number(d.jumlah_potongan || 0), 0)
+      : 0
+    const updatedRepairCost = Number(repair.biaya_aktual === '' ? repair.estimasi_biaya || 0 : repair.biaya_aktual)
+    const updatedDeductionLimit = repair.dapat_dipotong ? Number(repair.jumlah_dipotong || 0) : 0
+    if (existingDeductionTotal > 0 && (!repair.dibayar_kantor || !repair.dapat_dipotong || !repair.tanggal_dibayar)) return setError('Perbaikan sudah dipotong dari tagihan rental; status pembayaran dan kelayakan potongan tidak boleh dibatalkan.')
+    if (existingDeductionTotal > updatedDeductionLimit || existingDeductionTotal > updatedRepairCost) return setError('Biaya dan batas potongan tidak boleh lebih kecil dari nominal yang sudah dipotong.')
     const selectedContract = contracts.find(c => Number(c.id) === Number(repair.kontrak_sewa_id)); if (!selectedContract) return setError('Kontrak rental tidak ditemukan.'); if (Number(selectedContract.kendaraan_id) !== Number(repair.kendaraan_id)) return setError('Kendaraan perbaikan harus sama dengan kendaraan pada kontrak rental.')
     setSaving(true); let fotoPath = null; let proofPath = null
     try {
