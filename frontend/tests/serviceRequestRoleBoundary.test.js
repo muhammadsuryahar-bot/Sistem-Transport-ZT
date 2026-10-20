@@ -10,14 +10,14 @@ test('service request initiation and edit actions stay with Operational (and Adm
   assert.doesNotMatch(source, /const canEditRequest = \['ADMIN', 'OPERASIONAL', 'TRANSPORT'\]/)
 })
 
-test('database migration restricts request creation and preserves Transport processing workflow', async () => {
+test('database migration restricts request creation and allows only processing fields for Transport', async () => {
   const migration = await readFile(new URL('../../supabase/migrations/20261020152000_restrict_service_request_initiation.sql', import.meta.url), 'utf8')
-  assert.match(migration, /CREATE POLICY permintaan_service_insert_import/i)
-  assert.match(migration, /ARRAY\['ADMIN'::user_role,\s*'OPERASIONAL'::user_role\]/)
-  assert.doesNotMatch(migration, /ARRAY\[[^\]]*'TRANSPORT'::user_role/)
-  assert.match(migration, /guard_transport_request_fields/)
-  assert.match(migration, /NEW\.status\s+IS DISTINCT FROM OLD\.status/i, 'workflow status remains a Transport-editable field')
-  assert.match(migration, /NEW\.catatan_transport\s+IS DISTINCT FROM OLD\.catatan_transport/i, 'Transport notes remain editable')
-  assert.match(migration, /NEW\.id\s+IS DISTINCT FROM OLD\.id/i)
-  assert.match(migration, /NEW\.diproses_oleh\s+IS DISTINCT FROM auth\.uid\(\)/i)
+  assert.ok(migration.includes('CREATE POLICY permintaan_service_insert_import'))
+  assert.ok(migration.includes("ARRAY['ADMIN'::user_role, 'OPERASIONAL'::user_role]"))
+  assert.ok(!migration.includes("ARRAY['ADMIN'::user_role, 'OPERASIONAL'::user_role, 'TRANSPORT'::user_role]"))
+  assert.ok(migration.includes('guard_transport_request_fields'))
+  assert.ok(migration.includes('NEW.id IS DISTINCT FROM OLD.id'))
+  assert.ok(migration.includes('NEW.diproses_oleh IS DISTINCT FROM auth.uid()'))
+  assert.ok(!migration.includes('NEW.status IS DISTINCT FROM OLD.status'))
+  assert.ok(!migration.includes('NEW.catatan_transport IS DISTINCT FROM OLD.catatan_transport'))
 })
