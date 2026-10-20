@@ -15,7 +15,7 @@ test('service request initiation and edit actions stay with Operational (and Adm
 })
 
 test('database migration restricts request creation and allows only processing fields for Transport', async () => {
-  const migration = await readFile(new URL('../../supabase/migrations/20261020152000_restrict_service_request_initiation.sql', import.meta.url), 'utf8')
+  const migration = await readFile(new URL('../../supabase/migrations/20261020073039_restrict_service_request_initiation.sql', import.meta.url), 'utf8')
   assert.ok(migration.includes('CREATE POLICY permintaan_service_insert_import'))
   assert.ok(migration.includes("ARRAY['ADMIN'::user_role, 'OPERASIONAL'::user_role]"))
   assert.ok(!migration.includes("ARRAY['ADMIN'::user_role, 'OPERASIONAL'::user_role, 'TRANSPORT'::user_role]"))
