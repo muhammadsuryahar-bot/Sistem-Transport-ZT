@@ -122,3 +122,84 @@ BEGIN
   RETURN NEW;
 END;
 $function$;
+
+
+-- Do not reduce repair eligibility below amounts that have already been deducted.
+CREATE OR REPLACE FUNCTION public.validate_transport_rental_repair()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+DECLARE
+  contract_vehicle_id bigint;
+  vehicle_ownership text;
+  active_contract_count integer;
+  active_contract_id bigint;
+  allowed_deduction numeric;
+  existing_deductions numeric := 0;
+BEGIN
+  IF NEW.kontrak_sewa_id IS NULL THEN
+    SELECT count(*)::integer, min(id)
+      INTO active_contract_count, active_contract_id
+    FROM public.kontrak_sewa
+    WHERE kendaraan_id=NEW.kendaraan_id AND status='AKTIF';
+
+    IF active_contract_count=1 THEN
+      NEW.kontrak_sewa_id := active_contract_id;
+    ELSE
+      RAISE EXCEPTION 'Kendaraan sewa belum memiliki tepat satu kontrak rental aktif.';
+    END IF;
+  END IF;
+
+  SELECT kendaraan_id INTO contract_vehicle_id
+  FROM public.kontrak_sewa WHERE id=NEW.kontrak_sewa_id;
+
+  IF contract_vehicle_id IS NULL THEN
+    RAISE EXCEPTION 'Kontrak rental untuk perbaikan tidak ditemukan.';
+  END IF;
+  IF NEW.kendaraan_id IS DISTINCT FROM contract_vehicle_id THEN
+    RAISE EXCEPTION 'Kendaraan perbaikan harus sama dengan kendaraan pada kontrak rental.';
+  END IF;
+
+  SELECT kepemilikan INTO vehicle_ownership
+  FROM public.kendaraan WHERE id=NEW.kendaraan_id;
+
+  IF vehicle_ownership IS DISTINCT FROM 'SEWA' THEN
+    RAISE EXCEPTION 'Perbaikan rental hanya boleh dicatat untuk kendaraan dengan kepemilikan SEWA.';
+  END IF;
+  IF NEW.dibayar_kantor AND NEW.tanggal_dibayar IS NULL THEN
+    RAISE EXCEPTION 'Tanggal pembayaran perbaikan wajib diisi jika dibayar kantor.';
+  END IF;
+  IF NEW.dapat_dipotong AND NOT NEW.dibayar_kantor THEN
+    RAISE EXCEPTION 'Perbaikan tidak boleh ditandai dapat dipotong sebelum dibayar kantor.';
+  END IF;
+
+  allowed_deduction := coalesce(NEW.biaya_aktual, NEW.estimasi_biaya, 0);
+  IF NEW.dapat_dipotong AND coalesce(NEW.jumlah_dipotong,0) <= 0 THEN
+    RAISE EXCEPTION 'Jumlah potongan wajib lebih dari 0 jika perbaikan dapat dipotong.';
+  END IF;
+  IF NEW.dapat_dipotong AND coalesce(NEW.jumlah_dipotong,0) > allowed_deduction THEN
+    RAISE EXCEPTION 'Jumlah potongan tidak boleh melebihi biaya perbaikan.';
+  END IF;
+  IF NOT NEW.dapat_dipotong AND coalesce(NEW.jumlah_dipotong,0) <> 0 THEN
+    RAISE EXCEPTION 'Jumlah potongan harus 0 jika perbaikan belum ditandai dapat dipotong.';
+  END IF;
+
+  IF TG_OP = 'UPDATE' THEN
+    SELECT coalesce(sum(jumlah_potongan),0)
+      INTO existing_deductions
+    FROM public.potongan_pembayaran_sewa
+    WHERE perbaikan_sewa_id = NEW.id;
+
+    IF existing_deductions > 0 AND (NOT NEW.dibayar_kantor OR NOT NEW.dapat_dipotong OR NEW.tanggal_dibayar IS NULL) THEN
+      RAISE EXCEPTION 'Perbaikan sudah dipotong dari tagihan rental; syarat pembayaran dan potongan tidak boleh dibatalkan.';
+    END IF;
+    IF existing_deductions > coalesce(NEW.jumlah_dipotong,0) OR existing_deductions > allowed_deduction THEN
+      RAISE EXCEPTION 'Nilai perbaikan tidak boleh diturunkan di bawah nominal yang sudah dipotong dari tagihan rental.';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$function$;
