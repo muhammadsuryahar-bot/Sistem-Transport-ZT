@@ -222,7 +222,7 @@ export default function ReportsFeaturePage({ profile, onNavigate }) {
         {
           title: 'PEMBAYARAN SEWA',
           columns: columns([['kontrak','Nomor Kontrak'],['kendaraan','Nomor Polisi'],['periode_ke','Periode Ke'],['bulan_pembayaran','Bulan Pembayaran'],['tanggal_jatuh_tempo','Jatuh Tempo'],['jumlah_tagihan_bruto','Tagihan Bruto'],['jumlah_tagihan','Tagihan Bersih'],['jumlah_dibayar','Dibayar'],['status','Status'],['metode_pembayaran','Metode'],['nomor_referensi','No Referensi'],['catatan','Catatan']]),
-          rows: exportRows(periodData.payments).map(p => ({ ...p, kontrak: contractMap[p.kontrak_sewa_id]?.nomor_kontrak || `#${p.kontrak_sewa_id}`, kendaraan: vehicleMap[contractMap[p.kontrak_sewa_id]?.kendaraan_id]?.nomor_polisi || '-' })),
+          rows: exportRows(periodData.payments).map(p => ({ ...p, jumlah_tagihan_bruto: p.jumlah_tagihan_bruto ?? p.jumlah_tagihan, kontrak: contractMap[p.kontrak_sewa_id]?.nomor_kontrak || `#${p.kontrak_sewa_id}`, kendaraan: vehicleMap[contractMap[p.kontrak_sewa_id]?.kendaraan_id]?.nomor_polisi || '-' })),
         },
         {
           title: 'PERBAIKAN KENDARAAN SEWA',
