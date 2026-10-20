@@ -285,8 +285,13 @@ export default function RentalFeaturePage({ profile, onNavigate }) {
       if (!editingPaymentId) createdPaymentId = result.data?.id || null
       if (previous?.bukti_pembayaran_path && paymentFile) await supabase.storage.from('dokumen-sewa').remove([previous.bukti_pembayaran_path])
       if (!editingPaymentId && requestedDeduction > 0 && result.data?.id) {
-        const { error: e2 } = await supabase.from('potongan_pembayaran_sewa').insert({ pembayaran_sewa_id: result.data.id, perbaikan_sewa_id: Number(payment.perbaikan_sewa_id), jumlah_potongan: requestedDeduction, catatan: `Potongan biaya perbaikan dari pembayaran periode ${payment.periode_ke}.` })
+        const { data: deductionRow, error: e2 } = await supabase
+          .from('potongan_pembayaran_sewa')
+          .insert({ pembayaran_sewa_id: result.data.id, perbaikan_sewa_id: Number(payment.perbaikan_sewa_id), jumlah_potongan: requestedDeduction, catatan: `Potongan biaya perbaikan dari pembayaran periode ${payment.periode_ke}.` })
+          .select('id,pembayaran_sewa_id,perbaikan_sewa_id,jumlah_potongan')
+          .single()
         if (e2) throw e2
+        setDeductions(current => [...current, deductionRow])
       }
       setPayments(current => editingPaymentId ? current.map(row => row.id === result.data.id ? result.data : row) : [result.data, ...current]); resetPaymentForm(); setSuccess(editingPaymentId ? 'Pembayaran diperbarui.' : (requestedDeduction > 0 ? `Pembayaran tersimpan dengan potongan ${money(requestedDeduction)}.` : 'Pembayaran sewa tersimpan.'))
     } catch (e3) {
