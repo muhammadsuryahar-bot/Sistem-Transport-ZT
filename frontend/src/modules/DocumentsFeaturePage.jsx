@@ -7,6 +7,7 @@ import { DOCUMENT_UPLOAD_ACCEPT, validateStorageUploadFile } from '../utils/stor
 import { formatDateSafe } from '../utils/dateSafe'
 import { decodeExcelMeta } from '../utils/excelSourceMeta.js'
 import { getDocumentAttachmentStatus } from '../utils/documentAttachmentStatus.js'
+import { getDocumentSaveFeedback } from '../utils/documentSaveFeedback.js'
 import { downloadXlsx } from '../utils/xlsxExport.js'
 
 const EMPTY={kendaraan_id:'',jenis_dokumen:'STNK',nomor_dokumen:'',tanggal_terbit:'',tanggal_berlaku_mulai:'',tanggal_jatuh_tempo:'',keterangan:''}
@@ -108,10 +109,13 @@ export default function DocumentsFeaturePage({profile}){
    const payload={...form,kendaraan_id:Number(form.kendaraan_id),file_path:filePath}
    const result=editing?await supabase.from('dokumen_kendaraan').update(payload).eq('id',editing.id).select('*').single():await supabase.from('dokumen_kendaraan').insert(payload).select('*').single()
    if(result.error)throw result.error
-   let cleanupWarning=''
-   if(editing&&file&&editing.file_path){const oldFileRemoval=await supabase.storage.from('dokumen-kendaraan').remove([editing.file_path]);if(oldFileRemoval.error)cleanupWarning='Dokumen berhasil diperbarui dan berkas baru sudah terhubung, tetapi berkas lama gagal dibersihkan dari Storage. Perlu pemeriksaan Admin.'}
+   let previousFileCleanupFailed=false
+   if(editing&&file&&editing.file_path){const oldFileRemoval=await supabase.storage.from('dokumen-kendaraan').remove([editing.file_path]);previousFileCleanupFailed=Boolean(oldFileRemoval.error)}
    setDocs(current=>(editing?current.map(row=>row.id===result.data.id?result.data:row):[result.data,...current]).sort((a,b)=>String(a.tanggal_jatuh_tempo||'').localeCompare(String(b.tanggal_jatuh_tempo||''))))
-   resetForm();setSuccess(cleanupWarning||(editing?'Dokumen diperbarui.':'Dokumen ditambahkan.'))
+   const feedback=getDocumentSaveFeedback({editing:Boolean(editing),previousFileCleanupFailed})
+   resetForm()
+   setSuccess(feedback.success)
+   if(feedback.error)setError(feedback.error)
   }catch(e2){let cleanupWarning='';if(newPath){const cleanup=await supabase.storage.from('dokumen-kendaraan').remove([newPath]);if(cleanup.error)cleanupWarning=' Gagal membersihkan berkas sementara dari Storage; minta Admin memeriksa berkas yatim.'}setError(`${humanizeError(e2)}${cleanupWarning}`)}finally{setSaving(false)}
  }
  const remove=async d=>{if(!canManage)return;if(!window.confirm(`Hapus ${d.jenis_dokumen} untuk ${vehicleMap[d.kendaraan_id]?.nomor_polisi||'-'}?`))return;setSaving(true);setError('');setSuccess('');try{const r=await supabase.from('dokumen_kendaraan').delete().eq('id',d.id);if(r.error)throw r.error;setDocs(current=>current.filter(x=>x.id!==d.id));if(d.file_path){const cleanup=await supabase.storage.from('dokumen-kendaraan').remove([d.file_path]);if(cleanup.error){setError('Catatan dokumen sudah dihapus, tetapi berkas fisiknya gagal dihapus dari Storage. Minta Admin memeriksa dan membersihkan berkas yatim.');return}}setSuccess('Dokumen dan lampirannya dihapus.')}catch(e){setError(humanizeError(e))}finally{setSaving(false)}}
