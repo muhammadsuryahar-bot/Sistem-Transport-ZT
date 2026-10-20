@@ -8,6 +8,10 @@ test('service request initiation and edit actions stay with Operational (and Adm
   assert.match(source, /const canEditRequest = \['ADMIN', 'OPERASIONAL'\]\.includes\(profile\?\.role\)/)
   assert.doesNotMatch(source, /const canCreate = \['ADMIN', 'OPERASIONAL', 'TRANSPORT'\]/)
   assert.doesNotMatch(source, /const canEditRequest = \['ADMIN', 'OPERASIONAL', 'TRANSPORT'\]/)
+  assert.match(source, /const openCreate = \(vehicleId = ''\) => \{ if \(!canCreate\) return/)
+  assert.match(source, /const openEdit = request => \{ if \(!canEditRequest\) return/)
+  assert.ok(!source.includes('{canManageService && <button className="request-primary-button"'))
+  assert.equal([...source.matchAll(/\{canCreate && <button className="request-primary-button"/g)].length, 2)
 })
 
 test('database migration restricts request creation and allows only processing fields for Transport', async () => {
