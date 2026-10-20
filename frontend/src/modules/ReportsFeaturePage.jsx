@@ -86,7 +86,7 @@ export default function ReportsFeaturePage({ profile, onNavigate }) {
       supabase.from('service').select('id,nomor_service,tanggal_service,created_at,kendaraan_id,permintaan_service_id,kilometer,bengkel,jenis_service,keluhan,estimasi_biaya,biaya_aktual,status,catatan').order('created_at', { ascending: false }),
       supabase.from('permintaan_service').select('id,nomor_pengajuan,tanggal_pengajuan,created_at,kendaraan_id,kilometer_pengajuan,jenis_permintaan,keluhan,prioritas,status,catatan_transport,diproses_at').order('created_at', { ascending: false }),
       canReadRental ? supabase.from('kontrak_sewa').select('id,nomor_kontrak,kendaraan_id,pemilik_sewa_id,tanggal_mulai,tanggal_selesai,periode_bulan,nilai_sewa_bulanan,tanggal_jatuh_tempo_bulanan,status,catatan,created_at').order('created_at', { ascending: false }) : Promise.resolve({ data: [], error: null }),
-      canReadRental ? supabase.from('pembayaran_sewa').select('id,kontrak_sewa_id,periode_ke,bulan_pembayaran,tanggal_pembayaran,tanggal_jatuh_tempo,jumlah_tagihan,jumlah_dibayar,status,metode_pembayaran,nomor_referensi,catatan,created_at').order('bulan_pembayaran', { ascending: false }) : Promise.resolve({ data: [], error: null }),
+      canReadRental ? supabase.from('pembayaran_sewa').select('id,kontrak_sewa_id,periode_ke,bulan_pembayaran,tanggal_pembayaran,tanggal_jatuh_tempo,jumlah_tagihan_bruto,jumlah_tagihan,jumlah_dibayar,status,metode_pembayaran,nomor_referensi,catatan,created_at').order('bulan_pembayaran', { ascending: false }) : Promise.resolve({ data: [], error: null }),
       supabase.from('dokumen_kendaraan').select('id,kendaraan_id,jenis_dokumen,nomor_dokumen,tanggal_terbit,tanggal_berlaku_mulai,tanggal_jatuh_tempo,keterangan,created_at'),
       supabase.from('service_approval').select('id,service_id,urutan,jenis_approval,pemberi_approval,status,waktu_approval,catatan,created_at').order('waktu_approval', { ascending: false }),
       canReadRental ? supabase.from('perbaikan_sewa').select('id,kendaraan_id,kontrak_sewa_id,tanggal_kejadian,kilometer,jenis_kerusakan,deskripsi_kerusakan,penyebab,estimasi_biaya,biaya_aktual,metode_penanganan,dibayar_kantor,tanggal_dibayar,pemilik_diberitahu,status,dapat_dipotong,jumlah_dipotong,catatan,created_at').order('tanggal_kejadian', { ascending: false }) : Promise.resolve({ data: [], error: null }),
@@ -136,7 +136,7 @@ export default function ReportsFeaturePage({ profile, onNavigate }) {
     const expiredDocs = docs.filter(x => x.tanggal_jatuh_tempo && new Date(x.tanggal_jatuh_tempo).getTime() < now).length
     const soonDocs = docs.filter(x => x.tanggal_jatuh_tempo && new Date(x.tanggal_jatuh_tempo).getTime() >= now && new Date(x.tanggal_jatuh_tempo).getTime() <= now + DAYS).length
     const serviceCost = services.reduce((n, x) => n + Number(x.biaya_aktual ?? x.estimasi_biaya ?? 0), 0)
-    const rentalGross = canReadRental ? payments.reduce((n, x) => n + Number(x.jumlah_tagihan || 0), 0) : null
+    const rentalGross = canReadRental ? payments.reduce((n, x) => n + Number(x.jumlah_tagihan_bruto ?? x.jumlah_tagihan ?? 0), 0) : null
     const rentalHistoricalBilling = canReadRental ? payments.filter(x => x.status === 'DATA_HISTORIS').reduce((n, x) => n + Number(x.jumlah_tagihan || 0), 0) : null
     const rentalPaid = canReadRental ? payments.filter(x => x.status !== 'DATA_HISTORIS').reduce((n, x) => n + Number(x.jumlah_dibayar || 0), 0) : null
     const totalDeduction = canReadRental ? deductions.reduce((n, x) => n + Number(x.jumlah_potongan || 0), 0) : null
@@ -221,8 +221,8 @@ export default function ReportsFeaturePage({ profile, onNavigate }) {
         },
         {
           title: 'PEMBAYARAN SEWA',
-          columns: columns([['kontrak','Nomor Kontrak'],['kendaraan','Nomor Polisi'],['periode_ke','Periode Ke'],['bulan_pembayaran','Bulan Pembayaran'],['tanggal_jatuh_tempo','Jatuh Tempo'],['jumlah_tagihan','Tagihan'],['jumlah_dibayar','Dibayar'],['status','Status'],['metode_pembayaran','Metode'],['nomor_referensi','No Referensi'],['catatan','Catatan']]),
-          rows: exportRows(periodData.payments).map(p => ({ ...p, kontrak: contractMap[p.kontrak_sewa_id]?.nomor_kontrak || `#${p.kontrak_sewa_id}`, kendaraan: vehicleMap[contractMap[p.kontrak_sewa_id]?.kendaraan_id]?.nomor_polisi || '-' })),
+          columns: columns([['kontrak','Nomor Kontrak'],['kendaraan','Nomor Polisi'],['periode_ke','Periode Ke'],['bulan_pembayaran','Bulan Pembayaran'],['tanggal_jatuh_tempo','Jatuh Tempo'],['jumlah_tagihan_bruto','Tagihan Bruto'],['jumlah_tagihan','Tagihan Bersih'],['jumlah_dibayar','Dibayar'],['status','Status'],['metode_pembayaran','Metode'],['nomor_referensi','No Referensi'],['catatan','Catatan']]),
+          rows: exportRows(periodData.payments).map(p => ({ ...p, jumlah_tagihan_bruto: p.jumlah_tagihan_bruto ?? p.jumlah_tagihan, kontrak: contractMap[p.kontrak_sewa_id]?.nomor_kontrak || `#${p.kontrak_sewa_id}`, kendaraan: vehicleMap[contractMap[p.kontrak_sewa_id]?.kendaraan_id]?.nomor_polisi || '-' })),
         },
         {
           title: 'PERBAIKAN KENDARAAN SEWA',
