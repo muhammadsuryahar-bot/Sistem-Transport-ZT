@@ -10,3 +10,28 @@
 .mep-table tbody td button { font-weight:700 !important; }
 
 .mep-integrity-alert{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:12px 14px;border:1px solid #fed7aa;border-radius:12px;background:#fff7ed;color:#9a3412}.mep-integrity-alert>div:first-child{display:flex;flex-direction:column;gap:4px}.mep-integrity-alert>div:first-child span{font-size:13px;line-height:1.45}.mep-integrity-alert strong{font-weight:800}.mep-integrity-alert>div:last-child{display:flex;gap:8px;flex-shrink:0}.mep-integrity-alert button{border:0;border-radius:8px;background:#9a3412;color:#fff;padding:8px 11px;font-weight:700;cursor:pointer}.mep-integrity-alert button.secondary{background:#ffedd5;color:#7c2d12}@media(max-width:640px){.mep-integrity-alert{align-items:flex-start;flex-direction:column}.mep-integrity-alert>div:last-child{width:100%;flex-wrap:wrap}}
+
+
+/* Vehicle actions stay visible and the final column is kept compact. */
+.mep-table th:last-child,
+.mep-table .mep-actions {
+  width: 168px;
+  min-width: 168px;
+  max-width: 168px;
+}
+.mep-table .mep-actions {
+  white-space: normal !important;
+}
+.mep-table .mep-actions-inner {
+  width: 100%;
+  max-width: 168px;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: flex-start !important;
+  gap: 5px !important;
+}
+.mep-table .mep-actions-inner > button {
+  flex: 0 0 auto;
+  margin: 0 !important;
+  padding: 0 7px !important;
+}
