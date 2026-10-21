@@ -1,12 +1,12 @@
 const normalizeSearchText = value => String(value ?? '')
   .normalize('NFKD')
-  .replace(/[\\u0300-\\u036f]/g, '')
+  .replace(/[\u0300-\u036f]/g, '')
   .toLowerCase()
   .replace(/[^a-z0-9]+/g, ' ')
   .trim()
-  .replace(/\\s+/g, ' ')
+  .replace(/\s+/g, ' ')
 
-const compactSearchText = value => normalizeSearchText(value).replace(/\\s/g, '')
+const compactSearchText = value => normalizeSearchText(value).replace(/\s/g, '')
 
 /**
  * Search a vehicle by any useful source/master field, rather than only a
@@ -17,7 +17,7 @@ export function matchesVehicleSearch(vehicle, driver, query) {
   const needle = normalizeSearchText(query)
   if (!needle) return true
 
-  const compactNeedle = needle.replace(/\\s/g, '')
+  const compactNeedle = needle.replace(/\s/g, '')
   const values = [
     vehicle?.kode_kendaraan,
     vehicle?.nomor_polisi,
