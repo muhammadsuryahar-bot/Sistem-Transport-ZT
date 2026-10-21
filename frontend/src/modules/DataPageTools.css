@@ -992,3 +992,9 @@
     font-size: 14.5px !important;
   }
 }
+
+/* Structural row-selection checkboxes are controls, not business-data columns.
+   Keep them out of the Excel/Data Bersih view just like action and marker columns. */
+.dpt-clean-data-table .dpt-selection-utility {
+  display: none !important;
+}
