@@ -183,8 +183,6 @@ function applyColumnVisibility(context, table, descriptors, visibility, cleanMod
   const showMarks = readRowMarkVisibility(context)
   let dataColumns = 0
   let visibleDataColumns = 0
-  let utilityColumns = 0
-  let hiddenUtilityColumns = 0
 
   for (const column of descriptors) {
     const hiddenBySetting = !isColumnVisible(column, visibility, showMarks, cleanMode)
@@ -193,9 +191,6 @@ function applyColumnVisibility(context, table, descriptors, visibility, cleanMod
     if (column.kind === 'data') {
       dataColumns += 1
       if (!hidden) visibleDataColumns += 1
-    } else {
-      utilityColumns += 1
-      if (hidden) hiddenUtilityColumns += 1
     }
     for (const row of table.rows) {
       // Utility rows injected by DataPageTools (selected-row action panel)
