@@ -7,6 +7,7 @@ import { formatDateSafe } from '../utils/dateSafe'
 import { IMAGE_UPLOAD_ACCEPT, validateStorageUploadFile } from '../utils/storageUpload.js'
 import { analyzeVehicleIntegrity } from '../utils/vehicleIntegrity.js'
 import { inferRentalTypeFromOwner } from '../utils/vehicleOwnership.js'
+import { matchesVehicleSearch } from '../utils/vehicleSearch.js'
 
 const OWNERSHIP = { ASET: 'Aset', SEWA: 'Sewa' }
 const VEHICLE_TYPES = ['Pickup', 'Minibus', 'Dump Truck']
@@ -112,8 +113,7 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
     const q = clean(query).toLowerCase()
     return vehicles.filter(v => {
       const driver = driverMap[v.driver_id]
-      const haystack = [v.nomor_polisi, v.merk, v.tipe, v.jenis_kendaraan, v.pemilik, v.unit_kerja, v.lokasi, v.status_pajak, v.keterangan, v.catatan_hutang, driver?.nama_lengkap].filter(Boolean).join(' ').toLowerCase()
-      return (!q || haystack.includes(q)) && (ownershipFilter === 'SEMUA' || v.kepemilikan === ownershipFilter) && (typeFilter === 'SEMUA' || v.jenis_kendaraan === typeFilter) && (!integrityFilter || integrityReport.isFlagged(v))
+      return matchesVehicleSearch(v, driver, q) && (ownershipFilter === 'SEMUA' || v.kepemilikan === ownershipFilter) && (typeFilter === 'SEMUA' || v.jenis_kendaraan === typeFilter) && (!integrityFilter || integrityReport.isFlagged(v))
     })
   }, [vehicles, driverMap, query, ownershipFilter, typeFilter, integrityFilter, integrityReport])
 
