@@ -67,6 +67,13 @@ test('clean mode hides marker/action controls but preserves checkboxes during bu
   assert.equal(isHiddenByCleanTableMode('data', false), false)
 })
 
+test('generic bulk-mode events keep the column menu state synchronized by context', async () => {
+  const source = await readFile(new URL('../src/modules/DataPageTools.jsx', import.meta.url), 'utf8')
+  assert.match(source, /transport:bulk-selection-mode', \{ detail: \{ context, active: false \} \}/)
+  assert.match(source, /transport:bulk-selection-mode', \{ detail: \{ context: resolvedContext, active: true \} \}/)
+  assert.match(source, /setBulkSelectionActive\(event\.detail\?\.active === true\)/)
+})
+
 test('generic bulk-mode entry and exit immediately reapply the current column indexes', async () => {
   const source = await readFile(new URL('../src/modules/DataPageTools.jsx', import.meta.url), 'utf8')
   assert.match(source, /const resolvedContext = context \|\| table\.dataset\.dptContext/)
