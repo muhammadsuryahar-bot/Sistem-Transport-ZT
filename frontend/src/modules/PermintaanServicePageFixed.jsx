@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { humanizeError } from '../utils/feedback.js'
 import './PermintaanServicePage.css'
 import PageBreadcrumb from './PageBreadcrumb.jsx'
-import { decodeExcelMeta } from '../utils/excelSourceMeta.js'
+import { classifyServiceItemCategory as itemCategory, classifySourceServiceItemCategory as sourceWorkCategory, normalizeServiceItemName as normalizeItemName, serviceItemGroupKey } from '../utils/serviceItemClassification.js'
 
 const TYPE_LABELS = { SERVICE: 'Jasa / Perbaikan', GANTI_BAN: 'Ganti Ban', GANTI_AKI: 'Ganti Aki / Baterai', PEMERIKSAAN: 'Pemeriksaan' }
 const STATUS_LABELS = { MENUNGGU_TRANSPORT: 'Menunggu Transport', DITERIMA_TRANSPORT: 'Diterima Transport', DALAM_PROSES: 'Dalam Proses', MENUNGGU_APPROVAL: 'Menunggu Approval', DISETUJUI: 'Disetujui', DITOLAK: 'Ditolak', SELESAI: 'Selesai', DIBATALKAN: 'Dibatalkan' }
@@ -18,22 +18,6 @@ const fmtDate = value => {
   return match ? `${match[3]}/${match[2]}/${match[1]}` : raw
 }
 const clean = v => String(v ?? '').trim()
-const normalizeItemName = v => clean(v).replace(/^\d+[.)-]\s*/, '').toUpperCase()
-const itemCategory = (category, name = '') => {
-  const raw = (clean(category) + ' ' + clean(name)).toUpperCase()
-  if (/BAN|TYRE|TIRE/.test(raw)) return 'BAN'
-  if (/AKI|BATERAI|BATTERY/.test(raw)) return 'AKI'
-  if (/OLI|PELUMAS|GREASE|FILTER OLI|FILTER MINYAK|FILTER HAWA|FILTER UDARA|BUSI|KANVAS REM|BRAKE PAD|KAMPAS REM|KOPLING|CLUTCH|SHOCK|ABSORBER|BEARING|RACK END|DRAGLINK|SPAREPART|PENGADAAN BARANG/.test(raw)) return 'SPAREPART'
-  if (/JASA|SERVICE|PEKERJAAN|LABOR/.test(raw)) return 'JASA'
-  return clean(category).toUpperCase() || 'LAINNYA'
-}
-const sourceWorkCategory = (item = {}) => {
-  const meta = decodeExcelMeta(item.keterangan).meta || {}
-  const source = clean(meta.jenis_pekerjaan).toUpperCase()
-  if (/PENGADAAN BARANG|SPAREPART|SUKU CADANG/.test(source)) return 'SPAREPART'
-  if (/JASA SERVICE|\bJASA\b|PEKERJAAN|LABOR/.test(source)) return 'JASA'
-  return itemCategory(item.kategori, item.nama_item)
-}
 
 export default function PermintaanServicePage({ profile }) {
   const [vehicles, setVehicles] = useState([])
@@ -262,13 +246,14 @@ export default function PermintaanServicePage({ profile }) {
   const benchmarkRows = useMemo(() => {
     const grouped = new Map()
     const serviceMap = Object.fromEntries(services.map(s => [s.id, s]))
-    const sourceCategory = (category, name) => clean(category).toUpperCase() || itemCategory('', name)
-    const keyFor = (name, kategori, satuan) => normalizeItemName(name) + '|' + String(kategori || 'LAINNYA') + '|' + String(satuan || '-')
+    const keyFor = (name, kategori, satuan) => serviceItemGroupKey(name, kategori, satuan)
 
     items.forEach(item => {
       const name = normalizeItemName(item.nama_item)
       if (!name) return
-      const kategori = sourceCategory(item.kategori, item.nama_item)
+      // Use the source work type in EXCEL_META; the imported DB category may
+      // be a broad legacy value such as JASA for a row that is actually a part.
+      const kategori = sourceWorkCategory(item)
       const satuan = clean(item.satuan) || '-'
       const service = serviceMap[item.service_id]
       const vehicle = vehicles.find(v => Number(v.id) === Number(service?.kendaraan_id))
@@ -300,7 +285,7 @@ export default function PermintaanServicePage({ profile }) {
     benchmarks.forEach(ref => {
       const name = normalizeItemName(ref.nama_item)
       if (!name) return
-      const kategori = sourceCategory(ref.kategori, ref.nama_item)
+      const kategori = clean(ref.kategori).toUpperCase() || itemCategory('', ref.nama_item)
       const satuan = clean(ref.satuan) || '-'
       const key = keyFor(name, kategori, satuan)
       if (!grouped.has(key)) {
@@ -338,7 +323,7 @@ export default function PermintaanServicePage({ profile }) {
       const priceDeltaPercent = priceDelta !== null && Number(previous.unitPrice || 0) > 0
         ? (priceDelta / Number(previous.unitPrice)) * 100
         : null
-      const reference = benchmarks.find(b => normalizeItemName(b.nama_item) === row.nama_item && sourceCategory(b.kategori, b.nama_item) === row.kategori && String(b.satuan || '-') === String(row.satuan || '-'))
+      const reference = benchmarks.find(b => normalizeItemName(b.nama_item) === row.nama_item && (clean(b.kategori).toUpperCase() || itemCategory('', b.nama_item)) === row.kategori && String(b.satuan || '-') === String(row.satuan || '-'))
       return {
         ...row,
         bengkelNames,
