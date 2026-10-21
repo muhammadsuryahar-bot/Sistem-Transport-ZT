@@ -323,7 +323,7 @@ export default function PermintaanServicePage({ profile }) {
       const priceDeltaPercent = priceDelta !== null && Number(previous.unitPrice || 0) > 0
         ? (priceDelta / Number(previous.unitPrice)) * 100
         : null
-      const reference = benchmarks.find(b => normalizeItemName(b.nama_item) === row.nama_item && sourceCategory(b.kategori, b.nama_item) === row.kategori && String(b.satuan || '-') === String(row.satuan || '-'))
+      const reference = benchmarks.find(b => normalizeItemName(b.nama_item) === row.nama_item && (clean(b.kategori).toUpperCase() || itemCategory('', b.nama_item)) === row.kategori && String(b.satuan || '-') === String(row.satuan || '-'))
       return {
         ...row,
         bengkelNames,
