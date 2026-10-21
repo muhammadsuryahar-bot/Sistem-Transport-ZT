@@ -5,7 +5,7 @@ import EditableServiceExcelImportModal from './EditableServiceExcelImportModal.j
 import VehicleDocumentsImportModal from './VehicleDocumentsImportModal.jsx'
 import PengajuanExcelImportModal from './PengajuanExcelImportModal.jsx'
 import RentalHistoryImportModalV2 from './RentalHistoryImportModalV2.jsx'
-import { classifyTableColumnKind, isCleanTableUtilityColumn, resolveCleanTableView } from '../utils/tableViewSettings.js'
+import { classifyTableColumnKind, isCleanTableUtilityColumn, isHiddenByCleanTableMode, resolveCleanTableView } from '../utils/tableViewSettings.js'
 import './DataPageTools.css'
 
 const CONTEXT_LABEL = { kendaraan: 'Kendaraan', pengajuan: 'Data Service', service: 'Service & Perbaikan', sewa: 'Administrasi Sewa', dokumen: 'Dokumen Kendaraan', laporan: 'Laporan', pengguna: 'Pengguna' }
@@ -111,7 +111,7 @@ function columnSlug(value, index) {
 function isColumnVisible(column, visibility, showRowMarks = false, cleanMode = false) {
   if (!column) return false
   if (cleanMode && column.kind === 'data') return true
-  if (cleanMode && isCleanTableUtilityColumn(column.kind)) return false
+  if (cleanMode && (column.kind === 'mark' || column.kind === 'action')) return false
   if (column.kind === 'mark') return showRowMarks && visibility[column.key] !== false
   if (column.kind === 'action') return visibility[column.key] !== false
   return visibility[column.key] !== false
@@ -121,6 +121,14 @@ function isMainOperationalTable(table) {
     table &&
     !table.closest('.dpt-preview, .dpt-overlay, .x-overlay, .m-overlay, .x-modal, .m-modal, .dpt-modal')
   )
+}
+function isBulkSelectionActive(table) {
+  return table?.dataset?.dptBulkMode === 'true' || Boolean(table?.querySelector(
+    'thead .mep-check input[type="checkbox"], thead .request-select-cell input[type="checkbox"], thead .x-select-cell input[type="checkbox"], thead .dpt-bulk-select-head input[type="checkbox"]'
+  ))
+}
+function isHiddenByCleanMode(column, table, cleanMode) {
+  return Boolean(cleanMode && isHiddenByCleanTableMode(column?.kind, isBulkSelectionActive(table)))
 }
 function getPrimaryDataTable(context) {
   const selector = DATA_TABLE_SELECTOR[context]
@@ -160,7 +168,7 @@ function applyDirectColumnDisplay(table, descriptors, visibility, cleanMode, sho
   if (!table) return
   const rows = Array.from(table.rows)
   for (const column of descriptors) {
-    const hidden = !isColumnVisible(column, visibility, showRowMarks, cleanMode) || (cleanMode && isCleanTableUtilityColumn(column.kind))
+    const hidden = !isColumnVisible(column, visibility, showRowMarks, cleanMode) || isHiddenByCleanMode(column, table, cleanMode)
     for (const row of rows) {
       if (row.querySelector?.('td[colspan]')) continue
       const cell = row.children[column.index]
@@ -180,7 +188,7 @@ function applyColumnVisibility(context, table, descriptors, visibility, cleanMod
 
   for (const column of descriptors) {
     const hiddenBySetting = !isColumnVisible(column, visibility, showMarks, cleanMode)
-    const hiddenByCleanView = cleanMode && isCleanTableUtilityColumn(column.kind)
+    const hiddenByCleanView = isHiddenByCleanMode(column, table, cleanMode)
     const hidden = hiddenBySetting || hiddenByCleanView
     if (column.kind === 'data') {
       dataColumns += 1
@@ -207,13 +215,14 @@ function applyColumnVisibility(context, table, descriptors, visibility, cleanMod
   }
 
   applyDirectColumnDisplay(table, descriptors, visibility, cleanMode, showMarks)
-  const cleanModeActive = dataColumns > 0 && visibleDataColumns === dataColumns && utilityColumns > 0 && hiddenUtilityColumns === utilityColumns
+  table.dataset.dptBulkSelectionActive = isBulkSelectionActive(table) ? 'true' : 'false'
+  const cleanModeActive = cleanMode && dataColumns > 0 && visibleDataColumns === dataColumns
   const header = table.querySelector('thead tr')
   if (header) {
     for (const column of descriptors) {
       const headerCell = header.children[column.index]
       if (headerCell) {
-        const hidden = !isColumnVisible(column, visibility, showMarks, cleanMode) || (cleanMode && isCleanTableUtilityColumn(column.kind))
+        const hidden = !isColumnVisible(column, visibility, showMarks, cleanMode) || isHiddenByCleanMode(column, table, cleanMode)
         headerCell.classList.toggle('dpt-col-hidden', hidden)
         headerCell.classList.toggle('dpt-column-utility', isCleanTableUtilityColumn(column.kind))
         headerCell.classList.toggle('dpt-action-utility', column.kind === 'action')
@@ -515,9 +524,11 @@ function removeGenericBulkUI(table) {
   table.querySelectorAll('tbody tr.dpt-bulk-selected-row').forEach(row => { delete row.dataset.dptBulkSelected; row.classList.remove('dpt-bulk-selected-row') })
   table.parentElement?.parentElement?.querySelectorAll('.dpt-bulk-selection-toolbar').forEach(toolbar => toolbar.remove())
   delete table.dataset.dptBulkMode
+  const context = table.dataset.dptContext
+  if (context) applyColumnVisibility(context, table, getColumnDescriptors(context, table), readColumnVisibility(context), readCleanTableView(context))
 }
 
-function enterGenericBulkMode(table, firstRow = null) {
+function enterGenericBulkMode(table, firstRow = null, context = null) {
   if (!table || hasNativeBulkSelection(table)) return
   const rows = getBulkRows(table)
   if (!rows.length || !rows.some(row => getBulkDeleteButton(row))) return
@@ -596,6 +607,10 @@ function enterGenericBulkMode(table, firstRow = null) {
       syncGenericBulkUI(table, toolbar)
     })
   }
+  const resolvedContext = context || table.dataset.dptContext
+  if (resolvedContext) {
+    applyColumnVisibility(resolvedContext, table, getColumnDescriptors(resolvedContext, table), readColumnVisibility(resolvedContext), readCleanTableView(resolvedContext))
+  }
 }
 
 function columnSignature(descriptors) {
@@ -607,6 +622,7 @@ function applyMark(row, mark) { Object.values(ROW_MARKS).forEach(item => { if (i
 function createRowMarkToolbar() { const toolbar = document.createElement('div'); toolbar.className = 'dpt-row-mark-toolbar'; toolbar.innerHTML = '<div class="dpt-row-mark-title"><b>Penanda</b><span>Status kerja baris utama</span></div><div class="dpt-row-mark-controls"><label>Filter <select class="dpt-row-mark-filter"><option value="ALL">Semua</option><option value="NONE">Belum ditandai</option><option value="TODO">Perlu dikerjakan</option><option value="PROCESS">Sedang dikerjakan</option><option value="DONE">Sudah selesai</option><option value="CHECKED">Sudah dicek</option></select></label><button type="button" class="dpt-row-mark-clear">Reset tanda</button></div>'; return toolbar }
 function ensureTableMarks(context, table, scope) {
   if (!table) return
+  table.dataset.dptContext = context
 
   const marks = readRowMarks()
   const showRowMarks = readRowMarkVisibility(context)
@@ -865,12 +881,12 @@ export default function DataPageTools({ context, profile, onExport }) {
     window.dispatchEvent(new CustomEvent('transport:clean-table-view', { detail: { context, enabled: next } }))
   }
   const visibleColumnCount = columns.filter(column => {
-    const hiddenByClean = cleanTableView && isCleanTableUtilityColumn(column.kind)
+    const hiddenByClean = isHiddenByCleanMode(column, primaryTableRef.current, cleanTableView)
     return column.label && !hiddenByClean && isColumnVisible(column, columnVisibility, showRowMarks, cleanTableView)
   }).length
   const hiddenColumnCount = columns.filter(column => {
     if (!column.label) return false
-    if (cleanTableView) return isCleanTableUtilityColumn(column.kind)
+    if (cleanTableView) return isHiddenByCleanMode(column, primaryTableRef.current, cleanTableView)
     return !isColumnVisible(column, columnVisibility, showRowMarks, false)
   }).length
   const setColumnVisible = (column, visible) => {
@@ -940,9 +956,9 @@ export default function DataPageTools({ context, profile, onExport }) {
               <button type="button" onClick={showAllColumns}>Tampilkan Semua</button>
             </div>
             <div className="dpt-column-list">{columns.map(column => {
-              const forcedHidden = cleanTableView && isCleanTableUtilityColumn(column.kind)
+              const forcedHidden = isHiddenByCleanMode(column, primaryTableRef.current, cleanTableView)
               const visible = forcedHidden ? false : isColumnVisible(column, columnVisibility, showRowMarks, cleanTableView)
-              const disableToggle = forcedHidden || (visible && visibleColumnCount <= 1)
+              const disableToggle = column.kind === 'selection' || forcedHidden || (visible && visibleColumnCount <= 1)
               return <label className="dpt-column-item" key={column.key}>
                 <input type="checkbox" checked={visible} disabled={disableToggle} onChange={event => setColumnVisible(column, event.target.checked)} />
                 <span>{column.label}</span>
