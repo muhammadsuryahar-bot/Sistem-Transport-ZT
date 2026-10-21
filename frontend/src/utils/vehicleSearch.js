@@ -51,3 +51,14 @@ export function matchesVehicleSearch(vehicle, driver, query) {
     return compactNeedle.length > 0 && compactSearchText(value).includes(compactNeedle)
   })
 }
+
+/**
+ * Keep bulk actions scoped to rows currently visible under the active filters.
+ * A hidden row must not remain selected and be deleted without being visible.
+ */
+export function retainVisibleVehicleSelection(selectedIds, visibleVehicles) {
+  const selected = Array.isArray(selectedIds) ? selectedIds : []
+  const visibleIds = new Set((visibleVehicles || []).map(vehicle => vehicle.id))
+  const next = selected.filter(id => visibleIds.has(id))
+  return next.length === selected.length ? selected : next
+}
