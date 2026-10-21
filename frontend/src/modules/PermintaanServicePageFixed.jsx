@@ -285,7 +285,7 @@ export default function PermintaanServicePage({ profile }) {
     benchmarks.forEach(ref => {
       const name = normalizeItemName(ref.nama_item)
       if (!name) return
-      const kategori = sourceCategory(ref.kategori, ref.nama_item)
+      const kategori = clean(ref.kategori).toUpperCase() || itemCategory('', ref.nama_item)
       const satuan = clean(ref.satuan) || '-'
       const key = keyFor(name, kategori, satuan)
       if (!grouped.has(key)) {
