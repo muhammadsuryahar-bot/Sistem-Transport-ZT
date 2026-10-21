@@ -323,9 +323,10 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
   const toggleAll = () => setSelected(current => allSelected ? current.filter(id => !filtered.some(v => v.id === id)) : Array.from(new Set([...current, ...filtered.map(v => v.id)])))
   const exitSelection = () => { setSelectionMode(false); setSelected([]); setActiveRowId(null) }
   const bulkDelete = async () => {
-    if (!canDelete || !selected.length || !window.confirm(`Hapus ${selected.length} kendaraan terpilih?`)) return
+    const visibleSelection = filtered.filter(vehicle => selected.includes(vehicle.id))
+    if (!canDelete || !visibleSelection.length || !window.confirm(`Hapus ${visibleSelection.length} kendaraan terpilih?`)) return
     setSaving(true); setError(''); let removed = 0
-    for (const vehicle of vehicles.filter(v => selected.includes(v.id))) if (await deleteOne(vehicle)) removed += 1
+    for (const vehicle of visibleSelection) if (await deleteOne(vehicle)) removed += 1
     exitSelection(); setSaving(false)
     if (removed) setSuccess(`${removed} kendaraan berhasil dihapus.`)
   }
