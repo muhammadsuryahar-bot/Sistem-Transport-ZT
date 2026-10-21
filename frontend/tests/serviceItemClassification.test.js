@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import { encodeExcelMeta } from '../src/utils/excelSourceMeta.js'
 import {
@@ -45,4 +46,11 @@ test('shopping list grouping normalizes numbered names but keeps category and un
     serviceItemGroupKey('Oli Mesin Prima XP', 'SPAREPART', 'Ltr'),
     serviceItemGroupKey('Oli Mesin Prima XP', 'JASA', 'Ltr'),
   )
+})
+
+
+test('Shopping List history grouping uses the source-aware classifier', async () => {
+  const source = await readFile(new URL('../src/modules/PermintaanServicePageFixed.jsx', import.meta.url), 'utf8')
+  assert.match(source, /const kategori = sourceWorkCategory\(item\)/)
+  assert.match(source, /serviceItemGroupKey\(name, kategori, satuan\)/)
 })
