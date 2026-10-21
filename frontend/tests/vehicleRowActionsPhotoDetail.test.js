@@ -33,4 +33,5 @@ test('vehicle row actions are contextual and selection instructions match behavi
   assert.match(css, /\.mep-actions button\.danger/)
   assert.doesNotMatch(css, /\.mep-actions button:last-child/)
   assert.match(css, /\.mep-table tbody tr\.dpt-row-selected/)
+  assert.match(css, /\.mep-table tbody tr\.dpt-row-selected\{background:#eaf4ee;outline:2px solid #86b99c/)
 })
