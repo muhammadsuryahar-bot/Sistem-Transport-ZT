@@ -62,3 +62,16 @@ export function retainVisibleVehicleSelection(selectedIds, visibleVehicles) {
   const next = selected.filter(id => visibleIds.has(id))
   return next.length === selected.length ? selected : next
 }
+
+
+/**
+ * Distinguish an actually empty master from an empty filtered result. This
+ * prevents search/filter misses from telling users to import data that exists.
+ */
+export function getVehicleTableState({ loading, hasError, totalCount, visibleCount }) {
+  if (loading) return 'loading'
+  if (hasError && totalCount === 0) return 'load-error'
+  if (totalCount === 0) return 'empty'
+  if (visibleCount === 0) return 'no-results'
+  return 'rows'
+}
