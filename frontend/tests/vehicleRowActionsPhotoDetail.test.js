@@ -26,15 +26,20 @@ test('vehicle table and detail use the same legacy rental-type fallback', async 
 })
 
 test('vehicle row actions are contextual and selection instructions match behavior', async () => {
-  const [source, css] = await Promise.all([
+  const [source, css, globalCss] = await Promise.all([
     readFile(pageUrl, 'utf8'),
     readFile(cssUrl, 'utf8'),
+    readFile(new URL('../src/transport-ui-final.css', import.meta.url), 'utf8'),
   ])
   assert.match(source, /activeRowId === v\.id \?/)
   assert.match(source, /Klik satu kali pada baris untuk menampilkan aksi/)
   assert.match(source, /onDoubleClick=.*enterSelectionMode\(v\.id\)/)
   assert.match(source, /className="danger"/)
+  assert.match(source, /<td className="mep-actions"><div className="mep-actions-inner">/)
   assert.match(css, /\.mep-actions button\.danger/)
+  assert.match(globalCss, /\.mep-actions \{ display: table-cell !important;/)
+  assert.match(globalCss, /\.mep-actions-inner \{ display: flex !important;/)
+  assert.doesNotMatch(globalCss, /\.mep-actions \{ display: flex !important;/)
   assert.doesNotMatch(css, /\.mep-actions button:last-child/)
   assert.match(css, /\.mep-table tbody tr\.dpt-row-selected/)
   assert.match(css, /\.mep-table tbody tr\.dpt-row-selected\{background:#eaf4ee;outline:2px solid #86b99c/)
