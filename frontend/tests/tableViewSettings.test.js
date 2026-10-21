@@ -51,6 +51,12 @@ test('DataPageTools structurally detects checkbox headers and clean-mode styling
   assert.match(css, /data-dpt-bulk-selection-active="true"\]\s+\.dpt-selection-utility\s*\{\s*display: table-cell/)
 })
 
+test('sticky Penanda columns move aside when a bulk-selection checkbox column is inserted', async () => {
+  const css = await readFile(new URL('../src/modules/DataPageTools.css', import.meta.url), 'utf8')
+  assert.match(css, /table:has\(thead \.dpt-bulk-select-head\) \.dpt-row-mark-head,[\s\S]*?left: 42px !important/)
+  assert.match(css, /\.mep-table:has\(thead \.mep-check\) \.dpt-row-mark-cell/)
+})
+
 test('clean mode hides marker/action controls but preserves checkboxes during bulk selection', () => {
   assert.equal(isHiddenByCleanTableMode('mark', false), true)
   assert.equal(isHiddenByCleanTableMode('mark', true), true)
