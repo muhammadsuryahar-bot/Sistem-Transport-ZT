@@ -992,3 +992,25 @@
     font-size: 14.5px !important;
   }
 }
+
+/* Keep sticky Penanda cells beside, not over, the checkbox column while bulk selection is active. */
+table:has(thead .dpt-bulk-select-head) .dpt-row-mark-head,
+table:has(thead .dpt-bulk-select-head) .dpt-row-mark-cell,
+.mep-table:has(thead .mep-check) .dpt-row-mark-head,
+.mep-table:has(thead .mep-check) .dpt-row-mark-cell {
+  left: 42px !important;
+}
+
+/* Structural row-selection checkboxes are controls, not business-data columns.
+   Keep them out of the Excel/Data Bersih view just like action and marker columns. */
+.dpt-clean-data-table:not([data-dpt-bulk-selection-active="true"]) .dpt-selection-utility {
+  display: none !important;
+}
+.dpt-clean-data-table[data-dpt-bulk-selection-active="true"] .dpt-selection-utility {
+  display: table-cell !important;
+  width: 42px !important;
+  min-width: 42px !important;
+  max-width: 42px !important;
+  padding: 8px !important;
+  text-align: center !important;
+}

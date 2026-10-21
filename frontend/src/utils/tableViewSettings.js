@@ -17,3 +17,23 @@ export function resolveCleanTableView(rawValue, context) {
   }
   return defaultValue
 }
+/**
+ * Classify table headers by role so injected checkbox controls are never
+ * treated as business data columns.
+ */
+export function classifyTableColumnKind(label, isSelectionControl = false) {
+  if (isSelectionControl) return 'selection'
+  const value = String(label ?? '').replace(/\s+/g, ' ').trim().toLowerCase()
+  if (value === 'tanda' || value === 'penanda') return 'mark'
+  if (value === 'aksi') return 'action'
+  return 'data'
+}
+
+export function isCleanTableUtilityColumn(kind) {
+  return kind === 'mark' || kind === 'action' || kind === 'selection'
+}
+export function isHiddenByCleanTableMode(kind, bulkSelectionActive = false) {
+  if (kind === 'mark' || kind === 'action') return true
+  if (kind === 'selection') return !bulkSelectionActive
+  return false
+}
