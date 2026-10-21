@@ -63,6 +63,7 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
   const editPhotoRequest = useRef(0)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [vehicleLoadError, setVehicleLoadError] = useState('')
   const [success, setSuccess] = useState('')
   const [query, setQuery] = useState('')
   const [ownershipFilter, setOwnershipFilter] = useState('SEMUA')
@@ -85,11 +86,12 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
   const loadData = async () => {
     setLoading(true)
     setError('')
+    setVehicleLoadError('')
     const [v, d] = await Promise.all([
       supabase.from('kendaraan').select('id,kode_kendaraan,nomor_polisi,merk,tipe,jenis_kendaraan,tahun,nomor_mesin,nomor_rangka,kepemilikan,jenis_sewa,harga_perolehan,pemilik,driver_id,lokasi,unit_kerja,masa_berlaku_pajak,status_pajak,keterangan,catatan_hutang,status,foto_stnk_path,foto_depan_path,foto_belakang_path,foto_kiri_path,foto_kanan_path').order('nomor_polisi'),
       supabase.from('driver').select('id,nama_lengkap,status').order('nama_lengkap'),
     ])
-    if (v.error) setError(`Data kendaraan: ${humanizeError(v.error)}`); else setVehicles((v.data || []).map(row => ({ ...row, kepemilikan: normalizeOwnership(row.kepemilikan) })))
+    if (v.error) { const message = `Data kendaraan: ${humanizeError(v.error)}`; setError(message); setVehicleLoadError(message) } else setVehicles((v.data || []).map(row => ({ ...row, kepemilikan: normalizeOwnership(row.kepemilikan) })))
     if (d.error) setError(prev => prev || `Data driver: ${humanizeError(d.error)}`); else setDrivers(d.data || [])
     setSelected([])
     setSelectionMode(false)
@@ -118,7 +120,7 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
   }, [vehicles, driverMap, query, ownershipFilter, typeFilter, integrityFilter, integrityReport])
   const vehicleTableState = getVehicleTableState({
     loading,
-    hasError: Boolean(error),
+    hasError: Boolean(vehicleLoadError),
     totalCount: vehicles.length,
     visibleCount: filtered.length,
   })
