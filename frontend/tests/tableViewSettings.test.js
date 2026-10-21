@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { classifyTableColumnKind, isCleanTableUtilityColumn, resolveCleanTableView } from '../src/utils/tableViewSettings.js'
+import { classifyTableColumnKind, isCleanTableUtilityColumn, isHiddenByCleanTableMode, resolveCleanTableView } from '../src/utils/tableViewSettings.js'
 import { readFile } from 'node:fs/promises'
 
 test('Kendaraan keeps its original table layout by default', () => {
@@ -47,5 +47,24 @@ test('DataPageTools structurally detects checkbox headers and clean-mode styling
   assert.match(source, /cell\.matches\('\.mep-check, \.request-select-cell, \.x-select-cell, \.dpt-bulk-select-head'\)/)
   assert.match(source, /dpt-selection-utility/)
   assert.match(source, /cleanMode && isCleanTableUtilityColumn\(column\.kind\)/)
-  assert.match(css, /\.dpt-clean-data-table \.dpt-selection-utility/)
+  assert.match(css, /\.dpt-clean-data-table:not\(\[data-dpt-bulk-selection-active="true"\]\) \.dpt-selection-utility/)
+  assert.match(css, /data-dpt-bulk-selection-active="true"\]\s+\.dpt-selection-utility\s*\{\s*display: table-cell/)
+})
+
+test('clean mode hides marker/action controls but preserves checkboxes during bulk selection', () => {
+  assert.equal(isHiddenByCleanTableMode('mark', false), true)
+  assert.equal(isHiddenByCleanTableMode('mark', true), true)
+  assert.equal(isHiddenByCleanTableMode('action', false), true)
+  assert.equal(isHiddenByCleanTableMode('action', true), true)
+  assert.equal(isHiddenByCleanTableMode('selection', false), true)
+  assert.equal(isHiddenByCleanTableMode('selection', true), false)
+  assert.equal(isHiddenByCleanTableMode('data', false), false)
+})
+
+test('generic bulk-mode entry and exit immediately reapply the current column indexes', async () => {
+  const source = await readFile(new URL('../src/modules/DataPageTools.jsx', import.meta.url), 'utf8')
+  assert.match(source, /const resolvedContext = context \|\| table\.dataset\.dptContext/)
+  assert.match(source, /applyColumnVisibility\(resolvedContext, table, getColumnDescriptors\(resolvedContext, table\)/)
+  assert.match(source, /delete table\.dataset\.dptBulkMode\s+const context = table\.dataset\.dptContext\s+if \(context\) applyColumnVisibility/)
+  assert.match(source, /table\.dataset\.dptBulkSelectionActive = isBulkSelectionActive\(table\) \? 'true' : 'false'/)
 })
