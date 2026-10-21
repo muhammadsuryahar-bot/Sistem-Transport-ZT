@@ -11,7 +11,7 @@ test('vehicle photo storage read roles match document reader roles', async () =>
   assert.match(migration, /CREATE POLICY storage_kendaraan_select[\s\S]*?FOR SELECT[\s\S]*?TO authenticated/i)
 
   for (const role of ['ADMIN', 'TRANSPORT', 'ATASAN_TRANSPORT', 'DIREKTUR', 'AKUNTANSI']) {
-    assert.match(migration, new RegExp(\`'\${role}'::user_role\`))
+    assert.match(migration, new RegExp("'" + role + "'::user_role"))
   }
 
   assert.match(migration, /bucket_id = 'kendaraan'/)
