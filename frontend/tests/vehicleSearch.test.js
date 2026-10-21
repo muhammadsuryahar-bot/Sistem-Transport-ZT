@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { matchesVehicleSearch } from '../src/utils/vehicleSearch.js'
+import { matchesVehicleSearch, retainVisibleVehicleSelection } from '../src/utils/vehicleSearch.js'
 
 const vehicle = {
   kode_kendaraan: 'KND-0102',
@@ -52,4 +52,22 @@ test('search finds acquisition price, rental type values, and driver name', () =
 test('empty query matches all and unrelated terms do not match', () => {
   assert.equal(matchesVehicleSearch(vehicle, driver, ''), true)
   assert.equal(matchesVehicleSearch(vehicle, driver, 'nomor yang tidak ada'), false)
+})
+
+test('bulk selection drops rows hidden by current filters before destructive actions', () => {
+  const selected = [1, 2, 3]
+  const visibleVehicles = [{ id: 1 }, { id: 3 }]
+  const next = retainVisibleVehicleSelection(selected, visibleVehicles)
+  assert.deepEqual(next, [1, 3])
+  assert.notEqual(next, selected)
+})
+
+test('bulk selection keeps the same selection reference when all selected rows remain visible', () => {
+  const selected = [1, 3]
+  const next = retainVisibleVehicleSelection(selected, [{ id: 1 }, { id: 3 }])
+  assert.equal(next, selected)
+})
+
+test('bulk selection returns an empty selection when active filters hide every selected row', () => {
+  assert.deepEqual(retainVisibleVehicleSelection([1, 2], []), [])
 })
