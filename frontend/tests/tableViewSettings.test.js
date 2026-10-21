@@ -32,7 +32,7 @@ test('selection checkbox headers are utility controls, not data columns', () => 
   assert.equal(classifyTableColumnKind('Aksi'), 'action')
 })
 
-test('clean view hides every utility column, including selection controls', () => {
+test('selection controls are treated as utility columns, not business data', () => {
   for (const kind of ['mark', 'action', 'selection']) {
     assert.equal(isCleanTableUtilityColumn(kind), true)
   }
@@ -46,7 +46,7 @@ test('DataPageTools structurally detects checkbox headers and clean-mode styling
   ])
   assert.match(source, /cell\.matches\('\.mep-check, \.request-select-cell, \.x-select-cell, \.dpt-bulk-select-head'\)/)
   assert.match(source, /dpt-selection-utility/)
-  assert.match(source, /cleanMode && isCleanTableUtilityColumn\(column\.kind\)/)
+  assert.match(source, /isHiddenByCleanMode\(column, table, cleanMode\)/)
   assert.match(css, /\.dpt-clean-data-table:not\(\[data-dpt-bulk-selection-active="true"\]\) \.dpt-selection-utility/)
   assert.match(css, /data-dpt-bulk-selection-active="true"\]\s+\.dpt-selection-utility\s*\{\s*display: table-cell/)
 })
