@@ -7,7 +7,7 @@ import { formatDateSafe } from '../utils/dateSafe'
 import { IMAGE_UPLOAD_ACCEPT, validateStorageUploadFile } from '../utils/storageUpload.js'
 import { analyzeVehicleIntegrity } from '../utils/vehicleIntegrity.js'
 import { inferRentalTypeFromOwner } from '../utils/vehicleOwnership.js'
-import { matchesVehicleSearch } from '../utils/vehicleSearch.js'
+import { matchesVehicleSearch, retainVisibleVehicleSelection } from '../utils/vehicleSearch.js'
 
 const OWNERSHIP = { ASET: 'Aset', SEWA: 'Sewa' }
 const VEHICLE_TYPES = ['Pickup', 'Minibus', 'Dump Truck']
@@ -308,7 +308,18 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
   }
   const toggleSelected = id => setSelected(current => current.includes(id) ? current.filter(x => x !== id) : [...current, id])
   useEffect(() => () => window.clearTimeout(rowClickTimer.current), [])
+  useEffect(() => {
+    if (!selectionMode) return
+    setSelected(current => retainVisibleVehicleSelection(current, filtered))
+  }, [filtered, selectionMode])
   const allSelected = filtered.length > 0 && filtered.every(v => selected.includes(v.id))
+  const applySummaryFilter = (ownership, type) => {
+    setQuery('')
+    setOwnershipFilter(ownership)
+    setTypeFilter(type)
+    setIntegrityFilter(false)
+    requestAnimationFrame(() => document.querySelector('.mep-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  }
   const toggleAll = () => setSelected(current => allSelected ? current.filter(id => !filtered.some(v => v.id === id)) : Array.from(new Set([...current, ...filtered.map(v => v.id)])))
   const exitSelection = () => { setSelectionMode(false); setSelected([]); setActiveRowId(null) }
   const bulkDelete = async () => {
@@ -346,19 +357,19 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
     {success && <div className="mep-alert success">{success}</div>}{error && !modal && <div className="mep-alert error">{error}</div>}
     {integrityReport.reviewCount > 0 && <div className="mep-integrity-alert" role="status"><div><b>{integrityReport.reviewCount} kendaraan perlu verifikasi data</b><span>{integrityReport.duplicateIdentityPairCount > 0 && <><strong>{integrityReport.duplicateIdentityPairCount} pasangan</strong> nomor polisi memakai nomor mesin/rangka yang sama. </>}Data sumber yang bertentangan ditandai untuk pemeriksaan; sistem tidak mengganti identitas kendaraan secara otomatis.</span></div><div><button type="button" onClick={() => { setIntegrityFilter(true); setQuery(''); setOwnershipFilter('SEMUA'); setTypeFilter('SEMUA') }}>Tampilkan kendaraan</button>{integrityFilter && <button type="button" className="secondary" onClick={() => setIntegrityFilter(false)}>Tampilkan semua</button>}</div></div>}
     <div className="mep-cards">
-      <button type="button" className="mep-summary-card" onClick={() => { setQuery(''); setOwnershipFilter('SEMUA'); setTypeFilter('SEMUA'); requestAnimationFrame(() => document.querySelector('.mep-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' })) }}>
+      <button type="button" className="mep-summary-card" onClick={() => applySummaryFilter('SEMUA', 'SEMUA')}>
         <span>Total Kendaraan</span><b>{cards.total}</b><i aria-hidden="true">›</i>
       </button>
-      <button type="button" className="mep-summary-card" onClick={() => { setQuery(''); setOwnershipFilter('ASET'); setTypeFilter('SEMUA'); requestAnimationFrame(() => document.querySelector('.mep-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' })) }}>
+      <button type="button" className="mep-summary-card" onClick={() => applySummaryFilter('ASET', 'SEMUA')}>
         <span>Aset</span><b>{cards.aset}</b><i aria-hidden="true">›</i>
       </button>
-      <button type="button" className="mep-summary-card" onClick={() => { setQuery(''); setOwnershipFilter('SEWA'); setTypeFilter('SEMUA'); requestAnimationFrame(() => document.querySelector('.mep-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' })) }}>
+      <button type="button" className="mep-summary-card" onClick={() => applySummaryFilter('SEWA', 'SEMUA')}>
         <span>Sewa</span><b>{cards.sewa}</b><i aria-hidden="true">›</i>
       </button>
-      <button type="button" className="mep-summary-card" onClick={() => { setQuery(''); setOwnershipFilter('SEMUA'); setTypeFilter('Pickup'); requestAnimationFrame(() => document.querySelector('.mep-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' })) }}>
+      <button type="button" className="mep-summary-card" onClick={() => applySummaryFilter('SEMUA', 'Pickup')}>
         <span>Pickup</span><b>{cards.pickup}</b><i aria-hidden="true">›</i>
       </button>
-      <button type="button" className="mep-summary-card" onClick={() => { setQuery(''); setOwnershipFilter('SEMUA'); setTypeFilter('Minibus'); requestAnimationFrame(() => document.querySelector('.mep-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' })) }}>
+      <button type="button" className="mep-summary-card" onClick={() => applySummaryFilter('SEMUA', 'Minibus')}>
         <span>Minibus</span><b>{cards.minibus}</b><i aria-hidden="true">›</i>
       </button>
     </div>
