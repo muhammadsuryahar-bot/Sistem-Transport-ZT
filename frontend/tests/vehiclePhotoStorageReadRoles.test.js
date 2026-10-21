@@ -4,7 +4,7 @@ import test from 'node:test'
 
 test('vehicle photo storage read roles match document reader roles', async () => {
   const migration = await readFile(
-    new URL('../../supabase/migrations/20261021011000_align_vehicle_photo_storage_read_roles.sql', import.meta.url),
+    new URL('../../supabase/migrations/20261021011133_align_vehicle_photo_storage_read_roles.sql', import.meta.url),
     'utf8',
   )
   assert.match(migration, /DROP POLICY IF EXISTS storage_kendaraan_select ON storage\.objects/i)
