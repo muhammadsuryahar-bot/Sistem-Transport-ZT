@@ -58,6 +58,7 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
   const [drivers, setDrivers] = useState([])
   const [loading, setLoading] = useState(true)
   const rowClickTimer = useRef(null)
+  const detailPhotoRequest = useRef(0)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -71,6 +72,8 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
   const [form, setForm] = useState({ ...EMPTY })
   const [photoFiles, setPhotoFiles] = useState({})
   const [photoUrls, setPhotoUrls] = useState({})
+  const [detailPhotoUrls, setDetailPhotoUrls] = useState({})
+  const [detailPhotoLoading, setDetailPhotoLoading] = useState(false)
   const [selected, setSelected] = useState([])
   const [selectionMode, setSelectionMode] = useState(false)
   const [activeRowId, setActiveRowId] = useState(null)
@@ -302,12 +305,23 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
     exitSelection(); setSaving(false)
     if (removed) setSuccess(`${removed} kendaraan berhasil dihapus.`)
   }
+  const closeDetail = () => {
+    detailPhotoRequest.current += 1
+    setDetail(null)
+    setDetailPhotoUrls({})
+    setDetailPhotoLoading(false)
+  }
+
   const openDetail = async vehicle => {
+    const requestId = ++detailPhotoRequest.current
     setDetail({ ...vehicle, driver: driverMap[vehicle.driver_id] })
-    setPhotoUrls({})
-    if (vehicle.foto_stnk_path) {
-      const { data } = await supabase.storage.from('kendaraan').createSignedUrl(vehicle.foto_stnk_path, 3600)
-      if (data?.signedUrl) setPhotoUrls({ stnk: data.signedUrl })
+    setDetailPhotoUrls({})
+    setDetailPhotoLoading(true)
+    try {
+      const urls = await loadVehiclePhotoUrls(vehicle)
+      if (requestId === detailPhotoRequest.current) setDetailPhotoUrls(urls)
+    } finally {
+      if (requestId === detailPhotoRequest.current) setDetailPhotoLoading(false)
     }
   }
 
@@ -335,20 +349,20 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
     </div>
     <section className="mep-card"><div className="mep-toolbar"><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Cari No. Pol, merk, pemilik, driver, lokasi..."/><select value={ownershipFilter} onChange={e => setOwnershipFilter(e.target.value)}><option value="SEMUA">Semua kepemilikan</option><option value="ASET">Aset</option><option value="SEWA">Sewa</option></select><select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}><option value="SEMUA">Semua jenis</option>{typeOptions.map(item => <option key={item} value={item}>{item}</option>)}</select><button type="button" className="mep-secondary" onClick={loadData} disabled={loading}>↻ Refresh</button></div>
       {selectionMode && <div className="mep-selection"><span><b>{selected.length}</b> kendaraan dipilih</span><div><button type="button" onClick={toggleAll}>{allSelected ? 'Batal pilih semua' : 'Pilih semua'}</button><button type="button" onClick={exitSelection}>Batal</button>{canDelete && <button type="button" className="danger" onClick={bulkDelete} disabled={saving}>Hapus yang dipilih</button>}</div></div>}
-      {!selectionMode && filtered.length > 0 && <p className="mep-hint">Klik dua kali pada baris untuk masuk mode pilih banyak data.</p>}
+      {!selectionMode && filtered.length > 0 && <p className="mep-hint">Klik satu kali pada baris untuk menampilkan aksi yang tersedia. Klik dua kali pada baris untuk masuk mode pilih banyak data.</p>}
       <div className="mep-table-wrap">{loading ? <div className="mep-empty">Memuat data...</div> : filtered.length === 0 ? <div className="mep-empty"><b>Belum ada data kendaraan.</b><span>Import Excel atau tambah kendaraan secara manual.</span></div> : <table className="mep-table" data-native-row-selection="true"><thead><tr>{selectionMode && <th className="mep-check"><input type="checkbox" aria-label="Pilih semua" checked={allSelected} onChange={toggleAll}/></th>}<th>No. Pol / Merk / Type</th><th>Jenis</th><th>Kepemilikan</th><th>Jenis Sewa</th><th>Harga Perolehan</th><th>Pemilik</th><th>Driver</th><th>Lokasi Kerja</th><th>Pajak</th><th>Keterangan</th><th>Aksi</th></tr></thead><tbody>{filtered.map(v => { const driver = driverMap[v.driver_id]; const picked = selected.includes(v.id); return <tr key={v.id} className={(picked ? 'picked' : '') + (activeRowId === v.id ? ' dpt-row-selected' : '')} onDoubleClick={e => { if (isInteractive(e.target)) return; e.preventDefault(); window.clearTimeout(rowClickTimer.current); enterSelectionMode(v.id) }} onClick={e => { if (isInteractive(e.target)) return; window.clearTimeout(rowClickTimer.current); if (selectionMode) { toggleSelected(v.id); return }; if (e.detail > 1) return; rowClickTimer.current = window.setTimeout(() => setActiveRowId(current => current === v.id ? null : v.id), 180) }}>
         {selectionMode && <td className="mep-check"><input type="checkbox" checked={picked} onChange={() => toggleSelected(v.id)} aria-label={`Pilih ${v.nomor_polisi}`}/></td>}
         <td><b>{v.nomor_polisi}</b><span>{v.merk} {v.tipe || ''}</span><small>{v.tahun || '-'}{v.nomor_mesin ? ` • Mesin ${v.nomor_mesin}` : ''}</small></td>
         <td><span className="mep-pill">{v.jenis_kendaraan || '-'}</span></td>
         <td><b>{OWNERSHIP[normalizeOwnership(v.kepemilikan)] || '-'}</b></td>
-        <td><span>{v.kepemilikan === 'SEWA' ? rentalTypeLabel(rentalTypeForVehicle(v)) : '-'}</span></td>
+        <td><span>{normalizeOwnership(v.kepemilikan) === 'SEWA' ? rentalTypeLabel(rentalTypeForVehicle(v)) : '-'}</span></td>
         <td><span>{v.harga_perolehan == null ? '-' : `Rp ${Number(v.harga_perolehan).toLocaleString('id-ID')}`}</span></td>
         <td><span>{v.pemilik || '-'}</span></td>
         <td><span>{driver?.nama_lengkap || '-'}</span></td>
         <td><span>{v.lokasi || '-'}</span><small>{v.unit_kerja || '-'}</small></td>
         <td><span>{v.masa_berlaku_pajak ? formatDate(v.masa_berlaku_pajak) : '-'}</span><small>{v.status_pajak || '-'}</small></td>
         <td><span>{v.keterangan || '-'}</span><small>{v.catatan_hutang || ''}</small></td>
-        <td className="mep-actions"><button type="button" onClick={() => openDetail(v)}>Detail</button>{canEdit && <button type="button" onClick={() => openEdit(v)}>Edit</button>}{normalizeOwnership(v.kepemilikan) === 'SEWA' && onNavigate && <button type="button" onClick={() => onNavigate('sewa')}>Kelola Sewa</button>}{canDelete && <button type="button" onClick={async () => { if (window.confirm(`Hapus kendaraan ${v.nomor_polisi}?`)) { const removed = await deleteOne(v); if (removed) setSuccess(`Kendaraan ${v.nomor_polisi} berhasil dihapus.`) } }}>Hapus</button>}</td>
+        <td className="mep-actions">{!selectionMode && activeRowId === v.id ? <><button type="button" onClick={() => openDetail(v)}>Detail</button>{canEdit && <button type="button" onClick={() => openEdit(v)}>Edit</button>}{normalizeOwnership(v.kepemilikan) === 'SEWA' && onNavigate && <button type="button" onClick={() => onNavigate('sewa')}>Kelola Sewa</button>}{canDelete && <button type="button" onClick={async () => { if (window.confirm(`Hapus kendaraan ${v.nomor_polisi}?`)) { const removed = await deleteOne(v); if (removed) setSuccess(`Kendaraan ${v.nomor_polisi} berhasil dihapus.`) } }}>Hapus</button>}</> : <span className="mep-row-action-hint">{selectionMode ? 'Mode pilih' : 'Klik baris'}</span>}</td>
       </tr> })}</tbody></table>}</div>
     </section>
 
@@ -376,6 +390,6 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
     <div className="mep-photo-section"><div><b>Foto Kendaraan (opsional)</b><span>Administrator dapat mengunggah setiap sisi secara terpisah beserta foto STNK. Foto disimpan privat dan ditampilkan melalui tautan bertanda tangan.</span></div><div className="mep-photo-grid">{PHOTO_ITEMS.map(photo => <label className="mep-photo" key={photo.key}><span>{photo.label}</span>{photoUrls[photo.key] ? <img src={photoUrls[photo.key]} alt={photo.label}/> : <div className="mep-photo-empty">Belum ada foto</div>}{canPhoto && <input type="file" accept={IMAGE_UPLOAD_ACCEPT} onChange={e => setPhotoFiles(current => ({ ...current, [photo.key]: e.target.files?.[0] || null }))}/>} {!canPhoto && <small>Upload khusus Admin</small>}{editing?.[photo.field] && <small>Foto tersimpan</small>}</label>)}</div></div>
     <div className="mep-form-actions"><button type="button" className="mep-secondary" onClick={resetModal}>Batal</button><button type="submit" className="mep-primary" disabled={saving}>{saving ? 'Menyimpan...' : 'Simpan Kendaraan'}</button></div></form></section></div>}
 
-    {detail && <div className="mep-overlay"><section className="mep-modal small"><header><div><span className="eyebrow">DETAIL KENDARAAN</span><h3>{detail.nomor_polisi}</h3></div><button type="button" onClick={() => setDetail(null)}>×</button></header><div className="mep-detail"><div><span>Merk / Type</span><b>{detail.merk} {detail.tipe || ''}</b></div><div><span>Jenis</span><b>{detail.jenis_kendaraan || '-'}</b></div><div><span>Kepemilikan</span><b>{OWNERSHIP[normalizeOwnership(detail.kepemilikan)] || '-'}</b></div><div><span>Harga Perolehan</span><b>{detail.harga_perolehan == null ? '-' : `Rp ${Number(detail.harga_perolehan).toLocaleString('id-ID')}`}</b></div><div><span>Jenis Sewa</span><b>{detail.kepemilikan === 'SEWA' ? (rentalTypeLabel(normalizeRentalType(detail.jenis_sewa))) : '-'}</b></div><div><span>Pemilik</span><b>{detail.pemilik || '-'}</b></div><div><span>Tahun</span><b>{detail.tahun || '-'}</b></div><div><span>No. Mesin</span><b>{detail.nomor_mesin || '-'}</b></div><div><span>No. Rangka</span><b>{detail.nomor_rangka || '-'}</b></div><div><span>Masa Berlaku Pajak</span><b>{formatDate(detail.masa_berlaku_pajak)}</b></div><div><span>Status Pajak</span><b>{detail.status_pajak || '-'}</b></div><div><span>Unit Kerja</span><b>{detail.unit_kerja || '-'}</b></div><div><span>Driver</span><b>{driverMap[detail.driver_id]?.nama_lengkap || '-'}</b></div><div><span>Lokasi Kerja</span><b>{detail.lokasi || '-'}</b></div><div className="full"><span>Keterangan</span><b>{detail.keterangan || '-'}</b></div><div className="full"><span>Catatan Hutang</span><b>{detail.catatan_hutang || '-'}</b></div></div><div className="mep-detail-photos">{PHOTO_ITEMS.map(photo => <div key={photo.key}><span>{photo.label}</span>{photoUrls[photo.key] ? <img src={photoUrls[photo.key]} alt={photo.label}/> : <div className="mep-photo-empty">Belum ada foto</div>}</div>)}</div><div className="mep-form-actions"><button type="button" className="mep-secondary" onClick={() => setDetail(null)}>Tutup</button>{canEdit && <button type="button" className="mep-primary" onClick={() => { const current = detail; setDetail(null); openEdit(current) }}>Edit Kendaraan</button>}</div></section></div>}
+    {detail && <div className="mep-overlay"><section className="mep-modal small"><header><div><span className="eyebrow">DETAIL KENDARAAN</span><h3>{detail.nomor_polisi}</h3></div><button type="button" onClick={closeDetail}>×</button></header><div className="mep-detail"><div><span>Merk / Type</span><b>{detail.merk} {detail.tipe || ''}</b></div><div><span>Jenis</span><b>{detail.jenis_kendaraan || '-'}</b></div><div><span>Kepemilikan</span><b>{OWNERSHIP[normalizeOwnership(detail.kepemilikan)] || '-'}</b></div><div><span>Harga Perolehan</span><b>{detail.harga_perolehan == null ? '-' : `Rp ${Number(detail.harga_perolehan).toLocaleString('id-ID')}`}</b></div><div><span>Jenis Sewa</span><b>{normalizeOwnership(detail.kepemilikan) === 'SEWA' ? rentalTypeLabel(rentalTypeForVehicle(detail)) : '-'}</b></div><div><span>Pemilik</span><b>{detail.pemilik || '-'}</b></div><div><span>Tahun</span><b>{detail.tahun || '-'}</b></div><div><span>No. Mesin</span><b>{detail.nomor_mesin || '-'}</b></div><div><span>No. Rangka</span><b>{detail.nomor_rangka || '-'}</b></div><div><span>Masa Berlaku Pajak</span><b>{formatDate(detail.masa_berlaku_pajak)}</b></div><div><span>Status Pajak</span><b>{detail.status_pajak || '-'}</b></div><div><span>Unit Kerja</span><b>{detail.unit_kerja || '-'}</b></div><div><span>Driver</span><b>{driverMap[detail.driver_id]?.nama_lengkap || '-'}</b></div><div><span>Lokasi Kerja</span><b>{detail.lokasi || '-'}</b></div><div className="full"><span>Keterangan</span><b>{detail.keterangan || '-'}</b></div><div className="full"><span>Catatan Hutang</span><b>{detail.catatan_hutang || '-'}</b></div></div><div className="mep-detail-photos">{PHOTO_ITEMS.map(photo => <div key={photo.key}><span>{photo.label}</span>{detailPhotoUrls[photo.key] ? <img src={detailPhotoUrls[photo.key]} alt={photo.label}/> : <div className="mep-photo-empty">{detailPhotoLoading ? 'Memuat foto...' : 'Belum ada foto'}</div>}</div>)}</div><div className="mep-form-actions"><button type="button" className="mep-secondary" onClick={closeDetail}>Tutup</button>{canEdit && <button type="button" className="mep-primary" onClick={() => { const current = detail; closeDetail(); openEdit(current) }}>Edit Kendaraan</button>}</div></section></div>}
   </div>
 }
