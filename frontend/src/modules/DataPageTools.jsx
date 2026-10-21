@@ -520,7 +520,10 @@ function removeGenericBulkUI(table) {
   table.parentElement?.parentElement?.querySelectorAll('.dpt-bulk-selection-toolbar').forEach(toolbar => toolbar.remove())
   delete table.dataset.dptBulkMode
   const context = table.dataset.dptContext
-  if (context) applyColumnVisibility(context, table, getColumnDescriptors(context, table), readColumnVisibility(context), readCleanTableView(context))
+  if (context) {
+    applyColumnVisibility(context, table, getColumnDescriptors(context, table), readColumnVisibility(context), readCleanTableView(context))
+    window.dispatchEvent(new CustomEvent('transport:bulk-selection-mode', { detail: { context, active: false } }))
+  }
 }
 
 function enterGenericBulkMode(table, firstRow = null, context = null) {
@@ -605,6 +608,7 @@ function enterGenericBulkMode(table, firstRow = null, context = null) {
   const resolvedContext = context || table.dataset.dptContext
   if (resolvedContext) {
     applyColumnVisibility(resolvedContext, table, getColumnDescriptors(resolvedContext, table), readColumnVisibility(resolvedContext), readCleanTableView(resolvedContext))
+    window.dispatchEvent(new CustomEvent('transport:bulk-selection-mode', { detail: { context: resolvedContext, active: true } }))
   }
 }
 
@@ -768,6 +772,14 @@ export default function DataPageTools({ context, profile, onExport }) {
     document.addEventListener('mousedown', handleOutside)
     return () => document.removeEventListener('mousedown', handleOutside)
   }, [showColumnMenu])
+
+  useEffect(() => {
+    const onBulkSelectionMode = event => {
+      if (!event.detail || event.detail.context === context) setBulkSelectionActive(event.detail?.active === true)
+    }
+    window.addEventListener('transport:bulk-selection-mode', onBulkSelectionMode)
+    return () => window.removeEventListener('transport:bulk-selection-mode', onBulkSelectionMode)
+  }, [context])
 
   useEffect(() => {
     const onVisibilityChange = event => {
