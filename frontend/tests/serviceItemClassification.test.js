@@ -4,6 +4,7 @@ import test from 'node:test'
 import { encodeExcelMeta } from '../src/utils/excelSourceMeta.js'
 import {
   classifySourceServiceItemCategory,
+  normalizeServiceItemName,
   serviceItemGroupKey,
 } from '../src/utils/serviceItemClassification.js'
 
@@ -31,6 +32,35 @@ test('shopping list uses source work type to separate service labour and parts',
     kategori: 'JASA',
     keterangan: encodeExcelMeta({ jenis_pekerjaan: 'Pengadaan Barang' }),
   }), 'SPAREPART')
+})
+
+test('generic Service work classifies common vehicle parts before the stored JASA label', () => {
+  const sourceItem = nama_item => ({
+    nama_item,
+    kategori: 'JASA',
+    keterangan: encodeExcelMeta({ jenis_pekerjaan: 'Service' }),
+  })
+  for (const name of [
+    'Bohlam Headlamp',
+    'Seal Crankshaft',
+    'Tie Rod Assy',
+    'Radiator Upper Hose',
+    'Filter Udara',
+    'Busi Iridium',
+    'O-Ring Injector',
+    'Lampu Stop',
+  ]) {
+    assert.equal(classifySourceServiceItemCategory(sourceItem(name)), 'SPAREPART', name)
+  }
+  assert.equal(classifySourceServiceItemCategory(sourceItem('Bantuan Mekanik')), 'JASA')
+})
+
+test('shopping list item names, categories, and equivalent unit casing normalize consistently', () => {
+  assert.equal(normalizeServiceItemName(' 1. Oli   Mesin Prima XP '), 'OLI MESIN PRIMA XP')
+  assert.equal(
+    serviceItemGroupKey('1. Oli   Mesin Prima XP', 'SPAREPART', 'Pcs'),
+    serviceItemGroupKey('Oli Mesin Prima XP', 'sparepart', 'PCS'),
+  )
 })
 
 test('shopping list grouping normalizes numbered names but keeps category and unit distinct', () => {
