@@ -55,6 +55,68 @@ test('generic Service work classifies common vehicle parts before the stored JAS
   assert.equal(classifySourceServiceItemCategory(sourceItem('Bantuan Mekanik')), 'JASA')
 })
 
+test('generic Service rows from the May workbook classify identifiable physical components as parts', () => {
+  const sourceItem = nama_item => ({
+    nama_item,
+    kategori: 'JASA',
+    keterangan: encodeExcelMeta({ jenis_pekerjaan: 'Service' }),
+  })
+
+  for (const name of [
+    'Lem Wealty RTV',
+    'Karet Kaki Mesin F601',
+    'Karet Kaki Transmisi F601',
+    'Link Stabil F601',
+    'Gearbox Stir Assy',
+    'Shockbreaker Belakang',
+    'Blok Rem Belakang F601',
+    'Minyak Rem Kecil Auto Genuine',
+    'Paking Tutup Klep F601',
+    'Kunci Bagasi F601',
+    'Carburator Cleaner 500 ML',
+    'Sensor Water Temp',
+    'Valve S/A Vent',
+    'Dinamo Semprot Kaca F601',
+    'Sensor Oxygen F601',
+    'Klakson 12 V',
+    'Dinamo Motor P. Windows F601',
+    'Piston Sub Assy, W/Pin F601',
+    'Baut Kartel All',
+    'Ring Set, Piston, Std F601',
+    'Metal Bulan F601',
+    'Lifter Valve No. 60',
+    'Thermostat F601 Asli',
+    'Belt, V-Ribbed',
+    'Clip-Clip',
+    'Shoe Kit, Brake RR',
+    'Support S/A FR F700',
+    'Motor Fan BSR Denso',
+    'Liner, FR Fender, LH AVZ/XENIA',
+    'Handle Pintu Dalam RH',
+    'Cable Doorlock Pintu 1 RH',
+    'Kaca Spion',
+    'Velg R13',
+    'Reserve Tank A/S RAD',
+    'Skring Petak',
+    'Pen Payung TBR',
+    'BBM (Bahan Bakar Minyak)',
+    'Tinner Cuci',
+  ]) {
+    assert.equal(classifySourceServiceItemCategory(sourceItem(name)), 'SPAREPART', name)
+  }
+})
+
+test('generic Service work that names an operation instead of a physical component remains JASA', () => {
+  const sourceItem = nama_item => ({
+    nama_item,
+    kategori: 'JASA',
+    keterangan: encodeExcelMeta({ jenis_pekerjaan: 'Service' }),
+  })
+  for (const name of ['Scan Engine', 'Spooring', 'Engine Tune Up', 'Isi Freon O']) {
+    assert.equal(classifySourceServiceItemCategory(sourceItem(name)), 'JASA', name)
+  }
+})
+
 test('shopping list item names, categories, and equivalent unit casing normalize consistently', () => {
   assert.equal(normalizeServiceItemName(' 1. Oli   Mesin Prima XP '), 'OLI MESIN PRIMA XP')
   assert.equal(
