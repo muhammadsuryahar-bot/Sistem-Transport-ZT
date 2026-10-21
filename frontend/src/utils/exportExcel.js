@@ -1,3 +1,19 @@
+
+/**
+ * Preserve the source workbook's row-number value for exports.
+ * Numeric source numbers remain numeric; annotations/formula-like text stay text.
+ * Never substitute the physical Excel row when the source number is nonnumeric.
+ */
+export function normalizeSourceNoForExport(value) {
+  const raw = String(value ?? '').trim()
+  if (!raw) return ''
+  if (/^-?\d+(?:\.\d+)?$/.test(raw)) {
+    const number = Number(raw)
+    if (Number.isFinite(number)) return number
+  }
+  return raw
+}
+
 function escapeXml(value) {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
