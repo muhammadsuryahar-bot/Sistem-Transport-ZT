@@ -653,8 +653,12 @@ select { touch-action: manipulation; }
 .mep-table small { font-size: 11px !important; line-height: 1.4 !important; color: var(--zt-muted) !important; }
 
 .x-row-actions,
-.m-row-actions,
-.request-actions { display: flex !important; align-items: center !important; justify-content: flex-start !important; gap: 6px !important; flex-wrap: wrap !important; white-space: normal !important; }
+.m-row-actions { display: flex !important; align-items: center !important; justify-content: flex-start !important; gap: 6px !important; flex-wrap: wrap !important; white-space: normal !important; }
+
+/* Keep table action cells as table cells; use flex only for their inner button groups. */
+.request-actions { display: table-cell !important; vertical-align: top !important; white-space: normal !important; }
+.request-actions-inner { display: flex !important; align-items: center !important; justify-content: flex-start !important; gap: 6px !important; flex-wrap: wrap !important; min-width: 0; }
+.request-actions-inner > button { margin-right: 0 !important; }
 
 /* Keep the element as a real table cell; flex layout belongs to its inner wrapper. */
 .mep-actions { display: table-cell !important; vertical-align: top !important; white-space: normal !important; }
@@ -711,8 +715,8 @@ select { touch-action: manipulation; }
   .mep-table small { font-size: 10.5px !important; }
 
   .x-row-actions,
-  .m-row-actions,
-  .request-actions { gap: 5px !important; }
+  .m-row-actions { gap: 5px !important; }
+  .request-actions-inner { gap: 5px !important; }
   .mep-actions-inner { gap: 5px !important; }
   .x-row-actions button,
   .m-row-actions button,
