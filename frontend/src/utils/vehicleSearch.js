@@ -57,7 +57,8 @@ export function matchesVehicleSearch(vehicle, driver, query) {
  * A hidden row must not remain selected and be deleted without being visible.
  */
 export function retainVisibleVehicleSelection(selectedIds, visibleVehicles) {
+  const selected = Array.isArray(selectedIds) ? selectedIds : []
   const visibleIds = new Set((visibleVehicles || []).map(vehicle => vehicle.id))
-  const next = (selectedIds || []).filter(id => visibleIds.has(id))
-  return next.length === selectedIds.length ? selectedIds : next
+  const next = selected.filter(id => visibleIds.has(id))
+  return next.length === selected.length ? selected : next
 }
