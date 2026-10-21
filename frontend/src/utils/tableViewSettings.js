@@ -23,7 +23,7 @@ export function resolveCleanTableView(rawValue, context) {
  */
 export function classifyTableColumnKind(label, isSelectionControl = false) {
   if (isSelectionControl) return 'selection'
-  const value = String(label ?? '').replace(/\\s+/g, ' ').trim().toLowerCase()
+  const value = String(label ?? '').replace(/\s+/g, ' ').trim().toLowerCase()
   if (value === 'tanda' || value === 'penanda') return 'mark'
   if (value === 'aksi') return 'action'
   return 'data'
