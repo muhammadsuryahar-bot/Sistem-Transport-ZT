@@ -32,3 +32,8 @@ export function classifyTableColumnKind(label, isSelectionControl = false) {
 export function isCleanTableUtilityColumn(kind) {
   return kind === 'mark' || kind === 'action' || kind === 'selection'
 }
+export function isHiddenByCleanTableMode(kind, bulkSelectionActive = false) {
+  if (kind === 'mark' || kind === 'action') return true
+  if (kind === 'selection') return !bulkSelectionActive
+  return false
+}
