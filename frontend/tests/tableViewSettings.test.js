@@ -78,6 +78,6 @@ test('generic bulk-mode entry and exit immediately reapply the current column in
   const source = await readFile(new URL('../src/modules/DataPageTools.jsx', import.meta.url), 'utf8')
   assert.match(source, /const resolvedContext = context \|\| table\.dataset\.dptContext/)
   assert.match(source, /applyColumnVisibility\(resolvedContext, table, getColumnDescriptors\(resolvedContext, table\)/)
-  assert.match(source, /delete table\.dataset\.dptBulkMode\s+const context = table\.dataset\.dptContext\s+if \(context\) applyColumnVisibility/)
+  assert.match(source, /delete table\.dataset\.dptBulkMode\s+const context = table\.dataset\.dptContext\s+if \(context\) \{\s+applyColumnVisibility/)
   assert.match(source, /table\.dataset\.dptBulkSelectionActive = isBulkSelectionActive\(table\) \? 'true' : 'false'/)
 })
