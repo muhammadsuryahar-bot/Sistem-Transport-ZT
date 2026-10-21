@@ -743,6 +743,7 @@ export default function DataPageTools({ context, profile, onExport }) {
   const [exporting, setExporting] = useState(false)
   const [showRowMarks, setShowRowMarks] = useState(() => readRowMarkVisibility(context))
   const [cleanTableView, setCleanTableView] = useState(() => readCleanTableView(context))
+  const [bulkSelectionActive, setBulkSelectionActive] = useState(false)
   const [showColumnMenu, setShowColumnMenu] = useState(false)
   const [columns, setColumns] = useState([])
   const [columnVisibility, setColumnVisibility] = useState(() => readColumnVisibility(context))
@@ -799,6 +800,7 @@ export default function DataPageTools({ context, profile, onExport }) {
       ensureRowMarks(context)
       const table = getPrimaryDataTable(context)
       primaryTableRef.current = table
+      setBulkSelectionActive(isBulkSelectionActive(table))
       const nextColumns = getColumnDescriptors(context, table)
       setColumns(current => columnSignature(current) === columnSignature(nextColumns) ? current : nextColumns)
       const latestVisibility = readColumnVisibility(context)
@@ -876,12 +878,12 @@ export default function DataPageTools({ context, profile, onExport }) {
     window.dispatchEvent(new CustomEvent('transport:clean-table-view', { detail: { context, enabled: next } }))
   }
   const visibleColumnCount = columns.filter(column => {
-    const hiddenByClean = isHiddenByCleanMode(column, primaryTableRef.current, cleanTableView)
+    const hiddenByClean = cleanTableView && isHiddenByCleanTableMode(column.kind, bulkSelectionActive)
     return column.label && !hiddenByClean && isColumnVisible(column, columnVisibility, showRowMarks, cleanTableView)
   }).length
   const hiddenColumnCount = columns.filter(column => {
     if (!column.label) return false
-    if (cleanTableView) return isHiddenByCleanMode(column, primaryTableRef.current, cleanTableView)
+    if (cleanTableView) return isHiddenByCleanTableMode(column.kind, bulkSelectionActive)
     return !isColumnVisible(column, columnVisibility, showRowMarks, false)
   }).length
   const setColumnVisible = (column, visible) => {
@@ -951,7 +953,7 @@ export default function DataPageTools({ context, profile, onExport }) {
               <button type="button" onClick={showAllColumns}>Tampilkan Semua</button>
             </div>
             <div className="dpt-column-list">{columns.map(column => {
-              const forcedHidden = isHiddenByCleanMode(column, primaryTableRef.current, cleanTableView)
+              const forcedHidden = cleanTableView && isHiddenByCleanTableMode(column.kind, bulkSelectionActive)
               const visible = forcedHidden ? false : isColumnVisible(column, columnVisibility, showRowMarks, cleanTableView)
               const disableToggle = column.kind === 'selection' || forcedHidden || (visible && visibleColumnCount <= 1)
               return <label className="dpt-column-item" key={column.key}>
