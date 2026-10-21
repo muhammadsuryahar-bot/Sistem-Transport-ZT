@@ -31,9 +31,9 @@ test('vehicle row actions are visible without clicking the row and the actions c
     readFile(cssUrl, 'utf8'),
     readFile(new URL('../src/transport-ui-final.css', import.meta.url), 'utf8'),
   ])
-  assert.match(source, /<td className="mep-actions"><div className="mep-actions-inner"><button type="button" aria-label=\{\`Detail kendaraan/);
-  assert.match(source, /aria-label=\{\`Edit kendaraan/);
-  assert.match(source, /aria-label=\{\`Hapus kendaraan/);
+  assert.match(source, /<td className="mep-actions"><div className="mep-actions-inner"><button type="button" aria-label=\{`Detail kendaraan/);
+  assert.match(source, /aria-label=\{`Edit kendaraan/);
+  assert.match(source, /aria-label=\{`Hapus kendaraan/);
   assert.doesNotMatch(source, /mep-row-action-hint|Klik baris/);
   assert.match(source, /Klik dua kali pada baris untuk memilih beberapa kendaraan/);
   assert.match(source, /onDoubleClick=.*enterSelectionMode\(v\.id\)/);
