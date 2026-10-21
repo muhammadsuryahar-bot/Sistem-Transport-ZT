@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { matchesVehicleSearch, retainVisibleVehicleSelection } from '../src/utils/vehicleSearch.js'
+import { getVehicleTableState, matchesVehicleSearch, retainVisibleVehicleSelection } from '../src/utils/vehicleSearch.js'
 
 const vehicle = {
   kode_kendaraan: 'KND-0102',
@@ -70,4 +70,13 @@ test('bulk selection keeps the same selection reference when all selected rows r
 
 test('bulk selection returns an empty selection when active filters hide every selected row', () => {
   assert.deepEqual(retainVisibleVehicleSelection([1, 2], []), [])
+})
+
+
+test('vehicle table distinguishes true empty data from no search results and load errors', () => {
+  assert.equal(getVehicleTableState({ loading: true, hasError: false, totalCount: 0, visibleCount: 0 }), 'loading')
+  assert.equal(getVehicleTableState({ loading: false, hasError: true, totalCount: 0, visibleCount: 0 }), 'load-error')
+  assert.equal(getVehicleTableState({ loading: false, hasError: false, totalCount: 0, visibleCount: 0 }), 'empty')
+  assert.equal(getVehicleTableState({ loading: false, hasError: false, totalCount: 75, visibleCount: 0 }), 'no-results')
+  assert.equal(getVehicleTableState({ loading: false, hasError: false, totalCount: 75, visibleCount: 12 }), 'rows')
 })
