@@ -654,8 +654,12 @@ select { touch-action: manipulation; }
 
 .x-row-actions,
 .m-row-actions,
-.request-actions,
-.mep-actions { display: flex !important; align-items: center !important; justify-content: flex-start !important; gap: 6px !important; flex-wrap: wrap !important; white-space: normal !important; }
+.request-actions { display: flex !important; align-items: center !important; justify-content: flex-start !important; gap: 6px !important; flex-wrap: wrap !important; white-space: normal !important; }
+
+/* Keep the element as a real table cell; flex layout belongs to its inner wrapper. */
+.mep-actions { display: table-cell !important; vertical-align: top !important; white-space: normal !important; }
+.mep-actions-inner { display: flex !important; align-items: center !important; justify-content: flex-start !important; gap: 6px !important; flex-wrap: wrap !important; min-width: 0; }
+.mep-actions-inner > button { margin-right: 0 !important; }
 
 .x-row-actions button,
 .m-row-actions button,
@@ -708,8 +712,8 @@ select { touch-action: manipulation; }
 
   .x-row-actions,
   .m-row-actions,
-  .request-actions,
-  .mep-actions { gap: 5px !important; }
+  .request-actions { gap: 5px !important; }
+  .mep-actions-inner { gap: 5px !important; }
   .x-row-actions button,
   .m-row-actions button,
   .x-action-compact button,
