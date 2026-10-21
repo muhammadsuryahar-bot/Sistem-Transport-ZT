@@ -141,7 +141,6 @@ function getColumnDescriptors(context, table) {
     const label = normalizeColumnLabel(cell.textContent)
     const slug = columnSlug(label, index)
     counts[slug] = (counts[slug] || 0) + 1
-    const key = `${context}:${slug}${counts[slug] > 1 ? `_${counts[slug]}` : ''}`
     const selectionControl = cell.matches('.mep-check, .request-select-cell, .x-select-cell, .dpt-bulk-select-head') ||
       (!label && Boolean(cell.querySelector('input[type="checkbox"]')))
     const kind = classifyTableColumnKind(label, selectionControl)
@@ -181,7 +180,7 @@ function applyColumnVisibility(context, table, descriptors, visibility, cleanMod
 
   for (const column of descriptors) {
     const hiddenBySetting = !isColumnVisible(column, visibility, showMarks, cleanMode)
-    const hiddenByCleanView = cleanMode && (column.kind === 'mark' || column.kind === 'action')
+    const hiddenByCleanView = cleanMode && isCleanTableUtilityColumn(column.kind)
     const hidden = hiddenBySetting || hiddenByCleanView
     if (column.kind === 'data') {
       dataColumns += 1
