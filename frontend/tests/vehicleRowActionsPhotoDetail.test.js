@@ -25,34 +25,39 @@ test('vehicle table and detail use the same legacy rental-type fallback', async 
   assert.match(source, /rentalTypeLabel\(rentalTypeForVehicle\(detail\)\)/)
 })
 
-test('vehicle row actions are visible without clicking the row and the actions column stays compact', async () => {
+test('vehicle row actions are contextual and click gestures toggle cleanly', async () => {
   const [source, css, globalCss] = await Promise.all([
     readFile(pageUrl, 'utf8'),
     readFile(cssUrl, 'utf8'),
     readFile(new URL('../src/transport-ui-final.css', import.meta.url), 'utf8'),
   ])
-  assert.match(source, /<td className="mep-actions"><div className="mep-actions-inner"><button type="button" aria-label=\{`Detail kendaraan/);
-  assert.match(source, /aria-label=\{`Edit kendaraan/);
-  assert.match(source, /aria-label=\{`Hapus kendaraan/);
-  assert.doesNotMatch(source, /mep-row-action-hint|Klik baris/);
-  assert.match(source, /Klik dua kali pada baris untuk memilih beberapa kendaraan/);
-  assert.match(source, /onDoubleClick=.*enterSelectionMode\(v\.id\)/);
-  assert.match(source, /className="danger"/);
-  assert.match(source, /retainVisibleVehicleSelection\(current, filtered\)/);
-  assert.match(source, /const applySummaryFilter = \(ownership, type\) =>/);
-  assert.match(source, /setIntegrityFilter\(false\)/);
-  assert.match(source, /placeholder="Cari kode\/plat, mesin\/rangka, merk\/type, pemilik\/driver, lokasi\/pajak\.\.\."/);
-  assert.match(source, /Tidak ada kendaraan yang cocok dengan pencarian atau filter/);
-  assert.match(source, /Reset Pencarian &amp; Filter/);
-  assert.match(source, /vehicleTableState === 'load-error'/);
-  assert.match(source, /vehicleTableState === 'empty'/);
-  assert.match(source, /vehicleTableState === 'no-results'/);
-  assert.match(source, /if \(selectionMode && selected\.length === 0\)/);
-  assert.match(css, /\.mep-table th:last-child,\s*\.mep-table \.mep-actions\s*\{\s*width: 168px;\s*min-width: 168px;\s*max-width: 168px;/);
-  assert.match(css, /\.mep-table \.mep-actions-inner > button\s*\{[^}]*margin: 0 !important/s);
-  assert.match(css, /\.mep-actions button\.danger/);
-  assert.match(globalCss, /\.mep-actions \{ display: table-cell !important;/);
-  assert.match(globalCss, /\.mep-actions-inner \{ display: flex !important;/);
-  assert.doesNotMatch(globalCss, /\.mep-actions \{ display: flex !important;/);
-  assert.match(css, /\.mep-table tbody tr\.dpt-row-selected/);
+
+  assert.ok(source.includes('!selectionMode && activeRowId === v.id && <><button type="button" aria-label={`Detail kendaraan'))
+  assert.ok(source.includes('aria-label={`Edit kendaraan'))
+  assert.ok(source.includes('aria-label={`Hapus kendaraan'))
+  assert.ok(source.includes('if (selectionMode) { exitSelection(); return }; enterSelectionMode(v.id)'))
+  assert.ok(source.includes('if (selectionMode) return; if (e.detail > 1) return; rowClickTimer.current = window.setTimeout(() => setActiveRowId(current => current === v.id ? null : v.id), 180)'))
+  assert.ok(source.includes('checked={picked} onChange={() => toggleSelected(v.id)} aria-label={`Pilih ${v.nomor_polisi}`}'))
+  assert.ok(source.includes("className={`mep-table${!selectionMode && activeRowId !== null ? ' mep-has-active-row' : ''}`}"))
+  assert.ok(source.includes('Klik satu kali untuk membuka atau menutup Aksi'))
+  assert.ok(source.includes('Klik dua kali pada baris untuk keluar dari mode pilih banyak'))
+  assert.ok(!source.includes('mep-row-action-hint'))
+  assert.ok(!source.includes('Klik baris'))
+  assert.ok(source.includes('retainVisibleVehicleSelection(current, filtered)'))
+  assert.ok(source.includes('const applySummaryFilter = (ownership, type) =>'))
+  assert.ok(source.includes('setIntegrityFilter(false)'))
+  assert.ok(source.includes('placeholder="Cari kode/plat, mesin/rangka, merk/type, pemilik/driver, lokasi/pajak..."'))
+  assert.ok(source.includes('Tidak ada kendaraan yang cocok dengan pencarian atau filter'))
+  assert.ok(source.includes('Reset Pencarian &amp; Filter'))
+  assert.ok(source.includes("vehicleTableState === 'load-error'"))
+  assert.ok(source.includes("vehicleTableState === 'empty'"))
+  assert.ok(source.includes("vehicleTableState === 'no-results'"))
+  assert.ok(source.includes('if (selectionMode && selected.length === 0)'))
+  assert.ok(css.includes('.mep-table th:last-child,\n.mep-table .mep-actions {\n  width: 64px;\n  min-width: 64px;\n  max-width: 64px;'))
+  assert.ok(css.includes('.mep-table.mep-has-active-row th:last-child,\n.mep-table.mep-has-active-row .mep-actions {\n  width: 168px;\n  min-width: 168px;\n  max-width: 168px;'))
+  assert.ok(css.includes('.mep-actions button.danger'))
+  assert.ok(globalCss.includes('.mep-actions { display: table-cell !important;'))
+  assert.ok(globalCss.includes('.mep-actions-inner { display: flex !important;'))
+  assert.ok(!globalCss.includes('.mep-actions { display: flex !important;'))
+  assert.ok(css.includes('.mep-table tbody tr.dpt-row-selected'))
 })
