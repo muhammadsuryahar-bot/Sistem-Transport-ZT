@@ -61,12 +61,25 @@ function writeRowMarkVisibility(context, visible) {
   } catch { return false }
 }
 
+const VEHICLE_COLUMN_LAYOUT_VERSION_KEY = 'transport_vehicle_column_layout_version'
+const VEHICLE_COLUMN_LAYOUT_VERSION = 'compact-v2'
+
 function readColumnVisibility(context) {
   try {
     const raw = localStorage.getItem(COLUMN_VISIBILITY_STORAGE)
-    const value = raw ? JSON.parse(raw) : {}
-    const columns = value && typeof value === 'object' ? value[context] : null
-    return columns && typeof columns === 'object' ? columns : {}
+    const parsed = raw ? JSON.parse(raw) : {}
+    const value = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
+
+    // A compact Kendaraan layout uses different grouped headers. Clear only
+    // stale Kendaraan column choices once; preferences for other modules stay.
+    if (context === 'kendaraan' && localStorage.getItem(VEHICLE_COLUMN_LAYOUT_VERSION_KEY) !== VEHICLE_COLUMN_LAYOUT_VERSION) {
+      localStorage.setItem(COLUMN_VISIBILITY_STORAGE, JSON.stringify({ ...value, kendaraan: {} }))
+      localStorage.setItem(VEHICLE_COLUMN_LAYOUT_VERSION_KEY, VEHICLE_COLUMN_LAYOUT_VERSION)
+      return {}
+    }
+
+    const columns = value[context]
+    return columns && typeof columns === 'object' && !Array.isArray(columns) ? columns : {}
   } catch { return {} }
 }
 function writeColumnVisibility(context, columns) {
@@ -714,6 +727,18 @@ function ensureTableMarks(context, table, scope) {
   applyFilter()
 }
 function ensureRowMarks(context) {
+  // Row annotations help review queues, but they are not business fields in
+  // the vehicle master. Remove legacy injected controls for this page.
+  if (context === 'kendaraan') {
+    document.querySelectorAll(DATA_TABLE_SELECTOR.kendaraan).forEach(table => {
+      table.querySelectorAll('.dpt-row-mark-cell').forEach(cell => cell.remove())
+      table.querySelectorAll('thead .dpt-row-mark-head').forEach(cell => cell.remove())
+      table.closest('.master-excel-page')?.querySelectorAll('.dpt-row-mark-toolbar').forEach(toolbar => toolbar.remove())
+    })
+    document.querySelectorAll('.master-excel-page').forEach(page => page.classList.remove('dpt-row-marks-hidden'))
+    return
+  }
+
   const visible = table => {
     if (!table || table.closest('.dpt-preview')) return true
     const rect = table.getBoundingClientRect()
@@ -936,6 +961,8 @@ export default function DataPageTools({ context, profile, onExport }) {
   const refreshAfterImport = () => { setImportReport(null); window.dispatchEvent(new CustomEvent('transport:data-imported', { detail: { context, source: 'excel-import' } })) }
   const modal = showImport && (context === 'kendaraan' ? <VehicleExcelImportV2 profile={profile} onClose={closeImport} onDone={finishImport} /> : context === 'pengajuan' ? <PengajuanExcelImportModal profile={profile} onClose={closeImport} onDone={finishImport} /> : context === 'service' ? <EditableServiceExcelImportModal profile={profile} onClose={closeImport} onDone={finishImport} /> : context === 'dokumen' ? <VehicleDocumentsImportModal profile={profile} onClose={closeImport} onDone={finishImport} /> : context === 'sewa' ? <RentalHistoryImportModalV2 profile={profile} onClose={closeImport} onDone={finishImport} /> : <UnifiedExcelImportModalSafe context={context} profile={profile} onClose={closeImport} onDone={finishImport} />)
 
+  const cleanModeScope = context === 'kendaraan' ? 'tombol Aksi' : 'tombol Aksi dan Penanda'
+
   return <div className="dpt-tools-host" data-clean-table-view={cleanTableView ? 'true' : 'false'} data-context={context}>
     {modal}
     {importReport && <div className="dpt-overlay" role="dialog" aria-modal="true"><section className="dpt-modal import-result-modal"><header className="dpt-modal-head"><div><span className="eyebrow">IMPORT SELESAI</span><h3>Rekonsiliasi Data {CONTEXT_LABEL[importReport.context] || 'Excel'}</h3><p>Perbedaan jumlah antara Excel dan data sistem dijelaskan di sini.</p></div><button type="button" className="dpt-icon" onClick={() => setImportReport(null)}>×</button></header><div className="service-import-stats"><div><b>{importReport.sourceRows ?? 0}</b><span>baris sumber</span></div><div><b>{importReport.validRows ?? 0}</b><span>valid</span></div><div><b>{importReport.addedCount ?? importReport.added ?? importReport.imported ?? importReport.inserted ?? 0}</b><span>baru</span></div><div><b>{importReport.updatedCount ?? importReport.updated ?? 0}</b><span>diperbarui</span></div><div><b>{importReport.skippedCount ?? importReport.skipped ?? importReport.duplicate ?? 0}</b><span>skip</span></div><div><b>{importReport.errorCount ?? 0}</b><span>error</span></div></div><div className="vehicle-import-explanation"><b>Hasil penyimpanan</b>{importReport.addedCount != null && <span>Data baru: <strong>{importReport.addedCount}</strong></span>}{importReport.updatedCount != null && <span>Data diperbarui: <strong>{importReport.updatedCount}</strong></span>}{importReport.errorCount != null && importReport.errorCount > 0 && <span>Baris bermasalah: <strong>{importReport.errorCount}</strong></span>}{importReport.driversCreated != null && <span>Driver dibuat: <strong>{importReport.driversCreated}</strong></span>}{importReport.mergedDuplicates != null && <span>Duplikat digabung: <strong>{importReport.mergedDuplicates}</strong></span>}</div>{importReport.message && <div className="vehicle-import-note"><b>Detail hasil import</b><span>{importReport.message}</span></div>}<div className="dpt-actions"><button type="button" className="dpt-button" onClick={() => setImportReport(null)}>Tutup</button><button type="button" className="dpt-button primary" onClick={refreshAfterImport}>Refresh Data Sistem</button></div></section></div>}
@@ -946,7 +973,7 @@ export default function DataPageTools({ context, profile, onExport }) {
         <span className="dpt-toolbar-help">Klik 1x pada baris untuk menampilkan aksi. Klik 2x untuk masuk mode pilih banyak data jika modul mendukung.</span>
       </div>
       <div className="dpt-toolbar-actions">
-        <button className={`dpt-button clean-action${cleanTableView ? ' active' : ''}`} type="button" onClick={toggleCleanTableView} title={cleanTableView ? 'Tampilkan kembali tombol Aksi dan Penanda' : 'Sembunyikan tombol Aksi dan Penanda agar tabel hanya fokus pada data'}>
+        <button className={`dpt-button clean-action${cleanTableView ? ' active' : ''}`} type="button" onClick={toggleCleanTableView} title={cleanTableView ? `Tampilkan kembali ${cleanModeScope}` : `Sembunyikan ${cleanModeScope} agar tabel hanya fokus pada data`}>
           <span className="dpt-button-icon" aria-hidden="true">▤</span>
           <span>{cleanTableView ? 'Mode Excel: Data Bersih' : 'Tampilkan Fitur'}</span>
         </button>
