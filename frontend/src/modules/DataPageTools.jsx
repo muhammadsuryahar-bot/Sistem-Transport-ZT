@@ -62,6 +62,9 @@ function writeRowMarkVisibility(context, visible) {
 }
 
 function readColumnVisibility(context) {
+  // The Kendaraan master has a fixed 11-column contract. Ignore stale saved
+  // preferences from older layouts so data cells cannot silently disappear.
+  if (context === 'kendaraan') return {}
   try {
     const raw = localStorage.getItem(COLUMN_VISIBILITY_STORAGE)
     const parsed = raw ? JSON.parse(raw) : {}
@@ -183,6 +186,28 @@ function applyDirectColumnDisplay(context, table, descriptors, visibility, clean
 }
 function applyColumnVisibility(context, table, descriptors, visibility, cleanMode = readCleanTableView(context)) {
   if (!table) return
+
+  // Kendaraan owns its native row interactions and horizontal-scroll table.
+  // Do not let generic Excel/column tooling mutate its cells or retain inline
+  // display:none styles left by older layouts/preferences.
+  if (context === 'kendaraan') {
+    table.querySelectorAll('thead th, tbody td').forEach(cell => {
+      cell.style.removeProperty('display')
+      cell.classList.remove('dpt-col-hidden', 'dpt-column-utility', 'dpt-action-utility', 'dpt-mark-utility', 'dpt-selection-utility')
+      cell.removeAttribute('aria-hidden')
+      delete cell.dataset.dptColumnKind
+      delete cell.dataset.dptColumnHidden
+    })
+    table.classList.remove('dpt-clean-data-table')
+    delete table.dataset.dptCleanDataMode
+    table.dataset.dptBulkSelectionActive = isBulkSelectionActive(table) ? 'true' : 'false'
+    const vehicleTableWrap = table.closest('.x-table-wrap, .request-table-wrap, .mep-table-wrap')
+    vehicleTableWrap?.classList.remove('dpt-clean-data-wrap')
+    vehicleTableWrap?.closest('.x-card, .request-panel, .master-excel-page')?.classList.remove('dpt-clean-mode')
+    applyCleanRoot(false)
+    return
+  }
+
   const showMarks = readRowMarkVisibility(context)
   let dataColumns = 0
   let visibleDataColumns = 0
@@ -966,7 +991,7 @@ export default function DataPageTools({ context, profile, onExport }) {
           <span className="dpt-button-icon" aria-hidden="true">▤</span>
           <span>{cleanTableView ? 'Mode Excel: Data Bersih' : 'Tampilkan Fitur'}</span>
         </button>}
-        <div className="dpt-column-popover" ref={columnMenuRef}>
+        {context !== 'kendaraan' && <div className="dpt-column-popover" ref={columnMenuRef}>
           <button className="dpt-button secondary" type="button" onClick={() => setShowColumnMenu(current => !current)} disabled={!columns.length} aria-expanded={showColumnMenu} aria-haspopup="menu">
             <span className="dpt-button-icon" aria-hidden="true">☷</span>
             <span>Atur Kolom{hiddenColumnCount ? ` (${hiddenColumnCount})` : ''}</span>
@@ -992,7 +1017,7 @@ export default function DataPageTools({ context, profile, onExport }) {
             })}</div>
             <div className="dpt-column-note">{hiddenColumnCount ? `${hiddenColumnCount} kolom disembunyikan.` : 'Semua kolom sedang ditampilkan.'}</div>
           </div>}
-        </div>
+        </div>}
         {canImport && <button className="dpt-button secondary" type="button" onClick={() => setShowImport(true)}><span className="dpt-button-icon" aria-hidden="true">⇧</span><span>Import Excel</span></button>}
         {canExport && <button className="dpt-button primary" type="button" onClick={doExport} disabled={exporting}><span className="dpt-button-icon" aria-hidden="true">⇩</span><span>{exporting ? 'Sedang Export...' : 'Export Excel'}</span></button>}
       </div>
