@@ -61,23 +61,11 @@ function writeRowMarkVisibility(context, visible) {
   } catch { return false }
 }
 
-const VEHICLE_COLUMN_LAYOUT_VERSION_KEY = 'transport_vehicle_column_layout_version'
-const VEHICLE_COLUMN_LAYOUT_VERSION = 'compact-v2'
-
 function readColumnVisibility(context) {
   try {
     const raw = localStorage.getItem(COLUMN_VISIBILITY_STORAGE)
     const parsed = raw ? JSON.parse(raw) : {}
     const value = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
-
-    // A compact Kendaraan layout uses different grouped headers. Clear only
-    // stale Kendaraan column choices once; preferences for other modules stay.
-    if (context === 'kendaraan' && localStorage.getItem(VEHICLE_COLUMN_LAYOUT_VERSION_KEY) !== VEHICLE_COLUMN_LAYOUT_VERSION) {
-      localStorage.setItem(COLUMN_VISIBILITY_STORAGE, JSON.stringify({ ...value, kendaraan: {} }))
-      localStorage.setItem(VEHICLE_COLUMN_LAYOUT_VERSION_KEY, VEHICLE_COLUMN_LAYOUT_VERSION)
-      return {}
-    }
-
     const columns = value[context]
     return columns && typeof columns === 'object' && !Array.isArray(columns) ? columns : {}
   } catch { return {} }

@@ -1,38 +1,21 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
-import { hasVehicleAcquisitionPrice } from '../src/utils/vehicleTableView.js'
 
-test('acquisition price column is omitted when all values are blank but keeps zero', () => {
-  assert.equal(hasVehicleAcquisitionPrice([]), false)
-  assert.equal(hasVehicleAcquisitionPrice([{ harga_perolehan: null }, { harga_perolehan: undefined }, { harga_perolehan: '  ' }]), false)
-  assert.equal(hasVehicleAcquisitionPrice([{ harga_perolehan: null }, { harga_perolehan: 125000 }]), true)
-  assert.equal(hasVehicleAcquisitionPrice([{ harga_perolehan: 0 }]), true)
-  assert.equal(hasVehicleAcquisitionPrice([{ harga_perolehan: '0' }]), true)
-})
-
-test('Kendaraan master groups related fields and avoids noisy blank cells', async () => {
+test('Kendaraan table restores the separate register columns and preserves row actions', async () => {
   const [page, css, tools] = await Promise.all([
     readFile(new URL('../src/modules/MasterKendaraanExcelAlignedPage.jsx', import.meta.url), 'utf8'),
     readFile(new URL('../src/modules/MasterKendaraanExcelAlignedPage.css', import.meta.url), 'utf8'),
     readFile(new URL('../src/modules/DataPageTools.jsx', import.meta.url), 'utf8'),
   ])
 
-  assert.ok(page.includes('hasVehicleAcquisitionPrice(vehicles)'))
-  assert.ok(page.includes('showAcquisitionPrice && <th>Harga Perolehan</th>'))
-  assert.ok(page.includes('showAcquisitionPrice && <td className="mep-col-price">'))
-  assert.ok(page.includes('<th>Kendaraan</th><th>Jenis / Kepemilikan</th>'))
-  assert.ok(page.includes('<th>Pemilik / Driver</th>'))
-  assert.ok(page.includes('<th>Lokasi / Unit Kerja</th>'))
-  assert.ok(page.includes('<th>Pajak / Status</th><th>Catatan &amp; Hutang</th>'))
-  assert.ok(!page.includes('<th>Jenis Sewa</th>'))
-  assert.ok(!page.includes('<th>Driver</th>'))
-  assert.ok(page.includes('const vehicleMeta ='))
-  assert.ok(page.includes('const note = clean(v.keterangan)'))
-  assert.ok(css.includes('min-width: 960px'))
-  assert.ok(css.includes('.mep-tax-status.is-hidup'))
-  assert.ok(tools.includes('transport_vehicle_column_layout_version'))
-  assert.ok(tools.includes("if (context === 'kendaraan')"))
-  assert.ok(tools.includes("table.querySelectorAll('.dpt-row-mark-cell')"))
-  assert.ok(tools.includes('preferences for other modules stay'))
+  const expectedHeaders = '<th>No. Pol / Merk / Type</th><th>Jenis</th><th>Kepemilikan</th><th>Jenis Sewa</th><th>Harga Perolehan</th><th>Pemilik</th><th>Driver</th><th>Lokasi Kerja</th><th>Pajak</th><th>Keterangan</th><th>Aksi</th>'
+  assert.ok(page.includes(expectedHeaders), 'the original separate table headers must remain')
+  assert.ok(page.includes('<td><span>{v.pemilik || \'-\'}</span></td>'), 'owner stays in its own column')
+  assert.ok(page.includes('<td><span>{driver?.nama_lengkap || \'-\'}</span></td>'), 'driver stays in its own column')
+  assert.ok(page.includes('activeRowId === v.id') && page.includes('enterSelectionMode(v.id)'), 'row action and multi-select behavior remains')
+  assert.ok(!page.includes('hasVehicleAcquisitionPrice') && !page.includes('showAcquisitionPrice'), 'the compact-only price hiding helper is removed')
+  assert.ok(!css.includes('Compact, data-first Kendaraan register') && !css.includes('min-width: 960px'), 'compact-only table rules are removed')
+  assert.ok(tools.includes("if (context === 'kendaraan')"), 'Kendaraan row markers remain excluded from business columns')
+  assert.ok(!tools.includes('transport_vehicle_column_layout_version'), 'saved Kendaraan column preferences are not reset')
 })
