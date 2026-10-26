@@ -13,9 +13,14 @@ test('other data modules retain the current clean-view default', () => {
   assert.equal(resolveCleanTableView('{}', 'service'), true)
 })
 
-test('an explicit saved preference still takes precedence', () => {
-  assert.equal(resolveCleanTableView('{"kendaraan":true}', 'kendaraan'), true)
+test('Kendaraan ignores stale clean-view preferences so its native table stays usable', () => {
+  assert.equal(resolveCleanTableView('{"kendaraan":true}', 'kendaraan'), false)
   assert.equal(resolveCleanTableView('{"kendaraan":false}', 'kendaraan'), false)
+  assert.equal(isHiddenByCleanTableMode('action', false, 'kendaraan'), false)
+  assert.equal(isHiddenByCleanTableMode('action', true, 'kendaraan'), false)
+})
+
+test('an explicit saved preference still takes precedence for other modules', () => {
   assert.equal(resolveCleanTableView('{"pengajuan":false}', 'pengajuan'), false)
 })
 
@@ -46,7 +51,7 @@ test('DataPageTools structurally detects checkbox headers and clean-mode styling
   ])
   assert.match(source, /cell\.matches\('\.mep-check, \.request-select-cell, \.x-select-cell, \.dpt-bulk-select-head'\)/)
   assert.match(source, /dpt-selection-utility/)
-  assert.match(source, /isHiddenByCleanMode\(column, table, cleanMode\)/)
+  assert.match(source, /isHiddenByCleanMode\(column, table, cleanMode, context\)/)
   assert.match(css, /\.dpt-clean-data-table:not\(\[data-dpt-bulk-selection-active="true"\]\) \.dpt-selection-utility/)
   assert.match(css, /data-dpt-bulk-selection-active="true"\]\s+\.dpt-selection-utility\s*\{\s*display: table-cell/)
 })
@@ -57,11 +62,12 @@ test('sticky Penanda columns move aside when a bulk-selection checkbox column is
   assert.match(css, /\.mep-table:has\(thead \.mep-check\) \.dpt-row-mark-cell/)
 })
 
-test('clean mode hides marker/action controls but preserves checkboxes during bulk selection', () => {
+test('clean mode hides marker/action controls outside Kendaraan but keeps vehicle Aksi reachable', () => {
   assert.equal(isHiddenByCleanTableMode('mark', false), true)
   assert.equal(isHiddenByCleanTableMode('mark', true), true)
   assert.equal(isHiddenByCleanTableMode('action', false), true)
   assert.equal(isHiddenByCleanTableMode('action', true), true)
+  assert.equal(isHiddenByCleanTableMode('action', false, 'kendaraan'), false)
   assert.equal(isHiddenByCleanTableMode('selection', false), true)
   assert.equal(isHiddenByCleanTableMode('selection', true), false)
   assert.equal(isHiddenByCleanTableMode('data', false), false)

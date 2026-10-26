@@ -52,6 +52,7 @@
 .dpt-column-menu-head span{display:block;margin-top:2px;font-size:11px;color:#74817b;line-height:1.4}
 .dpt-column-close{width:30px!important;min-height:30px!important;height:30px!important;padding:0!important;border:1px solid #dce5e0!important;border-radius:8px!important;background:#f7faf8!important;color:#33483e!important;font-size:18px!important;line-height:1!important}
 .dpt-column-quick{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:10px 0;border-bottom:1px solid #edf2ef}
+.dpt-column-quick:has(>button:only-child){grid-template-columns:1fr}
 .dpt-column-quick button{min-height:34px;border:1px solid #d6e2dc;border-radius:8px;background:#f8fbf9;color:#2d5142;font-size:11px;font-weight:750;cursor:pointer}
 .dpt-column-quick button:hover{background:#eef6f1;border-color:#c5d8cd}
 .dpt-column-list{display:grid;gap:5px;padding-top:9px}

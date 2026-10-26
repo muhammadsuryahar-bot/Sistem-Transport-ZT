@@ -6,7 +6,6 @@ import PageBreadcrumb from './PageBreadcrumb.jsx'
 import { formatDateSafe } from '../utils/dateSafe'
 import { IMAGE_UPLOAD_ACCEPT, validateStorageUploadFile } from '../utils/storageUpload.js'
 import { analyzeVehicleIntegrity } from '../utils/vehicleIntegrity.js'
-import { hasVehicleAcquisitionPrice } from '../utils/vehicleTableView.js'
 import { inferRentalTypeFromOwner } from '../utils/vehicleOwnership.js'
 import { getVehicleTableState, matchesVehicleSearch, retainVisibleVehicleSelection } from '../utils/vehicleSearch.js'
 
@@ -125,7 +124,6 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
     totalCount: vehicles.length,
     visibleCount: filtered.length,
   })
-  const showAcquisitionPrice = useMemo(() => hasVehicleAcquisitionPrice(vehicles), [vehicles])
 
   const cards = useMemo(() => ({
     total: vehicles.length,
@@ -400,36 +398,20 @@ export default function MasterKendaraanExcelAlignedPage({ profile, onNavigate })
       {selectionMode && <div className="mep-selection"><span><b>{selected.length}</b> kendaraan dipilih</span><div><button type="button" onClick={toggleAll}>{allSelected ? 'Batal pilih semua' : 'Pilih semua'}</button><button type="button" onClick={exitSelection}>Batal</button>{canDelete && <button type="button" className="danger" onClick={bulkDelete} disabled={saving}>Hapus yang dipilih</button>}</div></div>}
       {!selectionMode && filtered.length > 0 && <p className="mep-hint">Klik satu kali untuk membuka atau menutup Aksi. Klik dua kali untuk memilih banyak kendaraan.</p>}
       {selectionMode && <p className="mep-hint">Gunakan ceklis untuk memilih kendaraan. Klik dua kali pada baris untuk keluar dari mode pilih banyak.</p>}
-      <div className="mep-table-wrap">
-{vehicleTableState === 'loading' ? <div className="mep-empty">Memuat data...</div> : vehicleTableState === 'load-error' ? <div className="mep-empty"><b>Data kendaraan belum berhasil dimuat.</b><span>Periksa pesan error di atas lalu coba Refresh. Data tidak ditandai kosong saat pemuatan gagal.</span></div> : vehicleTableState === 'empty' ? <div className="mep-empty"><b>Belum ada data kendaraan.</b><span>Master kendaraan masih kosong. Import Excel atau tambah kendaraan secara manual.</span></div> : vehicleTableState === 'no-results' ? <div className="mep-empty"><b>Tidak ada kendaraan yang cocok dengan pencarian atau filter.</b><span>Ubah kata kunci atau reset filter untuk menampilkan kendaraan lain.</span><button type="button" className="mep-secondary" onClick={() => { setQuery(''); setOwnershipFilter('SEMUA'); setTypeFilter('SEMUA'); setIntegrityFilter(false); exitSelection() }}>Reset Pencarian &amp; Filter</button></div> :
-<table className={`mep-table${!selectionMode && activeRowId !== null ? ' mep-has-active-row' : ''}`} data-native-row-selection="true">
-<thead><tr>{selectionMode && <th className="mep-check"><input type="checkbox" aria-label="Pilih semua" checked={allSelected} onChange={toggleAll}/></th>}
-<th>Kendaraan</th><th>Jenis / Kepemilikan</th>{showAcquisitionPrice && <th>Harga Perolehan</th>}<th>Pemilik / Driver</th><th>Lokasi / Unit Kerja</th><th>Pajak / Status</th><th>Catatan &amp; Hutang</th><th>Aksi</th></tr></thead>
-<tbody>{filtered.map(v => {
-  const driver = driverMap[v.driver_id]
-  const picked = selected.includes(v.id)
-  const ownership = normalizeOwnership(v.kepemilikan)
-  const vehicleMeta = [v.tahun ? 'Tahun ' + v.tahun : '', v.nomor_mesin ? 'Mesin ' + v.nomor_mesin : ''].filter(Boolean).join(' · ')
-  const location = clean(v.lokasi)
-  const workUnit = clean(v.unit_kerja)
-  const taxStatus = clean(v.status_pajak)
-  const note = clean(v.keterangan)
-  const debtNote = clean(v.catatan_hutang)
-  return <tr key={v.id} className={(picked ? 'picked' : '') + (activeRowId === v.id ? ' dpt-row-selected' : '')}
-    onDoubleClick={e => { if (isInteractive(e.target)) return; e.preventDefault(); window.clearTimeout(rowClickTimer.current); if (selectionMode) { exitSelection(); return }; enterSelectionMode(v.id) }}
-    onClick={e => { if (isInteractive(e.target)) return; window.clearTimeout(rowClickTimer.current); if (selectionMode) return; if (e.detail > 1) return; rowClickTimer.current = window.setTimeout(() => setActiveRowId(current => current === v.id ? null : v.id), 180) }}>
-    {selectionMode && <td className="mep-check"><input type="checkbox" checked={picked} onChange={() => toggleSelected(v.id)} aria-label={`Pilih ${v.nomor_polisi}`}/></td>}
-    <td className="mep-col-vehicle"><b className="mep-cell-title">{v.nomor_polisi}</b><span>{[clean(v.merk), clean(v.tipe)].filter(Boolean).join(' ')}</span>{vehicleMeta && <small>{vehicleMeta}</small>}</td>
-    <td className="mep-col-classification"><span className="mep-pill">{v.jenis_kendaraan || 'Jenis belum diisi'}</span><small>{ownership === 'SEWA' ? 'Sewa · ' + rentalTypeLabel(rentalTypeForVehicle(v)) : OWNERSHIP[ownership] || 'Kepemilikan belum diisi'}</small></td>
-    {showAcquisitionPrice && <td className="mep-col-price">{v.harga_perolehan != null && clean(v.harga_perolehan) !== '' ? <span>Rp {Number(v.harga_perolehan).toLocaleString('id-ID')}</span> : <span className="mep-cell-empty">—</span>}</td>}
-    <td className="mep-col-owner"><span>{clean(v.pemilik) || 'Pemilik belum diisi'}</span>{driver?.nama_lengkap && <small>Driver: {driver.nama_lengkap}</small>}</td>
-    <td className="mep-col-location">{location && <span>{location}</span>}{workUnit && <small>{workUnit}</small>}{!location && !workUnit && <span className="mep-cell-empty">Belum diisi</span>}</td>
-    <td className="mep-col-tax">{v.masa_berlaku_pajak && <span>{formatDate(v.masa_berlaku_pajak)}</span>}{taxStatus && <small className={'mep-tax-status ' + (taxStatus.toUpperCase() === 'HIDUP' ? 'is-hidup' : taxStatus.toUpperCase() === 'MATI' ? 'is-mati' : '')}>{taxStatus}</small>}{!v.masa_berlaku_pajak && !taxStatus && <span className="mep-cell-empty">Belum diisi</span>}</td>
-    <td className="mep-col-notes">{note && <span className="mep-note-primary" title={note}>{note}</span>}{debtNote && <small className="mep-note-debt" title={debtNote}>Hutang: {debtNote}</small>}</td>
-    <td className="mep-actions"><div className="mep-actions-inner">{!selectionMode && activeRowId === v.id && <><button type="button" aria-label={`Detail kendaraan ${v.nomor_polisi}`} onClick={() => openDetail(v)}>Detail</button>{canEdit && <button type="button" aria-label={`Edit kendaraan ${v.nomor_polisi}`} onClick={() => openEdit(v)}>Edit</button>}{ownership === 'SEWA' && onNavigate && <button type="button" aria-label={`Kelola sewa kendaraan ${v.nomor_polisi}`} onClick={() => onNavigate('sewa')}>Kelola Sewa</button>}{canDelete && <button type="button" className="danger" aria-label={`Hapus kendaraan ${v.nomor_polisi}`} onClick={async () => { if (window.confirm(`Hapus kendaraan ${v.nomor_polisi}?`)) { const removed = await deleteOne(v); if (removed) setSuccess(`Kendaraan ${v.nomor_polisi} berhasil dihapus.`) } }}>Hapus</button>}</>}</div></td>
-  </tr>
-})}</tbody></table>}
-</div>
+      <div className="mep-table-wrap">{vehicleTableState === 'loading' ? <div className="mep-empty">Memuat data...</div> : vehicleTableState === 'load-error' ? <div className="mep-empty"><b>Data kendaraan belum berhasil dimuat.</b><span>Periksa pesan error di atas lalu coba Refresh. Data tidak ditandai kosong saat pemuatan gagal.</span></div> : vehicleTableState === 'empty' ? <div className="mep-empty"><b>Belum ada data kendaraan.</b><span>Master kendaraan masih kosong. Import Excel atau tambah kendaraan secara manual.</span></div> : vehicleTableState === 'no-results' ? <div className="mep-empty"><b>Tidak ada kendaraan yang cocok dengan pencarian atau filter.</b><span>Ubah kata kunci atau reset filter untuk menampilkan kendaraan lain.</span><button type="button" className="mep-secondary" onClick={() => { setQuery(''); setOwnershipFilter('SEMUA'); setTypeFilter('SEMUA'); setIntegrityFilter(false); exitSelection() }}>Reset Pencarian &amp; Filter</button></div> : <table className={`mep-table${!selectionMode && activeRowId !== null ? ' mep-has-active-row' : ''}`} data-native-row-selection="true"><thead><tr>{selectionMode && <th className="mep-check"><input type="checkbox" aria-label="Pilih semua" checked={allSelected} onChange={toggleAll}/></th>}<th>No. Pol / Merk / Type</th><th>Jenis</th><th>Kepemilikan</th><th>Jenis Sewa</th><th>Harga Perolehan</th><th>Pemilik</th><th>Driver</th><th>Lokasi Kerja</th><th>Pajak</th><th>Keterangan</th><th>Aksi</th></tr></thead><tbody>{filtered.map(v => { const driver = driverMap[v.driver_id]; const picked = selected.includes(v.id); return <tr key={v.id} className={(picked ? 'picked' : '') + (activeRowId === v.id ? ' dpt-row-selected' : '')} onDoubleClick={e => { if (isInteractive(e.target)) return; e.preventDefault(); window.clearTimeout(rowClickTimer.current); if (selectionMode) { exitSelection(); return }; enterSelectionMode(v.id) }} onClick={e => { if (isInteractive(e.target)) return; window.clearTimeout(rowClickTimer.current); if (selectionMode) return; if (e.detail > 1) return; rowClickTimer.current = window.setTimeout(() => setActiveRowId(current => current === v.id ? null : v.id), 180) }}>
+        {selectionMode && <td className="mep-check"><input type="checkbox" checked={picked} onChange={() => toggleSelected(v.id)} aria-label={`Pilih ${v.nomor_polisi}`}/></td>}
+        <td><b>{v.nomor_polisi}</b><span>{v.merk} {v.tipe || ''}</span><small>{v.tahun || '-'}{v.nomor_mesin ? ` • Mesin ${v.nomor_mesin}` : ''}</small></td>
+        <td><span className="mep-pill">{v.jenis_kendaraan || '-'}</span></td>
+        <td><b>{OWNERSHIP[normalizeOwnership(v.kepemilikan)] || '-'}</b></td>
+        <td><span>{normalizeOwnership(v.kepemilikan) === 'SEWA' ? rentalTypeLabel(rentalTypeForVehicle(v)) : '-'}</span></td>
+        <td><span>{v.harga_perolehan == null ? '-' : `Rp ${Number(v.harga_perolehan).toLocaleString('id-ID')}`}</span></td>
+        <td><span>{v.pemilik || '-'}</span></td>
+        <td><span>{driver?.nama_lengkap || '-'}</span></td>
+        <td><span>{v.lokasi || '-'}</span><small>{v.unit_kerja || '-'}</small></td>
+        <td><span>{v.masa_berlaku_pajak ? formatDate(v.masa_berlaku_pajak) : '-'}</span><small>{v.status_pajak || '-'}</small></td>
+        <td><span>{v.keterangan || '-'}</span><small>{v.catatan_hutang || ''}</small></td>
+        <td className="mep-actions"><div className="mep-actions-inner">{!selectionMode && activeRowId === v.id && <><button type="button" aria-label={`Detail kendaraan ${v.nomor_polisi}`} onClick={() => openDetail(v)}>Detail</button>{canEdit && <button type="button" aria-label={`Edit kendaraan ${v.nomor_polisi}`} onClick={() => openEdit(v)}>Edit</button>}{normalizeOwnership(v.kepemilikan) === 'SEWA' && onNavigate && <button type="button" aria-label={`Kelola sewa kendaraan ${v.nomor_polisi}`} onClick={() => onNavigate('sewa')}>Kelola Sewa</button>}{canDelete && <button type="button" className="danger" aria-label={`Hapus kendaraan ${v.nomor_polisi}`} onClick={async () => { if (window.confirm(`Hapus kendaraan ${v.nomor_polisi}?`)) { const removed = await deleteOne(v); if (removed) setSuccess(`Kendaraan ${v.nomor_polisi} berhasil dihapus.`) } }}>Hapus</button>}</>}</div></td>
+      </tr> })}</tbody></table>}</div>
     </section>
 
     {modal && <div className="mep-overlay"><section className="mep-modal"><header><div><span className="eyebrow">DATA KENDARAAN</span><h3>{editing ? 'Edit Kendaraan' : 'Tambah Kendaraan'}</h3></div><button type="button" onClick={resetModal}>×</button></header>{error && <div className="mep-alert error">{error}</div>}<form onSubmit={saveVehicle}><div className="mep-form">
