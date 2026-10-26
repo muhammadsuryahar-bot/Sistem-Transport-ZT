@@ -51,7 +51,7 @@ test('DataPageTools structurally detects checkbox headers and clean-mode styling
   ])
   assert.match(source, /cell\.matches\('\.mep-check, \.request-select-cell, \.x-select-cell, \.dpt-bulk-select-head'\)/)
   assert.match(source, /dpt-selection-utility/)
-  assert.match(source, /isHiddenByCleanMode\(column, table, cleanMode\)/)
+  assert.match(source, /isHiddenByCleanMode\(column, table, cleanMode, context\)/)
   assert.match(css, /\.dpt-clean-data-table:not\(\[data-dpt-bulk-selection-active="true"\]\) \.dpt-selection-utility/)
   assert.match(css, /data-dpt-bulk-selection-active="true"\]\s+\.dpt-selection-utility\s*\{\s*display: table-cell/)
 })
