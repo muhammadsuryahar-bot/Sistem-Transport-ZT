@@ -18,4 +18,7 @@ test('Kendaraan table restores the separate register columns and preserves row a
   assert.ok(!css.includes('Compact, data-first Kendaraan register') && !css.includes('min-width: 960px'), 'compact-only table rules are removed')
   assert.ok(tools.includes("if (context === 'kendaraan')"), 'Kendaraan row markers remain excluded from business columns')
   assert.ok(!tools.includes('transport_vehicle_column_layout_version'), 'saved Kendaraan column preferences are not reset')
+  assert.ok(tools.includes("if (context === 'kendaraan') return"), 'clean mode cannot disable the native vehicle table')
+  assert.ok(tools.includes("context !== 'kendaraan' && <button className="), 'clean-mode toggle is absent from Kendaraan toolbar')
+  assert.ok(tools.includes("(context === 'kendaraan' && column.kind === 'action')"), 'stale preferences cannot hide the Aksi column')
 })

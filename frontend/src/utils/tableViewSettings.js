@@ -6,7 +6,12 @@
  * continue to be respected.
  */
 export function resolveCleanTableView(rawValue, context) {
-  const defaultValue = context !== 'kendaraan'
+  // The Kendaraan master needs native horizontal scrolling and contextual row
+  // actions. Clean mode hides Aksi and compresses the wide register, so never
+  // apply it here, even if an older release saved a true preference.
+  if (context === 'kendaraan') return false
+
+  const defaultValue = true
   try {
     const value = rawValue ? JSON.parse(rawValue) : {}
     if (value && typeof value === 'object' && value[context] !== undefined) {
@@ -32,8 +37,9 @@ export function classifyTableColumnKind(label, isSelectionControl = false) {
 export function isCleanTableUtilityColumn(kind) {
   return kind === 'mark' || kind === 'action' || kind === 'selection'
 }
-export function isHiddenByCleanTableMode(kind, bulkSelectionActive = false) {
-  if (kind === 'mark' || kind === 'action') return true
+export function isHiddenByCleanTableMode(kind, bulkSelectionActive = false, context = '') {
+  if (kind === 'mark') return true
+  if (kind === 'action') return context !== 'kendaraan'
   if (kind === 'selection') return !bulkSelectionActive
   return false
 }

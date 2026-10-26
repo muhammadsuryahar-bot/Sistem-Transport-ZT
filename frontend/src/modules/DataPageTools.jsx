@@ -109,8 +109,10 @@ function columnSlug(value, index) {
     .replace(/^_+|_+$/g, '')
   return clean || `column_${index + 1}`
 }
-function isColumnVisible(column, visibility, showRowMarks = false, cleanMode = false) {
+function isColumnVisible(column, visibility, showRowMarks = false, cleanMode = false, context = '') {
   if (!column) return false
+  // Vehicle Aksi is an essential row control, not an optional column.
+  if (column.kind === 'action' && context === 'kendaraan') return true
   if (cleanMode && column.kind === 'data') return true
   if (cleanMode && (column.kind === 'mark' || column.kind === 'action')) return false
   if (column.kind === 'mark') return showRowMarks && visibility[column.key] !== false
@@ -128,8 +130,8 @@ function isBulkSelectionActive(table) {
     'thead .mep-check input[type="checkbox"], thead .request-select-cell input[type="checkbox"], thead .x-select-cell input[type="checkbox"], thead .dpt-bulk-select-head input[type="checkbox"]'
   ))
 }
-function isHiddenByCleanMode(column, table, cleanMode) {
-  return Boolean(cleanMode && isHiddenByCleanTableMode(column?.kind, isBulkSelectionActive(table)))
+function isHiddenByCleanMode(column, table, cleanMode, context = '') {
+  return Boolean(cleanMode && isHiddenByCleanTableMode(column?.kind, isBulkSelectionActive(table), context))
 }
 function getPrimaryDataTable(context) {
   const selector = DATA_TABLE_SELECTOR[context]
@@ -165,11 +167,11 @@ function getColumnDescriptors(context, table) {
     }
   }).filter(column => column.label)
 }
-function applyDirectColumnDisplay(table, descriptors, visibility, cleanMode, showRowMarks) {
+function applyDirectColumnDisplay(context, table, descriptors, visibility, cleanMode, showRowMarks) {
   if (!table) return
   const rows = Array.from(table.rows)
   for (const column of descriptors) {
-    const hidden = !isColumnVisible(column, visibility, showRowMarks, cleanMode) || isHiddenByCleanMode(column, table, cleanMode)
+    const hidden = !isColumnVisible(column, visibility, showRowMarks, cleanMode, context) || isHiddenByCleanMode(column, table, cleanMode, context)
     for (const row of rows) {
       if (row.querySelector?.('td[colspan]')) continue
       const cell = row.children[column.index]
@@ -186,8 +188,8 @@ function applyColumnVisibility(context, table, descriptors, visibility, cleanMod
   let visibleDataColumns = 0
 
   for (const column of descriptors) {
-    const hiddenBySetting = !isColumnVisible(column, visibility, showMarks, cleanMode)
-    const hiddenByCleanView = isHiddenByCleanMode(column, table, cleanMode)
+    const hiddenBySetting = !isColumnVisible(column, visibility, showMarks, cleanMode, context)
+    const hiddenByCleanView = isHiddenByCleanMode(column, table, cleanMode, context)
     const hidden = hiddenBySetting || hiddenByCleanView
     if (column.kind === 'data') {
       dataColumns += 1
@@ -210,7 +212,7 @@ function applyColumnVisibility(context, table, descriptors, visibility, cleanMod
     }
   }
 
-  applyDirectColumnDisplay(table, descriptors, visibility, cleanMode, showMarks)
+  applyDirectColumnDisplay(context, table, descriptors, visibility, cleanMode, showMarks)
   table.dataset.dptBulkSelectionActive = isBulkSelectionActive(table) ? 'true' : 'false'
   const cleanModeActive = cleanMode && dataColumns > 0 && visibleDataColumns === dataColumns
   const header = table.querySelector('thead tr')
@@ -218,7 +220,7 @@ function applyColumnVisibility(context, table, descriptors, visibility, cleanMod
     for (const column of descriptors) {
       const headerCell = header.children[column.index]
       if (headerCell) {
-        const hidden = !isColumnVisible(column, visibility, showMarks, cleanMode) || isHiddenByCleanMode(column, table, cleanMode)
+        const hidden = !isColumnVisible(column, visibility, showMarks, cleanMode, context) || isHiddenByCleanMode(column, table, cleanMode, context)
         headerCell.classList.toggle('dpt-col-hidden', hidden)
         headerCell.classList.toggle('dpt-column-utility', isCleanTableUtilityColumn(column.kind))
         headerCell.classList.toggle('dpt-action-utility', column.kind === 'action')
@@ -883,6 +885,7 @@ export default function DataPageTools({ context, profile, onExport }) {
   if (!CONTEXT_LABEL[context]) return null
   const doExport = async () => { if (!onExport || exporting) return; setExporting(true); try { await onExport() } finally { setExporting(false) } }
   const toggleCleanTableView = () => {
+    if (context === 'kendaraan') return
     const next = !cleanTableView
     const nextVisibility = { ...columnVisibility }
     columns.forEach(column => {
@@ -903,17 +906,17 @@ export default function DataPageTools({ context, profile, onExport }) {
     window.dispatchEvent(new CustomEvent('transport:clean-table-view', { detail: { context, enabled: next } }))
   }
   const visibleColumnCount = columns.filter(column => {
-    const hiddenByClean = cleanTableView && isHiddenByCleanTableMode(column.kind, bulkSelectionActive)
-    return column.label && !hiddenByClean && isColumnVisible(column, columnVisibility, showRowMarks, cleanTableView)
+    const hiddenByClean = cleanTableView && isHiddenByCleanTableMode(column.kind, bulkSelectionActive, context)
+    return column.label && !hiddenByClean && isColumnVisible(column, columnVisibility, showRowMarks, cleanTableView, context)
   }).length
   const hiddenColumnCount = columns.filter(column => {
     if (!column.label) return false
-    if (cleanTableView) return isHiddenByCleanTableMode(column.kind, bulkSelectionActive)
-    return !isColumnVisible(column, columnVisibility, showRowMarks, false)
+    if (cleanTableView) return isHiddenByCleanTableMode(column.kind, bulkSelectionActive, context)
+    return !isColumnVisible(column, columnVisibility, showRowMarks, false, context)
   }).length
   const setColumnVisible = (column, visible) => {
     if (!column) return
-    if (column.kind === 'selection' || (cleanTableView && (column.kind === 'action' || column.kind === 'mark'))) return
+    if (column.kind === 'selection' || (context === 'kendaraan' && column.kind === 'action') || (cleanTableView && (column.kind === 'action' || column.kind === 'mark'))) return
     if (!visible && visibleColumnCount <= 1) return
     const nextVisibility = { ...columnVisibility, [column.key]: visible }
     setColumnVisibility(nextVisibility)
@@ -949,8 +952,6 @@ export default function DataPageTools({ context, profile, onExport }) {
   const refreshAfterImport = () => { setImportReport(null); window.dispatchEvent(new CustomEvent('transport:data-imported', { detail: { context, source: 'excel-import' } })) }
   const modal = showImport && (context === 'kendaraan' ? <VehicleExcelImportV2 profile={profile} onClose={closeImport} onDone={finishImport} /> : context === 'pengajuan' ? <PengajuanExcelImportModal profile={profile} onClose={closeImport} onDone={finishImport} /> : context === 'service' ? <EditableServiceExcelImportModal profile={profile} onClose={closeImport} onDone={finishImport} /> : context === 'dokumen' ? <VehicleDocumentsImportModal profile={profile} onClose={closeImport} onDone={finishImport} /> : context === 'sewa' ? <RentalHistoryImportModalV2 profile={profile} onClose={closeImport} onDone={finishImport} /> : <UnifiedExcelImportModalSafe context={context} profile={profile} onClose={closeImport} onDone={finishImport} />)
 
-  const cleanModeScope = context === 'kendaraan' ? 'tombol Aksi' : 'tombol Aksi dan Penanda'
-
   return <div className="dpt-tools-host" data-clean-table-view={cleanTableView ? 'true' : 'false'} data-context={context}>
     {modal}
     {importReport && <div className="dpt-overlay" role="dialog" aria-modal="true"><section className="dpt-modal import-result-modal"><header className="dpt-modal-head"><div><span className="eyebrow">IMPORT SELESAI</span><h3>Rekonsiliasi Data {CONTEXT_LABEL[importReport.context] || 'Excel'}</h3><p>Perbedaan jumlah antara Excel dan data sistem dijelaskan di sini.</p></div><button type="button" className="dpt-icon" onClick={() => setImportReport(null)}>×</button></header><div className="service-import-stats"><div><b>{importReport.sourceRows ?? 0}</b><span>baris sumber</span></div><div><b>{importReport.validRows ?? 0}</b><span>valid</span></div><div><b>{importReport.addedCount ?? importReport.added ?? importReport.imported ?? importReport.inserted ?? 0}</b><span>baru</span></div><div><b>{importReport.updatedCount ?? importReport.updated ?? 0}</b><span>diperbarui</span></div><div><b>{importReport.skippedCount ?? importReport.skipped ?? importReport.duplicate ?? 0}</b><span>skip</span></div><div><b>{importReport.errorCount ?? 0}</b><span>error</span></div></div><div className="vehicle-import-explanation"><b>Hasil penyimpanan</b>{importReport.addedCount != null && <span>Data baru: <strong>{importReport.addedCount}</strong></span>}{importReport.updatedCount != null && <span>Data diperbarui: <strong>{importReport.updatedCount}</strong></span>}{importReport.errorCount != null && importReport.errorCount > 0 && <span>Baris bermasalah: <strong>{importReport.errorCount}</strong></span>}{importReport.driversCreated != null && <span>Driver dibuat: <strong>{importReport.driversCreated}</strong></span>}{importReport.mergedDuplicates != null && <span>Duplikat digabung: <strong>{importReport.mergedDuplicates}</strong></span>}</div>{importReport.message && <div className="vehicle-import-note"><b>Detail hasil import</b><span>{importReport.message}</span></div>}<div className="dpt-actions"><button type="button" className="dpt-button" onClick={() => setImportReport(null)}>Tutup</button><button type="button" className="dpt-button primary" onClick={refreshAfterImport}>Refresh Data Sistem</button></div></section></div>}
@@ -961,10 +962,10 @@ export default function DataPageTools({ context, profile, onExport }) {
         <span className="dpt-toolbar-help">Klik 1x pada baris untuk menampilkan aksi. Klik 2x untuk masuk mode pilih banyak data jika modul mendukung.</span>
       </div>
       <div className="dpt-toolbar-actions">
-        <button className={`dpt-button clean-action${cleanTableView ? ' active' : ''}`} type="button" onClick={toggleCleanTableView} title={cleanTableView ? `Tampilkan kembali ${cleanModeScope}` : `Sembunyikan ${cleanModeScope} agar tabel hanya fokus pada data`}>
+        {context !== 'kendaraan' && <button className={`dpt-button clean-action${cleanTableView ? ' active' : ''}`} type="button" onClick={toggleCleanTableView} title={cleanTableView ? 'Tampilkan kembali tombol Aksi dan Penanda' : 'Sembunyikan tombol Aksi dan Penanda agar tabel hanya fokus pada data'}>
           <span className="dpt-button-icon" aria-hidden="true">▤</span>
           <span>{cleanTableView ? 'Mode Excel: Data Bersih' : 'Tampilkan Fitur'}</span>
-        </button>
+        </button>}
         <div className="dpt-column-popover" ref={columnMenuRef}>
           <button className="dpt-button secondary" type="button" onClick={() => setShowColumnMenu(current => !current)} disabled={!columns.length} aria-expanded={showColumnMenu} aria-haspopup="menu">
             <span className="dpt-button-icon" aria-hidden="true">☷</span>
@@ -976,13 +977,13 @@ export default function DataPageTools({ context, profile, onExport }) {
               <button type="button" className="dpt-column-close" onClick={() => setShowColumnMenu(false)} aria-label="Tutup">×</button>
             </div>
             <div className="dpt-column-quick">
-              <button type="button" onClick={toggleCleanTableView}>{cleanTableView ? 'Tampilkan Fitur' : 'Mode Data Bersih'}</button>
+              {context !== 'kendaraan' && <button type="button" onClick={toggleCleanTableView}>{cleanTableView ? 'Tampilkan Fitur' : 'Mode Data Bersih'}</button>}
               <button type="button" onClick={showAllColumns}>Tampilkan Semua</button>
             </div>
             <div className="dpt-column-list">{columns.map(column => {
-              const forcedHidden = cleanTableView && isHiddenByCleanTableMode(column.kind, bulkSelectionActive)
-              const visible = forcedHidden ? false : isColumnVisible(column, columnVisibility, showRowMarks, cleanTableView)
-              const disableToggle = column.kind === 'selection' || forcedHidden || (visible && visibleColumnCount <= 1)
+              const forcedHidden = cleanTableView && isHiddenByCleanTableMode(column.kind, bulkSelectionActive, context)
+              const visible = forcedHidden ? false : isColumnVisible(column, columnVisibility, showRowMarks, cleanTableView, context)
+              const disableToggle = column.kind === 'selection' || (context === 'kendaraan' && column.kind === 'action') || forcedHidden || (visible && visibleColumnCount <= 1)
               return <label className="dpt-column-item" key={column.key}>
                 <input type="checkbox" checked={visible} disabled={disableToggle} onChange={event => setColumnVisible(column, event.target.checked)} />
                 <span>{column.label}</span>
