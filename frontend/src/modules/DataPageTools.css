@@ -72,56 +72,56 @@
 }
 
 /* Global clean data mode: optimized for Excel-like reading across every table module. */
-.content-container.dpt-clean-table-view .dpt-row-mark-toolbar,
-.content-container.dpt-clean-table-view .dpt-row-mark-head,
-.content-container.dpt-clean-table-view .dpt-row-mark-cell,
-.content-container.dpt-clean-table-view .dpt-column-utility,
-.content-container.dpt-clean-table-view .dpt-action-utility,
-.content-container.dpt-clean-table-view .dpt-mark-utility,
-.content-container.dpt-clean-table-view .x-action-compact,
-.content-container.dpt-clean-table-view .mep-actions,
-.content-container.dpt-clean-table-view .x-row-actions,
-.content-container.dpt-clean-table-view .m-row-actions,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .dpt-row-mark-toolbar,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .dpt-row-mark-head,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .dpt-row-mark-cell,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .dpt-column-utility,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .dpt-action-utility,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .dpt-mark-utility,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .x-action-compact,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .mep-actions,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .x-row-actions,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .m-row-actions,
  
 
-.content-container.dpt-clean-table-view .x-table th,
-.content-container.dpt-clean-table-view .m-table th,
-.content-container.dpt-clean-table-view .request-table th,
-.content-container.dpt-clean-table-view .mep-table th {
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .x-table th,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .m-table th,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .request-table th,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .mep-table th {
   font-size:12.5px!important;
   line-height:1.4!important;
   letter-spacing:.04em!important;
   padding:15px 16px!important;
 }
 
-.content-container.dpt-clean-table-view .x-table td,
-.content-container.dpt-clean-table-view .m-table td,
-.content-container.dpt-clean-table-view .request-table td,
-.content-container.dpt-clean-table-view .mep-table td {
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .x-table td,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .m-table td,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .request-table td,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .mep-table td {
   font-size:15px!important;
   line-height:1.52!important;
   padding:15px 16px!important;
 }
 
-.content-container.dpt-clean-table-view .x-table small,
-.content-container.dpt-clean-table-view .m-table small,
-.content-container.dpt-clean-table-view .request-table small,
-.content-container.dpt-clean-table-view .mep-table small {
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .x-table small,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .m-table small,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .request-table small,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .mep-table small {
   font-size:12px!important;
   line-height:1.45!important;
 }
 
-.content-container.dpt-clean-table-view .x-table-wrap,
-.content-container.dpt-clean-table-view .m-table-wrap,
-.content-container.dpt-clean-table-view .request-table-wrap,
-.content-container.dpt-clean-table-view .mep-table-wrap {
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .x-table-wrap,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .m-table-wrap,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .request-table-wrap,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .mep-table-wrap {
   border-radius:12px!important;
 }
 
-.content-container.dpt-clean-table-view .dpt-row-mark-todo td,
-.content-container.dpt-clean-table-view .dpt-row-mark-process td,
-.content-container.dpt-clean-table-view .dpt-row-mark-done td,
-.content-container.dpt-clean-table-view .dpt-row-mark-checked td {
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .dpt-row-mark-todo td,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .dpt-row-mark-process td,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .dpt-row-mark-done td,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .dpt-row-mark-checked td {
   background:inherit!important;
   border-left-color:transparent!important;
 }
@@ -133,17 +133,17 @@
 }
 
 @media(max-width:700px){
-  .content-container.dpt-clean-table-view .x-table td,
-  .content-container.dpt-clean-table-view .m-table td,
-  .content-container.dpt-clean-table-view .request-table td,
-  .content-container.dpt-clean-table-view .mep-table td {
+  .content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .x-table td,
+  .content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .m-table td,
+  .content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .request-table td,
+  .content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .mep-table td {
     font-size:13.5px!important;
     padding:13px 14px!important;
   }
-  .content-container.dpt-clean-table-view .x-table th,
-  .content-container.dpt-clean-table-view .m-table th,
-  .content-container.dpt-clean-table-view .request-table th,
-  .content-container.dpt-clean-table-view .mep-table th {
+  .content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .x-table th,
+  .content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .m-table th,
+  .content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .request-table th,
+  .content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .mep-table th {
     font-size:10.5px!important;
     padding:12px 14px!important;
   }
@@ -153,40 +153,40 @@
    and use a DOM fallback so utility columns disappear even if mutation timing changes. */
 .dpt-tools-host { display: contents; }
 
-.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .dpt-row-mark-toolbar,
-.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .dpt-row-mark-head,
-.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .dpt-row-mark-cell { display:none!important; }
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]:not([data-context="kendaraan"])) .dpt-row-mark-toolbar,
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]:not([data-context="kendaraan"])) .dpt-row-mark-head,
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]:not([data-context="kendaraan"])) .dpt-row-mark-cell { display:none!important; }
 
-.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .mep-table:has(tbody .mep-actions) thead th:last-child,
-.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .x-table:has(tbody .x-action-compact) thead th:last-child,
-.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .x-table:has(tbody .x-row-actions) thead th:last-child,
-.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .request-table:has(tbody .request-actions) thead th:last-child,
-.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .m-table:has(tbody .m-row-actions) thead th:last-child { display:none!important; }
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]:not([data-context="kendaraan"])) .mep-table:has(tbody .mep-actions) thead th:last-child,
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]:not([data-context="kendaraan"])) .x-table:has(tbody .x-action-compact) thead th:last-child,
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]:not([data-context="kendaraan"])) .x-table:has(tbody .x-row-actions) thead th:last-child,
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]:not([data-context="kendaraan"])) .request-table:has(tbody .request-actions) thead th:last-child,
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]:not([data-context="kendaraan"])) .m-table:has(tbody .m-row-actions) thead th:last-child { display:none!important; }
 
-.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .mep-table:has(tbody .mep-actions) tbody .mep-actions,
-.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .x-table:has(tbody .x-action-compact) tbody .x-action-compact,
-.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .x-table:has(tbody .x-row-actions) tbody .x-row-actions,
-.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .request-table:has(tbody .request-actions) tbody .request-actions,
-.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .m-table:has(tbody .m-row-actions) tbody .m-row-actions { display:none!important; }
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]:not([data-context="kendaraan"])) .mep-table:has(tbody .mep-actions) tbody .mep-actions,
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]:not([data-context="kendaraan"])) .x-table:has(tbody .x-action-compact) tbody .x-action-compact,
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]:not([data-context="kendaraan"])) .x-table:has(tbody .x-row-actions) tbody .x-row-actions,
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]:not([data-context="kendaraan"])) .request-table:has(tbody .request-actions) tbody .request-actions,
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]:not([data-context="kendaraan"])) .m-table:has(tbody .m-row-actions) tbody .m-row-actions { display:none!important; }
 
-.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .dpt-clean-data-table {
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]:not([data-context="kendaraan"])) .dpt-clean-data-table {
   width:max-content!important;
   min-width:100%!important;
   max-width:none!important;
   table-layout:auto!important;
 }
 
-.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .x-table:has(tbody .x-action-compact),
-.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .request-table:has(tbody .request-actions),
-.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .mep-table:has(tbody .mep-actions),
-.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .m-table:has(tbody .m-row-actions) {
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]:not([data-context="kendaraan"])) .x-table:has(tbody .x-action-compact),
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]:not([data-context="kendaraan"])) .request-table:has(tbody .request-actions),
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]:not([data-context="kendaraan"])) .mep-table:has(tbody .mep-actions),
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]:not([data-context="kendaraan"])) .m-table:has(tbody .m-row-actions) {
   table-layout:auto!important;
 }
 
-.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .x-table td,
-.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .request-table td,
-.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .mep-table td,
-.content-container:has(.dpt-tools-host[data-clean-table-view="true"]) .m-table td {
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]:not([data-context="kendaraan"])) .x-table td,
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]:not([data-context="kendaraan"])) .request-table td,
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]:not([data-context="kendaraan"])) .mep-table td,
+.content-container:has(.dpt-tools-host[data-clean-table-view="true"]:not([data-context="kendaraan"])) .m-table td {
   vertical-align:middle!important;
   white-space:nowrap!important;
 }
@@ -194,48 +194,48 @@
 /* Hard visual contract for the clean Excel view.
    This is a CSS fallback in addition to the JS column state, so Aksi/Penanda
    stay hidden even while React is rerendering the table. */
-.content-container.dpt-clean-table-view .mep-table:has(tbody .mep-actions) thead th:last-child,
-.content-container.dpt-clean-table-view .mep-table:has(tbody .mep-actions) tbody .mep-actions,
-.content-container.dpt-clean-table-view .x-table:has(tbody .x-action-compact) thead th:last-child,
-.content-container.dpt-clean-table-view .x-table:has(tbody .x-action-compact) tbody .x-action-compact,
-.content-container.dpt-clean-table-view .x-table:has(tbody .x-row-actions) thead th:last-child,
-.content-container.dpt-clean-table-view .x-table:has(tbody .x-row-actions) tbody .x-row-actions,
-.content-container.dpt-clean-table-view .request-table:has(tbody .request-actions) thead th:last-child,
-.content-container.dpt-clean-table-view .request-table:has(tbody .request-actions) tbody .request-actions,
-.content-container.dpt-clean-table-view .m-table:has(tbody .m-row-actions) thead th:last-child,
-.content-container.dpt-clean-table-view .m-table:has(tbody .m-row-actions) tbody .m-row-actions {
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .mep-table:has(tbody .mep-actions) thead th:last-child,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .mep-table:has(tbody .mep-actions) tbody .mep-actions,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .x-table:has(tbody .x-action-compact) thead th:last-child,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .x-table:has(tbody .x-action-compact) tbody .x-action-compact,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .x-table:has(tbody .x-row-actions) thead th:last-child,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .x-table:has(tbody .x-row-actions) tbody .x-row-actions,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .request-table:has(tbody .request-actions) thead th:last-child,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .request-table:has(tbody .request-actions) tbody .request-actions,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .m-table:has(tbody .m-row-actions) thead th:last-child,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .m-table:has(tbody .m-row-actions) tbody .m-row-actions {
   display:none!important;
 }
 
-.content-container.dpt-clean-table-view .dpt-row-mark-toolbar,
-.content-container.dpt-clean-table-view .dpt-row-mark-head,
-.content-container.dpt-clean-table-view .dpt-row-mark-cell {
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .dpt-row-mark-toolbar,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .dpt-row-mark-head,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .dpt-row-mark-cell {
   display:none!important;
 }
 
-.content-container.dpt-clean-table-view .dpt-clean-data-wrap {
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .dpt-clean-data-wrap {
   width:100%!important;
   max-width:100%!important;
   overflow-x:auto!important;
   overflow-y:visible!important;
   overscroll-behavior-x:contain;
 }
-.content-container.dpt-clean-table-view .dpt-clean-data-table,
-.content-container.dpt-clean-table-view .mep-table:has(tbody .mep-actions),
-.content-container.dpt-clean-table-view .x-table:has(tbody .x-action-compact),
-.content-container.dpt-clean-table-view .x-table:has(tbody .x-row-actions),
-.content-container.dpt-clean-table-view .request-table:has(tbody .request-actions),
-.content-container.dpt-clean-table-view .m-table:has(tbody .m-row-actions) {
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .dpt-clean-data-table,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .mep-table:has(tbody .mep-actions),
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .x-table:has(tbody .x-action-compact),
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .x-table:has(tbody .x-row-actions),
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .request-table:has(tbody .request-actions),
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .m-table:has(tbody .m-row-actions) {
   width:max-content!important;
   max-width:none!important;
   min-width:100%!important;
   table-layout:auto!important;
 }
 
-.content-container.dpt-clean-table-view .mep-table tbody td,
-.content-container.dpt-clean-table-view .x-table tbody td,
-.content-container.dpt-clean-table-view .request-table tbody td,
-.content-container.dpt-clean-table-view .m-table tbody td {
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .mep-table tbody td,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .x-table tbody td,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .request-table tbody td,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .m-table tbody td {
   font-size:16px!important;
   line-height:1.55!important;
   padding:16px 18px!important;
@@ -246,30 +246,30 @@
   vertical-align:middle!important;
 }
 
-.content-container.dpt-clean-table-view .mep-table tbody td b,
-.content-container.dpt-clean-table-view .mep-table tbody td strong,
-.content-container.dpt-clean-table-view .x-table tbody td b,
-.content-container.dpt-clean-table-view .x-table tbody td strong,
-.content-container.dpt-clean-table-view .request-table tbody td b,
-.content-container.dpt-clean-table-view .request-table tbody td strong,
-.content-container.dpt-clean-table-view .m-table tbody td b,
-.content-container.dpt-clean-table-view .m-table tbody td strong {
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .mep-table tbody td b,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .mep-table tbody td strong,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .x-table tbody td b,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .x-table tbody td strong,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .request-table tbody td b,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .request-table tbody td strong,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .m-table tbody td b,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .m-table tbody td strong {
   font-size:16px!important;
   line-height:1.45!important;
 }
 
-.content-container.dpt-clean-table-view .mep-table tbody td small,
-.content-container.dpt-clean-table-view .x-table tbody td small,
-.content-container.dpt-clean-table-view .request-table tbody td small,
-.content-container.dpt-clean-table-view .m-table tbody td small {
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .mep-table tbody td small,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .x-table tbody td small,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .request-table tbody td small,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .m-table tbody td small {
   font-size:12.5px!important;
   line-height:1.45!important;
 }
 
-.content-container.dpt-clean-table-view .mep-table thead th,
-.content-container.dpt-clean-table-view .x-table thead th,
-.content-container.dpt-clean-table-view .request-table thead th,
-.content-container.dpt-clean-table-view .m-table thead th {
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .mep-table thead th,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .x-table thead th,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .request-table thead th,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .m-table thead th {
   font-size:12px!important;
   line-height:1.35!important;
   padding:14px 15px!important;
@@ -277,28 +277,28 @@
 }
 
 @media(max-width:760px){
-  .content-container.dpt-clean-table-view .mep-table tbody td,
-  .content-container.dpt-clean-table-view .x-table tbody td,
-  .content-container.dpt-clean-table-view .request-table tbody td,
-  .content-container.dpt-clean-table-view .m-table tbody td {
+  .content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .mep-table tbody td,
+  .content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .x-table tbody td,
+  .content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .request-table tbody td,
+  .content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .m-table tbody td {
     font-size:14px!important;
     line-height:1.5!important;
     padding:13px 14px!important;
   }
-  .content-container.dpt-clean-table-view .mep-table tbody td b,
-  .content-container.dpt-clean-table-view .mep-table tbody td strong,
-  .content-container.dpt-clean-table-view .x-table tbody td b,
-  .content-container.dpt-clean-table-view .x-table tbody td strong,
-  .content-container.dpt-clean-table-view .request-table tbody td b,
-  .content-container.dpt-clean-table-view .request-table tbody td strong,
-  .content-container.dpt-clean-table-view .m-table tbody td b,
-  .content-container.dpt-clean-table-view .m-table tbody td strong {
+  .content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .mep-table tbody td b,
+  .content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .mep-table tbody td strong,
+  .content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .x-table tbody td b,
+  .content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .x-table tbody td strong,
+  .content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .request-table tbody td b,
+  .content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .request-table tbody td strong,
+  .content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .m-table tbody td b,
+  .content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .m-table tbody td strong {
     font-size:14px!important;
   }
-  .content-container.dpt-clean-table-view .mep-table tbody td small,
-  .content-container.dpt-clean-table-view .x-table tbody td small,
-  .content-container.dpt-clean-table-view .request-table tbody td small,
-  .content-container.dpt-clean-table-view .m-table tbody td small {
+  .content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .mep-table tbody td small,
+  .content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .x-table tbody td small,
+  .content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .request-table tbody td small,
+  .content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .m-table tbody td small {
     font-size:11.5px!important;
   }
 }
@@ -821,26 +821,26 @@
 
 /* FINAL OVERRIDE: clean/Excel table data must have one consistent text weight.
    Headers remain bold; semantic badges and controls keep their own emphasis. */
-.content-container.dpt-clean-table-view .x-table tbody td,
-.content-container.dpt-clean-table-view .m-table tbody td,
-.content-container.dpt-clean-table-view .request-table tbody td,
-.content-container.dpt-clean-table-view .mep-table tbody td,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .x-table tbody td,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .m-table tbody td,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .request-table tbody td,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .mep-table tbody td,
 .dpt-clean-data-table tbody td {
   font-weight: 500 !important;
 }
 
-.content-container.dpt-clean-table-view .x-table tbody td b,
-.content-container.dpt-clean-table-view .x-table tbody td strong,
-.content-container.dpt-clean-table-view .x-table tbody td span,
-.content-container.dpt-clean-table-view .m-table tbody td b,
-.content-container.dpt-clean-table-view .m-table tbody td strong,
-.content-container.dpt-clean-table-view .m-table tbody td span,
-.content-container.dpt-clean-table-view .request-table tbody td b,
-.content-container.dpt-clean-table-view .request-table tbody td strong,
-.content-container.dpt-clean-table-view .request-table tbody td span,
-.content-container.dpt-clean-table-view .mep-table tbody td b,
-.content-container.dpt-clean-table-view .mep-table tbody td strong,
-.content-container.dpt-clean-table-view .mep-table tbody td span,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .x-table tbody td b,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .x-table tbody td strong,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .x-table tbody td span,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .m-table tbody td b,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .m-table tbody td strong,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .m-table tbody td span,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .request-table tbody td b,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .request-table tbody td strong,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .request-table tbody td span,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .mep-table tbody td b,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .mep-table tbody td strong,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .mep-table tbody td span,
 .dpt-clean-data-table tbody td b,
 .dpt-clean-data-table tbody td strong,
 .dpt-clean-data-table tbody td span {
@@ -848,13 +848,13 @@
 }
 
 /* Only semantic badges and action controls retain emphasis. */
-.content-container.dpt-clean-table-view .x-table tbody td .x-pill,
-.content-container.dpt-clean-table-view .request-table tbody td .request-status,
-.content-container.dpt-clean-table-view .request-table tbody td .request-priority,
-.content-container.dpt-clean-table-view .x-table tbody td button,
-.content-container.dpt-clean-table-view .m-table tbody td button,
-.content-container.dpt-clean-table-view .mep-table tbody td button,
-.content-container.dpt-clean-table-view .request-table tbody td button,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .x-table tbody td .x-pill,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .request-table tbody td .request-status,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .request-table tbody td .request-priority,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .x-table tbody td button,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .m-table tbody td button,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .mep-table tbody td button,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .request-table tbody td button,
 .dpt-clean-data-table tbody td .x-pill,
 .dpt-clean-data-table tbody td button {
   font-weight: 700 !important;
@@ -862,9 +862,9 @@
 
 /* FINAL CONSISTENCY PASS: semantic pills/statuses use the same data weight too.
    Visual distinction comes from background/border, not random bold text. */
-.content-container.dpt-clean-table-view .x-table tbody td .x-pill,
-.content-container.dpt-clean-table-view .request-table tbody td .request-status,
-.content-container.dpt-clean-table-view .request-table tbody td .request-priority,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .x-table tbody td .x-pill,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .request-table tbody td .request-status,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .request-table tbody td .request-priority,
 .dpt-clean-data-table tbody td .x-pill {
   font-weight: 500 !important;
 }

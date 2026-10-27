@@ -48,3 +48,54 @@
 .master-excel-page .mep-table tbody tr { cursor: pointer; }
 .master-excel-page .mep-table[data-native-row-selection="true"] .mep-actions-inner { position: relative; z-index: 1; pointer-events: auto; }
 .master-excel-page .mep-table[data-native-row-selection="true"] tbody tr.dpt-row-selected .mep-actions .mep-actions-inner > button { visibility: visible !important; pointer-events: auto !important; }
+
+
+/* Kendaraan is a fixed 11-column register, not a generic Excel-clean table.
+   Keep the scroll viewport and real table cells visible even when legacy
+   global table classes/preferences are present in an existing browser session. */
+.master-excel-page .mep-table-wrap {
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-x pan-y !important;
+}
+.master-excel-page .mep-table {
+  display: table !important;
+  width: max-content !important;
+  min-width: 1420px !important;
+  max-width: none !important;
+  table-layout: auto !important;
+  border-collapse: collapse !important;
+}
+.master-excel-page .mep-table thead th,
+.master-excel-page .mep-table tbody td {
+  display: table-cell !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+.master-excel-page .mep-table tbody tr,
+.master-excel-page .mep-table tbody td {
+  pointer-events: auto !important;
+}
+.master-excel-page .mep-table tbody tr {
+  cursor: pointer;
+}
+.master-excel-page .mep-table tbody td.mep-actions {
+  display: table-cell !important;
+  width: 168px !important;
+  min-width: 168px !important;
+  white-space: normal !important;
+}
+.master-excel-page .mep-table .mep-actions-inner {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+.master-excel-page .mep-table .mep-actions-inner > button {
+  pointer-events: auto !important;
+}

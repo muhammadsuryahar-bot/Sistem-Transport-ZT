@@ -185,32 +185,32 @@
 
 /* Clean Excel view overrides the compact master table contract:
    hide Aksi and let all real data columns use the available width. */
-.content-container.dpt-clean-table-view .master-excel-page .mep-table:has(tbody .mep-actions) {
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .master-excel-page .mep-table:has(tbody .mep-actions) {
   width:100%!important;
   max-width:100%!important;
   min-width:100%!important;
   table-layout:auto!important;
 }
-.content-container.dpt-clean-table-view .master-excel-page .mep-table:has(tbody .mep-actions) thead th:last-child,
-.content-container.dpt-clean-table-view .master-excel-page .mep-table:has(tbody .mep-actions) tbody .mep-actions {
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .master-excel-page .mep-table:has(tbody .mep-actions) thead th:last-child,
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .master-excel-page .mep-table:has(tbody .mep-actions) tbody .mep-actions {
   display:none!important;
 }
-.content-container.dpt-clean-table-view .master-excel-page .mep-table thead th {
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .master-excel-page .mep-table thead th {
   font-size:11px!important;
   line-height:1.35!important;
   padding:14px 16px!important;
   height:auto!important;
   min-height:44px!important;
 }
-.content-container.dpt-clean-table-view .master-excel-page .mep-table tbody td {
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .master-excel-page .mep-table tbody td {
   font-size:14px!important;
   line-height:1.55!important;
   padding:15px 16px!important;
 }
-.content-container.dpt-clean-table-view .master-excel-page .mep-table tbody td b {
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .master-excel-page .mep-table tbody td b {
   font-size:14px!important;
 }
-.content-container.dpt-clean-table-view .master-excel-page .mep-table tbody td small {
+.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"])) .master-excel-page .mep-table tbody td small {
   font-size:11px!important;
   line-height:1.45!important;
 }

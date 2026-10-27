@@ -3,10 +3,12 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
 test('Kendaraan table restores the separate register columns and preserves row actions', async () => {
-  const [page, css, tools] = await Promise.all([
+  const [page, css, tools, toolsCss, legacyTableCss] = await Promise.all([
     readFile(new URL('../src/modules/MasterKendaraanExcelAlignedPage.jsx', import.meta.url), 'utf8'),
     readFile(new URL('../src/modules/MasterKendaraanExcelAlignedPage.css', import.meta.url), 'utf8'),
     readFile(new URL('../src/modules/DataPageTools.jsx', import.meta.url), 'utf8'),
+    readFile(new URL('../src/modules/DataPageTools.css', import.meta.url), 'utf8'),
+    readFile(new URL('../src/master-vehicle-table-final.css', import.meta.url), 'utf8'),
   ])
 
   const expectedHeaders = '<th>No. Pol / Merk / Type</th><th>Jenis</th><th>Kepemilikan</th><th>Jenis Sewa</th><th>Harga Perolehan</th><th>Pemilik</th><th>Driver</th><th>Lokasi Kerja</th><th>Pajak</th><th>Keterangan</th><th>Aksi</th>'
@@ -28,4 +30,11 @@ test('Kendaraan table restores the separate register columns and preserves row a
   assert.ok(css.includes('width:max-content;min-width:1420px;max-width:none;table-layout:auto'), 'the 11-column register keeps a wide intrinsic table layout')
   assert.ok(css.includes('touch-action:pan-x pan-y'), 'horizontal scrolling remains touch-friendly')
   assert.ok(css.includes('.mep-actions .mep-actions-inner > button { visibility: visible !important; pointer-events: auto !important; }'), 'selected vehicle actions stay visible and clickable')
+  assert.ok(tools.includes("data-clean-table-view={context !== 'kendaraan' && cleanTableView ? 'true' : 'false'}"), 'Kendaraan cannot advertise clean mode to global CSS')
+  assert.ok(tools.includes("const vehiclePageActive = Boolean(document.querySelector('.dpt-tools-host[data-context=\"kendaraan\"]'))"), 'Kendaraan prevents the shared root clean-mode class')
+  assert.ok(toolsCss.includes('.content-container:has(.dpt-tools-host[data-clean-table-view="true"]:not([data-context="kendaraan"]))'), 'global clean-mode selectors exclude Kendaraan')
+  assert.ok(toolsCss.includes('.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"]))'), 'root clean-mode styles exclude Kendaraan')
+  assert.ok(legacyTableCss.includes('.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"]))'), 'legacy vehicle CSS cannot reapply compact clean mode')
+  assert.ok(css.includes('.master-excel-page .mep-table thead th,\n.master-excel-page .mep-table tbody td {\n  display: table-cell !important;'), 'all 11 vehicle table cells stay visible')
+  assert.ok(css.includes('overflow-x: auto !important;') && css.includes('width: max-content !important;'), 'vehicle table has a real horizontal scroll contract')
 })

@@ -101,7 +101,10 @@ function writeCleanTableView(context, enabled) {
   } catch { return false }
 }
 function applyCleanRoot(enabled) {
-  document.querySelector('.content-container')?.classList.toggle('dpt-clean-table-view', enabled)
+  // A clean/Excel table view is never valid for the fixed Kendaraan register.
+  // Keep the legacy root class off while that page is active.
+  const vehiclePageActive = Boolean(document.querySelector('.dpt-tools-host[data-context="kendaraan"]'))
+  document.querySelector('.content-container')?.classList.toggle('dpt-clean-table-view', Boolean(enabled) && !vehiclePageActive)
 }
 function normalizeColumnLabel(value) {
   return String(value || '').replace(/\s+/g, ' ').trim()
@@ -977,7 +980,7 @@ export default function DataPageTools({ context, profile, onExport }) {
   const refreshAfterImport = () => { setImportReport(null); window.dispatchEvent(new CustomEvent('transport:data-imported', { detail: { context, source: 'excel-import' } })) }
   const modal = showImport && (context === 'kendaraan' ? <VehicleExcelImportV2 profile={profile} onClose={closeImport} onDone={finishImport} /> : context === 'pengajuan' ? <PengajuanExcelImportModal profile={profile} onClose={closeImport} onDone={finishImport} /> : context === 'service' ? <EditableServiceExcelImportModal profile={profile} onClose={closeImport} onDone={finishImport} /> : context === 'dokumen' ? <VehicleDocumentsImportModal profile={profile} onClose={closeImport} onDone={finishImport} /> : context === 'sewa' ? <RentalHistoryImportModalV2 profile={profile} onClose={closeImport} onDone={finishImport} /> : <UnifiedExcelImportModalSafe context={context} profile={profile} onClose={closeImport} onDone={finishImport} />)
 
-  return <div className="dpt-tools-host" data-clean-table-view={cleanTableView ? 'true' : 'false'} data-context={context}>
+  return <div className="dpt-tools-host" data-clean-table-view={context !== 'kendaraan' && cleanTableView ? 'true' : 'false'} data-context={context}>
     {modal}
     {importReport && <div className="dpt-overlay" role="dialog" aria-modal="true"><section className="dpt-modal import-result-modal"><header className="dpt-modal-head"><div><span className="eyebrow">IMPORT SELESAI</span><h3>Rekonsiliasi Data {CONTEXT_LABEL[importReport.context] || 'Excel'}</h3><p>Perbedaan jumlah antara Excel dan data sistem dijelaskan di sini.</p></div><button type="button" className="dpt-icon" onClick={() => setImportReport(null)}>×</button></header><div className="service-import-stats"><div><b>{importReport.sourceRows ?? 0}</b><span>baris sumber</span></div><div><b>{importReport.validRows ?? 0}</b><span>valid</span></div><div><b>{importReport.addedCount ?? importReport.added ?? importReport.imported ?? importReport.inserted ?? 0}</b><span>baru</span></div><div><b>{importReport.updatedCount ?? importReport.updated ?? 0}</b><span>diperbarui</span></div><div><b>{importReport.skippedCount ?? importReport.skipped ?? importReport.duplicate ?? 0}</b><span>skip</span></div><div><b>{importReport.errorCount ?? 0}</b><span>error</span></div></div><div className="vehicle-import-explanation"><b>Hasil penyimpanan</b>{importReport.addedCount != null && <span>Data baru: <strong>{importReport.addedCount}</strong></span>}{importReport.updatedCount != null && <span>Data diperbarui: <strong>{importReport.updatedCount}</strong></span>}{importReport.errorCount != null && importReport.errorCount > 0 && <span>Baris bermasalah: <strong>{importReport.errorCount}</strong></span>}{importReport.driversCreated != null && <span>Driver dibuat: <strong>{importReport.driversCreated}</strong></span>}{importReport.mergedDuplicates != null && <span>Duplikat digabung: <strong>{importReport.mergedDuplicates}</strong></span>}</div>{importReport.message && <div className="vehicle-import-note"><b>Detail hasil import</b><span>{importReport.message}</span></div>}<div className="dpt-actions"><button type="button" className="dpt-button" onClick={() => setImportReport(null)}>Tutup</button><button type="button" className="dpt-button primary" onClick={refreshAfterImport}>Refresh Data Sistem</button></div></section></div>}
     <div className="dpt-toolbar">
