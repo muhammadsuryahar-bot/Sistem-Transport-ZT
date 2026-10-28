@@ -99,3 +99,5 @@
 .master-excel-page .mep-table .mep-actions-inner > button {
   pointer-events: auto !important;
 }
+
+/* Production redeploy trigger for Kendaraan table fix; no visual/style change. */
