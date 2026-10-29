@@ -100,4 +100,64 @@
   pointer-events: auto !important;
 }
 
-/* Production redeploy trigger for Kendaraan table fix; no visual/style change. */
+/* Stable Kendaraan columns: prevent max-content from letting one wide value push
+   the real columns off-screen and leave the scroll area looking empty. */
+.master-excel-page .mep-table {
+  width: max(100%, 1908px) !important;
+  min-width: 1908px !important;
+  max-width: none !important;
+  table-layout: fixed !important;
+}
+.master-excel-page .mep-table:has(thead .mep-check) {
+  width: max(100%, 1950px) !important;
+  min-width: 1950px !important;
+}
+.master-excel-page .mep-table .mep-col-selection { width: 42px !important; }
+.master-excel-page .mep-table .mep-col-identity { width: 260px !important; }
+.master-excel-page .mep-table .mep-col-type { width: 110px !important; }
+.master-excel-page .mep-table .mep-col-ownership { width: 125px !important; }
+.master-excel-page .mep-table .mep-col-rental { width: 155px !important; }
+.master-excel-page .mep-table .mep-col-price { width: 155px !important; }
+.master-excel-page .mep-table .mep-col-owner { width: 170px !important; }
+.master-excel-page .mep-table .mep-col-driver { width: 165px !important; }
+.master-excel-page .mep-table .mep-col-location { width: 170px !important; }
+.master-excel-page .mep-table .mep-col-tax { width: 185px !important; }
+.master-excel-page .mep-table .mep-col-notes { width: 245px !important; }
+.master-excel-page .mep-table .mep-col-actions { width: 168px !important; }
+.master-excel-page .mep-table thead th {
+  box-sizing: border-box !important;
+  white-space: normal !important;
+  overflow-wrap: anywhere !important;
+  vertical-align: middle !important;
+}
+.master-excel-page .mep-table thead th:last-child {
+  width: 168px !important;
+  min-width: 168px !important;
+  max-width: 168px !important;
+}
+.master-excel-page .mep-table tbody td:not(.mep-actions) {
+  box-sizing: border-box !important;
+  white-space: normal !important;
+  overflow-wrap: anywhere !important;
+  word-break: normal !important;
+  text-overflow: clip !important;
+}
+.master-excel-page .mep-table tbody td:not(.mep-actions) > b,
+.master-excel-page .mep-table tbody td:not(.mep-actions) > strong,
+.master-excel-page .mep-table tbody td:not(.mep-actions) > span,
+.master-excel-page .mep-table tbody td:not(.mep-actions) > small {
+  max-width: 100% !important;
+  overflow-wrap: anywhere !important;
+  white-space: normal !important;
+}
+.master-excel-page .mep-table-wrap {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f8fafc;
+}
+.master-excel-page .mep-table-wrap::-webkit-scrollbar { height: 12px; }
+.master-excel-page .mep-table-wrap::-webkit-scrollbar-track { background: #f8fafc; }
+.master-excel-page .mep-table-wrap::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border: 3px solid #f8fafc;
+  border-radius: 999px;
+}
