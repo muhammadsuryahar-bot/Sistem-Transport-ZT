@@ -37,4 +37,8 @@ test('Kendaraan table restores the separate register columns and preserves row a
   assert.ok(legacyTableCss.includes('.content-container.dpt-clean-table-view:not(:has(.dpt-tools-host[data-context="kendaraan"]))'), 'legacy vehicle CSS cannot reapply compact clean mode')
   assert.ok(css.includes('.master-excel-page .mep-table thead th,\n.master-excel-page .mep-table tbody td {\n  display: table-cell !important;'), 'all 11 vehicle table cells stay visible')
   assert.ok(css.includes('overflow-x: auto !important;') && css.includes('width: max-content !important;'), 'vehicle table has a real horizontal scroll contract')
+  assert.ok(page.includes('<colgroup>{selectionMode && <col className="mep-col-selection" />}<col className="mep-col-identity" />'), 'fixed table columns are declared for normal and bulk-selection modes')
+  assert.ok(css.includes('table-layout: fixed !important;') && css.includes('width: max(100%, 1908px) !important;'), 'vehicle columns cannot expand unpredictably from long cell content')
+  assert.ok(css.includes('.mep-col-notes { width: 245px !important; }') && css.includes('.mep-col-actions { width: 168px !important; }'), 'notes and row actions get stable widths at the right edge of the scrollable table')
+  assert.ok(css.includes('overflow-wrap: anywhere !important;'), 'long cell values wrap rather than stretching the entire table')
 })
