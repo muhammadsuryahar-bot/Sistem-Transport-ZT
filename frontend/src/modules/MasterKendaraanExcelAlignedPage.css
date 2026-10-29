@@ -161,3 +161,76 @@
   border: 3px solid #f8fafc;
   border-radius: 999px;
 }
+
+/* Visible horizontal scrollbar above the Kendaraan register. The JS keeps this
+   rail synchronized with the native table viewport below so non-technical users
+   can discover all columns without dragging at the bottom of long rows. */
+.master-excel-page .mep-table-area {
+  width: 100%;
+  min-width: 0;
+}
+.master-excel-page .mep-table-scroll-top-caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 2px 0 5px;
+  color: #526b60;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.master-excel-page .mep-table-scroll-top-caption span:last-child {
+  flex: 0 0 auto;
+  color: #285c44;
+  font-weight: 800;
+}
+.master-excel-page .mep-table-scroll-top {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: 20px;
+  margin-bottom: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: auto;
+  scrollbar-color: #647f70 #e3ebe6;
+  border: 1px solid #cbd9d1;
+  border-radius: 7px;
+  background: #eaf1ed;
+  touch-action: pan-x;
+  cursor: ew-resize;
+}
+.master-excel-page .mep-table-scroll-top:focus-visible {
+  outline: 3px solid rgba(29, 106, 74, .28);
+  outline-offset: 2px;
+}
+.master-excel-page .mep-table-scroll-top-inner {
+  height: 1px;
+  min-height: 1px;
+}
+.master-excel-page .mep-table-scroll-top::-webkit-scrollbar {
+  height: 14px;
+}
+.master-excel-page .mep-table-scroll-top::-webkit-scrollbar-track {
+  background: #e3ebe6;
+  border-radius: 7px;
+}
+.master-excel-page .mep-table-scroll-top::-webkit-scrollbar-thumb {
+  min-width: 48px;
+  background: #647f70;
+  border: 2px solid #e3ebe6;
+  border-radius: 7px;
+}
+.master-excel-page .mep-table-scroll-top::-webkit-scrollbar-thumb:hover {
+  background: #3d6652;
+}
+@media (max-width: 640px) {
+  .master-excel-page .mep-table-scroll-top-caption {
+    align-items: flex-start;
+  }
+  .master-excel-page .mep-table-scroll-top-caption span:last-child {
+    white-space: nowrap;
+  }
+}
