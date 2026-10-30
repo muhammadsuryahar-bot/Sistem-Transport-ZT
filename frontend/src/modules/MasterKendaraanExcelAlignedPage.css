@@ -234,3 +234,486 @@
     white-space: nowrap;
   }
 }
+
+/* Kendaraan page refresh: calm spacing, clearer labels, and compact admin workflow.
+   Scoped to this page so other modules keep their current appearance. */
+.master-excel-page {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+.master-excel-page > .page-breadcrumb {
+  margin-bottom: 0 !important;
+}
+.master-excel-page .mep-page-heading {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 18px !important;
+  margin: 0 !important;
+  padding: 2px 0 1px !important;
+}
+.master-excel-page .mep-page-heading .eyebrow {
+  display: inline-block;
+  margin-bottom: 5px;
+  color: #668075;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .11em;
+}
+.master-excel-page .mep-page-heading h2 {
+  margin: 0 !important;
+  color: #173b2d !important;
+  font-size: clamp(25px, 2.2vw, 30px) !important;
+  line-height: 1.12 !important;
+  letter-spacing: -.035em !important;
+}
+.master-excel-page .mep-page-heading p {
+  margin: 6px 0 0 !important;
+  color: #697b73 !important;
+  font-size: 13px !important;
+  line-height: 1.45 !important;
+}
+.master-excel-page .mep-page-heading .mep-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 42px;
+  padding: 0 16px !important;
+  border-radius: 10px !important;
+  background: #174b36 !important;
+  box-shadow: 0 3px 8px rgba(23, 75, 54, .12);
+  font-size: 12px !important;
+  white-space: nowrap;
+}
+.master-excel-page .mep-page-heading .mep-primary:hover {
+  background: #103d2b !important;
+  transform: translateY(-1px);
+}
+.master-excel-page > .mep-alert {
+  margin: 0 !important;
+}
+
+/* Verification notice: clear priority without taking over the page. */
+.master-excel-page .mep-integrity-alert-compact {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  min-width: 0;
+  padding: 11px 13px !important;
+  border: 1px solid #f1d5ad !important;
+  border-radius: 12px !important;
+  background: #fffaf2 !important;
+  color: #75451d !important;
+  box-shadow: none !important;
+}
+.master-excel-page .mep-integrity-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: #fff0d8;
+  color: #a45c12;
+  font-size: 17px;
+  font-weight: 900;
+}
+.master-excel-page .mep-integrity-copy {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.master-excel-page .mep-integrity-topline {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.master-excel-page .mep-integrity-topline b {
+  color: #7e4317;
+  font-size: 13px;
+  font-weight: 800;
+}
+.master-excel-page .mep-integrity-count {
+  display: inline-flex;
+  align-items: center;
+  min-height: 21px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #ffefd8;
+  color: #94520f;
+  font-size: 10px;
+  font-weight: 800;
+}
+.master-excel-page .mep-integrity-copy > span {
+  color: #8d6947;
+  font-size: 11px;
+  line-height: 1.4;
+}
+.master-excel-page .mep-integrity-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 7px;
+  align-items: center;
+}
+.master-excel-page .mep-integrity-actions button {
+  min-height: 34px;
+  padding: 0 11px !important;
+  border-radius: 8px !important;
+  background: #9a4c19 !important;
+  color: #fff !important;
+  font-size: 11px !important;
+  white-space: nowrap;
+}
+.master-excel-page .mep-integrity-actions button.secondary {
+  border: 1px solid #e9cda9 !important;
+  background: #fff !important;
+  color: #89501d !important;
+}
+
+/* Summary cards: one consistent scale and simple supporting labels. */
+.master-excel-page .mep-cards {
+  display: grid !important;
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  gap: 11px !important;
+  margin: 0 !important;
+}
+.master-excel-page .mep-summary-card {
+  position: relative;
+  display: flex !important;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  min-height: 96px;
+  padding: 14px 16px !important;
+  overflow: hidden;
+  border: 1px solid #e0e8e3 !important;
+  border-radius: 12px !important;
+  background: #fff !important;
+  box-shadow: 0 2px 9px rgba(20, 48, 35, .035) !important;
+  text-align: left !important;
+  transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+.master-excel-page .mep-summary-card::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: #dce9e1;
+  content: "";
+}
+.master-excel-page .mep-summary-card:hover {
+  border-color: #b9d2c2 !important;
+  box-shadow: 0 5px 14px rgba(20, 72, 49, .08) !important;
+  transform: translateY(-1px);
+}
+.master-excel-page .mep-summary-card:focus-visible {
+  outline: 3px solid rgba(29, 106, 74, .2);
+  outline-offset: 2px;
+}
+.master-excel-page .mep-summary-card .mep-stat-label {
+  color: #708078 !important;
+  font-size: 11px !important;
+  font-weight: 650 !important;
+  line-height: 1.3;
+}
+.master-excel-page .mep-summary-card b {
+  margin: 2px 0 0 !important;
+  color: #183b2d !important;
+  font-size: 27px !important;
+  font-weight: 800 !important;
+  line-height: 1.05 !important;
+  letter-spacing: -.035em;
+}
+.master-excel-page .mep-summary-card .mep-stat-note {
+  display: block;
+  margin-top: 2px;
+  color: #9aa7a0;
+  font-size: 9px;
+  font-weight: 550;
+}
+.master-excel-page .mep-summary-card i {
+  right: 13px !important;
+  color: #9aac9f !important;
+  font-size: 20px !important;
+}
+
+/* Register card: give administrators a clear title, result count, and simple toolbar. */
+.master-excel-page .mep-register-card {
+  min-width: 0;
+  margin: 0 !important;
+  padding: 17px !important;
+  border: 1px solid #e0e8e3 !important;
+  border-radius: 14px !important;
+  background: #fff !important;
+  box-shadow: 0 3px 13px rgba(21, 47, 35, .035) !important;
+}
+.master-excel-page .mep-register-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 13px;
+}
+.master-excel-page .mep-register-heading h3 {
+  margin: 0;
+  color: #20392e;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -.015em;
+}
+.master-excel-page .mep-register-heading p {
+  margin: 3px 0 0;
+  color: #84928b;
+  font-size: 11px;
+  line-height: 1.4;
+}
+.master-excel-page .mep-result-count {
+  flex: 0 0 auto;
+  padding: 5px 9px;
+  border: 1px solid #e1eae4;
+  border-radius: 999px;
+  background: #f7faf8;
+  color: #526d5f;
+  font-size: 10px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+.master-excel-page .mep-toolbar {
+  display: grid !important;
+  grid-template-columns: minmax(240px, 1fr) minmax(150px, 185px) minmax(135px, 170px) auto !important;
+  gap: 8px !important;
+  align-items: center;
+  margin: 0 0 9px !important;
+}
+.master-excel-page .mep-toolbar input,
+.master-excel-page .mep-toolbar select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 39px;
+  padding: 0 11px !important;
+  border: 1px solid #dce6df !important;
+  border-radius: 9px !important;
+  background: #fff !important;
+  color: #263a30 !important;
+  font-size: 11px !important;
+  box-shadow: none !important;
+}
+.master-excel-page .mep-toolbar input::placeholder {
+  color: #9aa8a0;
+}
+.master-excel-page .mep-toolbar input:focus,
+.master-excel-page .mep-toolbar select:focus {
+  border-color: #7eaa91 !important;
+  outline: 3px solid rgba(29, 106, 74, .09) !important;
+}
+.master-excel-page .mep-toolbar .mep-secondary {
+  min-height: 39px;
+  padding: 0 12px !important;
+  border: 1px solid #dce6df !important;
+  border-radius: 9px !important;
+  background: #f8faf9 !important;
+  color: #375747 !important;
+  font-size: 11px !important;
+  font-weight: 750 !important;
+  white-space: nowrap;
+}
+.master-excel-page .mep-toolbar .mep-secondary:hover:not(:disabled) {
+  border-color: #b7d0c0 !important;
+  background: #eff6f1 !important;
+}
+.master-excel-page .mep-selection {
+  margin: 0 0 9px !important;
+  padding: 10px 12px !important;
+  border: 1px solid #cfe2d5 !important;
+  border-radius: 10px !important;
+  background: #f3f9f5 !important;
+}
+.master-excel-page .mep-hint-simple {
+  margin: 0 0 8px !important;
+  color: #77877e !important;
+  font-size: 10px !important;
+  line-height: 1.4 !important;
+}
+.master-excel-page .mep-table-area {
+  margin-top: 1px;
+}
+
+/* Dense but readable vehicle register. */
+.master-excel-page .mep-table-wrap {
+  border-color: #e0e8e3 !important;
+  border-radius: 10px !important;
+  background: #fff !important;
+}
+.master-excel-page .mep-table thead th {
+  min-height: 40px;
+  padding: 10px 11px !important;
+  border-bottom: 1px solid #dfe8e2 !important;
+  background: #f5f8f6 !important;
+  color: #64756c !important;
+  font-size: 9px !important;
+  font-weight: 800 !important;
+  letter-spacing: .055em;
+  line-height: 1.35 !important;
+}
+.master-excel-page .mep-table tbody td {
+  padding: 10px 11px !important;
+  border-bottom: 1px solid #edf1ee !important;
+  color: #2e4036 !important;
+  font-size: 11px !important;
+  line-height: 1.45 !important;
+  vertical-align: middle !important;
+}
+.master-excel-page .mep-table tbody tr {
+  background: #fff;
+  transition: background .12s ease;
+}
+.master-excel-page .mep-table tbody tr:hover {
+  background: #f7fbf8 !important;
+}
+.master-excel-page .mep-table tbody tr.dpt-row-selected,
+.master-excel-page .mep-table tbody tr.picked {
+  background: #edf6f0 !important;
+}
+.master-excel-page .mep-table tbody td:first-child b {
+  color: #1d4d38 !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+}
+.master-excel-page .mep-table tbody td:first-child small,
+.master-excel-page .mep-table tbody td small {
+  color: #89978f !important;
+  font-size: 9px !important;
+  line-height: 1.4 !important;
+}
+.master-excel-page .mep-pill {
+  padding: 4px 8px !important;
+  border: 1px solid #e4ede7;
+  background: #f4f8f5 !important;
+  color: #456653 !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+}
+.master-excel-page .mep-actions-inner {
+  gap: 4px !important;
+}
+.master-excel-page .mep-actions-inner > button {
+  min-height: 28px;
+  padding: 0 8px !important;
+  border: 1px solid #dce7df !important;
+  border-radius: 7px !important;
+  background: #f7faf8 !important;
+  color: #365a46 !important;
+  font-size: 10px !important;
+  font-weight: 750 !important;
+}
+.master-excel-page .mep-actions-inner > button.danger {
+  border-color: #f1d8d5 !important;
+  background: #fff7f6 !important;
+  color: #a0443c !important;
+}
+.master-excel-page .mep-table-scroll-top-caption {
+  margin: 4px 0 5px !important;
+  color: #71847a !important;
+  font-size: 10px !important;
+}
+.master-excel-page .mep-table-scroll-top-caption span:last-child {
+  color: #285c44 !important;
+  font-size: 10px;
+}
+
+/* Responsive layout: stack controls rather than squeezing labels and filters. */
+@media (max-width: 1100px) {
+  .master-excel-page .mep-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+  .master-excel-page .mep-toolbar {
+    grid-template-columns: minmax(180px, 1fr) minmax(140px, 170px) minmax(130px, 160px) auto !important;
+  }
+}
+@media (max-width: 760px) {
+  .master-excel-page { gap: 12px; }
+  .master-excel-page .mep-page-heading {
+    align-items: flex-start !important;
+  }
+  .master-excel-page .mep-page-heading .mep-primary {
+    min-height: 38px;
+    padding: 0 10px !important;
+    font-size: 10px !important;
+  }
+  .master-excel-page .mep-integrity-alert-compact {
+    align-items: flex-start !important;
+    flex-wrap: wrap;
+  }
+  .master-excel-page .mep-integrity-copy {
+    flex-basis: calc(100% - 44px);
+  }
+  .master-excel-page .mep-integrity-actions {
+    width: 100%;
+    padding-left: 42px;
+  }
+  .master-excel-page .mep-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+  .master-excel-page .mep-summary-card {
+    min-height: 84px;
+    padding: 11px 13px !important;
+  }
+  .master-excel-page .mep-summary-card b {
+    font-size: 23px !important;
+  }
+  .master-excel-page .mep-register-card {
+    padding: 12px !important;
+  }
+  .master-excel-page .mep-toolbar {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .master-excel-page .mep-toolbar input {
+    grid-column: 1 / -1;
+  }
+  .master-excel-page .mep-toolbar .mep-secondary {
+    width: 100%;
+  }
+  .master-excel-page .mep-register-heading {
+    align-items: flex-start;
+  }
+}
+@media (max-width: 480px) {
+  .master-excel-page .mep-page-heading {
+    flex-direction: column !important;
+  }
+  .master-excel-page .mep-page-heading .mep-primary {
+    align-self: flex-start;
+  }
+  .master-excel-page .mep-integrity-topline {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .master-excel-page .mep-register-heading {
+    flex-direction: column;
+    gap: 6px;
+  }
+  .master-excel-page .mep-result-count {
+    align-self: flex-start;
+  }
+  .master-excel-page .mep-toolbar {
+    grid-template-columns: 1fr !important;
+  }
+  .master-excel-page .mep-toolbar input {
+    grid-column: auto;
+  }
+  .master-excel-page .mep-selection {
+    align-items: flex-start;
+  }
+  .master-excel-page .mep-selection > div {
+    flex-wrap: wrap;
+  }
+}
