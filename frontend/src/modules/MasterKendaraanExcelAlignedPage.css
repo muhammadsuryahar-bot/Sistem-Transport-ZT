@@ -13,14 +13,9 @@
 
 
 /* Keep the table clean until a row is selected; expand Aksi only when needed. */
-.mep-table th:last-child,
+/* The action column exists in the DOM only while a vehicle row is active. */
+.mep-table .mep-actions-header,
 .mep-table .mep-actions {
-  width: 64px;
-  min-width: 64px;
-  max-width: 64px;
-}
-.mep-table.mep-has-active-row th:last-child,
-.mep-table.mep-has-active-row .mep-actions {
   width: 168px;
   min-width: 168px;
   max-width: 168px;
@@ -103,14 +98,20 @@
 /* Stable Kendaraan columns: prevent max-content from letting one wide value push
    the real columns off-screen and leave the scroll area looking empty. */
 .master-excel-page .mep-table {
-  width: max(100%, 1908px) !important;
-  min-width: 1908px !important;
+  width: max(100%, 1740px) !important;
+  min-width: 1740px !important;
   max-width: none !important;
   table-layout: fixed !important;
 }
+/* Add 168px only while the contextual Aksi column is rendered. */
+.master-excel-page .mep-table.mep-has-active-row {
+  width: max(100%, 1908px) !important;
+  min-width: 1908px !important;
+}
+/* Multi-select adds its 42px checkbox column, but never the Aksi column. */
 .master-excel-page .mep-table:has(thead .mep-check) {
-  width: max(100%, 1950px) !important;
-  min-width: 1950px !important;
+  width: max(100%, 1782px) !important;
+  min-width: 1782px !important;
 }
 .master-excel-page .mep-table .mep-col-selection { width: 42px !important; }
 .master-excel-page .mep-table .mep-col-identity { width: 260px !important; }
@@ -130,7 +131,7 @@
   overflow-wrap: anywhere !important;
   vertical-align: middle !important;
 }
-.master-excel-page .mep-table thead th:last-child {
+.master-excel-page .mep-table thead th.mep-actions-header {
   width: 168px !important;
   min-width: 168px !important;
   max-width: 168px !important;

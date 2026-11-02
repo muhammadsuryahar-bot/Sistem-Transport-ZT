@@ -32,7 +32,10 @@ test('vehicle row actions are contextual and click gestures toggle cleanly', asy
     readFile(new URL('../src/transport-ui-final.css', import.meta.url), 'utf8'),
   ])
 
-  assert.ok(source.includes('!selectionMode && activeRowId === v.id && <><button type="button" aria-label={`Detail kendaraan'))
+  assert.ok(source.includes('activeRowId === v.id && <><button type="button" aria-label={`Detail kendaraan'))
+  assert.ok(source.includes('{!selectionMode && activeRowId !== null && <col className="mep-col-actions" />}'), 'the Aksi column width is not reserved until a row is clicked')
+  assert.ok(source.includes('{!selectionMode && activeRowId !== null && <th className="mep-actions-header">Aksi</th>}'), 'the Aksi heading only exists while a row is active')
+  assert.ok(source.includes('{!selectionMode && activeRowId !== null && <td className="mep-actions">'), 'Aksi cells are omitted from every row until a row is active')
   assert.ok(source.includes('aria-label={`Edit kendaraan'))
   assert.ok(source.includes('aria-label={`Hapus kendaraan'))
   assert.ok(source.includes('if (selectionMode) { exitSelection(); return }; enterSelectionMode(v.id)'))
@@ -53,8 +56,8 @@ test('vehicle row actions are contextual and click gestures toggle cleanly', asy
   assert.ok(source.includes("vehicleTableState === 'empty'"))
   assert.ok(source.includes("vehicleTableState === 'no-results'"))
   assert.ok(source.includes('if (selectionMode && selected.length === 0)'))
-  assert.ok(css.includes('.mep-table th:last-child,\n.mep-table .mep-actions {\n  width: 64px;\n  min-width: 64px;\n  max-width: 64px;'))
-  assert.ok(css.includes('.mep-table.mep-has-active-row th:last-child,\n.mep-table.mep-has-active-row .mep-actions {\n  width: 168px;\n  min-width: 168px;\n  max-width: 168px;'))
+  assert.ok(css.includes('.mep-table .mep-actions-header,\n.mep-table .mep-actions {\n  width: 168px;\n  min-width: 168px;\n  max-width: 168px;'), 'the Aksi cells get their width only when they are rendered')
+  assert.ok(!css.includes('.mep-table th:last-child'), 'the last data column is never mistaken for the hidden Aksi column')
   assert.ok(css.includes('.mep-actions button.danger'))
   assert.ok(globalCss.includes('.mep-actions { display: table-cell !important;'))
   assert.ok(globalCss.includes('.mep-actions-inner { display: flex !important;'))
