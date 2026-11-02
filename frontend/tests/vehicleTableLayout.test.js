@@ -11,8 +11,11 @@ test('Kendaraan table restores the separate register columns and preserves row a
     readFile(new URL('../src/master-vehicle-table-final.css', import.meta.url), 'utf8'),
   ])
 
-  const expectedHeaders = '<th>No. Pol / Merk / Type</th><th>Jenis</th><th>Kepemilikan</th><th>Jenis Sewa</th><th>Harga Perolehan</th><th>Pemilik</th><th>Driver</th><th>Lokasi Kerja</th><th>Pajak</th><th>Keterangan</th><th>Aksi</th>'
-  assert.ok(page.includes(expectedHeaders), 'the original separate table headers must remain')
+  const expectedHeaders = '<th>No. Pol / Merk / Type</th><th>Jenis</th><th>Kepemilikan</th><th>Jenis Sewa</th><th>Harga Perolehan</th><th>Pemilik</th><th>Driver</th><th>Lokasi Kerja</th><th>Pajak</th><th>Keterangan</th>'
+  assert.ok(page.includes(expectedHeaders), 'the original ten data columns remain in their original order')
+  assert.ok(page.includes('{!selectionMode && activeRowId !== null && <th className="mep-actions-header">Aksi</th>}'), 'the Aksi header only appears after a vehicle row is clicked')
+  assert.ok(page.includes('{!selectionMode && activeRowId !== null && <col className="mep-col-actions" />}'), 'the empty Aksi width is not reserved while no row is selected')
+  assert.ok(page.includes('{!selectionMode && activeRowId !== null && <td className="mep-actions">'), 'the inactive table does not render blank Aksi cells')
   assert.ok(page.includes('<td><span>{v.pemilik || \'-\'}</span></td>'), 'owner stays in its own column')
   assert.ok(page.includes('<td><span>{driver?.nama_lengkap || \'-\'}</span></td>'), 'driver stays in its own column')
   assert.ok(page.includes('activeRowId === v.id') && page.includes('enterSelectionMode(v.id)'), 'row action and multi-select behavior remains')
@@ -38,7 +41,7 @@ test('Kendaraan table restores the separate register columns and preserves row a
   assert.ok(css.includes('.master-excel-page .mep-table thead th,\n.master-excel-page .mep-table tbody td {\n  display: table-cell !important;'), 'all 11 vehicle table cells stay visible')
   assert.ok(css.includes('overflow-x: auto !important;') && css.includes('width: max-content !important;'), 'vehicle table has a real horizontal scroll contract')
   assert.ok(page.includes('<colgroup>{selectionMode && <col className="mep-col-selection" />}<col className="mep-col-identity" />'), 'fixed table columns are declared for normal and bulk-selection modes')
-  assert.ok(css.includes('table-layout: fixed !important;') && css.includes('width: max(100%, 1908px) !important;'), 'vehicle columns cannot expand unpredictably from long cell content')
+  assert.ok(css.includes('table-layout: fixed !important;') && css.includes('width: max(100%, 1740px) !important;') && css.includes('.mep-table.mep-has-active-row {\n  width: max(100%, 1908px) !important;') && css.includes('width: max(100%, 1782px) !important;'), 'table width adds only the active Aksi column or the bulk-select checkbox column')
   assert.ok(css.includes('.mep-col-notes { width: 245px !important; }') && css.includes('.mep-col-actions { width: 168px !important; }'), 'notes and row actions get stable widths at the right edge of the scrollable table')
   assert.ok(css.includes('overflow-wrap: anywhere !important;'), 'long cell values wrap rather than stretching the entire table')
   assert.ok(page.includes('mep-table-scroll-top-caption') && page.includes('Geser untuk melihat kolom lainnya'), 'users get clear instructions above the table')
