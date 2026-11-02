@@ -46,7 +46,7 @@ test('forms, buttons, dashboard guidance, and navigation follow the shared reada
 
   assert.ok(standard.includes('--zt-readable-label: 12.5px;'), 'form labels have a consistent readable size')
   assert.ok(standard.includes('font-size: 13px !important;\n  line-height: 1.4 !important;'), 'form controls use readable input text')
-  assert.ok(standard.includes('font-size: 12.5px !important;\n  line-height: 1.45 !important;'), 'form labels stay readable on small screens')
+  assert.ok(standard.includes('font-size: var(--zt-readable-label) !important;') && standard.includes('font-size: 12.5px !important;'), 'form labels stay readable on desktop and small screens')
   assert.ok(standard.includes('.dashboard-v2 .dashboard-stat-card span'), 'dashboard helper text follows the shared standard')
   assert.ok(standard.includes('.topbar-label'), 'the page header label is not reduced to microtext')
   assert.ok(standard.includes('.page-breadcrumb'), 'breadcrumb text has a readable size')
