@@ -54,4 +54,8 @@ test('Kendaraan table restores the separate register columns and preserves row a
   assert.ok(page.includes('aria-label="Cari kendaraan"') && page.includes('aria-label="Filter kepemilikan"'), 'search and filter controls have clear accessible labels')
   assert.ok(css.includes('.master-excel-page .mep-page-heading') && css.includes('.master-excel-page .mep-register-card'), 'visual refresh is scoped to the Kendaraan page')
   assert.ok(css.includes('@media (max-width: 760px)') && css.includes('@media (max-width: 480px)'), 'page controls rearrange for mobile screens')
+  assert.ok(css.includes('.master-excel-page .mep-table tbody td {\n  font-size: 13px !important;'), 'main vehicle table text remains at a readable 13px size')
+  assert.ok(css.includes('.master-excel-page .mep-table thead th {\n  font-size: 11.5px !important;'), 'vehicle table headings remain legible')
+  assert.ok(css.includes('.master-excel-page .mep-table tbody td:first-child > b {\n  font-size: 14px !important;'), 'vehicle plate numbers receive stronger emphasis')
+  assert.ok(css.includes('.master-excel-page .mep-table tbody td small {\n  font-size: 11.5px !important;'), 'supporting vehicle details do not shrink to tiny text')
 })
