@@ -717,3 +717,74 @@
     flex-wrap: wrap;
   }
 }
+
+/* Readability correction: keep the cleaner layout, but never shrink operational
+   vehicle data to tiny dashboard text. These selectors intentionally outrank
+   shared table typography so the register remains legible on normal screens. */
+.master-excel-page .mep-table thead th {
+  font-size: 11.5px !important;
+  font-weight: 800 !important;
+  line-height: 1.4 !important;
+  letter-spacing: .045em !important;
+  padding: 12px 12px !important;
+}
+.master-excel-page .mep-table tbody td {
+  font-size: 13px !important;
+  font-weight: 550 !important;
+  line-height: 1.5 !important;
+  padding: 12px 12px !important;
+  color: #263b30 !important;
+}
+.master-excel-page .mep-table tbody td:first-child > b {
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  line-height: 1.4 !important;
+  color: #174b36 !important;
+}
+.master-excel-page .mep-table tbody td:first-child > span {
+  font-size: 13px !important;
+  font-weight: 550 !important;
+  line-height: 1.45 !important;
+  color: #263b30 !important;
+}
+.master-excel-page .mep-table tbody td small {
+  font-size: 11.5px !important;
+  font-weight: 500 !important;
+  line-height: 1.45 !important;
+  color: #66786e !important;
+  margin-top: 4px !important;
+}
+.master-excel-page .mep-table .mep-pill {
+  font-size: 11.5px !important;
+  font-weight: 700 !important;
+  line-height: 1.35 !important;
+  padding: 5px 9px !important;
+}
+.master-excel-page .mep-table .mep-actions-inner > button {
+  font-size: 11.5px !important;
+  min-height: 32px !important;
+  padding: 0 9px !important;
+}
+.master-excel-page .mep-hint-simple,
+.master-excel-page .mep-table-scroll-top-caption {
+  font-size: 11.5px !important;
+}
+.master-excel-page .mep-toolbar input,
+.master-excel-page .mep-toolbar select,
+.master-excel-page .mep-toolbar .mep-secondary {
+  font-size: 12px !important;
+}
+@media (max-width: 760px) {
+  .master-excel-page .mep-table thead th {
+    font-size: 11px !important;
+  }
+  .master-excel-page .mep-table tbody td {
+    font-size: 12.5px !important;
+  }
+  .master-excel-page .mep-table tbody td:first-child > b {
+    font-size: 13.5px !important;
+  }
+  .master-excel-page .mep-table tbody td small {
+    font-size: 11px !important;
+  }
+}
