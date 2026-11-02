@@ -1206,3 +1206,344 @@ select { touch-action: manipulation; }
   }
 }
 
+/* -------------------------------------------------------------------------
+   SYSTEM-WIDE READABILITY STANDARD
+   Shared by Dashboard, Kendaraan, Pengajuan, Service, Sewa, Dokumen,
+   Laporan, and Pengguna. Important information must not be rendered as
+   tiny caption text. This layer is intentionally last so older duplicate
+   rules cannot silently shrink operational text again.
+   ------------------------------------------------------------------------- */
+:root {
+  --zt-readable-body: 14px;
+  --zt-readable-table: 13.5px;
+  --zt-readable-heading: 12px;
+  --zt-readable-label: 12.5px;
+  --zt-readable-meta: 12px;
+}
+
+/* Navigation and page orientation. */
+.nav-section-label {
+  font-size: 10.5px !important;
+}
+.topbar-label {
+  font-size: 10.5px !important;
+  line-height: 1.35 !important;
+}
+.topbar-user strong {
+  font-size: 13px !important;
+}
+.topbar-user span,
+.user-mini-text span {
+  font-size: 11px !important;
+}
+.user-mini-text strong {
+  font-size: 12px !important;
+}
+.page-breadcrumb {
+  font-size: 12px !important;
+  line-height: 1.45 !important;
+}
+.eyebrow {
+  font-size: 10.5px !important;
+  line-height: 1.35 !important;
+}
+
+/* Main operational tables use the same readable type scale. */
+.x-table thead th,
+.m-table thead th,
+.request-table thead th,
+.mep-table thead th,
+.users-table thead th {
+  font-size: var(--zt-readable-heading) !important;
+  line-height: 1.4 !important;
+  letter-spacing: .045em !important;
+  padding: 12px 13px !important;
+}
+.x-table tbody td,
+.m-table tbody td,
+.request-table tbody td,
+.users-table tbody td {
+  font-size: var(--zt-readable-table) !important;
+  line-height: 1.5 !important;
+  padding: 12px 13px !important;
+}
+.master-excel-page .mep-table tbody td {
+  font-size: var(--zt-readable-table) !important;
+  line-height: 1.5 !important;
+  padding: 12px 13px !important;
+}
+.x-table tbody td small,
+.m-table tbody td small,
+.request-table tbody td small,
+.mep-table tbody td small,
+.users-table tbody td small {
+  font-size: var(--zt-readable-meta) !important;
+  line-height: 1.45 !important;
+  color: #62756a !important;
+}
+.x-table tbody td:first-child b,
+.mep-table tbody td:first-child b {
+  font-weight: 750 !important;
+}
+.x-row-actions button,
+.m-row-actions button,
+.x-action-compact button,
+.x-action-compact .x-link,
+.request-actions .request-detail-button,
+.mep-actions button {
+  min-height: 36px !important;
+  height: 36px !important;
+  font-size: 12.5px !important;
+  padding: 0 10px !important;
+}
+.mep-table .mep-pill,
+.request-table .request-status,
+.request-table .request-priority,
+.users-status,
+.users-audit-pill {
+  font-size: 12px !important;
+  line-height: 1.35 !important;
+}
+
+/* Excel-like clean tables retain their roomy data-first appearance. */
+.dpt-clean-data-table thead th:not(.dpt-col-hidden) {
+  font-size: 12px !important;
+  line-height: 1.4 !important;
+}
+.dpt-clean-data-table tbody td:not(.dpt-col-hidden) {
+  font-size: 14.5px !important;
+  line-height: 1.55 !important;
+}
+.dpt-clean-data-table tbody td:not(.dpt-col-hidden) small {
+  font-size: 12px !important;
+  line-height: 1.45 !important;
+}
+
+/* Form labels and controls are readable without making forms oversized. */
+.x-grid label,
+.m-form-grid label,
+.request-field label,
+.mep-form label,
+.report-period-grid label,
+.scp-note-field {
+  font-size: var(--zt-readable-label) !important;
+  line-height: 1.45 !important;
+}
+.x-grid input:not([type="file"]),
+.x-grid select,
+.x-grid textarea,
+.m-form-grid input:not([type="file"]),
+.m-form-grid select,
+.m-form-grid textarea,
+.request-field input:not([type="file"]),
+.request-field select,
+.request-field textarea,
+.request-toolbar input,
+.request-toolbar select,
+.m-toolbar input,
+.m-toolbar select,
+.mep-form input:not([type="file"]),
+.mep-form select,
+.mep-form textarea,
+.mep-toolbar input,
+.mep-toolbar select,
+.x-toolbar-inline input,
+.x-toolbar-inline select {
+  font-size: 13px !important;
+  line-height: 1.4 !important;
+}
+.x-grid input:not([type="file"]),
+.x-grid select,
+.m-form-grid input:not([type="file"]),
+.m-form-grid select,
+.request-field input:not([type="file"]),
+.request-field select,
+.mep-form input:not([type="file"]),
+.mep-form select {
+  min-height: 42px !important;
+}
+.x-tabs button {
+  font-size: 13px !important;
+  min-height: 40px !important;
+}
+.x-btn,
+.m-btn,
+.request-primary-button,
+.request-light-button,
+.request-detail-button,
+.primary-button,
+.secondary-button {
+  font-size: 13px !important;
+}
+.x-card-title p,
+.x-head p,
+.request-header p,
+.mep-page-heading p,
+.mep-register-heading p,
+.dashboard-v2-intro p {
+  font-size: 13px !important;
+  line-height: 1.55 !important;
+}
+.x-selection-hint,
+.request-selection-hint,
+.request-toolbar-note,
+.mep-hint,
+.mep-table-scroll-top-caption,
+.service-excel-scroll-label,
+.service-excel-scroll-label small {
+  font-size: 12px !important;
+  line-height: 1.5 !important;
+}
+
+/* Dashboard summaries and status explanations. */
+.dashboard-v2 .dashboard-stat-card span,
+.dashboard-v2 .dashboard-panel-subtitle,
+.dashboard-v2 .quick-action-copy small,
+.dashboard-v2 .action-copy-v2 small,
+.dashboard-v2 .flow-content-v2 small,
+.dashboard-v2 .dashboard-attention-meta,
+.dashboard-v2 .dashboard-highlight-list span,
+.dashboard-v2 .dashboard-highlight-list small,
+.dashboard-v2 .notice-list-v2 > div,
+.dashboard-v2 .dashboard-empty-state,
+.dashboard-v2 .dashboard-empty-state-success small {
+  font-size: 12px !important;
+  line-height: 1.5 !important;
+}
+.dashboard-v2 .dashboard-stat-card small {
+  font-size: 11.5px !important;
+  line-height: 1.45 !important;
+}
+.dashboard-v2 .dashboard-stat-card strong {
+  font-size: 27px !important;
+}
+.dashboard-v2 .dashboard-v2-alert {
+  font-size: 13px !important;
+  line-height: 1.5 !important;
+}
+.quick-action small,
+.flow-step span,
+.stat-card small,
+.empty-note {
+  font-size: 12px !important;
+  line-height: 1.5 !important;
+}
+.stat-card span,
+.quick-action strong,
+.flow-step strong {
+  font-size: 12.5px !important;
+}
+
+/* Metadata and explanation text across operational panels. */
+.users-info-item span,
+.users-summary-item span,
+.users-account-note,
+.users-audit-meta-grid span,
+.data-quality-main small,
+.data-quality-details,
+.service-filter-summary span,
+.service-completion-head p,
+.scp-section-head span,
+.scp-empty,
+.report-period-summary span,
+.report-period-summary small {
+  font-size: 12px !important;
+  line-height: 1.5 !important;
+}
+.app-global-error,
+.x-alert,
+.m-alert,
+.request-alert,
+.dashboard-v2-alert,
+.mep-alert {
+  font-size: 13px !important;
+  line-height: 1.5 !important;
+}
+
+/* Small screens: retain readability; only layout density changes. */
+@media (max-width: 760px) {
+  .page-breadcrumb {
+    font-size: 11.5px !important;
+  }
+  .x-table thead th,
+  .m-table thead th,
+  .request-table thead th,
+  .mep-table thead th,
+  .users-table thead th {
+    font-size: 11.5px !important;
+    padding: 11px 12px !important;
+  }
+  .x-table tbody td,
+  .m-table tbody td,
+  .request-table tbody td,
+  .users-table tbody td,
+  .master-excel-page .mep-table tbody td {
+    font-size: 13px !important;
+    padding: 11px 12px !important;
+  }
+  .x-table tbody td small,
+  .m-table tbody td small,
+  .request-table tbody td small,
+  .mep-table tbody td small,
+  .users-table tbody td small {
+    font-size: 11.5px !important;
+  }
+  .dpt-clean-data-table thead th:not(.dpt-col-hidden) {
+    font-size: 11.5px !important;
+  }
+  .dpt-clean-data-table tbody td:not(.dpt-col-hidden) {
+    font-size: 13.5px !important;
+  }
+  .x-grid label,
+  .m-form-grid label,
+  .request-field label,
+  .mep-form label,
+  .report-period-grid label,
+  .scp-note-field {
+    font-size: 12.5px !important;
+  }
+  .x-grid input:not([type="file"]),
+  .x-grid select,
+  .x-grid textarea,
+  .m-form-grid input:not([type="file"]),
+  .m-form-grid select,
+  .m-form-grid textarea,
+  .request-field input:not([type="file"]),
+  .request-field select,
+  .request-field textarea,
+  .request-toolbar input,
+  .request-toolbar select,
+  .m-toolbar input,
+  .m-toolbar select,
+  .mep-form input:not([type="file"]),
+  .mep-form select,
+  .mep-form textarea,
+  .mep-toolbar input,
+  .mep-toolbar select,
+  .x-toolbar-inline input,
+  .x-toolbar-inline select {
+    font-size: 13px !important;
+  }
+  .x-selection-hint,
+  .request-selection-hint,
+  .mep-hint,
+  .mep-table-scroll-top-caption {
+    font-size: 11.5px !important;
+  }
+}
+
+@media (max-width: 430px) {
+  .topbar-label {
+    font-size: 10px !important;
+  }
+  .nav-section-label {
+    font-size: 10px !important;
+  }
+  .x-tabs button,
+  .x-btn,
+  .m-btn,
+  .request-primary-button,
+  .request-light-button {
+    font-size: 12.5px !important;
+  }
+}
