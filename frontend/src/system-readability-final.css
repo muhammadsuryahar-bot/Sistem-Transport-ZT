@@ -491,3 +491,50 @@
     font-size: 12.5px !important;
   }
 }
+
+/* Additional page-specific labels discovered during the markup audit. */
+.request-summary-grid span {
+  font-size: 13px !important;
+  line-height: 1.45 !important;
+}
+.request-summary-grid strong {
+  font-size: 24px !important;
+}
+.request-detail-grid span,
+.request-vehicle-preview span {
+  font-size: 12.5px !important;
+  line-height: 1.45 !important;
+}
+.request-detail-grid strong,
+.request-vehicle-preview strong {
+  font-size: 14px !important;
+  line-height: 1.45 !important;
+}
+.request-field small,
+.request-footer,
+.request-selection-meta span,
+.request-selection-hint {
+  font-size: 12.5px !important;
+  line-height: 1.5 !important;
+}
+.request-benchmark-grid label {
+  font-size: 13.5px !important;
+}
+.document-status-expired,
+.document-status-segera,
+.document-status-aman,
+.document-status-tanpa_tanggal {
+  font-size: 13px !important;
+  line-height: 1.35 !important;
+}
+.login-page .login-form label {
+  font-size: 13.5px !important;
+}
+.login-page .login-form input[type="email"],
+.login-page .login-form input[type="password"],
+.login-page .login-form input[type="text"] {
+  font-size: 14px !important;
+}
+.login-page .login-footnote {
+  font-size: 12.5px !important;
+}
