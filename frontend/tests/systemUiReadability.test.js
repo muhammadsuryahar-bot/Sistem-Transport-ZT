@@ -11,6 +11,7 @@ test('all primary transport modules are routed through the shared application sh
   ])
 
   assert.ok(main.includes("import './transport-ui-final.css'"), 'the shared UI contract is loaded by the application entry point')
+  assert.ok(main.trimEnd().endsWith("import './system-readability-final.css'"), 'the final readability rules load after every other global stylesheet')
   for (const route of [
     'dashboard: <DashboardFeaturePage',
     'kendaraan: <KendaraanPage',
@@ -58,4 +59,21 @@ test('wide operational tables remain locally scrollable on desktop and mobile', 
   assert.ok(css.includes('overflow-x: auto !important;'), 'wide tables scroll horizontally inside their own viewport')
   assert.ok(css.includes('.x-table-wrap'), 'service and operational tables retain the shared scroll wrapper')
   assert.ok(css.includes('.request-table-wrap'), 'request history tables retain the shared scroll wrapper')
+})
+
+
+test('the final readability layer raises data, headings, details, controls and navigation across modules', async () => {
+  const css = await read('../src/system-readability-final.css')
+  const main = await read('../src/main.jsx')
+
+  assert.ok(main.trimEnd().endsWith("import './system-readability-final.css'"), 'the stylesheet is applied last to win over legacy module rules')
+  assert.ok(css.includes('font-size: 14.5px !important;'), 'operational table data is larger and comfortable to read')
+  assert.ok(css.includes('font-size: 13px !important;') && css.includes('font-size: 13.5px !important;'), 'table headings, labels and actions have a consistent readable scale')
+  assert.ok(css.includes('font-size: 13px !important;\n  line-height: 1.45 !important;\n  color: #66786e !important;'), 'supporting row details remain readable')
+  assert.ok(css.includes('.service-filter-summary span') && css.includes('.request-print-grid span'), 'Data Service summary and print labels are covered')
+  assert.ok(css.includes('.scp-detail-grid span') && css.includes('.scp-note-field textarea'), 'Service approval details and notes are covered')
+  assert.ok(css.includes('.report-period-summary span') && css.includes('.users-audit-meta-grid span'), 'report summaries and user audit metadata are covered')
+  assert.ok(css.includes('.dashboard-v2 .dashboard-bar-meta small') && css.includes('.dashboard-v2 .dashboard-gauge span'), 'Dashboard chart annotations remain readable')
+  assert.ok(css.includes('.dashboard-layout .sidebar .nav-item'), 'navigation labels are part of the readability standard')
+  assert.ok(css.includes('@media (max-width: 760px)'), 'the same standards are checked for mobile layouts')
 })
