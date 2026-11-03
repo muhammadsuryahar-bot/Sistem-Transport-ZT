@@ -789,3 +789,62 @@
     font-size: 11px !important;
   }
 }
+
+/* Final readable type scale for the Kendaraan register.
+   Data values are intentionally larger than captions and column labels. */
+.master-excel-page .mep-table thead th {
+  font-size: 13px !important;
+  line-height: 1.4 !important;
+  padding: 13px 13px !important;
+}
+.master-excel-page .mep-table tbody td {
+  font-size: 14.5px !important;
+  line-height: 1.55 !important;
+  padding: 13px 13px !important;
+}
+.master-excel-page .mep-table tbody td:first-child > b {
+  font-size: 16px !important;
+  line-height: 1.35 !important;
+}
+.master-excel-page .mep-table tbody td:first-child > span {
+  font-size: 14.5px !important;
+  line-height: 1.45 !important;
+}
+.master-excel-page .mep-table tbody td small {
+  font-size: 13px !important;
+  line-height: 1.45 !important;
+}
+.master-excel-page .mep-table .mep-pill {
+  font-size: 13px !important;
+  line-height: 1.35 !important;
+}
+.master-excel-page .mep-table .mep-actions-inner > button {
+  font-size: 13px !important;
+  min-height: 36px !important;
+  padding: 0 10px !important;
+}
+.master-excel-page .mep-hint-simple,
+.master-excel-page .mep-table-scroll-top-caption {
+  font-size: 12.5px !important;
+  line-height: 1.5 !important;
+}
+.master-excel-page .mep-toolbar input,
+.master-excel-page .mep-toolbar select,
+.master-excel-page .mep-toolbar .mep-secondary {
+  font-size: 14px !important;
+  min-height: 42px !important;
+}
+@media (max-width: 760px) {
+  .master-excel-page .mep-table thead th {
+    font-size: 12.5px !important;
+  }
+  .master-excel-page .mep-table tbody td {
+    font-size: 14px !important;
+  }
+  .master-excel-page .mep-table tbody td:first-child > b {
+    font-size: 15px !important;
+  }
+  .master-excel-page .mep-table tbody td small {
+    font-size: 12.5px !important;
+  }
+}
