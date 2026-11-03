@@ -73,6 +73,8 @@ test('the final readability layer raises data, headings, details, controls and n
   assert.ok(css.includes('.service-filter-summary span') && css.includes('.request-print-grid span'), 'Data Service summary and print labels are covered')
   assert.ok(css.includes('.scp-detail-grid span') && css.includes('.scp-note-field textarea'), 'Service approval details and notes are covered')
   assert.ok(css.includes('.document-status-expired') && css.includes('.document-status-aman'), 'document expiry states remain readable')
+  assert.ok(css.includes('.request-detail-grid span') && css.includes('.request-vehicle-preview span'), 'Data Service detail labels are not rendered as tiny captions')
+  assert.ok(css.includes('.login-page .login-form label') && css.includes('.login-page .login-form input[type="email"]'), 'login labels and inputs retain readable text sizes')
   assert.ok(css.includes('.report-period-summary span') && css.includes('.users-audit-meta-grid span'), 'report summaries and user audit metadata are covered')
   assert.ok(css.includes('.dashboard-v2 .dashboard-bar-meta small') && css.includes('.dashboard-v2 .dashboard-gauge span'), 'Dashboard chart annotations remain readable')
   assert.ok(css.includes('.dashboard-layout .sidebar .nav-item'), 'navigation labels are part of the readability standard')
