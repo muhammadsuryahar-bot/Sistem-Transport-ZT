@@ -11,7 +11,7 @@ test('all primary transport modules are routed through the shared application sh
   ])
 
   assert.ok(main.includes("import './transport-ui-final.css'"), 'the shared UI contract is loaded by the application entry point')
-  const styleImports = main.split('\\n').filter(line => line.startsWith('import ./') && line.endsWith('.css\'') )
+  const styleImports = main.split(String.fromCharCode(10)).filter(line => line.startsWith("import './") && line.endsWith(".css'"))\\n').filter(line => line.startsWith('import ./') && line.endsWith('.css\'') )
   assert.equal(styleImports.at(-1), "import './system-readability-final.css'", 'the final readability rules load after every other global stylesheet')
   for (const route of [
     'dashboard: <DashboardFeaturePage',
@@ -67,7 +67,7 @@ test('the final readability layer raises data, headings, details, controls and n
   const css = await read('../src/system-readability-final.css')
   const main = await read('../src/main.jsx')
 
-  const styleImports = main.split('\\n').filter(line => line.startsWith('import ./') && line.endsWith('.css\'') )
+  const styleImports = main.split(String.fromCharCode(10)).filter(line => line.startsWith("import './") && line.endsWith(".css'"))\\n').filter(line => line.startsWith('import ./') && line.endsWith('.css\'') )
   assert.equal(styleImports.at(-1), "import './system-readability-final.css'", 'the stylesheet is applied last to win over legacy module rules')
   assert.ok(css.includes('font-size: 14.5px !important;'), 'operational table data is larger and comfortable to read')
   assert.ok(css.includes('font-size: 13px !important;') && css.includes('font-size: 13.5px !important;'), 'table headings, labels and actions have a consistent readable scale')
