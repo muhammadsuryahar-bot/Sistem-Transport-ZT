@@ -84,3 +84,20 @@ test('monitoring actions that add or edit documents still open the same on-deman
   assert.ok(source.includes("setForm(current=>({...current,kendaraan_id:String(monitorDetail.vehicle.id),jenis_dokumen:type}));setShowDocForm(true)"), 'Tambah from monitoring detail opens a prepared document form')
   assert.ok(source.includes("if(doc)edit(doc)"), 'existing monitoring documents continue to open their populated edit form')
 })
+
+
+
+test('Rental add/edit panels provide explicit Batal controls for every long form', async () => {
+  const source = await read('../src/modules/RentalFeaturePage.jsx')
+  assert.ok((source.match(/>Batal<\/button>/g) || []).length >= 5, 'Owner, contract, payment, history and repair forms each provide Batal')
+  for (const reset of ['onClick={resetOwnerForm}', 'onClick={resetContractForm}', 'onClick={resetPaymentForm}', 'onClick={resetHistoryForm}', 'onClick={resetRepairForm}']) {
+    assert.ok(source.includes(reset), `${reset} is connected to the form cancel/reset action`)
+  }
+  assert.ok(source.includes("onClick={()=>{resetContractForm();setTab('kontrak');setOpenRentalForm('kontrak')}}"), 'quick add from the rental vehicle list opens a new contract form')
+})
+
+test('Document summary shortcuts close the editor and return focus to the document list', async () => {
+  const source = await read('../src/modules/DocumentsFeaturePage.jsx')
+  assert.ok(source.includes("if (canManage) { setViewMode('detail'); setShowDocForm(false) }"), 'summary filters do not leave an unrelated edit form open')
+  assert.ok(source.includes('>+ Tambah Dokumen</button>'), 'the list keeps an obvious add action')
+})
