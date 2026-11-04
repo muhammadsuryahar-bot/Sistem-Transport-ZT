@@ -38,6 +38,7 @@ async function signedRentalFile(path) {
 
 export default function RentalFeaturePage({ profile, onNavigate }) {
   const [tab, setTab] = useState('kontrak')
+  const [openRentalForm, setOpenRentalForm] = useState(null)
   const [owners, setOwners] = useState([])
   const [contracts, setContracts] = useState([])
   const [payments, setPayments] = useState([])
@@ -192,8 +193,8 @@ export default function RentalFeaturePage({ profile, onNavigate }) {
 
   const clearMessages = () => { setError(''); setSuccess('') }
 
-  const resetOwnerForm = () => { setOwner(EMPTY_OWNER); setEditingOwnerId(null) }
-  const editOwner = row => { setEditingOwnerId(row.id); setOwner({ ...EMPTY_OWNER, ...row, nama_pemilik: row.nama_pemilik || '', nama_perusahaan: row.nama_perusahaan || '', nomor_identitas: row.nomor_identitas || '', nomor_hp: row.nomor_hp || '', email: row.email || '', alamat: row.alamat || '', nomor_rekening: row.nomor_rekening || '', nama_bank: row.nama_bank || '', keterangan: row.keterangan || '' }); setTab('pemilik') }
+  const resetOwnerForm = () => { setOwner(EMPTY_OWNER); setEditingOwnerId(null); setOpenRentalForm(null) }
+  const editOwner = row => { setEditingOwnerId(row.id); setOwner({ ...EMPTY_OWNER, ...row, nama_pemilik: row.nama_pemilik || '', nama_perusahaan: row.nama_perusahaan || '', nomor_identitas: row.nomor_identitas || '', nomor_hp: row.nomor_hp || '', email: row.email || '', alamat: row.alamat || '', nomor_rekening: row.nomor_rekening || '', nama_bank: row.nama_bank || '', keterangan: row.keterangan || '' }); setTab('pemilik'); setOpenRentalForm('pemilik') }
   const deleteOwner = async row => {
     if (!editable) return
     if (contracts.some(c => Number(c.pemilik_sewa_id) === Number(row.id))) return setError('Pemilik masih dipakai pada kontrak. Hapus/ubah kontraknya terlebih dahulu.')
@@ -214,8 +215,8 @@ export default function RentalFeaturePage({ profile, onNavigate }) {
       resetOwnerForm(); setSuccess(editingOwnerId ? 'Pemilik sewa diperbarui.' : 'Pemilik sewa tersimpan.')
     } catch (e1) { setError(humanizeError(e1)) } finally { setSaving(false) }
   }
-  const resetContractForm = () => { setContract(EMPTY_CONTRACT); setContractFile(null); setEditingContractId(null) }
-  const editContract = row => { setEditingContractId(row.id); setContract({ ...EMPTY_CONTRACT, ...row, kendaraan_id: String(row.kendaraan_id), pemilik_sewa_id: String(row.pemilik_sewa_id), nilai_sewa_bulanan: row.nilai_sewa_bulanan ?? '', tanggal_jatuh_tempo_bulanan: row.tanggal_jatuh_tempo_bulanan ?? '' }); setContractFile(null); setTab('kontrak') }
+  const resetContractForm = () => { setContract(EMPTY_CONTRACT); setContractFile(null); setEditingContractId(null); setOpenRentalForm(null) }
+  const editContract = row => { setEditingContractId(row.id); setContract({ ...EMPTY_CONTRACT, ...row, kendaraan_id: String(row.kendaraan_id), pemilik_sewa_id: String(row.pemilik_sewa_id), nilai_sewa_bulanan: row.nilai_sewa_bulanan ?? '', tanggal_jatuh_tempo_bulanan: row.tanggal_jatuh_tempo_bulanan ?? '' }); setContractFile(null); setTab('kontrak'); setOpenRentalForm('kontrak') }
   const deleteContract = async row => {
     if (!editable) return
     const dataReady = await loadRentalTabData('pembayaran')
@@ -242,11 +243,11 @@ export default function RentalFeaturePage({ profile, onNavigate }) {
       resetContractForm(); setSuccess(editingContractId ? 'Kontrak sewa diperbarui.' : 'Kontrak 6 bulan dan dokumen kontrak tersimpan.')
     } catch (e2) { if (contractPath) await supabase.storage.from('dokumen-sewa').remove([contractPath]); setError(humanizeError(e2)) } finally { setSaving(false) }
   }
-  const resetPaymentForm = () => { setPayment(EMPTY_PAYMENT); setPaymentFile(null); setEditingPaymentId(null) }
+  const resetPaymentForm = () => { setPayment(EMPTY_PAYMENT); setPaymentFile(null); setEditingPaymentId(null); setOpenRentalForm(null) }
   const editPayment = async row => {
     const rel = await supabase.from('potongan_pembayaran_sewa').select('id').eq('pembayaran_sewa_id', row.id).limit(1)
     if (rel.data?.length) return setError('Pembayaran yang sudah memiliki potongan repair tidak diedit dari form ini. Gunakan detail sebagai arsip agar riwayat potongan tetap konsisten.')
-    setEditingPaymentId(row.id); setPayment({ kontrak_sewa_id: row.kontrak_sewa_id, periode_ke: row.periode_ke ?? '', bulan_pembayaran: row.bulan_pembayaran || '', tanggal_jatuh_tempo: row.tanggal_jatuh_tempo || '', tanggal_pembayaran: row.tanggal_pembayaran || '', jumlah_tagihan: row.jumlah_tagihan_bruto ?? row.jumlah_tagihan ?? '', jumlah_dibayar: row.jumlah_dibayar ?? '', metode_pembayaran: row.metode_pembayaran || '', nomor_referensi: row.nomor_referensi || '', catatan: row.catatan || '', perbaikan_sewa_id: '', jumlah_potongan: '' }); setPaymentFile(null); setTab('pembayaran')
+    setEditingPaymentId(row.id); setPayment({ kontrak_sewa_id: row.kontrak_sewa_id, periode_ke: row.periode_ke ?? '', bulan_pembayaran: row.bulan_pembayaran || '', tanggal_jatuh_tempo: row.tanggal_jatuh_tempo || '', tanggal_pembayaran: row.tanggal_pembayaran || '', jumlah_tagihan: row.jumlah_tagihan_bruto ?? row.jumlah_tagihan ?? '', jumlah_dibayar: row.jumlah_dibayar ?? '', metode_pembayaran: row.metode_pembayaran || '', nomor_referensi: row.nomor_referensi || '', catatan: row.catatan || '', perbaikan_sewa_id: '', jumlah_potongan: '' }); setPaymentFile(null); setTab('pembayaran'); setOpenRentalForm('pembayaran')
   }
   const deletePayment = async row => {
     if (!editable) return
@@ -303,8 +304,8 @@ export default function RentalFeaturePage({ profile, onNavigate }) {
       setError(humanizeError(e3))
     } finally { setSaving(false) }
   }
-  const resetRepairForm = () => { setRepair(EMPTY_REPAIR); setRepairPhoto(null); setRepairProof(null); setEditingRepairId(null) }
-  const editRepair = row => { setEditingRepairId(row.id); setRepair({ ...EMPTY_REPAIR, ...row, kontrak_sewa_id: String(row.kontrak_sewa_id), kendaraan_id: String(row.kendaraan_id), kilometer: row.kilometer ?? '', estimasi_biaya: row.estimasi_biaya ?? '', biaya_aktual: row.biaya_aktual ?? '', jumlah_dipotong: row.jumlah_dipotong ?? '' }); setRepairPhoto(null); setRepairProof(null); setTab('repair') }
+  const resetRepairForm = () => { setRepair(EMPTY_REPAIR); setRepairPhoto(null); setRepairProof(null); setEditingRepairId(null); setOpenRentalForm(null) }
+  const editRepair = row => { setEditingRepairId(row.id); setRepair({ ...EMPTY_REPAIR, ...row, kontrak_sewa_id: String(row.kontrak_sewa_id), kendaraan_id: String(row.kendaraan_id), kilometer: row.kilometer ?? '', estimasi_biaya: row.estimasi_biaya ?? '', biaya_aktual: row.biaya_aktual ?? '', jumlah_dipotong: row.jumlah_dipotong ?? '' }); setRepairPhoto(null); setRepairProof(null); setTab('repair'); setOpenRentalForm('repair') }
   const deleteRepair = async row => {
     if (!repairEditable) return
     const dataReady = await loadRentalTabData('pembayaran')
@@ -388,8 +389,8 @@ export default function RentalFeaturePage({ profile, onNavigate }) {
     })
   }, [historicalRows, historySearch, historyYear, historySupplier, historyPeriod, historyMinInvoice, historyMaxInvoice])
   const historyTotal = useMemo(() => filteredHistory.reduce((sum,row)=>sum+Number(row.nilai_invoice||0),0), [filteredHistory])
-  const resetHistoryForm = () => { setHistoryForm({ id:null, source_no:'', tahun:new Date().getFullYear(), supplier:'', uraian:'', periode_tagihan:'', nilai_invoice:'' }); setEditingHistory(null) }
-  const editHistory = row => { setEditingHistory(row); setHistoryForm({ id:row.id, source_no:row.no_excel, tahun:row.tahun, supplier:row.supplier === '-' ? '' : row.supplier, uraian:row.uraian === '-' ? '' : row.uraian, periode_tagihan:row.periode_tagihan === '-' ? '' : row.periode_tagihan, nilai_invoice:row.nilai_invoice }); setTab('historis') }
+  const resetHistoryForm = () => { setHistoryForm({ id:null, source_no:'', tahun:new Date().getFullYear(), supplier:'', uraian:'', periode_tagihan:'', nilai_invoice:'' }); setEditingHistory(null); setOpenRentalForm(null) }
+  const editHistory = row => { setEditingHistory(row); setHistoryForm({ id:row.id, source_no:row.no_excel, tahun:row.tahun, supplier:row.supplier === '-' ? '' : row.supplier, uraian:row.uraian === '-' ? '' : row.uraian, periode_tagihan:row.periode_tagihan === '-' ? '' : row.periode_tagihan, nilai_invoice:row.nilai_invoice }); setTab('historis'); setOpenRentalForm('historis') }
   const saveHistory = async e => {
     e.preventDefault(); clearMessages()
     if(!String(historyForm.tahun).trim() || !historyForm.supplier.trim() || !historyForm.uraian.trim() || !String(historyForm.periode_tagihan).trim() || Number(historyForm.nilai_invoice) < 0) return setError('Tahun, supplier, uraian, periode tagihan, dan nilai invoice wajib diisi.')
@@ -414,6 +415,28 @@ export default function RentalFeaturePage({ profile, onNavigate }) {
 
 
   const rentalTabs = [['kendaraan', 'Daftar Sewa'], ['kontrak', 'Kontrak'], ['pemilik', 'Pemilik'], ['pembayaran', 'Pembayaran'], ['historis', 'Summary Rental'], ['repair', 'Perbaikan']]
+
+  const rentalFormConfig = {
+    pemilik: { label: 'Tambah Pemilik', id: 'rental-owner-form', allowed: editable },
+    kontrak: { label: 'Tambah Kontrak', id: 'rental-contract-form', allowed: editable },
+    pembayaran: { label: 'Tambah Pembayaran', id: 'rental-payment-form', allowed: editable },
+    historis: { label: 'Tambah Data', id: 'rental-history-form', allowed: historyEditable },
+    repair: { label: 'Tambah Perbaikan', id: 'rental-repair-form', allowed: repairEditable },
+  }[tab]
+  const toggleRentalForm = () => {
+    if (!rentalFormConfig?.allowed) return
+    clearMessages()
+    if (openRentalForm === tab) {
+      setOpenRentalForm(null)
+      return
+    }
+    if (tab === 'pemilik') resetOwnerForm()
+    if (tab === 'kontrak') resetContractForm()
+    if (tab === 'pembayaran') resetPaymentForm()
+    if (tab === 'historis') resetHistoryForm()
+    if (tab === 'repair') resetRepairForm()
+    setOpenRentalForm(tab)
+  }
 
   return <div className="x-page">
     <Header breadcrumb={rentalTabs.find(([v]) => v === tab)?.[1]} title="Administrasi Kendaraan Sewa" text="Master kendaraan tetap berada di menu Kendaraan. Halaman ini khusus untuk administrasi kendaraan Sewa: pemilik, kontrak 6 bulan, pembayaran, bukti, perbaikan, dan potongan." action={<button className="x-btn secondary" onClick={load}>↻ Refresh</button>} />
