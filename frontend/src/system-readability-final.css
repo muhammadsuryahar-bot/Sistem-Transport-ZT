@@ -538,3 +538,153 @@
 .login-page .login-footnote {
   font-size: 12.5px !important;
 }
+
+/* Final page-by-page corrections from the detailed component audit. */
+.master-excel-page .mep-summary-card .mep-stat-label {
+  font-size: 13px !important;
+  line-height: 1.4 !important;
+}
+.master-excel-page .mep-summary-card .mep-stat-note {
+  font-size: 12px !important;
+  line-height: 1.4 !important;
+}
+.master-excel-page .mep-integrity-count,
+.master-excel-page .mep-result-count {
+  font-size: 12px !important;
+  line-height: 1.35 !important;
+}
+.master-excel-page .mep-integrity-copy > span,
+.master-excel-page .mep-hint-simple,
+.master-excel-page .mep-table-scroll-top-caption {
+  font-size: 12.5px !important;
+  line-height: 1.5 !important;
+}
+.master-excel-page .mep-integrity-topline b,
+.master-excel-page .mep-integrity-actions button {
+  font-size: 13px !important;
+}
+.master-excel-page .mep-toolbar input,
+.master-excel-page .mep-toolbar select,
+.master-excel-page .mep-toolbar .mep-secondary {
+  font-size: 14px !important;
+  min-height: 42px !important;
+}
+.master-excel-page .mep-detail > div > span,
+.master-excel-page .mep-detail-photos > div > span,
+.master-excel-page .mep-photo > span {
+  font-size: 12.5px !important;
+  line-height: 1.45 !important;
+}
+.master-excel-page .mep-detail > div > b {
+  font-size: 14.5px !important;
+  line-height: 1.5 !important;
+}
+.master-excel-page .mep-photo-section > div:first-child > b {
+  font-size: 14px !important;
+}
+.master-excel-page .mep-photo-section > div:first-child > span,
+.master-excel-page .mep-photo small {
+  font-size: 12.5px !important;
+  line-height: 1.5 !important;
+}
+
+/* Dashboard visual explanations and state summaries. */
+.dashboard-v2 .dashboard-health-copy > strong,
+.dashboard-v2 .dashboard-highlight-list > div > b {
+  font-size: 14px !important;
+  line-height: 1.45 !important;
+}
+.dashboard-v2 .dashboard-empty-state-success strong,
+.dashboard-v2 .flow-item-v2 > b {
+  font-size: 13px !important;
+  line-height: 1.45 !important;
+}
+.dashboard-v2 .dashboard-highlight-list > div > span,
+.dashboard-v2 .dashboard-highlight-list > div > small,
+.dashboard-v2 .dashboard-bar-meta small,
+.dashboard-v2 .dashboard-gauge span {
+  font-size: 12.5px !important;
+  line-height: 1.45 !important;
+}
+
+/* Data Quality and Audit Trail contain important review evidence, not decoration. */
+.data-quality-main strong {
+  font-size: 14.5px !important;
+  line-height: 1.45 !important;
+}
+.data-quality-main small,
+.data-quality-details,
+.data-quality-count {
+  font-size: 13px !important;
+  line-height: 1.5 !important;
+}
+.users-audit-meta-grid span {
+  font-size: 13px !important;
+}
+.users-audit-meta-grid strong {
+  font-size: 14.5px !important;
+  line-height: 1.45 !important;
+}
+.users-audit-pill {
+  font-size: 13px !important;
+  line-height: 1.35 !important;
+}
+
+/* Data Service status, priority, and compact print/selection guidance. */
+.request-status,
+.request-priority,
+.request-cost-flag {
+  font-size: 13px !important;
+  line-height: 1.35 !important;
+}
+.request-field small,
+.request-footer,
+.request-selection-meta span,
+.request-selection-hint,
+.request-print-grid span {
+  font-size: 12.5px !important;
+  line-height: 1.5 !important;
+}
+
+/* Document filter labels and due-date badges. */
+.x-filter-date {
+  font-size: 13px !important;
+}
+.document-status-expired,
+.document-status-segera,
+.document-status-aman,
+.document-status-tanpa_tanggal {
+  font-size: 13px !important;
+}
+
+/* Service Excel table instructions and approval detail labels. */
+.service-excel-scroll-label,
+.service-excel-scroll-label small,
+.scp-section-head span,
+.scp-row em,
+.scp-detail-grid span {
+  font-size: 12.5px !important;
+  line-height: 1.5 !important;
+}
+.scp-detail-grid strong,
+.scp-row strong {
+  font-size: 14.5px !important;
+  line-height: 1.45 !important;
+}
+
+/* Small-screen controls keep their text size; only their layout stacks. */
+@media (max-width: 760px) {
+  .master-excel-page .mep-detail > div > span,
+  .master-excel-page .mep-photo > span,
+  .data-quality-main small,
+  .data-quality-details,
+  .users-audit-meta-grid span,
+  .scp-detail-grid span {
+    font-size: 12px !important;
+  }
+  .master-excel-page .mep-detail > div > b,
+  .scp-detail-grid strong,
+  .scp-row strong {
+    font-size: 14px !important;
+  }
+}
