@@ -51,6 +51,11 @@ async function signed(bucket, path) { if (!path) return null; const { data, erro
 export default function ServiceFeaturePage({ profile }) {
   const [tab, setTab] = useState('pekerjaan')
   const [showServiceForm, setShowServiceForm] = useState(false)
+  const [showItemForm, setShowItemForm] = useState(false)
+  const [showProofForm, setShowProofForm] = useState(false)
+  const [showPartForm, setShowPartForm] = useState(false)
+  const [showKmForm, setShowKmForm] = useState(false)
+  const [showBenchmarkForm, setShowBenchmarkForm] = useState(false)
   const [vehicles, setVehicles] = useState([]), [drivers, setDrivers] = useState([]), [requests, setRequests] = useState([]), [services, setServices] = useState([]), [items, setItems] = useState([]), [proofs, setProofs] = useState([]), [approvals, setApprovals] = useState([]), [bans, setBans] = useState([]), [akis, setAkis] = useState([]), [kms, setKms] = useState([])
   const [form, setForm] = useState(emptyService), [itemForm, setItemForm] = useState(emptyItem), [proofForm, setProofForm] = useState(emptyProof), [partForm, setPartForm] = useState(emptyPart), [kmForm, setKmForm] = useState(emptyKm)
   const [editingItemId, setEditingItemId] = useState(null), [editingProofId, setEditingProofId] = useState(null), [editingPartId, setEditingPartId] = useState(null), [editingKmId, setEditingKmId] = useState(null)
@@ -347,7 +352,7 @@ export default function ServiceFeaturePage({ profile }) {
       if (result.error) throw result.error
       setItems(current => editingItemId ? current.map(row => row.id === result.data.id ? result.data : row) : [result.data, ...current])
       setSuccess(editingItemId ? 'Item service diperbarui.' : 'Item service tersimpan.')
-      setEditingItemId(null); setItemForm(emptyItem)
+      setEditingItemId(null); setItemForm(emptyItem); setShowItemForm(false)
     } catch (err) { setError(humanizeError(err)) } finally { setSaving(false) }
   }
   const deleteItem = async item => {
@@ -374,6 +379,7 @@ export default function ServiceFeaturePage({ profile }) {
     setEditingItemId(item.id)
     setItemForm({ service_id: item.service_id, nama_item: item.nama_item || '', kategori: item.kategori || 'SPAREPART', jumlah: item.jumlah ?? 1, satuan: item.satuan || 'pcs', harga_satuan: item.harga_satuan ?? '', keterangan: item.keterangan || '' })
     setTab('item')
+    setShowItemForm(true)
   }
   const saveProof = async e => {
     e.preventDefault(); clearMessages(); setSaving(true)
@@ -395,10 +401,10 @@ export default function ServiceFeaturePage({ profile }) {
       setProofs(current => editingProofId ? current.map(row => row.id === result.data.id ? result.data : row) : [result.data, ...current])
       emitServiceStateUpdate({ kind: 'proof', proof: result.data })
       setSuccess(editingProofId ? 'Bukti service diperbarui.' : 'Bukti service berhasil diunggah.')
-      setFile(null); setEditingProofId(null); setProofForm(emptyProof)
+      setFile(null); setEditingProofId(null); setProofForm(emptyProof); setShowProofForm(false)
     } catch (err) { if (path) await supabase.storage.from('service-bukti').remove([path]); setError(humanizeError(err)) } finally { setSaving(false) }
   }
-  const editProof = proof => { setEditingProofId(proof.id); setProofForm({ service_id: proof.service_id, jenis_bukti: proof.jenis_bukti || 'BON_INVOICE', keterangan: proof.keterangan || '' }); setFile(null); setTab('bukti') }
+  const editProof = proof => { setEditingProofId(proof.id); setProofForm({ service_id: proof.service_id, jenis_bukti: proof.jenis_bukti || 'BON_INVOICE', keterangan: proof.keterangan || '' }); setFile(null); setTab('bukti'); setShowProofForm(true) }
   const deleteProof = async proof => {
     if (!canProcess) return
     if (!window.confirm('Hapus bukti service ' + proof.nama_file + '?')) return
@@ -436,12 +442,12 @@ export default function ServiceFeaturePage({ profile }) {
       if (partForm._type === 'BAN') setBans(current => editingPartId ? current.map(row => row.id === result.data.id ? result.data : row) : [result.data, ...current])
       else setAkis(current => editingPartId ? current.map(row => row.id === result.data.id ? result.data : row) : [result.data, ...current])
       setSuccess(editingPartId ? 'Riwayat penggantian diperbarui.' : 'Riwayat penggantian tersimpan.')
-      setFile(null); setEditingPartId(null); setPartForm({ ...emptyPart, _type: partForm._type })
+      setFile(null); setEditingPartId(null); setPartForm({ ...emptyPart, _type: partForm._type }); setShowPartForm(false)
     } catch (err) { if (uploadedPath) await supabase.storage.from('service-bukti').remove([uploadedPath]); setError(humanizeError(err)) } finally { setSaving(false) }
   }
   const editPart = row => {
     const type = tab === 'ban' ? 'BAN' : 'AKI'
-    setEditingPartId(row.id); setPartForm({ ...emptyPart, ...row, kendaraan_id: row.kendaraan_id, tanggal_penggantian: row.tanggal_penggantian || emptyPart.tanggal_penggantian, kilometer: row.kilometer ?? '', biaya: row.biaya ?? '', alasan_penggantian: row.alasan_penggantian || '', kondisi_sebelum: row.kondisi_sebelum || '', keterangan: row.keterangan || '', _type: type }); setFile(null)
+    setEditingPartId(row.id); setPartForm({ ...emptyPart, ...row, kendaraan_id: row.kendaraan_id, tanggal_penggantian: row.tanggal_penggantian || emptyPart.tanggal_penggantian, kilometer: row.kilometer ?? '', biaya: row.biaya ?? '', alasan_penggantian: row.alasan_penggantian || '', kondisi_sebelum: row.kondisi_sebelum || '', keterangan: row.keterangan || '', _type: type }); setFile(null); setShowPartForm(true)
   }
   const deletePart = async row => {
     if (!canProcess) return
@@ -476,10 +482,10 @@ export default function ServiceFeaturePage({ profile }) {
       }
       setKms(currentRows => editingKmId ? currentRows.map(row => row.id === result.data.id ? result.data : row) : [result.data, ...currentRows])
       setSuccess(editingKmId ? 'Riwayat KM diperbarui.' : 'Riwayat KM tersimpan.')
-      setEditingKmId(null); setKmForm({ ...emptyKm, tanggal: new Date().toISOString().slice(0, 10) })
+      setEditingKmId(null); setKmForm({ ...emptyKm, tanggal: new Date().toISOString().slice(0, 10) }); setShowKmForm(false)
     } catch (err) { setError(humanizeError(err)) } finally { setSaving(false) }
   }
-  const editKm = row => { setEditingKmId(row.id); setKmForm({ kendaraan_id: row.kendaraan_id, tanggal: row.tanggal, kilometer: row.kilometer, sumber: row.sumber || 'MANUAL', keterangan: row.keterangan || '' }); setTab('km') }
+  const editKm = row => { setEditingKmId(row.id); setKmForm({ kendaraan_id: row.kendaraan_id, tanggal: row.tanggal, kilometer: row.kilometer, sumber: row.sumber || 'MANUAL', keterangan: row.keterangan || '' }); setTab('km'); setShowKmForm(true) }
   const deleteKm = async row => {
     if (!canProcess) return
     if (!window.confirm('Hapus riwayat KM ' + Number(row.kilometer || 0).toLocaleString('id-ID') + ' km?')) return
@@ -672,11 +678,13 @@ export default function ServiceFeaturePage({ profile }) {
   const resetBenchmarkForm = () => {
     setEditingBenchmarkId(null)
     setBenchmarkForm({ ...emptyBenchmark, berlaku_mulai: new Date().toISOString().slice(0, 10) })
+    setShowBenchmarkForm(false)
   }
 
   const openBenchmarkEdit = benchmark => {
     if (!canProcess || !benchmark) return
     setEditingBenchmarkId(benchmark.id)
+    setShowBenchmarkForm(true)
     setBenchmarkForm({
       nama_item: benchmark.nama_item || '',
       kategori: benchmark.kategori || 'SPAREPART',
@@ -765,6 +773,7 @@ export default function ServiceFeaturePage({ profile }) {
       aktif: true,
       keterangan: 'Isi hanya setelah harga historis, satuan, dan bukti invoice ditinjau. Median historis tidak otomatis menjadi harga resmi.',
     })
+    setShowBenchmarkForm(true)
     setSuccess('Lengkapi harga patokan resmi setelah pemeriksaan sumber; nilai historis tidak disalin otomatis.')
   }
 
