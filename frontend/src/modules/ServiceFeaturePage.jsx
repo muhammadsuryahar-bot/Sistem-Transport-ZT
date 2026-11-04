@@ -781,7 +781,60 @@ export default function ServiceFeaturePage({ profile }) {
     ? [['pekerjaan', 'Data Service'], ['excel', 'Riwayat Service'], ['item', 'Item Service'], ['bukti', 'Bukti'], ['ban', 'Riwayat Ban'], ['aki', 'Riwayat Aki'], ['km', 'Riwayat KM']]
     : [['pekerjaan', 'Data Service'], ['excel', 'Riwayat Excel']]
   const tabs = canViewBenchmarks ? [...baseTabs, ['harga', 'Patokan Harga']] : baseTabs
-  return <div className="x-page"><Header breadcrumb={tabs.find(([v]) => v === tab)?.[1]} eyebrow="SERVICE & MAINTENANCE" title="Service & Perbaikan" text="Kelola data service langsung dari sistem: pekerjaan, biaya, item, bukti, ban, aki, kilometer, dan approval." action={<div className="x-head-actions">{canProcess && <button className="x-btn primary" aria-expanded={tab === 'pekerjaan' && showServiceForm} aria-controls="service-entry-form" onClick={() => { if (tab === 'pekerjaan' && showServiceForm) { setShowServiceForm(false); return }; setTab('pekerjaan'); setEditingServiceId(null); setForm({ ...emptyService, tanggal_service: new Date().toISOString().slice(0, 10) }); setShowServiceForm(true) }}>{tab === 'pekerjaan' && showServiceForm ? 'Tutup Form' : '+ Tambah Service'}</button>}<button className="x-btn secondary" onClick={load}>↻ Refresh</button></div>} />{error && <Alert type="error">{error}</Alert>}{success && <Alert>{success}</Alert>}<div className="x-tabs">{tabs.map(([v, l]) => <button key={v} className={tab === v ? 'active' : ''} onClick={() => { clearMessages(); if (v !== 'pekerjaan') setShowServiceForm(false); setTab(v) }}>{l}</button>)}</div>{tab === 'harga' && <>
+
+  const closeEntryForms = () => {
+    setShowServiceForm(false)
+    setShowItemForm(false)
+    setShowProofForm(false)
+    setShowPartForm(false)
+    setShowKmForm(false)
+    setShowBenchmarkForm(false)
+  }
+  const activeEntryForm = {
+    pekerjaan: { visible: showServiceForm, id: 'service-entry-form', label: 'Tambah Service' },
+    item: { visible: showItemForm, id: 'service-item-form', label: 'Tambah Item' },
+    bukti: { visible: showProofForm, id: 'service-proof-form', label: 'Upload Bukti' },
+    ban: { visible: showPartForm, id: 'service-part-form', label: 'Catat Penggantian Ban' },
+    aki: { visible: showPartForm, id: 'service-part-form', label: 'Catat Penggantian Aki' },
+    km: { visible: showKmForm, id: 'service-km-form', label: 'Catat Kilometer' },
+    harga: { visible: showBenchmarkForm, id: 'service-benchmark-form', label: 'Tambah Patokan Harga' },
+  }[tab]
+  const toggleActiveEntryForm = () => {
+    if (!canProcess || !activeEntryForm) return
+    clearMessages()
+    if (activeEntryForm.visible) {
+      closeEntryForms()
+      return
+    }
+    closeEntryForms()
+    if (tab === 'pekerjaan') {
+      setEditingServiceId(null)
+      setForm({ ...emptyService, tanggal_service: new Date().toISOString().slice(0, 10) })
+      setShowServiceForm(true)
+    } else if (tab === 'item') {
+      setEditingItemId(null)
+      setItemForm(emptyItem)
+      setShowItemForm(true)
+    } else if (tab === 'bukti') {
+      setEditingProofId(null)
+      setProofForm(emptyProof)
+      setFile(null)
+      setShowProofForm(true)
+    } else if (tab === 'ban' || tab === 'aki') {
+      setEditingPartId(null)
+      setPartForm({ ...emptyPart, _type: tab.toUpperCase() })
+      setFile(null)
+      setShowPartForm(true)
+    } else if (tab === 'km') {
+      setEditingKmId(null)
+      setKmForm({ ...emptyKm, tanggal: new Date().toISOString().slice(0, 10) })
+      setShowKmForm(true)
+    } else if (tab === 'harga') {
+      resetBenchmarkForm()
+      setShowBenchmarkForm(true)
+    }
+  }
+  return <div className="x-page"><Header breadcrumb={tabs.find(([v]) => v === tab)?.[1]} eyebrow="SERVICE & MAINTENANCE" title="Service & Perbaikan" text="Kelola data service langsung dari sistem: pekerjaan, biaya, item, bukti, ban, aki, kilometer, dan approval." action={<div className="x-head-actions">{canProcess && activeEntryForm && <button className="x-btn primary" aria-expanded={activeEntryForm.visible} aria-controls={activeEntryForm.id} onClick={toggleActiveEntryForm}>{activeEntryForm.visible ? 'Tutup Form' : '+ ' + activeEntryForm.label}</button>}<button className="x-btn secondary" onClick={load}>↻ Refresh</button></div>}/>{error && <Alert type="error">{error}</Alert>}{success && <Alert>{success}</Alert>}<div className="x-tabs">{tabs.map(([v, l]) => <button key={v} className={tab === v ? 'active' : ''} onClick={() => { clearMessages(); closeEntryForms(); setTab(v) }}>{l}</button>)}</div>{tab === 'harga' && <>
     <section className="x-card">
       <div className="x-card-title">
         <div><h3>Patokan Harga &amp; Shopping List</h3><p>Bandingkan harga historis per item, kategori, dan satuan. Harga historis adalah referensi; patokan admin harus ditetapkan setelah pemeriksaan invoice, satuan, dan bengkel.</p></div>
