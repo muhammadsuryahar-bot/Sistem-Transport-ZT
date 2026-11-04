@@ -129,7 +129,7 @@ export default function DocumentsFeaturePage({profile}){
  const allSelected=filtered.length>0&&filtered.every(d=>selectedDocIds.includes(d.id))
  const toggleAll=()=>setSelectedDocIds(current=>allSelected?current.filter(id=>!filtered.some(d=>d.id===id)):Array.from(new Set([...current,...filtered.map(d=>d.id)])))
 
- const openSummary = status => { if (canManage) setViewMode('detail'); setStatusFilter(status); requestAnimationFrame(() => document.querySelector('.x-table-wrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' })) }
+ const openSummary = status => { if (canManage) { setViewMode('detail'); setShowDocForm(false) }; setStatusFilter(status); requestAnimationFrame(() => document.querySelector('.x-table-wrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' })) }
  const exportStnk = async () => {
   if (!filteredMonitorRows.length) { setError('Tidak ada data STNK yang cocok dengan filter untuk diekspor.'); return }
   setError(''); setSuccess('')
