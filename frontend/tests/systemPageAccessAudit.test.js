@@ -79,7 +79,7 @@ test('responsive layout rules exist for every major page family and modal', asyn
     read('../src/App.css'),
   ])
   assert.ok(dashboard.includes('@media (max-width: 760px)'), 'Dashboard stacks its visual area on mobile')
-  assert.ok(requestCss.includes('max-width:560px') && requestCss.includes('.request-form-grid,.request-detail-grid{grid-template-columns:1fr}'), 'Data Service forms and details become single-column on mobile')
+  assert.ok(/max-width\\s*:\\s*560px/.test(requestCss) && requestCss.includes('.request-form-grid,.request-detail-grid') && requestCss.includes('grid-template-columns:1fr'), 'Data Service forms and details become single-column on mobile')
   assert.ok(operationsCss.includes('max-width:600px') && operationsCss.includes('.x-toolbar-inline{align-items:stretch;flex-direction:column}'), 'operational filters stack on mobile')
   assert.ok(vehicleCss.includes('@media (max-width: 760px)') && vehicleCss.includes('@media (max-width: 480px)'), 'Kendaraan controls rearrange for tablet and phone widths')
   assert.ok(approvalCss.includes('@media(max-width:760px)') && approvalCss.includes('.scp-modal-actions{flex-direction:column}'), 'approval modal actions stack on mobile')
