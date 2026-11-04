@@ -17,7 +17,7 @@ test('Tambah Service button opens and toggles the form without changing the data
   const source = await read('../src/modules/ServiceFeaturePage.jsx')
 
   assert.ok(source.includes('aria-expanded={activeEntryForm.visible}'), 'the header action reports whether the entry panel is open')
-  assert.ok(source.includes("aria-controls=\"service-entry-form\""), 'the header action is associated with its form panel')
+  assert.ok(source.includes('aria-controls={activeEntryForm.id}'), 'the header action is associated with the active tab form')
   assert.ok(source.includes("if (tab === 'pekerjaan') {\n      setEditingServiceId(null)\n      setForm({ ...emptyService, tanggal_service: new Date().toISOString().slice(0, 10) })\n      setShowServiceForm(true)"), 'Tambah Service opens a fresh form on the Data Service tab')
   assert.ok(source.includes("activeEntryForm.visible ? 'Tutup Form' : '+ ' + activeEntryForm.label"), 'the header action label follows the current tab and open/closed state')
 })
