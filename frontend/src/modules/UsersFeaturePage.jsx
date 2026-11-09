@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import './TransportOperationsFixed.css'
+import './UsersFeaturePage.css'
 import PageBreadcrumb from './PageBreadcrumb.jsx'
 import AuditTrailPanel from './AuditTrailPanel.jsx'
 import DataQualityPanel from './DataQualityPanel.jsx'
@@ -25,6 +26,11 @@ export default function UsersFeaturePage({ profile }) {
   const [roleFilter, setRoleFilter] = useState('ALL')
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [view, setView] = useState('users')
+  const [showInviteForm, setShowInviteForm] = useState(false)
+  const [inviteName, setInviteName] = useState('')
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteRole, setInviteRole] = useState('OPERASIONAL')
+  const [inviting, setInviting] = useState(false)
 
   const canEdit = profile?.role === 'ADMIN'
 
@@ -78,6 +84,52 @@ export default function UsersFeaturePage({ profile }) {
     setSaving(false)
   }
 
+  const inviteUser = async event => {
+    event.preventDefault()
+    if (!canEdit || inviting) return
+
+    const namaLengkap = inviteName.trim()
+    const email = inviteEmail.trim().toLowerCase()
+    if (!namaLengkap || namaLengkap.length < 2 || namaLengkap.length > 100) {
+      setError('Nama lengkap harus berisi 2 sampai 100 karakter.')
+      return
+    }
+    if (!email.endsWith('@zamanteknindo.com')) {
+      setError('Undangan hanya dapat dikirim ke email perusahaan @zamanteknindo.com.')
+      return
+    }
+    if (!ROLES.includes(inviteRole)) {
+      setError('Role pengguna tidak valid.')
+      return
+    }
+
+    setInviting(true)
+    setError('')
+    setSuccess('')
+    try {
+      const { data, error: inviteError } = await supabase.functions.invoke('invite-transport-user', {
+        body: { fullName: namaLengkap, email, role: inviteRole },
+      })
+      if (inviteError) {
+        console.error('User invitation failed:', inviteError)
+        throw new Error('Undangan gagal dikirim. Pastikan fungsi undangan aktif dan konfigurasi Custom SMTP Supabase sudah benar.')
+      }
+      if (data?.error) throw new Error(data.error)
+
+      setSuccess(`Undangan untuk ${email} berhasil dikirim dengan role ${LABEL[inviteRole]}.`)
+      setInviteName('')
+      setInviteEmail('')
+      setInviteRole('OPERASIONAL')
+      setShowInviteForm(false)
+      await load()
+    } catch (inviteFailure) {
+      console.error('User invitation failed:', inviteFailure)
+      setError(inviteFailure instanceof Error ? inviteFailure.message : 'Undangan pengguna gagal dikirim. Silakan periksa konfigurasi email dan coba kembali.')
+    } finally {
+      setInviting(false)
+    }
+  }
+
   const filteredUsers = useMemo(() => {
     const term = search.trim().toLowerCase()
     return users.filter((user) => {
@@ -100,7 +152,23 @@ export default function UsersFeaturePage({ profile }) {
           <h2>{view === 'audit' && canEdit ? 'Riwayat Perubahan' : view === 'quality' && canEdit ? 'Kualitas Data' : 'Pengguna'}</h2>
           <p>{view === 'audit' && canEdit ? 'Pantau siapa yang mengubah data penting, kapan perubahan dilakukan, dan field apa yang berubah.' : view === 'quality' && canEdit ? 'Periksa integritas data secara read-only sebelum melakukan perubahan atau testing.' : 'Kelola akun yang digunakan untuk masuk ke Sistem Transport PT Zaman Teknindo.'}</p>
         </div>
-        {view === 'users' && <button className="x-btn secondary" onClick={load} disabled={loading || saving}>↻ Refresh</button>}
+        {view === 'users' && (
+          <div className="x-head-actions">
+            {canEdit && (
+              <button
+                className="x-btn primary"
+                type="button"
+                onClick={() => { setShowInviteForm(current => !current); setError('') }}
+                aria-expanded={showInviteForm}
+                aria-controls="users-invite-form"
+                disabled={saving || inviting}
+              >
+                {showInviteForm ? 'Tutup Form Undangan' : '+ Undang Pengguna'}
+              </button>
+            )}
+            <button className="x-btn secondary" onClick={load} disabled={loading || saving || inviting}>↻ Refresh</button>
+          </div>
+        )}
       </div>
 
       {error && <div className="x-alert error">{error}</div>}
@@ -111,6 +179,63 @@ export default function UsersFeaturePage({ profile }) {
         {canEdit && <button type="button" className={view === 'audit' ? 'active' : ''} onClick={() => setView('audit')}>Riwayat Perubahan</button>}
         {canEdit && <button type="button" className={view === 'quality' ? 'active' : ''} onClick={() => setView('quality')}>Kualitas Data</button>}
       </div>
+
+      {showInviteForm && canEdit && view === 'users' && (
+        <section className="x-card users-invite-card" id="users-invite-form">
+          <div className="x-card-title">
+            <div>
+              <h3>Undang Pengguna Baru</h3>
+              <p>Undangan hanya untuk email perusahaan. Pengguna akan menerima tautan untuk mengatur akses akunnya.</p>
+            </div>
+          </div>
+          <form className="users-invite-form" onSubmit={inviteUser}>
+            <label>
+              Nama Lengkap
+              <input
+                className="x-filter"
+                value={inviteName}
+                onChange={event => setInviteName(event.target.value)}
+                placeholder="Nama sesuai identitas"
+                maxLength={100}
+                autoComplete="name"
+                required
+                disabled={inviting}
+              />
+            </label>
+            <label>
+              Email Perusahaan
+              <input
+                className="x-filter"
+                type="email"
+                value={inviteEmail}
+                onChange={event => setInviteEmail(event.target.value)}
+                placeholder="nama@zamanteknindo.com"
+                autoComplete="email"
+                required
+                disabled={inviting}
+              />
+            </label>
+            <label>
+              Role Pengguna
+              <select
+                className="x-filter"
+                value={inviteRole}
+                onChange={event => setInviteRole(event.target.value)}
+                disabled={inviting}
+              >
+                {ROLES.map(role => <option key={role} value={role}>{LABEL[role]}</option>)}
+              </select>
+            </label>
+            <div className="users-invite-actions">
+              <button type="button" className="x-btn secondary" onClick={() => setShowInviteForm(false)} disabled={inviting}>Batal</button>
+              <button type="submit" className="x-btn primary" disabled={inviting || !inviteName.trim() || !inviteEmail.trim()}>
+                {inviting ? 'Mengirim Undangan…' : 'Kirim Undangan'}
+              </button>
+            </div>
+            <p className="users-invite-help">Password tidak dibuat atau disimpan oleh aplikasi. Pastikan layanan Custom SMTP Supabase siap sebelum mengirim undangan.</p>
+          </form>
+        </section>
+      )}
 
       {view === 'audit' && canEdit ? <AuditTrailPanel users={users} /> : view === 'quality' && canEdit ? <DataQualityPanel /> : loading ? (
         <section className="x-card users-loading-card">
