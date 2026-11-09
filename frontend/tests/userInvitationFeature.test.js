@@ -28,7 +28,7 @@ test('server invitation endpoint validates the caller, company domain, role, and
   for (const role of ['ADMIN', 'TRANSPORT', 'OPERASIONAL', 'ATASAN_TRANSPORT', 'DIREKTUR', 'AKUNTANSI']) {
     assert.ok(endpoint.includes(`"${role}"`), `${role} is a supported invitation role`)
   }
-  assert.ok(endpoint.includes('admin.auth.admin.inviteUserByEmail'))
+  assert.ok(endpoint.includes('adminClient.auth.admin.inviteUserByEmail'))
   assert.ok(endpoint.includes('.from("profiles")'))
   assert.ok(endpoint.includes('.upsert('))
   assert.ok(endpoint.includes('SUPABASE_SERVICE_ROLE_KEY'))
