@@ -1,4 +1,4 @@
-import { createClient } from "npm:@supabase/supabase-js@2"
+import { createClient } from "npm:@supabase/supabase-js@2.114.0"
 
 const PRODUCTION_ORIGIN = "https://sistem-transport-zt.vercel.app"
 const ALLOWED_ORIGINS = new Set([PRODUCTION_ORIGIN, "http://localhost:5173"])
