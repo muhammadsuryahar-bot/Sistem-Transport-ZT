@@ -16,7 +16,7 @@
    visibly interactive after legacy column-view preferences have been cleared. */
 .master-excel-page .mep-table tbody tr { cursor: pointer; }
 .master-excel-page .mep-table[data-native-row-selection="true"] .mep-row-action-buttons { position: relative; z-index: 1; pointer-events: auto; }
-.master-excel-page .mep-table[data-native-row-selection="true"] tbody tr.dpt-row-selected .mep-actions .mep-row-action-buttons > button { visibility: visible !important; pointer-events: auto !important; }
+.master-excel-page .mep-table[data-native-row-selection="true"] tbody tr.mep-row-actions-row .mep-row-action-buttons > button { visibility: visible !important; pointer-events: auto !important; }
 
 
 /* Kendaraan is a fixed 11-column register, not a generic Excel-clean table.
