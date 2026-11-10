@@ -473,7 +473,7 @@
 .dashboard-layout .main-content .content-container .master-excel-page .mep-table .mep-pill {
   font-size: 13px !important;
 }
-.dashboard-layout .main-content .content-container .master-excel-page .mep-table .mep-actions-inner > button {
+.dashboard-layout .main-content .content-container .master-excel-page .mep-table .mep-row-action-buttons > button {
   font-size: 13px !important;
   min-height: 36px !important;
 }
