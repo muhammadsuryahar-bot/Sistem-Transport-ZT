@@ -62,6 +62,6 @@ test('Kendaraan table restores the separate register columns and preserves row a
   assert.ok(css.includes('.master-excel-page .mep-table tbody td:first-child > b {\n  font-size: 16px !important;'), 'vehicle plate numbers receive stronger emphasis at 16px')
   assert.ok(css.includes('.master-excel-page .mep-table tbody td:first-child > span {\n  font-size: 14.5px !important;'), 'vehicle make and type text are enlarged to 14.5px')
   assert.ok(css.includes('.master-excel-page .mep-table .mep-pill {\n  font-size: 13px !important;'), 'vehicle type badges remain easy to read')
-  assert.ok(css.includes('.master-excel-page .mep-table .mep-actions-inner > button {\n  font-size: 13px !important;'), 'contextual action controls remain legible')
+  assert.ok(css.includes('.master-excel-page .mep-table .mep-row-action-buttons > button {\n  font-size: 13px !important;'), 'contextual action controls remain legible')
   assert.ok(css.includes('.master-excel-page .mep-table tbody td small {\n  font-size: 13px !important;'), 'supporting vehicle details remain readable at 13px')
 })
