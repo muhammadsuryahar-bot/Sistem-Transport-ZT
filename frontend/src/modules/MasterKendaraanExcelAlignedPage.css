@@ -12,37 +12,11 @@
 .mep-integrity-alert{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:12px 14px;border:1px solid #fed7aa;border-radius:12px;background:#fff7ed;color:#9a3412}.mep-integrity-alert>div:first-child{display:flex;flex-direction:column;gap:4px}.mep-integrity-alert>div:first-child span{font-size:13px;line-height:1.45}.mep-integrity-alert strong{font-weight:800}.mep-integrity-alert>div:last-child{display:flex;gap:8px;flex-shrink:0}.mep-integrity-alert button{border:0;border-radius:8px;background:#9a3412;color:#fff;padding:8px 11px;font-weight:700;cursor:pointer}.mep-integrity-alert button.secondary{background:#ffedd5;color:#7c2d12}@media(max-width:640px){.mep-integrity-alert{align-items:flex-start;flex-direction:column}.mep-integrity-alert>div:last-child{width:100%;flex-wrap:wrap}}
 
 
-/* Keep the table clean until a row is selected; expand Aksi only when needed. */
-/* The action column exists in the DOM only while a vehicle row is active. */
-.mep-table .mep-actions-header,
-.mep-table .mep-actions {
-  width: 168px;
-  min-width: 168px;
-  max-width: 168px;
-}
-.mep-table .mep-actions {
-  white-space: normal !important;
-}
-.mep-table .mep-actions-inner {
-  width: 100%;
-  max-width: 168px;
-  display: flex !important;
-  flex-wrap: wrap !important;
-  align-items: flex-start !important;
-  gap: 5px !important;
-}
-.mep-table .mep-actions-inner > button {
-  flex: 0 0 auto;
-  margin: 0 !important;
-  padding: 0 7px !important;
-}
-
-
 /* Native Kendaraan table: preserve horizontal scrolling and make every row
    visibly interactive after legacy column-view preferences have been cleared. */
 .master-excel-page .mep-table tbody tr { cursor: pointer; }
-.master-excel-page .mep-table[data-native-row-selection="true"] .mep-actions-inner { position: relative; z-index: 1; pointer-events: auto; }
-.master-excel-page .mep-table[data-native-row-selection="true"] tbody tr.dpt-row-selected .mep-actions .mep-actions-inner > button { visibility: visible !important; pointer-events: auto !important; }
+.master-excel-page .mep-table[data-native-row-selection="true"] .mep-row-action-buttons { position: relative; z-index: 1; pointer-events: auto; }
+.master-excel-page .mep-table[data-native-row-selection="true"] tbody tr.dpt-row-selected .mep-actions .mep-row-action-buttons > button { visibility: visible !important; pointer-events: auto !important; }
 
 
 /* Kendaraan is a fixed 11-column register, not a generic Excel-clean table.
@@ -79,22 +53,6 @@
 .master-excel-page .mep-table tbody tr {
   cursor: pointer;
 }
-.master-excel-page .mep-table tbody td.mep-actions {
-  display: table-cell !important;
-  width: 168px !important;
-  min-width: 168px !important;
-  white-space: normal !important;
-}
-.master-excel-page .mep-table .mep-actions-inner {
-  display: flex !important;
-  flex-wrap: wrap !important;
-  visibility: visible !important;
-  pointer-events: auto !important;
-}
-.master-excel-page .mep-table .mep-actions-inner > button {
-  pointer-events: auto !important;
-}
-
 /* Stable Kendaraan columns: prevent max-content from letting one wide value push
    the real columns off-screen and leave the scroll area looking empty. */
 .master-excel-page .mep-table {
@@ -102,11 +60,6 @@
   min-width: 1740px !important;
   max-width: none !important;
   table-layout: fixed !important;
-}
-/* Add 168px only while the contextual Aksi column is rendered. */
-.master-excel-page .mep-table.mep-has-active-row {
-  width: max(100%, 1908px) !important;
-  min-width: 1908px !important;
 }
 /* Multi-select adds its 42px checkbox column, but never the Aksi column. */
 .master-excel-page .mep-table:has(thead .mep-check) {
@@ -124,29 +77,23 @@
 .master-excel-page .mep-table .mep-col-location { width: 170px !important; }
 .master-excel-page .mep-table .mep-col-tax { width: 185px !important; }
 .master-excel-page .mep-table .mep-col-notes { width: 245px !important; }
-.master-excel-page .mep-table .mep-col-actions { width: 168px !important; }
 .master-excel-page .mep-table thead th {
   box-sizing: border-box !important;
   white-space: normal !important;
   overflow-wrap: anywhere !important;
   vertical-align: middle !important;
 }
-.master-excel-page .mep-table thead th.mep-actions-header {
-  width: 168px !important;
-  min-width: 168px !important;
-  max-width: 168px !important;
-}
-.master-excel-page .mep-table tbody td:not(.mep-actions) {
+.master-excel-page .mep-table tbody td:not(.mep-row-actions-cell) {
   box-sizing: border-box !important;
   white-space: normal !important;
   overflow-wrap: anywhere !important;
   word-break: normal !important;
   text-overflow: clip !important;
 }
-.master-excel-page .mep-table tbody td:not(.mep-actions) > b,
-.master-excel-page .mep-table tbody td:not(.mep-actions) > strong,
-.master-excel-page .mep-table tbody td:not(.mep-actions) > span,
-.master-excel-page .mep-table tbody td:not(.mep-actions) > small {
+.master-excel-page .mep-table tbody td:not(.mep-row-actions-cell) > b,
+.master-excel-page .mep-table tbody td:not(.mep-row-actions-cell) > strong,
+.master-excel-page .mep-table tbody td:not(.mep-row-actions-cell) > span,
+.master-excel-page .mep-table tbody td:not(.mep-row-actions-cell) > small {
   max-width: 100% !important;
   overflow-wrap: anywhere !important;
   white-space: normal !important;
@@ -601,10 +548,13 @@
   font-size: 10px !important;
   font-weight: 700 !important;
 }
-.master-excel-page .mep-actions-inner {
-  gap: 4px !important;
+.master-excel-page .mep-row-action-buttons {
+  display: flex !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
 }
-.master-excel-page .mep-actions-inner > button {
+.master-excel-page .mep-row-action-buttons > button {
   min-height: 28px;
   padding: 0 8px !important;
   border: 1px solid #dce7df !important;
@@ -614,7 +564,7 @@
   font-size: 10px !important;
   font-weight: 750 !important;
 }
-.master-excel-page .mep-actions-inner > button.danger {
+.master-excel-page .mep-row-action-buttons > button.danger {
   border-color: #f1d8d5 !important;
   background: #fff7f6 !important;
   color: #a0443c !important;
@@ -761,7 +711,7 @@
   line-height: 1.35 !important;
   padding: 5px 9px !important;
 }
-.master-excel-page .mep-table .mep-actions-inner > button {
+.master-excel-page .mep-table .mep-row-action-buttons > button {
   font-size: 11.5px !important;
   min-height: 32px !important;
   padding: 0 9px !important;
@@ -818,7 +768,7 @@
   font-size: 13px !important;
   line-height: 1.35 !important;
 }
-.master-excel-page .mep-table .mep-actions-inner > button {
+.master-excel-page .mep-table .mep-row-action-buttons > button {
   font-size: 13px !important;
   min-height: 36px !important;
   padding: 0 10px !important;
@@ -846,5 +796,131 @@
   }
   .master-excel-page .mep-table tbody td small {
     font-size: 12.5px !important;
+  }
+}
+
+
+/* Kendaraan uses the same contextual action pattern: clicking one row reveals
+   its actions directly below that row without adding a right-edge table column. */
+.master-excel-page .mep-table tbody tr.mep-row-actions-row {
+  cursor: default !important;
+  background: #edf6f0 !important;
+}
+.master-excel-page .mep-table tbody tr.mep-row-actions-row:hover {
+  background: #edf6f0 !important;
+}
+.master-excel-page .mep-table tbody tr.mep-row-actions-row > td.mep-row-actions-cell {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  padding: 0 !important;
+  border-bottom: 1px solid #d7e7dc !important;
+  background: #edf6f0 !important;
+  white-space: normal !important;
+  overflow-wrap: normal !important;
+}
+.master-excel-page .mep-row-actions-panel {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px 16px;
+  border-top: 1px solid #d7e7dc;
+  background: #edf6f0;
+}
+.master-excel-page .mep-row-actions-copy {
+  display: flex;
+  align-items: center;
+  flex: 1 1 260px;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-width: 0;
+}
+.master-excel-page .mep-row-actions-kicker {
+  display: inline-flex !important;
+  align-items: center;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #dcefe3;
+  color: #236346 !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
+.master-excel-page .mep-row-actions-copy strong {
+  color: #203c2e;
+  font-size: 14px;
+  font-weight: 750;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.master-excel-page .mep-row-action-buttons {
+  display: flex !important;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px !important;
+}
+.master-excel-page .mep-row-action-buttons > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px !important;
+  padding: 0 11px !important;
+  border: 1px solid #dce7df;
+  border-radius: 8px;
+  background: #fff;
+  color: #365a46;
+  font-size: 13px !important;
+  font-weight: 750;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.master-excel-page .mep-row-action-buttons > button:hover:not(:disabled) {
+  background: #f4faf6;
+  border-color: #b9d4c3;
+}
+.master-excel-page .mep-row-action-buttons > button.danger {
+  border-color: #f1d8d5 !important;
+  background: #fff7f6 !important;
+  color: #a0443c !important;
+}
+.master-excel-page .mep-row-action-buttons > button.danger:hover:not(:disabled) {
+  background: #ffefed !important;
+  border-color: #e8b8b1 !important;
+}
+.master-excel-page .mep-row-actions-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #688071;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+.master-excel-page .mep-row-actions-close:hover {
+  background: #dcefe3;
+  color: #244b35;
+}
+@media (max-width: 760px) {
+  .master-excel-page .mep-row-actions-panel {
+    align-items: flex-start;
+    padding: 11px 12px;
+  }
+  .master-excel-page .mep-row-actions-copy {
+    flex-basis: calc(100% - 44px);
+  }
+  .master-excel-page .mep-row-action-buttons {
+    flex: 1 1 100%;
+  }
+  .master-excel-page .mep-row-actions-close {
+    margin-left: auto;
   }
 }
