@@ -26,15 +26,18 @@ test('vehicle table and detail use the same legacy rental-type fallback', async 
 })
 
 test('vehicle row actions appear beneath the selected row without widening the register', async () => {
-  const [source, css, globalCss] = await Promise.all([
+  const [source, css, globalCss, tools] = await Promise.all([
     readFile(pageUrl, 'utf8'),
     readFile(cssUrl, 'utf8'),
     readFile(new URL('../src/transport-ui-final.css', import.meta.url), 'utf8'),
+    readFile(new URL('../src/modules/DataPageTools.jsx', import.meta.url), 'utf8'),
   ])
 
   assert.ok(source.includes('return <Fragment key={v.id}><tr'), 'each vehicle and its optional contextual row are grouped')
   assert.ok(source.includes('className="mep-row-actions-row"'), 'the action strip is rendered as a row below the selected vehicle')
   assert.ok(source.includes('className="mep-row-actions-panel"'), 'the action strip fills the table width')
+  assert.ok(source.includes('<td className="mep-row-actions-cell" colSpan={10}>'), 'the full-width action strip spans exactly the ten default data columns')
+  assert.ok(source.includes('data-native-row-selection="true"') && tools.includes("if (table?.dataset?.nativeRowSelection === 'true') return true") && tools.includes('if (hasNativeBulkSelection(table)) return'), 'DataPageTools does not inject a second generic action panel into the native Kendaraan table')
   assert.ok(source.includes('className="mep-row-action-buttons"'), 'actions are grouped in the contextual strip')
   assert.ok(source.includes('activeRowId === v.id'), 'only the clicked vehicle receives an action strip')
   assert.ok(!source.includes('mep-actions-header') && !source.includes('mep-col-actions') && !source.includes('className="mep-actions"'), 'the table never inserts an action column at the far right')
@@ -60,6 +63,8 @@ test('vehicle row actions appear beneath the selected row without widening the r
   assert.ok(css.includes('.master-excel-page .mep-row-actions-panel {'))
   assert.ok(css.includes('.master-excel-page .mep-row-action-buttons > button {'))
   assert.ok(css.includes('.master-excel-page .mep-table tbody tr.mep-row-actions-row'))
+  assert.ok(css.includes('tbody tr.mep-row-actions-row .mep-row-action-buttons > button'))
+  assert.ok(!css.includes('tbody tr.dpt-row-selected .mep-actions .mep-row-action-buttons'), 'the vehicle stylesheet contains no stale side-action selector')
   assert.ok(!css.includes('1908px') && !css.includes('.mep-col-actions'), 'the CSS has no selected-row width expansion')
   assert.ok(!css.includes('.mep-table th:last-child'), 'the last data column is never mistaken for the hidden Aksi column')
   assert.ok(globalCss.includes('.mep-actions { display: table-cell !important;'))
